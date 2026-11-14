@@ -37,6 +37,13 @@ nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
 
 ## Verification boundary
 
+The next architectural phase defines a shared object model and compares a
+Lean-facing representation with a small standalone statistical language. The
+[core object draft and comparison plan](core-object-model.md) records the proposed
+concepts, semantic boundaries, and Fisher acceptance cases. Both routes will use
+the same mathematical library and proof backend; their interfaces remain open
+for evaluation.
+
 The current bridge certifies individual results, rather than proving all behavior
 of the Python program. The input parser, numeral-only proof generator, and report
 binding remain trusted application components, with validation and negative tests.
