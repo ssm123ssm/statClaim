@@ -1,4 +1,4 @@
-"""Small development CLI for inspecting declarations and checking tooling."""
+"""Run an exact Fisher test, inspect design obligations, or check development tooling."""
 
 import argparse
 import json
@@ -9,6 +9,7 @@ from pathlib import Path
 
 from statproof import __version__
 from statproof.design import inspect_design, load_design
+from statproof.report import test_design
 
 
 def doctor() -> int:
@@ -40,14 +41,30 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("doctor", help="Check Python, uv, and the local Lean toolchain")
     inspect = commands.add_parser("inspect", help="Read a design and list unresolved obligations")
     inspect.add_argument("design", type=Path)
+    test = commands.add_parser("test", help="Compute the exact two-sided Fisher test at alpha=1/20")
+    test.add_argument("design", type=Path)
+    test.add_argument("--control-successes", type=int, required=True)
+    test.add_argument("--treatment-successes", type=int, required=True)
     options = parser.parse_args(argv)
     if options.command == "doctor":
         return doctor()
     try:
-        report = inspect_design(load_design(options.design))
+        design = load_design(options.design)
+        if options.command == "test":
+            report = test_design(
+                design,
+                control_successes=options.control_successes,
+                treatment_successes=options.treatment_successes,
+            )
+        else:
+            report = inspect_design(design)
     except (OSError, ValueError) as error:
         parser.exit(2, f"statproof: {error}\n")
     print(json.dumps(report, indent=2))
+    if options.command == "test":
+        # Zero signals a completed fixed-sample calculation, regardless of its
+        # decision. Formal verification is a separate, explicit report field.
+        return 0 if design.stopping == "fixed" else 1
     # Unresolved reports must not look like successful verification in scripts.
     return 1
 

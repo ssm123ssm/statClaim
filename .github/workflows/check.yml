@@ -17,4 +17,4 @@ jobs:
         with:
           use-mathlib-cache: true
       - uses: astral-sh/setup-uv@v7
-      - run: uv run --locked python scripts/check_lean_sources.py
+      - run: make lean-check

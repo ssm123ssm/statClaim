@@ -1,45 +1,58 @@
 # Development scope and next steps
 
 The first module concerns two independent binomial samples with positive sample
-sizes fixed before outcomes are observed. Under equal success probabilities,
-the eventual test must have rejection probability at most `1/20` for every common
-probability in `[0, 1]`. Approximate tests, adaptive designs, power, and coverage
-are outside this first proof.
+sizes fixed before outcomes are observed. The specified test is the
+nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
+`p_value <= 1/20`. Its [specification](exact-test-spec.md) defines the details.
 
-## Boundaries established by the scaffold
+## Completed
 
-Python parses a small TOML vocabulary and reports unresolved work. Lean contains
-foundational declarations, without a binomial model or test. These definitions
-have not yet been connected: a successful Python check or Lean build establishes
-neither statistical validity nor correctness of the translation.
+- Reproducible Python and Lean / Mathlib environments, local Git, and CI checks.
+- An exact Fisher calculation using integer combinatorics and rational arithmetic.
+- A CLI taking a design declaration and observed arm success counts, with JSON
+  results that separate the numerical decision from formal-verification status.
+- Exhaustive small-table checks, stored R reference fixtures, and an optional
+  live R comparison script.
+- The Lean theorem `StatProof.probabilityOrdered_rejection_mass_le`: a generic
+  bound on rejected mass for finite, nonnegative rational masses with inclusive
+  probability ordering and ties.
+- An unsupported stopping example that exposes missing justification and withholds
+  a procedure-level decision, while allowing the fixed-margin statistic to be shown.
 
-Future reports must distinguish verified properties, demonstrated violations,
-unresolved obligations, and explicit assumptions. The initial CLI emits only
-unresolved obligations. Required assumptions are listed as requirements, not
-claims about a real study. Modifying the stopping rule exposes missing
-justification; it does not by itself demonstrate inflated error.
+## Next formal milestone
 
-## Next implementation work
+1. Formalize the hypergeometric weights, normalization, and conditional law under
+   independent binomial sampling with a common success probability.
+2. Specialize the generic validity theorem, combine conditional bounds, and handle
+   the null endpoints `p = 0` and `p = 1` explicitly.
+3. Establish correspondence with the executable calculation and the declaration
+   parser. The current Python recurrence is tested but not formally verified.
+4. Bind property-specific certificates to checked theorems, actual inputs, exact
+   module/backend versions, assumptions, and trusted components. Subprocess
+   success alone must never imply that the reported statistical claim was proved.
 
-1. Select and document one exact test, including its tail convention, rejection
-   threshold, handling of ties, and whether randomization is used.
-2. Formalize the sampling model, null, and rejection event in Lean / Mathlib.
-3. Prove the uniform Type I error bound under explicit sampling assumptions.
-4. Implement and validate the declaration-to-Lean translation and ensure reports
-   refer to the checked theorem, precise inputs, and exact module/backend versions.
-5. Add a property-specific certificate with assumptions, trusted components, and
-   outstanding obligations. Never infer successful verification from subprocess
-   success alone or use a proof containing placeholders.
-6. Demonstrate the unsupported stopping modification end to end.
+The generic Lean theorem does not yet establish a claim about the actual
+independent-binomial design or certify a Python execution. Reports keep the full
+statistical guarantee marked `unresolved_obligation`, with `certificate_issued:
+false`, `backend_invoked: false`, and empty formally established properties.
+Their numerical evidence is explicitly labeled `exact_computation`.
 
-The source-token guard is a basic development safeguard, not a complete check of
-Lean's trusted assumptions. A future proof pipeline must audit theorem axioms and
-the correspondence between the formal theorem and the reported claim.
+## Scope boundaries
+
+Reports must distinguish verified properties, demonstrated violations, unresolved
+obligations, and explicit assumptions. Sampling assumptions are requirements,
+not statements that the real study satisfies them. Data-dependent stopping needs
+additional justification; it does not by itself demonstrate inflated error.
+
+Approximate tests, adaptive-design proofs, power, confidence intervals, state-space
+models, a graphical interface, and community-module infrastructure remain later
+work. The current executable focuses on one precisely specified test.
 
 ## Tooling references
 
 - [Lean installation and Mathlib project setup](https://lean-lang.org/install/manual/).
 - [Pinned Mathlib release](https://github.com/leanprover-community/mathlib4/releases/tag/v4.35.0).
 - [Mathlib cache documentation](https://github.com/leanprover-community/mathlib4/blob/v4.35.0/Cache/README.md).
+- [R's Fisher test definition](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/fisher.test.html).
 
 The original project brief is retained unchanged.

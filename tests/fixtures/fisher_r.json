@@ -1,0 +1,97 @@
+{
+  "reference": "stats::fisher.test(alternative='two.sided', conf.int=FALSE)",
+  "r_version": "Rscript (R) version 4.6.1 (2026-06-24)",
+  "regenerate": "uv run --locked python scripts/compare_with_r.py --write-fixtures",
+  "cases": [
+    {
+      "inputs": {
+        "n_control": 4,
+        "n_treatment": 4,
+        "control_successes": 3,
+        "treatment_successes": 1
+      },
+      "p_value": 0.485714285714286
+    },
+    {
+      "inputs": {
+        "n_control": 10,
+        "n_treatment": 14,
+        "control_successes": 1,
+        "treatment_successes": 11
+      },
+      "p_value": 0.00275945618522008
+    },
+    {
+      "inputs": {
+        "n_control": 17,
+        "n_treatment": 13,
+        "control_successes": 2,
+        "treatment_successes": 10
+      },
+      "p_value": 0.000536724119143435
+    },
+    {
+      "inputs": {
+        "n_control": 1,
+        "n_treatment": 19,
+        "control_successes": 0,
+        "treatment_successes": 19
+      },
+      "p_value": 0.05
+    },
+    {
+      "inputs": {
+        "n_control": 100,
+        "n_treatment": 100,
+        "control_successes": 10,
+        "treatment_successes": 25
+      },
+      "p_value": 0.00850357147862396
+    },
+    {
+      "inputs": {
+        "n_control": 100,
+        "n_treatment": 100,
+        "control_successes": 50,
+        "treatment_successes": 50
+      },
+      "p_value": 1.0
+    },
+    {
+      "inputs": {
+        "n_control": 100,
+        "n_treatment": 100,
+        "control_successes": 0,
+        "treatment_successes": 100
+      },
+      "p_value": 2.20876069319949e-59
+    },
+    {
+      "inputs": {
+        "n_control": 500,
+        "n_treatment": 600,
+        "control_successes": 15,
+        "treatment_successes": 35
+      },
+      "p_value": 0.0287122862598222
+    },
+    {
+      "inputs": {
+        "n_control": 50,
+        "n_treatment": 1000,
+        "control_successes": 0,
+        "treatment_successes": 30
+      },
+      "p_value": 0.394227943172914
+    },
+    {
+      "inputs": {
+        "n_control": 100,
+        "n_treatment": 150,
+        "control_successes": 100,
+        "treatment_successes": 150
+      },
+      "p_value": 1.0
+    }
+  ]
+}

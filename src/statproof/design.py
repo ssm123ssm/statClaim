@@ -5,12 +5,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from statproof.fisher import TEST_ID
+
 
 @dataclass(frozen=True)
 class Design:
     n_control: int
     n_treatment: int
     stopping: Literal["fixed", "data_dependent"]
+
+    def __post_init__(self) -> None:
+        for name in ("n_control", "n_treatment"):
+            value = getattr(self, name)
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"{name} must be a positive integer.")
+        if self.stopping not in ("fixed", "data_dependent"):
+            raise ValueError("stopping must be 'fixed' or 'data_dependent'.")
 
 
 def load_design(path: Path) -> Design:
@@ -24,18 +34,14 @@ def load_design(path: Path) -> Design:
         raise ValueError(f"[design] must contain exactly: {', '.join(sorted(expected))}.")
     if fields["module"] != "two_arm_binomial":
         raise ValueError("Only the two_arm_binomial module is recognized.")
-    for name in ("n_control", "n_treatment"):
-        if type(fields[name]) is not int or fields[name] <= 0:
-            raise ValueError(f"{name} must be a positive integer.")
-    if fields["stopping"] not in ("fixed", "data_dependent"):
-        raise ValueError("stopping must be 'fixed' or 'data_dependent'.")
     return Design(fields["n_control"], fields["n_treatment"], fields["stopping"])
 
 
 def inspect_design(design: Design) -> dict:
     """Return a planning report. This function never issues a certificate."""
     obligations = [
-        "Specify the exact test and its rejection rule.",
+        "Connect the specified Fisher test to the generic Lean finite-distribution validity lemma.",
+        "Establish the conditional hypergeometric law from independent binomial sampling in Lean.",
         "Prove the null rejection probability is at most 1/20 in Lean.",
         "Validate the translation from declarations to the formal theorem and report.",
     ]
@@ -49,6 +55,7 @@ def inspect_design(design: Design) -> dict:
         "schema_version": 1,
         "module": "two_arm_binomial",
         "module_version": "0.1.0",
+        "specified_test": TEST_ID,
         "status": "unresolved_obligation",
         "certificate_issued": False,
         "design": {

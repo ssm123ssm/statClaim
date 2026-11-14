@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "statproof"
 version = "0.1.0"
-description = "A statistical design checker backed by Lean (initial scaffold)"
+description = "Exact Fisher testing and a statistical verification library backed by Lean"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
