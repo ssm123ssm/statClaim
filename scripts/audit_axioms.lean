@@ -14,6 +14,8 @@ run_cmd do
     ``StatProof.independentBinomialMass_conditional,
     ``StatProof.fisherNullRejectionProbability_le_targetAlpha,
     ``StatProof.fisherNullLaw_real_support,
+    ``StatProof.hypergeometricPValue_eq_of_cross_product,
+    ``StatProof.hypergeometricMass_eq_of_cross_product,
     ``StatProof.fisher_typeI_error_le]
   for theoremName in checked do
     match ← getConstInfo theoremName with

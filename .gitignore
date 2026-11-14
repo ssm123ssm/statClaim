@@ -9,6 +9,7 @@ htmlcov/
 build/
 dist/
 .lake/
+.statproof/
 .DS_Store
 .env
 .env.*

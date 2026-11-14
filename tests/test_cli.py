@@ -84,3 +84,65 @@ def test_api_report_can_be_serialized_without_losing_exact_value():
 def test_design_api_validates_direct_construction(args):
     with pytest.raises(ValueError):
         Design(*args)
+
+
+def test_verify_command_withholds_adaptive_certificate(capsys, tmp_path):
+    code = main(
+        [
+            "verify",
+            str(ROOT / "examples/data_dependent_stopping.toml"),
+            "--control-successes",
+            "10",
+            "--treatment-successes",
+            "25",
+            "--output",
+            str(tmp_path / "unused"),
+        ]
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert code == 1
+    assert report["certificate_issued"] is False
+    assert report["backend_invoked"] is False
+    assert not (tmp_path / "unused").exists()
+
+
+def test_check_certificate_command_handles_missing_bundle(capsys, tmp_path):
+    code = main(["check-certificate", str(tmp_path / "missing")])
+    report = json.loads(capsys.readouterr().out)
+    assert code == 1
+    assert report["status"] == "unresolved_obligation"
+
+
+def test_verify_command_maps_backend_options(monkeypatch, capsys, tmp_path):
+    def backend(design, **options):
+        assert design == Design(100, 100, "fixed")
+        assert options == {
+            "control_successes": 10,
+            "treatment_successes": 25,
+            "project": ROOT,
+            "output": tmp_path / "new",
+            "timeout": 12.0,
+        }
+        return {"status": "verified", "certificate_issued": True}
+
+    monkeypatch.setattr("statproof.cli.verify_design", backend)
+    assert (
+        main(
+            [
+                "verify",
+                str(ROOT / "examples/fixed_sample.toml"),
+                "--control-successes",
+                "10",
+                "--treatment-successes",
+                "25",
+                "--project",
+                str(ROOT),
+                "--output",
+                str(tmp_path / "new"),
+                "--timeout",
+                "12",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "verified"

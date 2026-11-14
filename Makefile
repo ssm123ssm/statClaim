@@ -1,4 +1,4 @@
-.PHONY: setup check python-check lean-check reference-check demo
+.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo
 
 setup:
 	uv sync --locked
@@ -17,12 +17,12 @@ setup:
 		Mathlib.MeasureTheory.Measure.Prod
 	lake build
 
-check: python-check lean-check
+check: python-check lean-check integration-check
 
 python-check:
 	uv run --locked ruff check .
 	uv run --locked ruff format --check .
-	uv run --locked pytest
+	uv run --locked pytest -m 'not lean'
 
 lean-check:
 	lake build
@@ -30,8 +30,14 @@ lean-check:
 	lake env lean scripts/audit_axioms.lean
 	lake env lean tests/lean/FisherExamples.lean
 
+integration-check:
+	uv run --locked pytest -m lean
+
 reference-check:
 	uv run --locked python scripts/compare_with_r.py
 
 demo:
 	uv run --locked statproof test examples/fixed_sample.toml --control-successes 10 --treatment-successes 25
+
+verify-demo:
+	uv run --locked statproof verify examples/fixed_sample.toml --control-successes 10 --treatment-successes 25

@@ -8,7 +8,8 @@ The mathematical result is now checked in Lean:
 Sample sizes are fixed indices of the probability model. The common success
 probability can be any real number from `0` through `1`. This establishes a
 property of the declared mathematical model; it does not establish that a real
-study follows that model or that a Python execution implements the formal rule.
+study follows that model. The per-result bridge described below checks the output
+of a particular Python calculation against the formal rule.
 
 ## The final statement
 
@@ -71,15 +72,28 @@ and that its rational p-value equals the sum of the qualifying integer weights
 divided by the common combinatorial denominator. This is the reference formula
 in the [test specification](exact-test-spec.md).
 
-The Python implementation enumerates those weights using a recurrence. Its
-agreement with the formal formula is tested but not proved. The declaration
-translation and certificate binding are also unfinished. Consequently the CLI
-continues to mark application of the theorem to a Python run as unresolved and
-issues no formal verification certificate.
+The Python implementation enumerates those weights using a recurrence. The
+`verify` command treats its fraction as a proposed value. In
+`StatProof/Computation.lean`, an efficient factorial-based integer formula is
+proved equal to the formal weights and numerator. A cross-product equality between
+natural numbers then establishes that the proposed fraction equals the formal
+rational p-value. Each concrete equality is checked using `decide +kernel`, without
+native evaluation assumptions.
 
-A future bridge could prove the recurrence and its implementation correspondence,
-or have Lean certify individual computed values against the formal formula. Either
-route must bind the precise inputs, definition, theorem, and checked artifacts.
+The generated proof also checks the declared positive sample sizes, valid observed
+counts, support bounds, observed table probability, and rejection decision. It
+instantiates the general error-bound theorem at exactly those arm sizes. The
+generated theorems are transitively audited before the completion marker is emitted.
+
+The certificate retains the canonical input/result document, generated proof,
+compiled artifact, transcript, dependency pins, and source/artifact hashes. Replay
+reconstructs the expected statements and reruns Lean. The parser, proof generator,
+report binding, and local imported artifacts remain explicitly trusted components.
+See the [certificate guide](certificates.md).
+
+This establishes named properties of a checked individual result. It does not
+universally verify the Python program or establish that study assumptions hold.
+The fast `test` command continues to return an unresolved formal status.
 
 ## Reproduce the checks
 

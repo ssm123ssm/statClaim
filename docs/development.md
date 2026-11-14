@@ -24,24 +24,34 @@ nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
   product of Mathlib's binomial measures for every common `p` in `[0, 1]`.
 - Concrete Lean examples and a transitive theorem dependency audit allowing only
   the standard logical axioms. The proof includes both null endpoints.
+- `StatProof/Computation.lean`: proved efficient integer formulas and a bridge
+  from checked cross-products to exact rational p-values and table probabilities.
+- `statproof verify`: per-result kernel checking, generated claims for the precise
+  declaration and result, transitive auditing, and property-specific certificates.
+- `statproof check-certificate`: integrity and binding checks followed by a fresh
+  Lean proof check, using the pinned environment and source snapshot.
+- Tests for false Python candidates, altered bundles, self-consistent false claims,
+  timeouts, unsupported stopping, and missing proof-completion markers.
 - An unsupported stopping example that exposes missing justification and withholds
   a procedure-level decision, while allowing the fixed-margin statistic to be shown.
 
-## Next formal milestone
+## Verification boundary
 
-1. Establish correspondence with the executable calculation, or certify individual
-   computed results. The current Python recurrence is tested but not formally verified.
-2. Validate the declaration parser and its mapping to the theorem's assumptions.
-3. Bind property-specific certificates to checked theorems, actual inputs, exact
-   module/backend versions, assumptions, and trusted components. Subprocess
-   success alone must never imply that the reported statistical claim was proved.
+The current bridge certifies individual results, rather than proving all behavior
+of the Python program. The input parser, numeral-only proof generator, and report
+binding remain trusted application components, with validation and negative tests.
+Generated Lean statements and canonical inputs are retained for review and replay.
 
-The final Lean theorem now establishes the mathematical guarantee for the formal
-independent-binomial model. It does not certify a Python execution. Reports
-reference the library theorem but keep its application to the run marked
-`unresolved_obligation`, with `certificate_issued: false`, `backend_invoked:
-false`, and empty formally established properties for that run. Their numerical
-evidence is explicitly labeled `exact_computation`.
+The fast `test` command still labels its evidence `exact_computation` and issues no
+certificate. The `verify` command issues a certificate only after a successful
+Lean check and transitive audit, with exact input, source, artifact, and dependency
+bindings. Any incomplete check remains `unresolved_obligation`. The same result
+can be independently checked later with `check-certificate`.
+
+Future work can reduce the trusted application layer, improve certificate
+portability and resource use, or prove the general Python recurrence and its
+implementation correspondence. Authenticity of local imported artifacts and the
+toolchain remains trusted. Bundles are content-bound records, not signed identities.
 
 The [proof walkthrough](formal-proof.md) records the theorem's precise scope.
 

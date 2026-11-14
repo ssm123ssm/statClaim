@@ -7,9 +7,9 @@ The [project brief](statistical_design_checker_project_brief.md) defines the sco
 **Working now:** the probability-ordered Fisher calculation, inclusive rejection
 at `alpha = 1/20`, input validation, JSON reports, and a Lean-checked Fisher Type I
 error theorem under the independent-binomial null model. The theorem covers every
-common success probability in `[0, 1]`, including both endpoints. The
-Python-to-Lean correspondence and certificate pipeline remain unresolved. Reports
-identify calculations as exact computation and do not issue a formal certificate.
+common success probability in `[0, 1]`, including both endpoints. The `verify`
+command now has Lean certify individual computed results and retain replayable
+certificate bundles. The Python program as a whole is not formally verified.
 
 ## Run the test
 
@@ -56,6 +56,38 @@ The API computes the fixed-sample statistic and decision; it does not validate
 real-world sampling assumptions. See the [exact test specification](docs/exact-test-spec.md)
 for probability ordering, tie handling, boundary cases, and proof scope.
 
+## Verify the result with Lean
+
+```sh
+uv run --locked statproof verify examples/fixed_sample.toml \
+  --control-successes 10 --treatment-successes 25
+```
+
+Or run `make verify-demo`. Lean independently checks the exact p-value, observed
+table probability, support bounds, decision, and model error bound. A successful
+report contains `status: "verified"`, `certificate_issued: true`, and a certificate
+directory under `.statproof/certificates/`. Sampling assumptions remain explicit.
+
+To choose the directory and recheck the bundle later:
+
+```sh
+uv run --locked statproof verify examples/fixed_sample.toml \
+  --control-successes 10 --treatment-successes 25 \
+  --output .statproof/my-example
+uv run --locked statproof check-certificate .statproof/my-example
+```
+
+The output directory must not already exist. Bundles retain canonical inputs,
+generated proof source, its compiled artifact, a backend transcript, source and
+artifact hashes, exact dependency pins, and a property-specific certificate.
+Replay checks the bindings and reruns Lean; file hashes alone do not prove a claim.
+
+Run these commands from the source project, or provide `--project /path/to/statProof`.
+The Python wheel also requires that source project and its Lean setup for verification.
+`--timeout 120` sets the per-command backend timeout in seconds. A failed or
+timed-out check remains unresolved and issues no certificate. See the
+[certificate guide](docs/certificates.md) for scope and reproducibility details.
+
 ## Unsupported stopping modification
 
 ```sh
@@ -70,12 +102,15 @@ comparison does not establish its Type I error guarantee.
 `statproof inspect DESIGN.toml` lists the design's obligations without executing
 the test. Reports reference `StatProof.fisher_typeI_error_le`, while explicitly
 marking its application to this Python execution as unresolved. Neither command
-invokes Lean or issues a verification certificate.
+invokes Lean or issues a verification certificate; use `verify` for that check.
+`verify` also withholds certificates for the data-dependent stopping example.
 
 | Command outcome | Exit code |
 | --- | ---: |
 | `test`: completed fixed-sample calculation, either decision | `0` |
+| `verify` or `check-certificate`: all required checks passed | `0` |
 | `test`: unsupported stopping rule; `inspect`: unresolved obligations | `1` |
+| Verification failure, timeout, altered bundle, or unsupported stopping rule | `1` |
 | Malformed declaration, invalid data, or argument error | `2` |
 
 ## Development setup
@@ -102,8 +137,10 @@ as the proof library grows.
 `make check` runs Python linting, formatting, tests, the Lean build, concrete Lean
 examples, a source-placeholder guard, and a transitive check of the main theorems'
 axioms. The check permits only `propext`, `Classical.choice`, and `Quot.sound`;
-unexpected assumptions, including proof placeholders, fail CI. These checks do
-not establish the correspondence between Python executions and formal definitions.
+unexpected assumptions, including proof placeholders, fail CI. Real Lean
+integration tests check issuance, replay, incorrect candidates, and tampering.
+`make python-check` runs the Python-only suite; `make integration-check` runs the
+checks that invoke Lean.
 
 See the [proof walkthrough](docs/formal-proof.md) for the theorem statement,
 how the proof fits together, and its remaining application boundaries.
@@ -121,9 +158,11 @@ The default test suite uses stored reference results and does not require R.
 
 ## Layout
 
-- `src/statproof/`: exact calculation, declarations, reports, and CLI.
+- `src/statproof/`: exact calculation, declarations, proof generation, certificate
+  issuance/replay, reports, and CLI.
 - `StatProof/`: finite p-value validity, hypergeometric normalization, the
-  independent-binomial model, and the Fisher error-bound theorem.
+  independent-binomial model, the Fisher error-bound theorem, and the per-result bridge.
+- `docs/certificates.md`: commands, certificate contents, trust, and replay behavior.
 - `docs/exact-test-spec.md`: mathematical and executable specification.
 - `docs/development.md`: completed work and remaining proof obligations.
 - `examples/`: fixed-sample and modified-stopping declarations.

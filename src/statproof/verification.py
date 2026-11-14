@@ -1,0 +1,400 @@
+"""Issue and recheck property-specific, per-result Lean certificate bundles."""
+
+import hashlib
+import json
+import math
+import os
+import platform
+import re
+import signal
+import subprocess
+import tempfile
+from datetime import UTC, datetime
+from fractions import Fraction
+from pathlib import Path
+
+from statproof import __version__
+from statproof.design import Design
+from statproof.fisher import FisherResult
+from statproof.proof import CHECKED_THEOREMS, render_proof, validate_result
+
+CLAIMS = [
+    "Exact p-value equals the Lean Fisher definition for these counts.",
+    "Observed table probability and support equal the Lean definitions.",
+    "Reported decision equals membership in the formal rejection event.",
+    "The specified fixed-sample rule has Type I error at most 1/20 under the null model.",
+]
+ASSUMPTIONS = [
+    "The samples follow two independent binomial distributions.",
+    "Positive arm sizes were fixed before outcomes were observed.",
+    "The error bound is under the null of equal success probabilities, for every p in [0, 1].",
+    "The supplied counts describe the declared sampling procedure.",
+]
+TRUSTED_COMPONENTS = [
+    "Lean's kernel and its checked integer reduction.",
+    "The statistical meaning of the reviewed Lean definitions.",
+    "Authenticity of the local toolchain and imported compiled dependencies.",
+    "The input parser, proof generator, and certificate/report binding code.",
+]
+
+
+class VerificationError(RuntimeError):
+    def __init__(self, stage: str, message: str, bundle: Path | None = None):
+        super().__init__(message)
+        self.stage = stage
+        self.bundle = bundle
+
+
+def canonical_bytes(value: object) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+
+
+def digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _write_json(path: Path, value: object) -> None:
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+
+
+def result_payload(design: Design, result: FisherResult) -> dict:
+    validate_result(design, result)
+    return {
+        "schema_version": 1,
+        "design": {
+            "module": "two_arm_binomial",
+            "n_control": design.n_control,
+            "n_treatment": design.n_treatment,
+            "stopping": design.stopping,
+        },
+        "result": result.to_dict(),
+    }
+
+
+def _parse_payload(payload: dict) -> tuple[Design, FisherResult]:
+    try:
+        declaration, calculation = payload["design"], payload["result"]
+        design = Design(
+            declaration["n_control"], declaration["n_treatment"], declaration["stopping"]
+        )
+        probabilities = []
+        for name in ("p_value", "observed_table_probability"):
+            record = calculation[name]
+            numerator, denominator = record["numerator"], record["denominator"]
+            if type(numerator) is not int or type(denominator) is not int or denominator <= 0:
+                raise ValueError("Invalid rational value in bound inputs.")
+            probabilities.append(Fraction(numerator, denominator))
+        result = FisherResult(
+            n_control=design.n_control,
+            n_treatment=design.n_treatment,
+            control_successes=calculation["table"]["control"][0],
+            treatment_successes=calculation["table"]["treatment"][0],
+            p_value=probabilities[0],
+            observed_table_probability=probabilities[1],
+            support_min=calculation["control_success_support"]["min"],
+            support_max=calculation["control_success_support"]["max"],
+        )
+        # Reconstruct all derived fields; reject changed decisions, table labels,
+        # sizes, thresholds, approximations, versions, or additional fields.
+        if canonical_bytes(payload) != canonical_bytes(result_payload(design, result)):
+            raise ValueError("Bound inputs or derived result fields are inconsistent.")
+        return design, result
+    except (KeyError, TypeError, IndexError, ZeroDivisionError) as error:
+        raise ValueError("Malformed bound inputs.") from error
+
+
+def _run(args: list[str], project: Path, timeout: float, logs: list[str], stage: str) -> str:
+    logs.append(f"[{stage}] {json.dumps(args)}\n")
+    try:
+        process = subprocess.Popen(
+            args,
+            cwd=project,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+    except OSError as error:
+        raise VerificationError(stage, str(error)) from error
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        try:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+        except ProcessLookupError:
+            pass
+        stdout, stderr = process.communicate()
+        logs.extend([stdout, stderr])
+        raise VerificationError(stage, f"{stage} timed out after {timeout:g} seconds.") from error
+    logs.extend([stdout, stderr])
+    if process.returncode:
+        detail = (stderr + stdout).strip()[-6000:]
+        raise VerificationError(stage, f"{stage} exited with code {process.returncode}: {detail}")
+    return stdout + stderr
+
+
+def _source_hashes(project: Path) -> dict[str, str]:
+    required = ["lean-toolchain", "lakefile.toml", "lake-manifest.json", "StatProof.lean"]
+    paths = [project / name for name in required]
+    if not all(path.is_file() for path in paths) or not (project / "StatProof").is_dir():
+        raise VerificationError("project", "Select the StatProof project root with --project.")
+    paths += sorted((project / "StatProof").rglob("*.lean"))
+    hashes = {str(path.relative_to(project)): digest(path.read_bytes()) for path in paths}
+    for path in sorted(Path(__file__).parent.glob("*.py")):
+        hashes[f"application/statproof/{path.name}"] = digest(path.read_bytes())
+    return hashes
+
+
+def _artifact_hashes(project: Path) -> dict[str, str]:
+    directory = project / ".lake/build/lib/lean"
+    paths = sorted(directory.glob("StatProof.olean*"))
+    paths += sorted((directory / "StatProof").rglob("*.olean*"))
+    paths = [path for path in paths if not path.name.endswith(".hash")]
+    if not paths:
+        raise VerificationError("artifacts", "The StatProof compiled library is missing.")
+    return {str(path.relative_to(project)): digest(path.read_bytes()) for path in paths}
+
+
+def _dependencies(project: Path, timeout: float, logs: list[str]) -> list[dict]:
+    manifest = json.loads((project / "lake-manifest.json").read_text())
+    packages = project / ".lake/packages"
+    versions = []
+    for package in manifest["packages"]:
+        if package["type"] != "git" or not re.fullmatch(r"[\w.-]+", package["name"]):
+            raise VerificationError(
+                "dependencies", "Only pinned Git Lake dependencies are supported."
+            )
+        path = (packages / package["name"]).resolve()
+        if not path.is_relative_to(packages.resolve()):
+            raise VerificationError(
+                "dependencies", "Dependency checkout escapes the package directory."
+            )
+        revision = _run(
+            ["git", "-C", str(path), "rev-parse", "HEAD"],
+            project,
+            timeout,
+            logs,
+            "dependency-revision",
+        ).strip()
+        dirty = _run(
+            ["git", "-C", str(path), "status", "--porcelain", "--untracked-files=all"],
+            project,
+            timeout,
+            logs,
+            "dependency-status",
+        ).strip()
+        if revision != package["rev"] or dirty:
+            raise VerificationError(
+                "dependencies", f"Dependency {package['name']} differs from its pin."
+            )
+        versions.append({"name": package["name"], "revision": revision, "url": package["url"]})
+    return versions
+
+
+def _validate_timeout(timeout: float) -> None:
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("Timeout must be a positive, finite number of seconds.")
+
+
+def _prepare(project: Path, timeout: float, logs: list[str]) -> tuple[dict, dict, dict]:
+    source_hashes = _source_hashes(project)
+    _run(["lake", "build"], project, timeout, logs, "build")
+    toolchain = (project / "lean-toolchain").read_text().strip()
+    lean_version = _run(
+        ["lake", "env", "lean", "--version"], project, timeout, logs, "version"
+    ).strip()
+    match = re.search(r"\bversion ([^,\s]+)", lean_version)
+    if not match or toolchain != f"leanprover/lean4:v{match[1]}":
+        raise VerificationError("version", "The running Lean version differs from lean-toolchain.")
+    environment = {
+        "lean_version": lean_version,
+        "lean_toolchain": toolchain,
+        "dependencies": _dependencies(project, timeout, logs),
+        "python_version": platform.python_version(),
+        "statproof_version": __version__,
+    }
+    if _source_hashes(project) != source_hashes:
+        raise VerificationError("binding", "Project sources changed during the build.")
+    return source_hashes, _artifact_hashes(project), environment
+
+
+def _check_proof(
+    bundle: Path,
+    input_id: str,
+    project: Path,
+    timeout: float,
+    logs: list[str],
+    *,
+    compile_output: bool,
+) -> None:
+    args = ["lake", "env", "lean", f"--root={bundle}"]
+    if compile_output:
+        args += ["-o", str(bundle / "Proof.olean")]
+    args.append(str(bundle / "Proof.lean"))
+    output = _run(args, project, timeout, logs, "proof")
+    if f"STATPROOF_CHECKED {input_id}" not in output.splitlines():
+        raise VerificationError("proof", "Lean did not emit the expected audited-proof marker.")
+
+
+def _check_stable(
+    project: Path,
+    sources: dict,
+    artifacts: dict,
+    environment: dict,
+    timeout: float,
+    logs: list[str],
+) -> None:
+    if _source_hashes(project) != sources or _artifact_hashes(project) != artifacts:
+        raise VerificationError("binding", "Sources or compiled artifacts changed during checking.")
+    if _dependencies(project, timeout, logs) != environment["dependencies"]:
+        raise VerificationError("binding", "Dependency revisions changed during checking.")
+
+
+def certify_result(
+    design: Design,
+    result: FisherResult,
+    *,
+    project: Path,
+    output: Path | None = None,
+    timeout: float = 120,
+) -> tuple[dict, Path]:
+    """Certify this proposed result; correctness of all Python executions is not claimed."""
+    _validate_timeout(timeout)
+    project = project.resolve()
+    _source_hashes(project)
+    payload = result_payload(design, result)
+    input_id = digest(canonical_bytes(payload))
+    if output is None:
+        parent = project / ".statproof/certificates"
+        parent.mkdir(parents=True, exist_ok=True)
+        bundle = Path(tempfile.mkdtemp(prefix=f"{input_id[:12]}-", dir=parent))
+    else:
+        bundle = output.resolve()
+        bundle.mkdir(parents=True, exist_ok=False)
+    logs: list[str] = []
+    _write_json(bundle / "inputs.json", payload)
+    (bundle / "Proof.lean").write_text(render_proof(design, result, input_id))
+    try:
+        sources, artifacts, environment = _prepare(project, timeout, logs)
+        _check_proof(bundle, input_id, project, timeout, logs, compile_output=True)
+        _check_stable(project, sources, artifacts, environment, timeout, logs)
+        if (bundle / "Proof.lean").read_text() != render_proof(
+            design, result, input_id
+        ) or json.loads((bundle / "inputs.json").read_text()) != payload:
+            raise VerificationError("binding", "The proof or bound inputs changed during checking.")
+        # Hash and retain the actual statements, checked artifact, inputs, and log.
+        (bundle / "transcript.log").write_text("".join(logs))
+        files = {
+            name: digest((bundle / name).read_bytes())
+            for name in ("inputs.json", "Proof.lean", "Proof.olean", "transcript.log")
+        }
+        certificate = {
+            "schema_version": 1,
+            "kind": "statproof_per_result_certificate",
+            "status": "verified_under_assumptions",
+            "created_at": datetime.now(UTC).isoformat(),
+            "input_sha256": input_id,
+            "inputs": payload,
+            "claims": CLAIMS,
+            "assumptions": ASSUMPTIONS,
+            "trusted_components": TRUSTED_COMPONENTS,
+            "scope": "This result and the specified mathematical model; not all Python executions.",
+            "theorems": [f"StatProofCertificate.{name}" for name in CHECKED_THEOREMS],
+            "general_theorem": "StatProof.fisher_typeI_error_le",
+            "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
+            "environment": environment,
+            "source_sha256": sources,
+            "compiled_library_sha256": artifacts,
+            "files_sha256": files,
+        }
+        certificate["certificate_id"] = digest(canonical_bytes(certificate))
+        pending = bundle / "certificate.pending.json"
+        _write_json(pending, certificate)
+        pending.replace(bundle / "certificate.json")
+        return certificate, bundle
+    except (VerificationError, OSError, ValueError, KeyError) as error:
+        (bundle / "transcript.log").write_text("".join(logs))
+        stage = error.stage if isinstance(error, VerificationError) else "backend"
+        _write_json(bundle / "failure.json", {"stage": stage, "message": str(error)})
+        raise VerificationError(stage, str(error), bundle) from error
+
+
+def recheck_certificate(bundle: Path, *, project: Path, timeout: float = 120) -> dict:
+    """Check integrity and regenerate the expected statements, then rerun Lean.
+
+    A matching digest alone never constitutes verification. The original bundle
+    is read-only during replay; proof source is checked again against the pins.
+    """
+    _validate_timeout(timeout)
+    try:
+        return _recheck_certificate(bundle, project=project, timeout=timeout)
+    except (OSError, ValueError, KeyError, TypeError, IndexError) as error:
+        raise VerificationError(
+            "integrity", f"Malformed or incomplete certificate bundle: {error}"
+        ) from error
+
+
+def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict:
+    bundle, project = bundle.resolve(), project.resolve()
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    if not isinstance(certificate, dict):
+        raise VerificationError("integrity", "Certificate must be a JSON object.")
+    identity = certificate.pop("certificate_id", None)
+    if identity != digest(canonical_bytes(certificate)):
+        raise VerificationError("integrity", "Certificate content digest does not match.")
+    expected = {
+        "schema_version": 1,
+        "kind": "statproof_per_result_certificate",
+        "status": "verified_under_assumptions",
+        "claims": CLAIMS,
+        "assumptions": ASSUMPTIONS,
+        "trusted_components": TRUSTED_COMPONENTS,
+        "scope": "This result and the specified mathematical model; not all Python executions.",
+        "theorems": [f"StatProofCertificate.{name}" for name in CHECKED_THEOREMS],
+        "general_theorem": "StatProof.fisher_typeI_error_le",
+        "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
+    }
+    for key, value in expected.items():
+        if canonical_bytes(certificate.get(key)) != canonical_bytes(value):
+            raise VerificationError("integrity", f"Unsupported certificate field: {key}.")
+    files = certificate["files_sha256"]
+    if set(files) != {"inputs.json", "Proof.lean", "Proof.olean", "transcript.log"}:
+        raise VerificationError("integrity", "Unexpected certificate file manifest.")
+    for name, expected in files.items():
+        if digest((bundle / name).read_bytes()) != expected:
+            raise VerificationError("integrity", f"Certificate file {name} was changed.")
+    payload = json.loads((bundle / "inputs.json").read_text())
+    input_id = digest(canonical_bytes(payload))
+    if input_id != certificate["input_sha256"] or payload != certificate["inputs"]:
+        raise VerificationError("binding", "Certificate inputs do not match their binding.")
+    design, result = _parse_payload(payload)
+    if (bundle / "Proof.lean").read_text() != render_proof(design, result, input_id):
+        raise VerificationError(
+            "binding", "Proof statements differ from the bound inputs and result."
+        )
+    if _source_hashes(project) != certificate["source_sha256"]:
+        raise VerificationError("binding", "The source snapshot differs from the certificate.")
+    logs: list[str] = []
+    sources, artifacts, environment = _prepare(project, timeout, logs)
+    if sources != certificate["source_sha256"]:
+        raise VerificationError("binding", "The source snapshot differs from the certificate.")
+    for name in ("lean_toolchain", "dependencies", "statproof_version"):
+        if environment[name] != certificate["environment"][name]:
+            raise VerificationError(
+                "binding", "The pinned environment differs from the certificate."
+            )
+    _check_proof(bundle, input_id, project, timeout, logs, compile_output=False)
+    _check_stable(project, sources, artifacts, environment, timeout, logs)
+    for name, expected in files.items():
+        if digest((bundle / name).read_bytes()) != expected:
+            raise VerificationError("binding", "The bundle changed during replay.")
+    return {
+        "status": "verified",
+        "certificate_id": identity,
+        "backend_invoked": True,
+        "claims": CLAIMS,
+        "certificate_directory": str(bundle),
+    }

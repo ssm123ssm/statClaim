@@ -17,4 +17,4 @@ jobs:
         with:
           use-mathlib-cache: true
       - uses: astral-sh/setup-uv@v7
-      - run: make lean-check
+      - run: make lean-check integration-check

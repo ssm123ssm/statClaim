@@ -16,7 +16,8 @@ actual rejection probability smaller than `1/20`. The procedure does not
 randomize. The mathematical target is now checked in Lean as
 `StatProof.fisher_typeI_error_le`, against the product of Mathlib's binomial
 measures. Correspondence between a Python execution and that formal rejection
-event remains unresolved.
+event is now checked per result by the `verify` command. The fast `test` command
+does not perform that check.
 
 ## Inputs and table convention
 
@@ -139,17 +140,28 @@ unconditional bound. It consequently includes `p = 0` and `p = 1` directly,
 without defining conditional probabilities for impossible totals. A separate
 conditional-probability formula requires a positive-probability pooled total.
 
-See the [proof walkthrough](formal-proof.md). These mathematical results do not
-verify the Python implementation or a particular execution.
+`StatProof/Computation.lean` proves an efficient factorial-based integer formula
+equal to the formal weights. For a proposed rational result, a checked natural
+cross-product equality proves equality to the formal p-value. `verify` uses
+`decide +kernel` for those integer checks and instantiates the model theorem for
+the declared sizes. It also checks the observed table probability, support bounds,
+valid counts, and reported rejection decision, and audits the generated proofs.
 
-## Remaining proof and application obligations
+See the [proof walkthrough](formal-proof.md) and [certificate guide](certificates.md).
+This is per-result verification; the Python implementation is not universally proved.
 
-1. Establish correspondence between the Python recurrence, its returned p-value,
-   and the formal integer-ratio definition, or certify individual computed results.
-2. Validate the translation from user declarations to formal assumptions and the
-   checked theorem.
-3. Bind property-specific certificates to checked theorem artifacts, actual inputs,
-   exact backend/module versions, assumptions, and trusted components.
+## Assumptions and remaining trust
+
+The parser and generated numeral statements map the validated declaration to the
+theorem. The canonical inputs and generated proof are retained and hashed, and
+replay reconstructs the expected statements before rerunning Lean. This application
+mapping is tested and explicitly trusted, rather than itself formally verified.
+
+Certificates bind exact inputs, result fractions, generated statements, theorem
+names, toolchain/dependency pins, and source/artifact snapshots. They list the
+sampling assumptions and trusted components. They establish their named properties
+for that result and mathematical model, not correctness of all Python executions
+or the truth of real-world sampling assumptions.
 
 Adding data-dependent stopping changes these obligations. The application may
 compute the fixed-margin statistic for the supplied counts, but withholds a
@@ -170,6 +182,10 @@ missing justification, without claiming that the error rate is inflated.
 - Concrete Lean examples check support bounds, exact two-sided values, equality
   at the rejection threshold, degenerate totals, and theorem instances at both
   null endpoints. A transitive audit rejects unexpected theorem assumptions.
+- Integration checks run the actual Lean backend, certify the demo and boundary
+  cases, replay a certificate, and reject incorrect numerical candidates and
+  altered or self-consistently rehashed false claims.
 
 The enumerations and external comparisons are software-validation evidence for
-their tested cases. They do not establish the remaining Python-to-Lean connection.
+their tested cases. `verify` provides the separate formal evidence for a checked
+individual result and its explicitly scoped mathematical guarantee.
