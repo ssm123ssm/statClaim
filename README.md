@@ -1,17 +1,49 @@
 # StatProof
 
-Compute a two-sided Fisher exact test using exact integer and rational arithmetic,
-and track the formal obligations needed for a Lean-backed statistical guarantee.
+Verify a declared fixed two-arm binomial design's Fisher Type I error guarantee
+before collecting data. Optionally calculate and certify observed test results
+using exact integer and rational arithmetic.
 The [project brief](statistical_design_checker_project_brief.md) defines the scope.
 
 **Working now:** the probability-ordered Fisher calculation, inclusive rejection
 at `alpha = 1/20`, input validation, JSON reports, and a Lean-checked Fisher Type I
 error theorem under the independent-binomial null model. The theorem covers every
-common success probability in `[0, 1]`, including both endpoints. The `verify`
-command now has Lean certify individual computed results and retain replayable
-certificate bundles. The Python program as a whole is not formally verified.
+common success probability in `[0, 1]`, including both endpoints. `verify-design`
+issues a design-level certificate without observations. `verify-result` (also
+available as `verify`) certifies individual computed results. Both retain
+replayable certificate bundles. The Python program as a whole is not formally verified.
 
-## Run the test
+## Verify a design before data
+
+After setup, run from this project folder:
+
+```sh
+uv run --locked statproof verify-design examples/fixed_sample.toml
+```
+
+Or run `make design-demo`. This loads the declared positive sample sizes and fixed
+plan, constructs the shared Lean model and analysis, checks sampling compatibility,
+and instantiates the uniform Type I error theorem. It does not request observations,
+calculate a p-value, or return a test decision.
+
+Successful output has `verification_scope: "design"`, `status: "verified"`, and
+`certificate_issued: true`. The certificate names only the design-level properties
+and assumptions. It establishes neither power nor coverage nor that the real
+study follows the declared model. The null is a condition under which the error
+bound holds, rather than a claim that the null is true in the real study.
+
+To save and replay the design certificate:
+
+```sh
+uv run --locked statproof verify-design examples/fixed_sample.toml \
+  --output .statproof/my-design
+uv run --locked statproof check-certificate .statproof/my-design
+```
+
+For the same workflow written in Lean, see `examples/DesignGuarantee.lean` and run
+`make design-objects-demo`. Observations and per-result checks are optional later steps.
+
+## Optionally run the test
 
 From this project folder, after setup:
 
@@ -59,11 +91,12 @@ for probability ordering, tie handling, boundary cases, and proof scope.
 ## Verify the result with Lean
 
 ```sh
-uv run --locked statproof verify examples/fixed_sample.toml \
+uv run --locked statproof verify-result examples/fixed_sample.toml \
   --control-successes 10 --treatment-successes 25
 ```
 
-Or run `make verify-demo`. Lean independently checks the exact p-value, observed
+Or run `make verify-demo`. The original `verify` command is an alias for this
+result workflow. Lean independently checks the exact p-value, observed
 table probability, support bounds, decision, and model error bound. A successful
 report contains `status: "verified"`, `certificate_issued: true`, and a certificate
 directory under `.statproof/certificates/`. Sampling assumptions remain explicit.
@@ -71,7 +104,7 @@ directory under `.statproof/certificates/`. Sampling assumptions remain explicit
 To choose the directory and recheck the bundle later:
 
 ```sh
-uv run --locked statproof verify examples/fixed_sample.toml \
+uv run --locked statproof verify-result examples/fixed_sample.toml \
   --control-successes 10 --treatment-successes 25 \
   --output .statproof/my-example
 uv run --locked statproof check-certificate .statproof/my-example
@@ -99,16 +132,22 @@ This computes the fixed-margin statistic but returns `decision: null` and an
 unresolved obligation for the modified stopping procedure. A numerical threshold
 comparison does not establish its Type I error guarantee.
 
-`statproof inspect DESIGN.toml` lists the design's obligations without executing
-the test. Reports reference `StatProof.fisher_typeI_error_le`, while explicitly
-marking its application to this Python execution as unresolved. Neither command
-invokes Lean or issues a verification certificate; use `verify` for that check.
-`verify` also withholds certificates for the data-dependent stopping example.
+`statproof inspect DESIGN.toml` lists design-level obligations without requiring
+observations. It references the shared object's model theorem and leaves formal
+verification unresolved until `verify-design` runs. The fast `test` command
+similarly leaves its calculation's formal status unresolved until `verify-result`.
+Neither inspection nor calculation invokes Lean or issues a certificate.
+Both verification modes withhold certificates for the data-dependent stopping
+example. For a design-only demonstration, run:
+
+```sh
+uv run --locked statproof verify-design examples/data_dependent_stopping.toml
+```
 
 | Command outcome | Exit code |
 | --- | ---: |
 | `test`: completed fixed-sample calculation, either decision | `0` |
-| `verify` or `check-certificate`: all required checks passed | `0` |
+| `verify-design`, `verify-result` / `verify`, or replay: all required checks passed | `0` |
 | `test`: unsupported stopping rule; `inspect`: unresolved obligations | `1` |
 | Verification failure, timeout, altered bundle, or unsupported stopping rule | `1` |
 | Malformed declaration, invalid data, or argument error | `2` |

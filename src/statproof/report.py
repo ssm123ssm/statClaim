@@ -4,7 +4,13 @@ from pathlib import Path
 
 from statproof.design import Design, inspect_design
 from statproof.fisher import FisherResult, fisher_exact
-from statproof.verification import CLAIMS, VerificationError, certify_result, digest
+from statproof.verification import (
+    DESIGN_ASSUMPTIONS,
+    VerificationError,
+    certify_design,
+    certify_result,
+    digest,
+)
 
 
 def test_design(design: Design, *, control_successes: int, treatment_successes: int) -> dict:
@@ -19,6 +25,16 @@ def test_design(design: Design, *, control_successes: int, treatment_successes: 
 
 def _result_report(design: Design, result: FisherResult) -> dict:
     report = inspect_design(design)
+    report["verification_scope"] = "result"
+    report["formal_reference"].update(
+        theorem="StatProof.fisher_typeI_error_le",
+        application_to_this_run="unresolved_implementation_correspondence",
+    )
+    report["outstanding_obligations"] = [
+        "Check the exact p-value, table probability, and decision against the Lean definition.",
+        "Bind the result and model guarantee to checked artifacts and the exact inputs.",
+        *[item for item in report["outstanding_obligations"] if "Data-dependent" in item],
+    ]
     report["calculation"] = result.to_dict()
     report["evidence"] = [
         {
@@ -84,12 +100,61 @@ def verify_design(
             "attempt_directory": str(error.bundle) if error.bundle else None,
         }
         return report
+    return _verified_report(report, certificate, bundle, scope="result")
+
+
+def verify_design_only(
+    design: Design,
+    *,
+    project: Path,
+    output: Path | None = None,
+    timeout: float = 120,
+) -> dict:
+    """Check a pre-data design guarantee; no numerical calculation is performed."""
+    report = inspect_design(design)
+    report["verification_scope"] = "design"
+    report["required_assumptions"] = list(DESIGN_ASSUMPTIONS)
+    report["formal_reference"]["theorem"] = "StatProof.Modules.Fisher.typeI_statement"
+    report["formal_reference"]["application_to_this_run"] = "unresolved_design_verification"
+    report["outstanding_obligations"] = [
+        "Instantiate the declared analysis, discharge sampling compatibility, "
+        "and check the uniform Type I error bound in Lean.",
+    ]
+    if design.stopping != "fixed":
+        report["outstanding_obligations"] = [
+            "Specify and justify the sampling law induced by data-dependent stopping.",
+            "Establish compatibility or provide a suitable replacement error-bound theorem.",
+        ]
+        report["verification"] = {
+            "stage": "sampling_scope",
+            "message": "Data-dependent stopping needs separate justification. "
+            "The fixed-sample theorem does not establish its guarantee; "
+            "this is not evidence of inflated error.",
+        }
+        return report
+    try:
+        certificate, bundle = certify_design(
+            design, project=project, output=output, timeout=timeout
+        )
+    except VerificationError as error:
+        report["backend_invoked"] = error.stage != "project"
+        report["verification"] = {
+            "stage": error.stage,
+            "message": str(error),
+            "attempt_directory": str(error.bundle) if error.bundle else None,
+        }
+        return report
+    return _verified_report(report, certificate, bundle, scope="design")
+
+
+def _verified_report(report: dict, certificate: dict, bundle: Path, *, scope: str) -> dict:
     report.update(
         {
             "status": "verified",
             "certificate_issued": True,
             "backend_invoked": True,
-            "established_properties": list(CLAIMS),
+            "verification_scope": scope,
+            "established_properties": list(certificate["claims"]),
             "outstanding_obligations": [],
             "required_assumptions": certificate["assumptions"],
             "trusted_components": certificate["trusted_components"],
@@ -99,22 +164,33 @@ def verify_design(
                 "file": str(bundle / "certificate.json"),
                 "sha256": digest((bundle / "certificate.json").read_bytes()),
             },
-            "decision_scope": (
-                "Lean-checked result and fixed-sample error bound under the listed assumptions."
-            ),
             "limitations": [
-                "This result was checked; the Python program is not universally verified.",
-                "The sampling assumptions and provenance of the supplied counts "
-                "are explicitly assumed.",
+                "Real-world sampling assumptions are explicitly assumed.",
+                "The certificate establishes only its named properties; "
+                "power, coverage, and universal study validity are outside its scope.",
             ],
         }
     )
-    report["formal_reference"]["checked_in_this_run"] = True
-    report["formal_reference"]["application_to_this_run"] = "verified_result_only"
+    if scope == "result":
+        report["decision_scope"] = (
+            "Lean-checked result and fixed-sample error bound under the listed assumptions."
+        )
+        report["limitations"].append(
+            "This result was checked; the Python program is not universally verified."
+        )
+    else:
+        report["limitations"].append(
+            "No observations, p-values, or numerical results were checked."
+        )
+    report["formal_reference"].update(
+        theorem=certificate["general_theorem"],
+        checked_in_this_run=True,
+        application_to_this_run=f"verified_{scope}_only",
+    )
     report["evidence"].append(
         {
             "kind": "formal_proof",
-            "scope": list(CLAIMS),
+            "scope": list(certificate["claims"]),
             "theorems": certificate["theorems"],
             "backend": certificate["environment"]["lean_version"],
             "input_sha256": certificate["input_sha256"],

@@ -1,4 +1,4 @@
-"""Issue and recheck property-specific, per-result Lean certificate bundles."""
+"""Issue and recheck design-level and per-result Lean certificate bundles."""
 
 import hashlib
 import json
@@ -15,8 +15,14 @@ from pathlib import Path
 
 from statproof import __version__
 from statproof.design import Design
-from statproof.fisher import FisherResult
-from statproof.proof import CHECKED_THEOREMS, render_proof, validate_result
+from statproof.fisher import TEST_ID, TEST_VERSION, FisherResult
+from statproof.proof import (
+    CHECKED_THEOREMS,
+    DESIGN_CHECKED_THEOREMS,
+    render_design_proof,
+    render_proof,
+    validate_result,
+)
 
 CLAIMS = [
     "Exact p-value equals the Lean Fisher definition for these counts.",
@@ -36,6 +42,38 @@ TRUSTED_COMPONENTS = [
     "Authenticity of the local toolchain and imported compiled dependencies.",
     "The input parser, proof generator, and certificate/report binding code.",
 ]
+DESIGN_CLAIMS = [
+    "The declared positive sample sizes and fixed sampling-law contract are Lean checked.",
+    "The specified two-sided Fisher analysis has Type I error at most 1/20 "
+    "under the null, for every common success probability in [0, 1].",
+]
+DESIGN_ASSUMPTIONS = ASSUMPTIONS[:3]
+
+
+def _profile(kind: str) -> dict:
+    """Only these built-in scopes may select claims and generated proof obligations."""
+    if kind == "statproof_per_result_certificate":
+        claims, assumptions, theorems = CLAIMS, ASSUMPTIONS, CHECKED_THEOREMS
+        scope = "This result and the specified mathematical model; not all Python executions."
+        general_theorem = "StatProof.fisher_typeI_error_le"
+    elif kind == "statproof_design_certificate":
+        claims, assumptions, theorems = DESIGN_CLAIMS, DESIGN_ASSUMPTIONS, DESIGN_CHECKED_THEOREMS
+        scope = "The declared analysis and mathematical model; no observed results are certified."
+        general_theorem = "StatProof.Modules.Fisher.typeI_statement"
+    else:
+        raise VerificationError("integrity", "Unsupported certificate kind.")
+    return {
+        "schema_version": 1,
+        "kind": kind,
+        "status": "verified_under_assumptions",
+        "claims": list(claims),
+        "assumptions": list(assumptions),
+        "trusted_components": list(TRUSTED_COMPONENTS),
+        "scope": scope,
+        "theorems": [f"StatProofCertificate.{name}" for name in theorems],
+        "general_theorem": general_theorem,
+        "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
+    }
 
 
 class VerificationError(RuntimeError):
@@ -69,6 +107,43 @@ def result_payload(design: Design, result: FisherResult) -> dict:
         },
         "result": result.to_dict(),
     }
+
+
+def design_payload(design: Design) -> dict:
+    if design.stopping != "fixed":
+        raise ValueError("A fixed-sample design certificate requires stopping='fixed'.")
+    return {
+        "schema_version": 1,
+        "scope": "design",
+        "design": {
+            "module": "two_arm_binomial",
+            "n_control": design.n_control,
+            "n_treatment": design.n_treatment,
+            "stopping": design.stopping,
+        },
+        "analysis": {
+            "test": TEST_ID,
+            "test_version": TEST_VERSION,
+            "null": "equal_proportions",
+            "alpha": "1/20",
+        },
+    }
+
+
+def _proof_for_payload(kind: str, payload: dict) -> str:
+    input_id = digest(canonical_bytes(payload))
+    if kind == "statproof_per_result_certificate":
+        design, result = _parse_payload(payload)
+        return render_proof(design, result, input_id)
+    if kind == "statproof_design_certificate":
+        declaration = payload["design"]
+        design = Design(
+            declaration["n_control"], declaration["n_treatment"], declaration["stopping"]
+        )
+        if canonical_bytes(payload) != canonical_bytes(design_payload(design)):
+            raise ValueError("Bound design, analysis, or requested guarantee is inconsistent.")
+        return render_design_proof(design, input_id)
+    raise VerificationError("integrity", "Unsupported certificate kind.")
 
 
 def _parse_payload(payload: dict) -> tuple[Design, FisherResult]:
@@ -262,11 +337,45 @@ def certify_result(
     timeout: float = 120,
 ) -> tuple[dict, Path]:
     """Certify this proposed result; correctness of all Python executions is not claimed."""
+    return _certify_payload(
+        result_payload(design, result),
+        "statproof_per_result_certificate",
+        project=project,
+        output=output,
+        timeout=timeout,
+    )
+
+
+def certify_design(
+    design: Design,
+    *,
+    project: Path,
+    output: Path | None = None,
+    timeout: float = 120,
+) -> tuple[dict, Path]:
+    """Certify the declared analysis before any observed data are supplied."""
+    return _certify_payload(
+        design_payload(design),
+        "statproof_design_certificate",
+        project=project,
+        output=output,
+        timeout=timeout,
+    )
+
+
+def _certify_payload(
+    payload: dict,
+    kind: str,
+    *,
+    project: Path,
+    output: Path | None,
+    timeout: float,
+) -> tuple[dict, Path]:
     _validate_timeout(timeout)
     project = project.resolve()
     _source_hashes(project)
-    payload = result_payload(design, result)
     input_id = digest(canonical_bytes(payload))
+    proof_source = _proof_for_payload(kind, payload)
     if output is None:
         parent = project / ".statproof/certificates"
         parent.mkdir(parents=True, exist_ok=True)
@@ -276,14 +385,14 @@ def certify_result(
         bundle.mkdir(parents=True, exist_ok=False)
     logs: list[str] = []
     _write_json(bundle / "inputs.json", payload)
-    (bundle / "Proof.lean").write_text(render_proof(design, result, input_id))
+    (bundle / "Proof.lean").write_text(proof_source)
     try:
         sources, artifacts, environment = _prepare(project, timeout, logs)
         _check_proof(bundle, input_id, project, timeout, logs, compile_output=True)
         _check_stable(project, sources, artifacts, environment, timeout, logs)
-        if (bundle / "Proof.lean").read_text() != render_proof(
-            design, result, input_id
-        ) or json.loads((bundle / "inputs.json").read_text()) != payload:
+        if (bundle / "Proof.lean").read_text() != proof_source or canonical_bytes(
+            json.loads((bundle / "inputs.json").read_text())
+        ) != canonical_bytes(payload):
             raise VerificationError("binding", "The proof or bound inputs changed during checking.")
         # Hash and retain the actual statements, checked artifact, inputs, and log.
         (bundle / "transcript.log").write_text("".join(logs))
@@ -292,19 +401,10 @@ def certify_result(
             for name in ("inputs.json", "Proof.lean", "Proof.olean", "transcript.log")
         }
         certificate = {
-            "schema_version": 1,
-            "kind": "statproof_per_result_certificate",
-            "status": "verified_under_assumptions",
+            **_profile(kind),
             "created_at": datetime.now(UTC).isoformat(),
             "input_sha256": input_id,
             "inputs": payload,
-            "claims": CLAIMS,
-            "assumptions": ASSUMPTIONS,
-            "trusted_components": TRUSTED_COMPONENTS,
-            "scope": "This result and the specified mathematical model; not all Python executions.",
-            "theorems": [f"StatProofCertificate.{name}" for name in CHECKED_THEOREMS],
-            "general_theorem": "StatProof.fisher_typeI_error_le",
-            "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
             "environment": environment,
             "source_sha256": sources,
             "compiled_library_sha256": artifacts,
@@ -345,19 +445,8 @@ def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict
     identity = certificate.pop("certificate_id", None)
     if identity != digest(canonical_bytes(certificate)):
         raise VerificationError("integrity", "Certificate content digest does not match.")
-    expected = {
-        "schema_version": 1,
-        "kind": "statproof_per_result_certificate",
-        "status": "verified_under_assumptions",
-        "claims": CLAIMS,
-        "assumptions": ASSUMPTIONS,
-        "trusted_components": TRUSTED_COMPONENTS,
-        "scope": "This result and the specified mathematical model; not all Python executions.",
-        "theorems": [f"StatProofCertificate.{name}" for name in CHECKED_THEOREMS],
-        "general_theorem": "StatProof.fisher_typeI_error_le",
-        "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
-    }
-    for key, value in expected.items():
+    profile = _profile(certificate.get("kind"))
+    for key, value in profile.items():
         if canonical_bytes(certificate.get(key)) != canonical_bytes(value):
             raise VerificationError("integrity", f"Unsupported certificate field: {key}.")
     files = certificate["files_sha256"]
@@ -370,8 +459,7 @@ def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict
     input_id = digest(canonical_bytes(payload))
     if input_id != certificate["input_sha256"] or payload != certificate["inputs"]:
         raise VerificationError("binding", "Certificate inputs do not match their binding.")
-    design, result = _parse_payload(payload)
-    if (bundle / "Proof.lean").read_text() != render_proof(design, result, input_id):
+    if (bundle / "Proof.lean").read_text() != _proof_for_payload(certificate["kind"], payload):
         raise VerificationError(
             "binding", "Proof statements differ from the bound inputs and result."
         )
@@ -395,6 +483,7 @@ def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict
         "status": "verified",
         "certificate_id": identity,
         "backend_invoked": True,
-        "claims": CLAIMS,
+        "kind": certificate["kind"],
+        "claims": profile["claims"],
         "certificate_directory": str(bundle),
     }

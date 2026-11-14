@@ -40,10 +40,9 @@ def load_design(path: Path) -> Design:
 def inspect_design(design: Design) -> dict:
     """Return a planning report. This function never issues a certificate."""
     obligations = [
-        "Establish that the Python recurrence and returned p-value match "
-        "the Lean Fisher definition.",
-        "Validate the translation from declarations to formal assumptions and the checked theorem.",
-        "Bind reports to checked theorem artifacts, inputs, and exact backend/module versions.",
+        "Instantiate the declared model, sampling plan, null, and Fisher procedure in Lean.",
+        "Discharge sampling compatibility and check the uniform Type I error bound.",
+        "Bind the design claim to checked artifacts, inputs, and backend/module versions.",
     ]
     if design.stopping == "data_dependent":
         obligations.append(
@@ -56,14 +55,15 @@ def inspect_design(design: Design) -> dict:
         "module": "two_arm_binomial",
         "module_version": "0.1.0",
         "specified_test": TEST_ID,
+        "verification_scope": "design",
         "formal_reference": {
-            "theorem": "StatProof.fisher_typeI_error_le",
+            "theorem": "StatProof.Modules.Fisher.typeI_statement",
             "scope": (
                 "The Lean-defined rejection event under the product of two binomial "
                 "distributions with a common success probability in [0, 1]."
             ),
             "checked_in_this_run": False,
-            "application_to_this_run": "unresolved_implementation_correspondence",
+            "application_to_this_run": "unresolved_design_verification",
         },
         "status": "unresolved_obligation",
         "certificate_issued": False,

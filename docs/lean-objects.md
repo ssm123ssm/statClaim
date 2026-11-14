@@ -12,14 +12,20 @@ From the project folder:
 make objects-demo
 ```
 
-This builds the library and checks `examples/FisherObjects.lean`. The example
+For the primary workflow before observations, run `make design-objects-demo`,
+which checks `examples/DesignGuarantee.lean`. It constructs and verifies the design
+and leaves out the observation and numerical result entirely. A replayable JSON
+design certificate is available through `statproof verify-design DESIGN.toml`.
+
+`make objects-demo` builds the library and checks `examples/FisherObjects.lean`. That example
 constructs a model, sampling plan, analysis, general guarantee, observation,
 proposed result, and a certificate for that exact value. It also demonstrates the
 missing contract when the stopping mechanism's sampling law is unspecified.
 
 The output uses Lean's `#check` to show the actual types of the checked objects
 and proofs. It does not serialize a new certificate bundle. The existing Python
-`verify` and `check-certificate` commands continue to provide that artifact path.
+`verify-design`, `verify-result` (also `verify`), and `check-certificate` commands
+provide artifact paths for their respective scopes.
 
 ## Core objects
 

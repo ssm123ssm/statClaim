@@ -9,7 +9,7 @@ from pathlib import Path
 
 from statproof import __version__
 from statproof.design import inspect_design, load_design
-from statproof.report import test_design, verify_design
+from statproof.report import test_design, verify_design, verify_design_only
 from statproof.verification import VerificationError, recheck_certificate
 
 
@@ -46,8 +46,17 @@ def main(argv: list[str] | None = None) -> int:
     test.add_argument("design", type=Path)
     test.add_argument("--control-successes", type=int, required=True)
     test.add_argument("--treatment-successes", type=int, required=True)
+    design_check = commands.add_parser(
+        "verify-design", help="Certify the design's Type I error guarantee before supplying data"
+    )
+    design_check.add_argument("design", type=Path)
+    design_check.add_argument("--project", type=Path, default=Path.cwd())
+    design_check.add_argument(
+        "--output", type=Path, help="New certificate directory (must not exist)"
+    )
+    design_check.add_argument("--timeout", type=float, default=120)
     verify = commands.add_parser(
-        "verify", help="Have Lean certify this result and its model guarantee"
+        "verify", aliases=["verify-result"], help="Certify a computed result for observed counts"
     )
     verify.add_argument("design", type=Path)
     verify.add_argument("--control-successes", type=int, required=True)
@@ -83,7 +92,14 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(checked, indent=2))
             return 0 if checked["status"] == "verified" else 1
         design = load_design(options.design)
-        if options.command == "verify":
+        if options.command == "verify-design":
+            report = verify_design_only(
+                design,
+                project=options.project,
+                output=options.output,
+                timeout=options.timeout,
+            )
+        elif options.command in ("verify", "verify-result"):
             report = verify_design(
                 design,
                 control_successes=options.control_successes,
@@ -103,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError) as error:
         parser.exit(2, f"statproof: {error}\n")
     print(json.dumps(report, indent=2))
-    if options.command == "verify":
+    if options.command in ("verify-design", "verify", "verify-result"):
         return 0 if report["status"] == "verified" else 1
     if options.command == "test":
         # Zero signals a completed fixed-sample calculation, regardless of its

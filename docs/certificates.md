@@ -1,7 +1,27 @@
-# Per-result certificate guide
+# Design and result certificate guide
 
-`verify` closes the calculation-to-theorem path by having Lean independently check
-the values proposed by Python. This avoids making correctness of Python's
+The primary design workflow needs no observations:
+
+```sh
+uv run --locked statproof verify-design examples/fixed_sample.toml \
+  --output .statproof/my-design
+uv run --locked statproof check-certificate .statproof/my-design
+```
+
+`verify-design` constructs the declared model, fixed sampling plan, and Fisher
+analysis through the shared Lean objects. It checks positive sizes, the fixed
+plan, the sampling compatibility contract, the core design claim, and the uniform
+Type I error bound for every common success probability in `[0, 1]`.
+
+The resulting `statproof_design_certificate` has `verification_scope: "design"`
+in its report and no calculation or decision. Its inputs contain the design,
+procedure identifier/version, equal-proportions null, and exact `1/20` threshold.
+It certifies only the named design properties under explicit assumptions.
+
+Observed data and execution correctness are a separate, optional workflow.
+
+`verify-result` (or its original name, `verify`) closes the calculation-to-theorem
+path by having Lean independently check the values proposed by Python. This avoids making correctness of Python's
 recurrence an assumption of the numerical result. The application parser and
 mapping to the displayed report remain explicit trusted components.
 
@@ -10,7 +30,7 @@ mapping to the displayed report remain explicit trusted components.
 After `make setup`, from the source project folder:
 
 ```sh
-uv run --locked statproof verify examples/fixed_sample.toml \
+uv run --locked statproof verify-result examples/fixed_sample.toml \
   --control-successes 10 --treatment-successes 25 \
   --output .statproof/my-example
 uv run --locked statproof check-certificate .statproof/my-example
@@ -29,7 +49,10 @@ timeouts remain unresolved rather than falling back to unverified evidence.
 
 ## Properties checked
 
-The generated `Proof.lean` contains explicit theorems for:
+Each mode emits its own set of explicit theorems in `Proof.lean`. Design-only
+certificates verify the declarations and general guarantee, without any supplied
+counts or numerical results. Per-result certificates (`statproof_per_result_certificate`)
+add the following checks:
 
 1. Positive declared arm sizes and observed counts within their bounds.
 2. Support bounds equal to those of the formal hypergeometric definition.
@@ -44,7 +67,8 @@ equalities certify proposed fractions, using Lean's kernel reduction. There is n
 `native_decide` or native-evaluation axiom in the checked proofs.
 
 Before declaring completion, the generated checker collects transitive assumptions
-of all six theorems and permits only `propext`, `Classical.choice`, and `Quot.sound`.
+of all theorems required for the selected mode and permits only `propext`,
+`Classical.choice`, and `Quot.sound`.
 The process must exit successfully and emit the input-specific audited completion
 marker. A zero exit code by itself is insufficient.
 
@@ -52,15 +76,16 @@ marker. A zero exit code by itself is insufficient.
 
 | File | Purpose |
 | --- | --- |
-| `inputs.json` | Canonical declaration and exact result, including table and decision |
+| `inputs.json` | Canonical design and analysis; additionally the exact result for per-result certificates |
 | `Proof.lean` | Human-reviewable statements and proofs for those exact inputs |
 | `Proof.olean` | Compiled checked proof artifact |
 | `transcript.log` | Build, environment, dependency, and Lean command transcript |
 | `certificate.json` | Named claims, assumptions, trust boundary, versions, and hashes |
 
 The input SHA-256 is computed from a deterministic JSON serialization of the
-parsed declaration and result. It binds their semantics, rather than the original
-TOML whitespace or comments. The certificate identifier is a deterministic digest
+parsed design request, or the declaration and result for a per-result check. It
+binds their semantics, rather than the original TOML whitespace or comments.
+The certificate identifier is a deterministic digest
 of the certificate fields excluding the identifier itself; creation time means
 separate issuances can have different identifiers.
 
@@ -79,6 +104,11 @@ then requires the same source snapshot, toolchain pin, dependency pins, and modu
 version, rebuilds the local library, and reruns the proof and transitive audit.
 It leaves the original bundle unchanged.
 
+Replay selects a fixed scope from the certificate kind and validates its claims,
+assumptions, theorem names, and canonical inputs against that scope. A design
+certificate cannot be promoted to evidence about an observed result by changing
+its metadata or recomputing hashes.
+
 Current compiled project artifacts are checked for stability during replay. The
 original compiled artifact hashes remain provenance records; replay's mathematical
 evidence comes from rechecking the retained source against the bound definitions.
@@ -96,9 +126,11 @@ statistical meaning of definitions, and application binding code are trusted.
 
 ## Assumptions and failures
 
-The mathematical guarantee assumes independent binomial samples, positive sizes
-fixed before outcomes, and the equal-proportions null. The supplied counts are
-assumed to come from that declared procedure. Verification does not establish
+The mathematical guarantee assumes independent binomial samples and positive
+sizes fixed before outcomes. It bounds error under the equal-proportions null,
+without asserting the null is true for a real study. For per-result certificates,
+the supplied counts are additionally assumed to come from that declared procedure.
+Verification does not establish
 that these real-world conditions hold, or certify power, coverage, or every
 execution of the Python program.
 

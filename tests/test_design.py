@@ -68,9 +68,11 @@ def test_fixed_design_has_no_stopping_obligation():
 def test_library_theorem_is_not_presented_as_verification_of_this_run():
     report = inspect_design(Design(100, 100, "fixed"))
     reference = report["formal_reference"]
-    assert reference["theorem"] == "StatProof.fisher_typeI_error_le"
+    assert reference["theorem"] == "StatProof.Modules.Fisher.typeI_statement"
     assert reference["checked_in_this_run"] is False
-    assert reference["application_to_this_run"] == "unresolved_implementation_correspondence"
+    assert reference["application_to_this_run"] == "unresolved_design_verification"
+    assert report["verification_scope"] == "design"
     assert report["established_properties"] == []
     assert report["certificate_issued"] is False
-    assert any("Python recurrence" in item for item in report["outstanding_obligations"])
+    assert any("sampling compatibility" in item for item in report["outstanding_obligations"])
+    assert not any("p-value" in item for item in report["outstanding_obligations"])

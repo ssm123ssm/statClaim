@@ -19,6 +19,78 @@ CHECKED_THEOREMS = [
     "checked_typeI",
 ]
 
+DESIGN_CHECKED_THEOREMS = [
+    "checked_sizes",
+    "checked_stopping",
+    "checked_contract",
+    "checked_design",
+    "checked_typeI",
+]
+
+
+def render_design_proof(design: Design, input_sha256: str) -> str:
+    """Check the declared analysis and its general guarantee without observations."""
+    if design.stopping != "fixed":
+        raise ValueError("A fixed-sample design certificate requires stopping='fixed'.")
+    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
+        raise ValueError("Expected a SHA-256 input identifier.")
+    nc, nt = design.n_control, design.n_treatment
+    audit_names = ",\n    ".join(
+        f"``StatProofCertificate.{name}" for name in DESIGN_CHECKED_THEOREMS
+    )
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical design SHA-256: {input_sha256}
+-- No observed counts or numerical test results are supplied.
+namespace StatProofCertificate
+open StatProof
+
+def declaredSizes : FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩
+noncomputable def declaredModel := Modules.TwoArmBinomial.model declaredSizes
+noncomputable def declaredDesign := Core.StudyDesign.fixed declaredModel
+noncomputable def declaredAnalysis := Modules.Fisher.analysis declaredSizes declaredDesign
+
+theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
+    0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+
+theorem checked_stopping : declaredDesign.sampling.kind = Core.SamplingKind.fixedSample := rfl
+
+theorem checked_contract : (Modules.Fisher.module declaredSizes).Requires declaredDesign :=
+  ⟨Core.Compatibility.fixed declaredModel⟩
+
+noncomputable def guarantee : Core.TypeIGuarantee declaredAnalysis (1 / 20 : ℝ) :=
+  (Modules.Fisher.module declaredSizes).provide declaredDesign checked_contract
+
+theorem checked_design :
+    (declaredAnalysis.typeIClaim guarantee.compatibility (1 / 20 : ℝ)).statement :=
+  guarantee.certificate.establishes
+
+theorem checked_typeI (p : unitInterval) :
+    (fisherNullLaw {nc} {nt} p).real (fisherRejectionRegion {nc} {nt}) ≤ (1 / 20 : ℝ) := by
+  have bound := checked_design (p, p) rfl
+  change (guarantee.compatibility.samplingLaw.law (p, p)).real
+    (Modules.Fisher.procedure declaredSizes).rejectionEvent ≤ (1 / 20 : ℝ) at bound
+  rw [guarantee.compatibility.agrees,
+    Modules.TwoArmBinomial.law_under_null declaredSizes (p, p) rfl,
+    Modules.Fisher.rejectionEvent_eq] at bound
+  exact bound
+
+end StatProofCertificate
+
+open Lean Elab Command in
+run_cmd do
+  let allowed := #[``propext, ``Classical.choice, ``Quot.sound]
+  for theoremName in #[{audit_names}] do
+    match ← getConstInfo theoremName with
+    | .thmInfo _ => pure ()
+    | _ => throwError "Expected a theorem: {{theoremName}}"
+    for dependency in ← collectAxioms theoremName do
+      unless allowed.contains dependency do
+        throwError "Unexpected assumption {{dependency}} in {{theoremName}}"
+  logInfo "STATPROOF_CHECKED {input_sha256}"
+"""
+
 
 def validate_result(design: Design, result: FisherResult) -> None:
     if design.stopping != "fixed":

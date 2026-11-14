@@ -37,6 +37,9 @@ nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
 - A minimal shared Lean object library and typed Fisher provider, with a worked
   example and negative tests for incompatible or missing evidence. See the
   [Lean object guide](lean-objects.md).
+- `statproof verify-design`: pre-data design certification through the shared
+  objects, with no required observations, numerical p-value, or test decision.
+  Replay distinguishes design-level and per-result certificate scopes.
 
 ## Verification boundary
 

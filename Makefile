@@ -1,4 +1,4 @@
-.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo
+.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo design-demo design-objects-demo
 
 setup:
 	uv sync --locked
@@ -31,10 +31,15 @@ lean-check:
 	lake env lean tests/lean/FisherExamples.lean
 	lake env lean tests/lean/CoreObjects.lean
 	lake env lean examples/FisherObjects.lean
+	lake env lean examples/DesignGuarantee.lean
 
 objects-demo:
 	lake build
 	lake env lean examples/FisherObjects.lean
+
+design-objects-demo:
+	lake build
+	lake env lean examples/DesignGuarantee.lean
 
 integration-check:
 	uv run --locked pytest -m lean
@@ -47,3 +52,6 @@ demo:
 
 verify-demo:
 	uv run --locked statproof verify examples/fixed_sample.toml --control-successes 10 --treatment-successes 25
+
+design-demo:
+	uv run --locked statproof verify-design examples/fixed_sample.toml
