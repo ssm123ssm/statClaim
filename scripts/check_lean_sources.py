@@ -8,6 +8,7 @@ paths = [
     root / "StatProof.lean",
     *sorted((root / "StatProof").rglob("*.lean")),
     *sorted((root / "tests/lean").rglob("*.lean")),
+    *sorted((root / "examples").rglob("*.lean")),
 ]
 bad = [
     str(path.relative_to(root))

@@ -115,6 +115,12 @@ invokes Lean or issues a verification certificate; use `verify` for that check.
 
 ## Development setup
 
+The first shared statistical objects are now available in Lean. Run
+`make objects-demo` to check the complete Fisher example built from models,
+sampling plans, analyses, observations, claims, and typed certificates. See the
+[Lean object guide](docs/lean-objects.md) and the
+[parallel language comparison plan](docs/core-object-model.md).
+
 Prerequisites: [uv](https://docs.astral.sh/uv/getting-started/installation/),
 [elan](https://lean-lang.org/install/manual/), Git, and Make. Run from this folder:
 

@@ -6,3 +6,6 @@ public import StatProof.Hypergeometric
 public import StatProof.BinomialModel
 public import StatProof.Fisher
 public import StatProof.Computation
+public import StatProof.Core.Objects
+public import StatProof.Modules.TwoArmBinomial
+public import StatProof.Modules.Fisher

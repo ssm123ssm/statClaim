@@ -1,4 +1,4 @@
-.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo
+.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo
 
 setup:
 	uv sync --locked
@@ -29,6 +29,12 @@ lean-check:
 	uv run --locked python scripts/check_lean_sources.py
 	lake env lean scripts/audit_axioms.lean
 	lake env lean tests/lean/FisherExamples.lean
+	lake env lean tests/lean/CoreObjects.lean
+	lake env lean examples/FisherObjects.lean
+
+objects-demo:
+	lake build
+	lake env lean examples/FisherObjects.lean
 
 integration-check:
 	uv run --locked pytest -m lean

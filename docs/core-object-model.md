@@ -1,8 +1,9 @@
 # Core objects and parallel language prototypes
 
-Status: initial semantic design for discussion. The objects and language frontends
-below are not yet implemented. The existing Fisher calculator, Lean proofs, and
-per-result certificate pipeline provide the first validation case.
+Status: the minimal shared Lean objects and Fisher adapter are implemented. The
+standalone statistical language and interactive frontends are still planned.
+This document remains the semantic design and comparison plan; the
+[Lean object guide](lean-objects.md) describes the implemented API and examples.
 
 ## Working direction
 
@@ -168,3 +169,8 @@ Compare researcher learning effort, diagnostic quality, manual-proof escape
 routes, module-author effort, translation trust, verification performance, IDE
 integration, installation, and maintenance cost. Fisher alone is a useful first
 test but is insufficient evidence for every future module's language needs.
+
+The first implementation completes step 2 through ordinary Lean constructors.
+It does not add statistical syntax, a REPL, an LSP, or a serialized language IR.
+The next step is the small standalone file-language prototype, targeting the
+same objects and acceptance cases while the Lean-facing API is still small.

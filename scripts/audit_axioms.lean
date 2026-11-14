@@ -16,6 +16,11 @@ run_cmd do
     ``StatProof.fisherNullLaw_real_support,
     ``StatProof.hypergeometricPValue_eq_of_cross_product,
     ``StatProof.hypergeometricMass_eq_of_cross_product,
+    ``StatProof.Core.no_compatibility_without_law,
+    ``StatProof.Modules.TwoArmBinomial.law_under_null,
+    ``StatProof.Modules.Fisher.rejectionEvent_eq,
+    ``StatProof.Modules.Fisher.typeI_statement,
+    ``StatProof.Modules.Fisher.adaptive_requirement_missing,
     ``StatProof.fisher_typeI_error_le]
   for theoremName in checked do
     match ← getConstInfo theoremName with
