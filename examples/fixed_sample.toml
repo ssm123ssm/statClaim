@@ -1,0 +1,5 @@
+[design]
+module = "two_arm_binomial"
+n_control = 100
+n_treatment = 100
+stopping = "fixed"
