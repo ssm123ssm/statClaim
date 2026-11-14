@@ -5,10 +5,11 @@ and track the formal obligations needed for a Lean-backed statistical guarantee.
 The [project brief](statistical_design_checker_project_brief.md) defines the scope.
 
 **Working now:** the probability-ordered Fisher calculation, inclusive rejection
-at `alpha = 1/20`, input validation, JSON reports, and a Lean-checked generic
-finite-distribution p-value validity theorem. The complete binomial-model theorem
-and the Python-to-Lean correspondence remain unresolved. Reports identify the
-calculation as exact computation and do not issue a formal certificate.
+at `alpha = 1/20`, input validation, JSON reports, and a Lean-checked Fisher Type I
+error theorem under the independent-binomial null model. The theorem covers every
+common success probability in `[0, 1]`, including both endpoints. The
+Python-to-Lean correspondence and certificate pipeline remain unresolved. Reports
+identify calculations as exact computation and do not issue a formal certificate.
 
 ## Run the test
 
@@ -67,7 +68,9 @@ unresolved obligation for the modified stopping procedure. A numerical threshold
 comparison does not establish its Type I error guarantee.
 
 `statproof inspect DESIGN.toml` lists the design's obligations without executing
-the test. Neither command invokes Lean or issues a verification certificate.
+the test. Reports reference `StatProof.fisher_typeI_error_le`, while explicitly
+marking its application to this Python execution as unresolved. Neither command
+invokes Lean or issues a verification certificate.
 
 | Command outcome | Exit code |
 | --- | ---: |
@@ -96,9 +99,14 @@ Lean dependencies, deliberately run `MATHLIB_NO_CACHE_ON_UPDATE=1 lake update`
 and review the manifest changes. Add new imports to `make setup`'s cache command
 as the proof library grows.
 
-`make check` runs Python linting, formatting, tests, the Lean build, a basic
-source-placeholder guard, and an axiom listing for the generic theorem. The guard
-is a development check, not a complete audit of all trusted components.
+`make check` runs Python linting, formatting, tests, the Lean build, concrete Lean
+examples, a source-placeholder guard, and a transitive check of the main theorems'
+axioms. The check permits only `propext`, `Classical.choice`, and `Quot.sound`;
+unexpected assumptions, including proof placeholders, fail CI. These checks do
+not establish the correspondence between Python executions and formal definitions.
+
+See the [proof walkthrough](docs/formal-proof.md) for the theorem statement,
+how the proof fits together, and its remaining application boundaries.
 
 For the optional live comparison with R (requires `Rscript`):
 
@@ -114,11 +122,12 @@ The default test suite uses stored reference results and does not require R.
 ## Layout
 
 - `src/statproof/`: exact calculation, declarations, reports, and CLI.
-- `StatProof/`: foundational definitions and the generic finite p-value theorem.
+- `StatProof/`: finite p-value validity, hypergeometric normalization, the
+  independent-binomial model, and the Fisher error-bound theorem.
 - `docs/exact-test-spec.md`: mathematical and executable specification.
 - `docs/development.md`: completed work and remaining proof obligations.
 - `examples/`: fixed-sample and modified-stopping declarations.
-- `tests/`: exact combinatorial, reference, input, and reporting checks.
+- `tests/`: exact combinatorial, reference, input, reporting, and Lean example checks.
 - `.github/workflows/check.yml`: Python checks and Lean build for a future remote.
 
 Git is initialized locally; no remote or public release is configured. A project

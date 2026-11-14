@@ -63,3 +63,14 @@ def test_cli_does_not_signal_success_for_unresolved_design(capsys):
 def test_fixed_design_has_no_stopping_obligation():
     report = inspect_design(Design(10, 12, "fixed"))
     assert not any("separate justification" in item for item in report["outstanding_obligations"])
+
+
+def test_library_theorem_is_not_presented_as_verification_of_this_run():
+    report = inspect_design(Design(100, 100, "fixed"))
+    reference = report["formal_reference"]
+    assert reference["theorem"] == "StatProof.fisher_typeI_error_le"
+    assert reference["checked_in_this_run"] is False
+    assert reference["application_to_this_run"] == "unresolved_implementation_correspondence"
+    assert report["established_properties"] == []
+    assert report["certificate_issued"] is False
+    assert any("Python recurrence" in item for item in report["outstanding_obligations"])

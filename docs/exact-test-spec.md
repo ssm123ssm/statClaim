@@ -13,8 +13,10 @@ positive integers fixed before outcomes are observed. Test the null hypothesis
 The target theorem is that this specified procedure rejects with probability at
 most `1/20` under that null, for every such common `p`. Discreteness can make the
 actual rejection probability smaller than `1/20`. The procedure does not
-randomize. The current software computes the test; the full target theorem and
-implementation correspondence have not yet been checked in Lean.
+randomize. The mathematical target is now checked in Lean as
+`StatProof.fisher_typeI_error_le`, against the product of Mathlib's binomial
+measures. Correspondence between a Python execution and that formal rejection
+event remains unresolved.
 
 ## Inputs and table convention
 
@@ -47,8 +49,10 @@ q(k) = w(k) / D
 ```
 
 `D` is positive for valid observations. Vandermonde's identity gives
-`sum_k w(k) = D`, so these conditional masses sum to one. These mathematical
-steps still need their project-specific Lean formalization.
+`sum_k w(k) = D`, so these conditional masses sum to one. These facts are checked
+in `StatProof/Hypergeometric.lean`. `StatProof/BinomialModel.lean` proves that
+these masses give the finite conditional probabilities whenever the pooled total
+has positive probability.
 
 ## P-value and rejection rule
 
@@ -95,7 +99,7 @@ support bounds, table convention, exact threshold, and threshold comparison.
 It does not estimate an odds ratio, produce a confidence interval, assess power,
 or establish that the sampling assumptions hold for the study.
 
-## Lean proof completed in this version
+## Lean proofs completed
 
 `StatProof/FinitePValue.lean` defines `probabilityOrderedPValue` on a finite
 support with rational masses and proves
@@ -112,20 +116,40 @@ with maximum mass, observes that every rejected outcome is counted in its
 p-value, and bounds the rejected mass by that p-value. An empty rejection set is
 handled separately. No proof placeholders or additional project axioms are used.
 
-This theorem has not yet been specialized to the conditional weights above and
-does not verify the Python implementation.
+`StatProof/Hypergeometric.lean` specializes the generic theorem to the conditional
+weights, proves their normalization, and proves that rational probability
+ordering equals integer weight ordering. The latter gives the exact integer
+ratio specified above, with the same inclusive support bounds as the executable.
+
+`StatProof/BinomialModel.lean` defines the independent-binomial joint masses,
+proves their normalization, and partitions every feasible pair of observed counts
+by its pooled total. It proves that each joint mass factors into a pooled
+binomial mass and the rational hypergeometric mass. Summing the conditional bounds
+therefore gives the uniform unconditional bound.
+
+`StatProof/Fisher.lean` connects those finite masses to Mathlib's product of
+binomial probability measures. Its final theorem, `StatProof.fisher_typeI_error_le`,
+states that the probability of the Lean-defined rejection region is at most
+`1/20`, for all arm sizes and all common real probabilities in the closed unit
+interval. The application restricts arm sizes to positive integers; the theorem
+also supports zero-sized arms.
+
+The argument never divides by a pooled event probability to establish the
+unconditional bound. It consequently includes `p = 0` and `p = 1` directly,
+without defining conditional probabilities for impossible totals. A separate
+conditional-probability formula requires a positive-probability pooled total.
+
+See the [proof walkthrough](formal-proof.md). These mathematical results do not
+verify the Python implementation or a particular execution.
 
 ## Remaining proof and application obligations
 
-1. Formalize the hypergeometric support, masses, normalization, and their
-   correspondence with the executable integer calculation.
-2. Derive that conditional distribution from independent binomial samples under
-   the equal-proportions null for `0 < p < 1`.
-3. Apply the finite-distribution lemma in each stratum of the total success count
-   and combine the conditional bounds by total probability.
-4. Handle `p = 0` and `p = 1` separately: the only observed tables have p-value `1`.
-5. Validate the declaration-to-theorem translation and bind any future certificate
-   to the actual checked theorem, inputs, backend, and module versions.
+1. Establish correspondence between the Python recurrence, its returned p-value,
+   and the formal integer-ratio definition, or certify individual computed results.
+2. Validate the translation from user declarations to formal assumptions and the
+   checked theorem.
+3. Bind property-specific certificates to checked theorem artifacts, actual inputs,
+   exact backend/module versions, assumptions, and trusted components.
 
 Adding data-dependent stopping changes these obligations. The application may
 compute the fixed-margin statistic for the supplied counts, but withholds a
@@ -141,7 +165,11 @@ missing justification, without claiming that the error rate is inflated.
 - `scripts/compare_with_r.py` compares all small tables and selected larger ones
   with R's two-sided `fisher.test`, using relative tolerance `1e-10`. The compact
   offline fixture records the generating R version and regeneration command.
-- `lake build` checks the generic finite-distribution theorem with Lean.
+- `lake build` checks normalization, the conditional law, the finite-model bound,
+  and the final theorem against Mathlib's binomial probability measures.
+- Concrete Lean examples check support bounds, exact two-sided values, equality
+  at the rejection threshold, degenerate totals, and theorem instances at both
+  null endpoints. A transitive audit rejects unexpected theorem assumptions.
 
 The enumerations and external comparisons are software-validation evidence for
-their tested cases. They do not replace the remaining general formal proof.
+their tested cases. They do not establish the remaining Python-to-Lean connection.

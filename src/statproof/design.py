@@ -40,15 +40,15 @@ def load_design(path: Path) -> Design:
 def inspect_design(design: Design) -> dict:
     """Return a planning report. This function never issues a certificate."""
     obligations = [
-        "Connect the specified Fisher test to the generic Lean finite-distribution validity lemma.",
-        "Establish the conditional hypergeometric law from independent binomial sampling in Lean.",
-        "Prove the null rejection probability is at most 1/20 in Lean.",
-        "Validate the translation from declarations to the formal theorem and report.",
+        "Establish that the Python recurrence and returned p-value match "
+        "the Lean Fisher definition.",
+        "Validate the translation from declarations to formal assumptions and the checked theorem.",
+        "Bind reports to checked theorem artifacts, inputs, and exact backend/module versions.",
     ]
     if design.stopping == "data_dependent":
         obligations.append(
-            "Data-dependent stopping needs a separate justification: the planned "
-            "fixed-sample theorem would not establish this procedure's guarantee. "
+            "Data-dependent stopping needs a separate justification: the "
+            "fixed-sample theorem does not establish this procedure's guarantee. "
             "This is not evidence of inflated error."
         )
     return {
@@ -56,6 +56,15 @@ def inspect_design(design: Design) -> dict:
         "module": "two_arm_binomial",
         "module_version": "0.1.0",
         "specified_test": TEST_ID,
+        "formal_reference": {
+            "theorem": "StatProof.fisher_typeI_error_le",
+            "scope": (
+                "The Lean-defined rejection event under the product of two binomial "
+                "distributions with a common success probability in [0, 1]."
+            ),
+            "checked_in_this_run": False,
+            "application_to_this_run": "unresolved_implementation_correspondence",
+        },
         "status": "unresolved_obligation",
         "certificate_issued": False,
         "design": {

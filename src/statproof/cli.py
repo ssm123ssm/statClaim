@@ -30,7 +30,7 @@ def doctor() -> int:
             continue
         print((result.stdout + result.stderr).strip())
         healthy = healthy and result.returncode == 0
-    print("Environment check only; no statistical theorem has been verified.")
+    print("Environment check only; no statistical theorem was checked in this command.")
     return 0 if healthy else 1
 
 

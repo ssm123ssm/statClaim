@@ -4,7 +4,11 @@ import re
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-paths = [root / "StatProof.lean", *sorted((root / "StatProof").rglob("*.lean"))]
+paths = [
+    root / "StatProof.lean",
+    *sorted((root / "StatProof").rglob("*.lean")),
+    *sorted((root / "tests/lean").rglob("*.lean")),
+]
 bad = [
     str(path.relative_to(root))
     for path in paths

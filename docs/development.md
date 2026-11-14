@@ -16,26 +16,34 @@ nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
 - The Lean theorem `StatProof.probabilityOrdered_rejection_mass_le`: a generic
   bound on rejected mass for finite, nonnegative rational masses with inclusive
   probability ordering and ties.
+- Hypergeometric support and positive denominator, Vandermonde normalization,
+  integer probability ordering, and the conditional rejection bound.
+- A normalized finite independent-binomial model, its partition by pooled totals,
+  and the conditional hypergeometric law at positive-probability totals.
+- `StatProof.fisher_typeI_error_le`: the uniform Type I error bound against the
+  product of Mathlib's binomial measures for every common `p` in `[0, 1]`.
+- Concrete Lean examples and a transitive theorem dependency audit allowing only
+  the standard logical axioms. The proof includes both null endpoints.
 - An unsupported stopping example that exposes missing justification and withholds
   a procedure-level decision, while allowing the fixed-margin statistic to be shown.
 
 ## Next formal milestone
 
-1. Formalize the hypergeometric weights, normalization, and conditional law under
-   independent binomial sampling with a common success probability.
-2. Specialize the generic validity theorem, combine conditional bounds, and handle
-   the null endpoints `p = 0` and `p = 1` explicitly.
-3. Establish correspondence with the executable calculation and the declaration
-   parser. The current Python recurrence is tested but not formally verified.
-4. Bind property-specific certificates to checked theorems, actual inputs, exact
+1. Establish correspondence with the executable calculation, or certify individual
+   computed results. The current Python recurrence is tested but not formally verified.
+2. Validate the declaration parser and its mapping to the theorem's assumptions.
+3. Bind property-specific certificates to checked theorems, actual inputs, exact
    module/backend versions, assumptions, and trusted components. Subprocess
    success alone must never imply that the reported statistical claim was proved.
 
-The generic Lean theorem does not yet establish a claim about the actual
-independent-binomial design or certify a Python execution. Reports keep the full
-statistical guarantee marked `unresolved_obligation`, with `certificate_issued:
-false`, `backend_invoked: false`, and empty formally established properties.
-Their numerical evidence is explicitly labeled `exact_computation`.
+The final Lean theorem now establishes the mathematical guarantee for the formal
+independent-binomial model. It does not certify a Python execution. Reports
+reference the library theorem but keep its application to the run marked
+`unresolved_obligation`, with `certificate_issued: false`, `backend_invoked:
+false`, and empty formally established properties for that run. Their numerical
+evidence is explicitly labeled `exact_computation`.
+
+The [proof walkthrough](formal-proof.md) records the theorem's precise scope.
 
 ## Scope boundaries
 

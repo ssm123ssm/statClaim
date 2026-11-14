@@ -3,7 +3,18 @@
 setup:
 	uv sync --locked
 	MATHLIB_NO_CACHE_ON_UPDATE=1 lake update
-	lake exe cache get Mathlib.Tactic.NormNum Mathlib.Data.Finset.Max Mathlib.Algebra.Order.BigOperators.Group.Finset
+	lake exe cache get \
+		Mathlib.Tactic.NormNum \
+		Mathlib.Data.Finset.Max \
+		Mathlib.Algebra.Order.BigOperators.Group.Finset \
+		Mathlib.Algebra.BigOperators.Field \
+		Mathlib.Data.Nat.Choose.Vandermonde \
+		Mathlib.Basic.Real.Basic \
+		Mathlib.Data.Nat.Choose.Sum \
+		Mathlib.Tactic.FieldSimp \
+		Mathlib.Tactic.Ring \
+		Mathlib.Probability.Distributions.Binomial \
+		Mathlib.MeasureTheory.Measure.Prod
 	lake build
 
 check: python-check lean-check
@@ -17,6 +28,7 @@ lean-check:
 	lake build
 	uv run --locked python scripts/check_lean_sources.py
 	lake env lean scripts/audit_axioms.lean
+	lake env lean tests/lean/FisherExamples.lean
 
 reference-check:
 	uv run --locked python scripts/compare_with_r.py
