@@ -9,7 +9,7 @@ alternatives, and a sufficient sample size is not claimed to be the smallest.
 import re
 from dataclasses import dataclass
 from fractions import Fraction
-from functools import lru_cache
+from functools import cache, lru_cache
 from math import comb
 from typing import Literal
 
@@ -623,6 +623,88 @@ def search_one_sample(
     return None, high - low + 1
 
 
+MAX_SEARCH_TOTAL = 120
+CRITERIA = ("optimal", "minimax")
+
+
+def search_two_stage(
+    null_rate: Fraction,
+    alternative_rate: Fraction,
+    minimum_power: Fraction,
+    maximum_typeI: Fraction,
+    max_total: int,
+    criterion: str,
+) -> tuple[TwoStagePlan | None, int]:
+    """Search count-threshold two-stage designs up to a maximum total size.
+
+    "optimal" minimises the expected sample size at the null rate; "minimax"
+    minimises the maximum sample size, then the expected one. Candidates are
+    ranked in floating point and the chosen design's targets are confirmed in
+    exact arithmetic. The ranking itself is a calculation, not a proof.
+    """
+    if criterion not in CRITERIA:
+        raise ValueError('criterion must be "optimal" or "minimax".')
+    if type(max_total) is not int or not 2 <= max_total <= MAX_SEARCH_TOTAL:
+        raise ValueError(f"max_total must be an integer from 2 to {MAX_SEARCH_TOTAL}.")
+    p0, p1 = float(null_rate), float(alternative_rate)
+    alpha, power = float(maximum_typeI) + 1e-9, float(minimum_power) - 1e-9
+
+    @cache
+    def mass(n: int, p: float) -> list[float]:
+        return [comb(n, k) * p**k * (1 - p) ** (n - k) for k in range(n + 1)]
+
+    @cache
+    def survival(n: int, p: float) -> list[float]:
+        """survival[c] = P(Y > c) for c = 0..n."""
+        values, running = [0.0] * (n + 1), 0.0
+        for k in range(n, 0, -1):
+            running += mass(n, p)[k]
+            values[k - 1] = running
+        return values
+
+    def rejection(n1: int, n2: int, p: float, r1: int, r: int) -> float:
+        first, second = mass(n1, p), survival(n2, p)
+        total = 0.0
+        for x in range(r1 + 1, n1 + 1):
+            needed = r - x
+            total += first[x] * (1.0 if needed < 0 else second[needed] if needed <= n2 else 0.0)
+        return total
+
+    feasible, evaluated = [], 0
+    for total in range(2, max_total + 1):
+        for n1 in range(1, total):
+            n2 = total - n1
+            for r1 in range(n1):
+                low, high = r1, total  # rejection probability falls as r rises; zero at total
+                while low < high:
+                    middle = (low + high) // 2
+                    if rejection(n1, n2, p0, r1, middle) <= alpha:
+                        high = middle
+                    else:
+                        low = middle + 1
+                if low >= total:
+                    continue
+                evaluated += 1
+                if rejection(n1, n2, p1, r1, low) >= power:
+                    expected = n1 + n2 * sum(mass(n1, p0)[r1 + 1 :])
+                    score = (expected, total) if criterion == "optimal" else (total, expected)
+                    feasible.append((score, n1, n2, r1, low))
+    for _, n1, n2, r1, r in sorted(feasible):
+        plan = TwoStagePlan(
+            n1,
+            n2,
+            TwoStageRule("threshold", r1, r),
+            null_rate,
+            alternative_rate,
+            minimum_power,
+            maximum_typeI,
+        )
+        values = plan.evaluate()
+        if values["typeI_target_met"] and values["power_target_met"]:
+            return plan, evaluated
+    return None, evaluated
+
+
 RESULT_KIND = "statproof_binomial_result_certificate"
 RESULT_CHECKED_THEOREMS = [
     "checked_p_value",
@@ -1017,9 +1099,16 @@ def policy_claims(plan: "TwoStagePlan | OneSamplePlan") -> list[str]:
                 f"{plan.search[0]} to {plan.search[1]}. Minimality is not claimed."
             )
         return claims
+    rule = plan.rule
+    stop = (
+        f"continuing above {rule.continue_above} responses and rejecting above "
+        f"{rule.reject_above} in total"
+        if rule.kind == "threshold"
+        else "with its posterior interim and final rules"
+    )
     return [
-        f"The complete two-stage policy (stages {plan.n_first} and {plan.n_second}, with its "
-        f"interim stop) rejects with probability at most {plan.maximum_typeI} "
+        f"The complete two-stage design (stages {plan.n_first} and {plan.n_second}, {stop}) "
+        f"rejects with probability at most {plan.maximum_typeI} "
         f"{_null_scope(plan)}.",
         f"It rejects with probability at least {plan.minimum_power} at the response rate "
         f"{plan.alternative_rate}.",

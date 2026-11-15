@@ -1,0 +1,16 @@
+# Find a two-stage design instead of proposing one.
+# "optimal" minimises the expected sample size if the treatment does not work.
+use designs.two_stage
+use planning
+
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)
+let candidates = two_stage_designs(null_rate=1/5, max_total=45, criterion="optimal")
+let sizing = sample_size(candidates=candidates, target=target)
+
+let recommendation = calculate(sizing)
+let stage1 = recommendation.calculation.n_stage1
+let stage2 = recommendation.calculation.n_stage2
+let expected_size = recommendation.calculation.expected_sample_size_null
+
+# Lean checks the selected design's error and power. The ranking is a calculation.
+let verification = verify(sizing)

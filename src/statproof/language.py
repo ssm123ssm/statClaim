@@ -28,9 +28,11 @@ from statproof.language_syntax import (
     parse,
 )
 from statproof.planning import (
+    CRITERIA,
     MAX_ONE_ARM,
     MAX_PER_ARM,
     MAX_RATIO,
+    MAX_SEARCH_TOTAL,
     MAX_STAGE,
     BinomialInterval,
     OneSamplePlan,
@@ -271,8 +273,24 @@ class OneArmCandidatesIR(CandidateSpaceIR):
 
 
 @dataclass(frozen=True)
+class TwoStageCandidatesIR(CandidateSpaceIR):
+    """Count-threshold two-stage designs up to a maximum total sample size."""
+
+    null_rate: Fraction
+    max_total: int
+    criterion: str
+
+    @property
+    def analysis(self) -> TwoStageAnalysisIR:
+        """The shared shape of every candidate; sizes and thresholds are searched."""
+        return TwoStageAnalysisIR(
+            TwoStageModelIR(1, 1), RuleIR(TwoStageRule("threshold")), self.null_rate
+        )
+
+
+@dataclass(frozen=True)
 class SizingIR:
-    candidates: "CandidatesIR | OneArmCandidatesIR"
+    candidates: CandidateSpaceIR
     target: PowerTargetIR
     minimal: bool = False
 
@@ -340,6 +358,7 @@ class ValueType:
                 CandidateSpaceIR: "Candidates",
                 PlanningPointIR: "PlanningPoint",
                 TwoStageAnalysisIR: "TwoStageAnalysis",
+                TwoStageCandidatesIR: "TwoStageCandidates",
                 OneSampleAnalysisIR: "OneSampleAnalysis",
                 OneArmModelIR: "OneArmModel",
                 OneSampleObservationIR: "OneSampleObservation",
@@ -474,6 +493,13 @@ def normalize(value: object) -> object:
             return {"analysis": normalize(analysis), "responses": responses}
         case IntervalIR(model=model, responses=responses, level=level):
             return {"model": normalize(model), "responses": responses, "level": str(level)}
+        case TwoStageCandidatesIR(null_rate=rate, max_total=total, criterion=criterion):
+            return {
+                "design": "two_stage_threshold",
+                "null_rate": str(rate),
+                "max_total": total,
+                "criterion": criterion,
+            }
         case OneArmCandidatesIR(analysis=analysis, min_n=low, max_n=high):
             return {"analysis": normalize(analysis), "min_n": low, "max_n": high}
         case FeasibilityIR(analysis=analysis, target=target):
@@ -783,6 +809,14 @@ def _allocated(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
 def _sizing(minimal: bool) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         candidates = arguments["candidates"]
+        if minimal and isinstance(candidates.value, TwoStageCandidatesIR):
+            fail(
+                "unsupported_claim",
+                "A two-stage search ranks designs by its criterion; that ranking is a "
+                "calculation and is not certified. Use sample_size(...) to certify the "
+                "selected design's error and power.",
+                candidates.span,
+            )
         _check_point(candidates.value.analysis, arguments["target"])
         return ClaimIR(
             "sample_size",
@@ -838,6 +872,17 @@ def _posterior_rule(arguments: dict[str, LocatedValue], span: Span) -> RuleIR:
             success_at_least=arguments["success_at_least"].value,
         )
     )
+
+
+def _two_stage_candidates(arguments: dict[str, LocatedValue], span: Span) -> TwoStageCandidatesIR:
+    rate, total, criterion = arguments["null_rate"], arguments["max_total"], arguments["criterion"]
+    if not 0 < rate.value < 1:
+        fail("domain", "null_rate must lie strictly between 0 and 1.", rate.span)
+    if not 2 <= total.value <= MAX_SEARCH_TOTAL:
+        fail("domain", f"max_total must be between 2 and {MAX_SEARCH_TOTAL}.", total.span)
+    if criterion.value not in CRITERIA:
+        fail("domain", 'criterion must be "optimal" or "minimax".', criterion.span)
+    return TwoStageCandidatesIR(rate.value, total.value, criterion.value)
 
 
 def _two_stage_test(arguments: dict[str, LocatedValue], span: Span) -> TwoStageAnalysisIR:
@@ -1096,6 +1141,16 @@ MODULES = {
                     documentation="Continue, and finally declare success, when the posterior "
                     "probability that the response rate exceeds reference reaches the given "
                     "level. A posterior threshold does not by itself bound Type I error.",
+                ),
+                _constructor(
+                    "two_stage_designs",
+                    (("null_rate", "number"), ("max_total", "integer"), ("criterion", "string")),
+                    "TwoStageCandidates",
+                    _two_stage_candidates,
+                    documentation="Count-threshold two-stage designs with total size up to "
+                    'max_total. criterion="optimal" minimises the expected sample size at the '
+                    'null rate; "minimax" minimises the maximum sample size. The selected '
+                    "design is certified; the ranking is a calculation.",
                 ),
                 _constructor(
                     "two_stage_test",

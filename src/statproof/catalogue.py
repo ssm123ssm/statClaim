@@ -42,7 +42,8 @@ MODULE_CLASSES = {
         "Adaptive designs",
         "Single-arm two-stage binomial policy with an interim stop, using count thresholds "
         "or Beta-posterior thresholds. Type I error and power are checked for the complete "
-        "policy; the error bound covers every rate at or below the null rate.",
+        "policy; the error bound covers every rate at or below the null rate. "
+        "Designs can be proposed or found by an optimal or minimax search.",
     ),
 }
 OBJECT_CLASSES = {
@@ -70,6 +71,10 @@ OBJECT_CLASSES = {
     "Interval": ("Core statistical objects", "Observed count and confidence level."),
     "OneArmCandidates": ("Planning objects", "Sample sizes searched for a one-sample test."),
     "TwoStageModel": ("Adaptive design objects", "Stage sizes of a single-arm design."),
+    "TwoStageCandidates": (
+        "Planning objects",
+        "Two-stage designs searched by an optimal or minimax criterion.",
+    ),
     "Prior": ("Adaptive design objects", "Beta prior with positive integer parameters."),
     "Rule": ("Adaptive design objects", "Interim continuation and final decision rule."),
     "TwoStageAnalysis": (

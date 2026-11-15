@@ -14,6 +14,7 @@
 - One-sided exact binomial test for a single arm: sample-size search and
   checked p-values for observed data.
 - Exact confidence intervals for one proportion with checked coverage.
+- Search for optimal or minimax two-stage designs; the selected design is checked.
 
 ## Next
 

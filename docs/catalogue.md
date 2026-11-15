@@ -30,6 +30,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Candidates | Finite equal-arm design space for a search. | `analysis: Analysis`, `min_per_arm: integer`, `max_per_arm: integer`, `ratio: integer` |
 | Sizing | Candidates searched for a design meeting a target. | `candidates: Candidates`, `target: PowerTarget` |
 | OneArmCandidates | Sample sizes searched for a one-sample test. | `analysis: OneSampleAnalysis`, `min_n: integer`, `max_n: integer` |
+| TwoStageCandidates | Two-stage designs searched by an optimal or minimax criterion. | `null_rate: exact number`, `max_total: integer`, `criterion: string` |
 
 ## Adaptive design objects
 
@@ -59,7 +60,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | OneSampleDetails | Calculated critical value, error and power of a one-sample test. | `n: Option[integer]`, `critical_value: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | OneSampleResultDetails | Exact one-sided p-value, critical value and decision. | `n: integer`, `responses: integer`, `critical_value: integer`, `p_value: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | IntervalDetails | Estimate and exact confidence interval endpoints. | `n: integer`, `responses: integer`, `level: exact number`, `estimate: exact number`, `lower: exact number`, `upper: exact number`, `method: string` |
-| PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: integer`, `n_stage2: integer`, `maximum_sample_size: integer`, `typeI: exact number`, `typeI_target_met: boolean`, `power: exact number`, `power_target_met: boolean`, `expected_sample_size_null: exact number`, `expected_sample_size_alternative: exact number`, `early_stop_probability_null: exact number` |
+| PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: Option[integer]`, `n_stage2: Option[integer]`, `continue_above: Option[integer]`, `reject_above: Option[integer]`, `maximum_sample_size: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `expected_sample_size_null: Option[exact number]`, `expected_sample_size_alternative: Option[exact number]`, `early_stop_probability_null: Option[exact number]`, `criterion: Option[string]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
 Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `PlanningClaim`, all represented by Claim. Exact numbers, strings, booleans and lists are value types. Optional evidence stays optional through field access.
@@ -117,12 +118,13 @@ Exact power at a planning point, target checks and a bounded sample-size search 
 
 ### `designs.two_stage` — Adaptive designs
 
-Single-arm two-stage binomial policy with an interim stop, using count thresholds or Beta-posterior thresholds. Type I error and power are checked for the complete policy; the error bound covers every rate at or below the null rate.
+Single-arm two-stage binomial policy with an interim stop, using count thresholds or Beta-posterior thresholds. Type I error and power are checked for the complete policy; the error bound covers every rate at or below the null rate. Designs can be proposed or found by an optimal or minimax search.
 
 - `two_stage_binomial(n_stage1, n_stage2) -> TwoStageModel`
 - `threshold_rule(continue_above, reject_above) -> Rule`
 - `beta_prior(a, b) -> Prior`
 - `posterior_rule(prior, reference, continue_at_least, success_at_least) -> Rule`
+- `two_stage_designs(null_rate, max_total, criterion) -> TwoStageCandidates`
 - `two_stage_test(design, rule, null_rate) -> TwoStageAnalysis`
 
 ### `tests.binomial` — Analyses and claims

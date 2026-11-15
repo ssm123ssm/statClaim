@@ -20,6 +20,7 @@ Other files in `playground/`:
 | `confidence_interval.stat` | An exact confidence interval for a proportion |
 | `three_outcomes.stat` | Several endpoints with Bonferroni |
 | `two_stage.stat`, `two_stage_posterior.stat` | Designs with an interim stop |
+| `two_stage_search.stat` | Finding an optimal or minimax two-stage design |
 
 ## Local VS Code
 

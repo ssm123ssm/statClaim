@@ -32,6 +32,7 @@ from statproof.planning import (
     result_payload,
     search_equal_arms,
     search_one_sample,
+    search_two_stage,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -451,3 +452,35 @@ def test_unequal_allocation_search():
         "treatment_per_control=0)\n"
     )
     assert "domain" in [d.code for d in invalid.diagnostics]
+
+
+def test_two_stage_search_reproduces_published_simon_designs(tmp_path):
+    arguments = (Fraction(1, 5), Fraction(2, 5), Fraction(4, 5), ALPHA, 45)
+    optimal, _ = search_two_stage(*arguments, "optimal")
+    minimax, _ = search_two_stage(*arguments, "minimax")
+    shape = lambda p: (
+        p.rule.continue_above,
+        p.n_first,
+        p.rule.reject_above,
+        p.n_first + p.n_second,
+    )  # noqa: E731
+    assert shape(optimal) == (3, 13, 12, 43)
+    assert shape(minimax) == (4, 18, 10, 33)
+    assert optimal.expected_sample_size(Fraction(1, 5)) < minimax.expected_sample_size(
+        Fraction(1, 5)
+    )
+    other, _ = search_two_stage(
+        Fraction(1, 10), Fraction(3, 10), Fraction(9, 10), ALPHA, 40, "optimal"
+    )
+    assert shape(other) == (2, 18, 6, 35)
+    assert search_two_stage(*arguments[:4], 20, "optimal")[0] is None
+    text = (ROOT / "examples/two_stage_search.stat").read_text().split("# Lean checks")[0]
+    values = run(text, tmp_path)["values"]
+    assert (values["stage1"], values["stage2"]) == (13, 30)
+    unsupported = compiled(
+        "use designs.two_stage\nuse planning\n"
+        "let t = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)\n"
+        'let c = two_stage_designs(null_rate=1/5, max_total=45, criterion="optimal")\n'
+        "let s = smallest_sample_size(candidates=c, target=t)\n"
+    )
+    assert "unsupported_claim" in [d.code for d in unsupported.diagnostics]

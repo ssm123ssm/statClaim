@@ -14,6 +14,7 @@ from statproof.language import (
     OneSampleObservationIR,
     RequestIR,
     TwoStageAnalysisIR,
+    TwoStageCandidatesIR,
     VerificationResultIR,
     normalize,
 )
@@ -21,6 +22,8 @@ from statproof.language_compiler import Compilation, requirements
 from statproof.planning import (
     PLANNING_ASSUMPTIONS,
     RESULT_ASSUMPTIONS,
+    TwoStagePlan,
+    TwoStageRule,
     composite_null,
     policy_assumptions,
 )
@@ -60,6 +63,26 @@ def inspect_planning(request: RequestIR) -> dict:
                 f"gives {goal}. {_scope(subject)}"
             )
         return planning_report("planning", text, PLANNING_ASSUMPTIONS)
+    if not feasibility and isinstance(subject.candidates, TwoStageCandidatesIR):
+        candidates = subject.candidates
+        return planning_report(
+            "policy",
+            f"Some two-stage design with at most {candidates.max_total} participants has "
+            f"rejection probability <= {target.maximum_typeI} for every response rate at or "
+            f"below {candidates.null_rate} and >= {target.minimum} at the response rate "
+            f"{target.at.value}. The {candidates.criterion} ranking is not certified.",
+            policy_assumptions(
+                TwoStagePlan(
+                    1,
+                    1,
+                    TwoStageRule("threshold"),
+                    candidates.null_rate,
+                    target.at.value,
+                    target.minimum,
+                    target.maximum_typeI,
+                )
+            ),
+        )
     plan = subject.lower() if feasibility else analysis.plan(target, subject.candidates.min_n)
     null = (
         f"for every response rate at or below {analysis.null_rate}"

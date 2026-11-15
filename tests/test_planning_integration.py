@@ -29,6 +29,7 @@ def runs(tmp_path_factory):
         "one_sample_result",
         "confidence_interval",
         "unequal_allocation",
+        "two_stage_search",
     ):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
@@ -94,6 +95,13 @@ def test_unequal_allocation_is_verified(runs):
     assert report["status"] == "verified", report["diagnostics"]
     evidence = report["values"]["verification"]["evidence"]
     assert "(26, 52) is the smallest" in evidence["established_properties"][-1]
+
+
+def test_searched_two_stage_design_is_verified(runs):
+    report = runs["two_stage_search"]
+    assert report["status"] == "verified", report["diagnostics"]
+    claims = report["values"]["verification"]["evidence"]["established_properties"]
+    assert "stages 13 and 30" in claims[0]
 
 
 def test_ten_endpoint_family_is_verified(tmp_path):

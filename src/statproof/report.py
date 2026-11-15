@@ -15,6 +15,7 @@ from statproof.planning import (
     TwoStagePlan,
     search_equal_arms,
     search_one_sample,
+    search_two_stage,
 )
 from statproof.verification import (
     DESIGN_ASSUMPTIONS,
@@ -517,3 +518,50 @@ def run_interval(
     return _certified(
         report, certify_interval, interval, project=project, output=output, timeout=timeout
     )
+
+
+def run_two_stage_search(
+    report: dict,
+    null_rate,
+    target: tuple,
+    max_total: int,
+    criterion: str,
+    *,
+    verify: bool,
+    project: Path,
+    output,
+    timeout: float,
+) -> dict:
+    """Search two-stage designs; the selected design is certified, the ranking is not."""
+    alternative, minimum, maximum = target
+    plan, evaluated = search_two_stage(
+        null_rate, alternative, minimum, maximum, max_total, criterion
+    )
+    search = {
+        "criterion": criterion,
+        "max_total": max_total,
+        "candidates_evaluated": evaluated,
+        "ranking": "calculated_not_certified",
+    }
+    if plan is None:
+        report["calculation"] = {**search, "power_target_met": False}
+        report["decision"] = "no_feasible_candidate"
+        if verify:
+            _unmet(
+                report,
+                "search_exhausted",
+                "no_feasible_candidate",
+                f"No two-stage design with at most {max_total} participants meets the "
+                "targets. Nothing is claimed about larger designs.",
+            )
+        return report
+    report = run_policy_plan(
+        report, plan, verify=verify, project=project, output=output, timeout=timeout
+    )
+    report["calculation"] = {
+        **report["calculation"],
+        "continue_above": plan.rule.continue_above,
+        "reject_above": plan.rule.reject_above,
+        **search,
+    }
+    return report

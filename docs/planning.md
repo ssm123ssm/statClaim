@@ -134,6 +134,20 @@ let characteristics = calculate(claim)
 let verification = verify(claim)
 ```
 
+To find a design instead of proposing one, search:
+
+```stat
+let candidates = two_stage_designs(null_rate=1/5, max_total=45, criterion="optimal")
+let verification = verify(sample_size(candidates=candidates, target=target))
+```
+
+`"optimal"` minimises the expected sample size at the null rate; `"minimax"`
+minimises the maximum sample size. Here the result is Simon's design: stop
+after 13 participants with 3 or fewer responses, otherwise continue to 43 and
+reject with more than 12. Lean certifies the selected design's error and
+power. The ranking among designs is a calculation and is not certified.
+See `examples/two_stage_search.stat`.
+
 `calculate` also reports expected sample size and the early-stopping
 probability. `posterior_rule` replaces count thresholds with posterior
 probabilities under a `beta_prior`; see `examples/two_stage_posterior.stat`.

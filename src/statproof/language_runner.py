@@ -15,6 +15,7 @@ from statproof.language import (
     OneArmCandidatesIR,
     OneSampleObservationIR,
     RequestIR,
+    TwoStageCandidatesIR,
 )
 from statproof.language_compiler import compile_source
 from statproof.language_inspection import inspect_planning, inspect_request
@@ -34,6 +35,7 @@ from statproof.report import (
     run_policy_plan,
     run_power_plan,
     run_sample_size,
+    run_two_stage_search,
     test_design,
     verify_design,
     verify_design_only,
@@ -56,6 +58,15 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             run = run_power_plan if isinstance(subject.analysis, AnalysisIR) else run_policy_plan
             return run(report, subject.lower(), **options)
         target, candidates = subject.target, subject.candidates
+        if isinstance(candidates, TwoStageCandidatesIR):
+            return run_two_stage_search(
+                report,
+                candidates.null_rate,
+                (target.at.value, target.minimum, target.maximum_typeI),
+                candidates.max_total,
+                candidates.criterion,
+                **options,
+            )
         if isinstance(candidates, OneArmCandidatesIR):
             return run_one_sample_search(
                 report,
@@ -323,6 +334,12 @@ def _planning_lines(details: dict) -> list[str]:
             f"responses; Type I at the null rate ~ {calculation['typeI']['decimal_approximation']}"
         )
     if "n_stage1" in calculation:
+        if "continue_above" in calculation:
+            lines.append(
+                f"  continue above {calculation['continue_above']} responses in stage one; "
+                f"reject above {calculation['reject_above']} in total "
+                f"({calculation['criterion']} design; ranking is calculated, not certified)"
+            )
         lines.append(
             f"  stages = ({calculation['n_stage1']}, {calculation['n_stage2']}); "
             f"Type I at the null rate ~ {calculation['typeI']['decimal_approximation']}; "
@@ -335,12 +352,14 @@ def _planning_lines(details: dict) -> list[str]:
             f"power target met = {str(calculation['power_target_met']).lower()}; "
             f"Type I target met = {str(calculation['typeI_target_met']).lower()}"
         )
-    if "candidates_evaluated" in calculation:
+    if "minimum_sample_size_claim" in calculation:
         lines.append(
             f"  candidates evaluated = {calculation['candidates_evaluated']}; "
             "smallest-in-range claim: "
             f"{calculation['minimum_sample_size_claim'].replace('_', ' ')}"
         )
+    elif "candidates_evaluated" in calculation:
+        lines.append(f"  candidates evaluated = {calculation['candidates_evaluated']}")
     lines.append(f"  decision = {details['decision']}; no formal certificate issued.")
     return lines
 
