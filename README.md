@@ -28,6 +28,7 @@ error-control claim still needs justification.
 StatProof connects the study, hypothesis, analysis and claim so it can:
 
 - Explain supported incompatibilities while you edit, before running an analysis.
+- Show, on request, why a declaration passed its checks and what it still assumes.
 - Check applicable mathematical guarantees using Lean's proof checker.
 - Reuse checked guarantees, with required assumptions and replayable evidence attached.
 

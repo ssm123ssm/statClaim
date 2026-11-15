@@ -25,6 +25,8 @@ class Compilation:
     program: ProgramIR
     diagnostics: tuple[Diagnostic, ...]
     request_diagnostics: tuple[tuple[Diagnostic, ...], ...]
+    # Why each passing contract passed. Kept with the plan; never shown unasked.
+    derivations: tuple = ()
 
     @property
     def status(self) -> str:
@@ -123,4 +125,6 @@ def compile_source(source: Source) -> Compilation:
     )
     diagnostics = [*errors, *(d for group in obligations for d in group)]
     diagnostics.sort(key=lambda d: (d.span.line, d.span.column))
-    return Compilation(program, tuple(diagnostics), obligations)
+    from statproof.derivations import derive_program
+
+    return Compilation(program, tuple(diagnostics), obligations, derive_program(program))

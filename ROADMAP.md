@@ -7,6 +7,7 @@
 - Bonferroni composition of two to twenty endpoints under declared joint laws.
 - VS Code diagnostics and Claims view, Codespaces and contributor checks.
 - Classified catalogue and documented scope.
+- Contract derivations with an independent checker, study reports and change impact.
 - Planning: exact Fisher power, target checks and a bounded sample-size search,
   with an optional smallest-in-range claim and unequal allocation.
 - Sampling policies with their own records; a two-stage binomial design with
@@ -24,7 +25,8 @@
 4. Assurance and precision targets for planning.
 5. More adaptive designs: several interim looks, efficacy stopping, allocation.
 6. A formalized Beta posterior, so posterior rules need no stated closed form.
-7. A versioned extension API for community modules.
+7. Contract derivations for planning, one-sample and two-stage declarations.
+8. A versioned extension API for community modules.
 
 Planning principles: scientific inputs stay explicit; a sufficient sample size
 and the smallest one are separate claims; composing verified parts never

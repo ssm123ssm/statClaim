@@ -5,6 +5,8 @@ Install the release VSIX, or use the repository's Codespaces environment.
 Open the StatProof repository as the workspace; Python and Lean run there.
 
 **StatProof: Show Claims** opens current requirements and matching evidence.
+**StatProof: Explain Contract** shows why the declaration at the cursor passed its
+checks. **StatProof: Show Change Impact** lists what your unsaved edits affect.
 **StatProof: Verify Current File** explicitly runs the backend. Editing checks
 compatibility without performing calculations or Lean verification. After edits,
 old evidence appears only as historical.

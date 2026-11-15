@@ -5,6 +5,7 @@ import sys
 import traceback
 from typing import BinaryIO
 
+from statproof.language_compiler import compile_source
 from statproof.language_syntax import Source
 from statproof.lsp_features import Document, TextMap
 
@@ -59,6 +60,8 @@ class Server:
     def __init__(self, send):
         self.send = send
         self.documents: dict[str, Document] = {}
+        # The text as opened or last saved; change impact is measured against it.
+        self.baselines: dict[str, str] = {}
         self.initialized = False
         self.shutting_down = False
         self.exited = False
@@ -92,7 +95,7 @@ class Server:
                 result = {
                     "capabilities": {
                         "positionEncoding": "utf-16",
-                        "textDocumentSync": {"openClose": True, "change": 1},
+                        "textDocumentSync": {"openClose": True, "change": 1, "save": True},
                         "completionProvider": {"triggerCharacters": [".", "(", ",", "="]},
                         "hoverProvider": True,
                         "definitionProvider": True,
@@ -119,7 +122,13 @@ class Server:
                     return
                 document = Document(data["uri"], data["version"], data["text"])
                 self.documents[document.uri] = document
+                self.baselines[document.uri] = document.text
                 self.publish(document)
+                return
+            elif method == "textDocument/didSave":
+                saved = self.documents.get(params["textDocument"]["uri"])
+                if saved is not None:
+                    self.baselines[saved.uri] = saved.text
                 return
             elif method == "textDocument/didChange":
                 data = params["textDocument"]
@@ -144,6 +153,7 @@ class Server:
             elif method == "textDocument/didClose":
                 uri = params["textDocument"]["uri"]
                 self.documents.pop(uri, None)
+                self.baselines.pop(uri, None)
                 self.notify("textDocument/publishDiagnostics", {"uri": uri, "diagnostics": []})
                 return
             elif method in (
@@ -151,6 +161,8 @@ class Server:
                 "textDocument/hover",
                 "textDocument/definition",
                 "statproof/inspect",
+                "statproof/explain",
+                "statproof/impact",
             ):
                 document = self.documents.get(params["textDocument"]["uri"])
                 if document is None:
@@ -159,6 +171,16 @@ class Server:
                     feature = method.rsplit("/", 1)[1]
                     if method == "statproof/inspect":
                         result = document.inspection()
+                    elif method == "statproof/explain":
+                        result = document.explain(params.get("position"))
+                    elif method == "statproof/impact":
+                        from statproof.contract_reports import impact, impact_markdown
+
+                        baseline = self.baselines.get(document.uri, document.text)
+                        result = impact(
+                            compile_source(Source(baseline, document.uri)), document.compilation
+                        )
+                        result["markdown"] = impact_markdown(result)
                     else:
                         result = getattr(document, feature)(params["position"])
             else:

@@ -122,6 +122,27 @@ async function activate(context) {
         location.range.end.line, location.range.end.character) });
     })
   );
+  // Explanations appear only when asked for. A passing contract shows nothing by itself.
+  async function showMarkdown(method, withPosition) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== 'statproof') {
+      vscode.window.showInformationMessage('Open a .stat file first.');
+      return null;
+    }
+    const params = { textDocument: { uri: editor.document.uri.toString() } };
+    if (withPosition) {
+      params.position = { line: editor.selection.active.line, character: editor.selection.active.character };
+    }
+    const result = await client.sendRequest(method, params);
+    if (!result) return null;
+    const document = await vscode.workspace.openTextDocument({ language: 'markdown', content: result.markdown });
+    await vscode.window.showTextDocument(document, { viewColumn: vscode.ViewColumn.Beside, preview: true, preserveFocus: true });
+    return result;
+  }
+  context.subscriptions.push(
+    vscode.commands.registerCommand('statproof.explainContract', () => showMarkdown('statproof/explain', true)),
+    vscode.commands.registerCommand('statproof.showImpact', () => showMarkdown('statproof/impact', false))
+  );
   context.subscriptions.push(vscode.commands.registerCommand('statproof.restartServer', async () => {
     generation += 1;
     for (const [key, state] of states) states.set(key, { ...state, status: 'stale', stale: true });

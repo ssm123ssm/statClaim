@@ -108,6 +108,24 @@ def main(argv: list[str] | None = None) -> int:
     compile_command.add_argument(
         "--json", action="store_true", help="Emit the typed plan and report"
     )
+    explain_command = commands.add_parser(
+        "explain", help="Explain why the contracts in a .stat file passed"
+    )
+    explain_command.add_argument("source", type=Path)
+    explain_command.add_argument("--name", help="Only the contract of this declaration")
+    explain_command.add_argument("--json", action="store_true")
+    report_command = commands.add_parser(
+        "report", help="Write a study-level report of contracts, assumptions and obligations"
+    )
+    report_command.add_argument("source", type=Path)
+    report_command.add_argument("--output", type=Path, help="Write the report to this file")
+    report_command.add_argument("--json", action="store_true")
+    impact_command = commands.add_parser(
+        "impact", help="List the contracts and claims affected by a change between two files"
+    )
+    impact_command.add_argument("before", type=Path)
+    impact_command.add_argument("after", type=Path)
+    impact_command.add_argument("--json", action="store_true")
     modules = commands.add_parser(
         "modules", help="List file-language modules and typed constructors"
     )
@@ -140,6 +158,42 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             return 0
+        if options.command in ("explain", "report", "impact"):
+            from statproof.contract_reports import (
+                explain,
+                explanation_markdown,
+                impact,
+                impact_markdown,
+                report_markdown,
+                study_report,
+            )
+            from statproof.language_compiler import compile_source
+
+            def compiled(path: Path):
+                return compile_source(Source(path.read_bytes().decode("utf-8"), str(path)))
+
+            if options.command == "impact":
+                result = impact(compiled(options.before), compiled(options.after))
+                print(json.dumps(result, indent=2) if options.json else impact_markdown(result))
+                return 0
+            compilation = compiled(options.source)
+            if options.command == "explain":
+                entries = explain(compilation, options.name)
+                if options.json:
+                    print(json.dumps(entries, indent=2))
+                elif entries:
+                    print("\n\n".join(explanation_markdown(entry) for entry in entries))
+                else:
+                    print("No validated contract to explain.")
+                return 0 if entries and all(entry["checked"] for entry in entries) else 1
+            report = study_report(compilation, str(options.source))
+            text = json.dumps(report, indent=2) if options.json else report_markdown(report)
+            if options.output:
+                options.output.write_text(text if text.endswith("\n") else text + "\n")
+                print(f"Report written to {options.output}")
+            else:
+                print(text)
+            return 2 if report["status"] == "invalid" else 0
         if options.command in ("check", "compile"):
             source = Source(
                 options.source.read_bytes().decode("utf-8"), str(options.source.resolve())

@@ -58,6 +58,16 @@ async function run() {
   items = await completion(source + '\nlet more = checked.evidence.');
   assert.ok(items.items.some(item => item.label === 'certificate' && item.detail === 'Option[CertificateReference]'));
   await replace(source);
+  await until(() => diagnostics().length === 0, 'valid file has no diagnostics');
+  const quiet = diagnostics().length;
+  const explained = await vscode.commands.executeCommand('statproof.explainContract');
+  assert.ok(explained.contracts.length >= 1 && explained.contracts.every(contract => contract.checked));
+  assert.ok(explained.markdown.includes('Why it passed'));
+  assert.equal(diagnostics().length, quiet, 'explaining a contract adds no diagnostics');
+  const changed = await vscode.commands.executeCommand('statproof.showImpact');
+  assert.ok(changed.declarations.length >= 1);
+  await vscode.window.showTextDocument(document);
+  console.log('PASS: Explain Contract and Change Impact on request only');
   await until(() => diagnostics().length === 0, 'diagnostic clearing');
   const usage = source.indexOf('verify(validity)') + 'verify('.length;
   const hovers = await vscode.commands.executeCommand('vscode.executeHoverProvider', document.uri, document.positionAt(usage));

@@ -63,6 +63,10 @@ declarations. Constructors are offered only after their modules have been
 imported. Expected-type filtering uses the existing constructor schemas; list
 element refinements and more specific claim subtypes are not yet inferred.
 
+Run **StatProof: Explain Contract** to see why the declaration at the cursor passed
+its checks, and **StatProof: Show Change Impact** to list what unsaved edits affect.
+Both open a read-only note beside the file; see [contract derivations](contracts.md).
+
 Run **StatProof: Show Claims**, or expand **StatProof Claims** in the Explorer,
 to inspect each claim, its requirements/assumptions, and matching explicit check
 results. Old results move to a separate historical section after edits.

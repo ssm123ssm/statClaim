@@ -16,6 +16,8 @@
     "onLanguage:statproof",
     "onCommand:statproof.verifyFile",
     "onCommand:statproof.restartServer",
+    "onCommand:statproof.explainContract",
+    "onCommand:statproof.showImpact",
     "onView:statproof.claims"
   ],
   "capabilities": {
@@ -64,6 +66,14 @@
       {
         "command": "statproof.showClaims",
         "title": "StatProof: Show Claims"
+      },
+      {
+        "command": "statproof.explainContract",
+        "title": "StatProof: Explain Contract"
+      },
+      {
+        "command": "statproof.showImpact",
+        "title": "StatProof: Show Change Impact"
       }
     ],
     "configuration": {

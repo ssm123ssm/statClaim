@@ -241,6 +241,40 @@ class Document:
             "diagnostics": self.diagnostics(),
         }
 
+    def explain(self, position: dict | None = None) -> dict:
+        """Checked derivations, for the declaration at the position or the whole file.
+
+        Returned only on request. Passing contracts never produce notifications.
+        """
+        from statproof.contract_reports import explain, explanation_markdown
+
+        name = None
+        if position is not None:
+            offset = self.mapping.offset(position)
+            token = self.token_at(offset)
+            binding = self.binding_at(token) if token and token.kind == "NAME" else None
+            named = {derivation.name for derivation in self.compilation.derivations}
+            if binding is not None and binding.name in named:
+                name = binding.name
+            else:
+                for candidate in self.compilation.program.bindings:
+                    start, end = self.mapping.bounds(candidate.span)
+                    if start <= offset <= end and candidate.name in named:
+                        name = candidate.name
+        contracts = explain(self.compilation, name)
+        for entry in contracts:
+            entry["range"] = self.mapping.range(Span(**entry["source"]))
+        markdown = "\n\n".join(explanation_markdown(entry) for entry in contracts) or (
+            "No contract has been validated in this file. "
+            "Declarations that fail a contract are reported as diagnostics."
+        )
+        return {
+            "uri": self.uri,
+            "version": self.version,
+            "contracts": contracts,
+            "markdown": markdown,
+        }
+
     def completion(self, position: dict) -> dict:
         offset = self.mapping.offset(position)
         token = self.token_at(offset)
