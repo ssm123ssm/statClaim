@@ -6,7 +6,9 @@ from statproof.design import Design, inspect_design
 from statproof.family import FisherFamily, inspect_family
 from statproof.fisher import FisherResult, fisher_exact
 from statproof.planning import (
+    RESULT_ASSUMPTIONS,
     OneSamplePlan,
+    OneSampleResult,
     PowerPlan,
     TwoStagePlan,
     search_equal_arms,
@@ -15,6 +17,7 @@ from statproof.planning import (
 from statproof.verification import (
     DESIGN_ASSUMPTIONS,
     VerificationError,
+    certify_binomial_result,
     certify_design,
     certify_family,
     certify_planning,
@@ -466,3 +469,23 @@ def run_one_sample_search(
     )
     report["calculation"] = {**report["calculation"], **search}
     return report
+
+
+def run_binomial_result(
+    result: OneSampleResult, *, verify: bool, project: Path, output, timeout: float
+) -> dict:
+    """Calculate, and optionally certify, an observed one-sample result."""
+    report = planning_report(
+        "result",
+        f"Exact one-sided p-value and decision for {result.responses} responses out of "
+        f"{result.n} at alpha {result.alpha}."
+        + (" Also check the test's Type I bound." if verify else " Calculate only."),
+        RESULT_ASSUMPTIONS,
+    )
+    report["calculation"] = result.evaluate()
+    report["decision"] = "reject_null" if result.reject_null else "do_not_reject_null"
+    if not verify:
+        return report
+    return _certified(
+        report, certify_binomial_result, result, project=project, output=output, timeout=timeout
+    )

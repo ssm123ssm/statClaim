@@ -51,7 +51,8 @@ run_cmd do
     ``StatProof.Modules.FisherPower.power_lt_of_smallerFail,
     ``StatProof.Modules.FisherPower.smallerFail_of_hinted,
     ``StatProof.Modules.OneSampleBinomial.fails_of_smallerFail,
-    ``StatProof.Modules.FisherFamilyN.strong_control]
+    ``StatProof.Modules.FisherFamilyN.strong_control,
+    ``StatProof.Modules.OneSampleBinomial.pValue_eq_of_cross_product]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

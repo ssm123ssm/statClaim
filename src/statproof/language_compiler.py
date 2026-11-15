@@ -11,6 +11,7 @@ from statproof.language import (
     FamilyIR,
     FeasibilityIR,
     ObservationIR,
+    OneSampleObservationIR,
     ProgramIR,
     RequestIR,
     elaborate,
@@ -75,6 +76,8 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 )
             )
         return tuple(diagnostics)
+    if isinstance(subject, OneSampleObservationIR):
+        return ()
     if isinstance(subject, FamilyIR):
         family = subject.lower()
         if family.allocated_alpha > family.alpha:

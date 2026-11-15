@@ -12,6 +12,7 @@ from statproof.language import (
     FeasibilityIR,
     ObservationIR,
     OneArmCandidatesIR,
+    OneSampleObservationIR,
     RequestIR,
 )
 from statproof.language_compiler import compile_source
@@ -26,6 +27,7 @@ from statproof.language_values import (
     serialize,
 )
 from statproof.report import (
+    run_binomial_result,
     run_one_sample_search,
     run_policy_plan,
     run_power_plan,
@@ -67,6 +69,14 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             (candidates.min_per_arm, candidates.max_per_arm),
             minimal=subject.minimal,
             **options,
+        )
+    if request.claim.kind == "result" and isinstance(subject, OneSampleObservationIR):
+        return run_binomial_result(
+            subject.lower(),
+            verify=request.operation == "verify",
+            project=project,
+            output=output,
+            timeout=timeout,
         )
     if request.claim.kind == "familywise" and isinstance(subject, FamilyIR):
         return verify_family(subject.lower(), project=project, output=output, timeout=timeout)
@@ -361,6 +371,14 @@ def render_report(report: dict, source: Source) -> str:
             lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
         elif request["status"] == "calculated" and request["claim"] in ("meets", "sample_size"):
             lines.extend(_planning_lines(details))
+        elif request["status"] == "calculated" and "responses" in details["calculation"]:
+            calculation = details["calculation"]
+            lines.append(
+                f"  {calculation['responses']} responses out of {calculation['n']}; "
+                f"p-value ~ {calculation['p_value']['decimal_approximation']}; "
+                f"rejects at {calculation['critical_value']} or more; "
+                f"decision = {details['decision']}; no formal certificate issued."
+            )
         elif request["status"] == "calculated":
             lines.append(
                 f"  p-value = {details['calculation']['p_value']['fraction']}; "

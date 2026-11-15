@@ -23,6 +23,7 @@ from statproof.language import (
     OneArmCandidatesIR,
     OneArmModelIR,
     OneSampleAnalysisIR,
+    OneSampleObservationIR,
     PlanIR,
     PlannableIR,
     PlanningPointIR,
@@ -45,6 +46,7 @@ from statproof.language_values import (
     CertificateReference,
     Evidence,
     OneSampleDetails,
+    OneSampleResultDetails,
     PlanningDetails,
     PolicyDetails,
     VerificationResult,
@@ -120,6 +122,19 @@ SCHEMAS = {
         "model": FieldSpec(OneArmModelIR),
         "null_rate": FieldSpec(Fraction),
         "alpha": FieldSpec(Fraction),
+    },
+    OneSampleObservationIR: {
+        "analysis": FieldSpec(OneSampleAnalysisIR),
+        "responses": FieldSpec(int),
+    },
+    OneSampleResultDetails: {
+        "n": FieldSpec(int),
+        "responses": FieldSpec(int),
+        "critical_value": FieldSpec(int),
+        "p_value": FieldSpec(Fraction, description="Exact one-sided p-value."),
+        "alpha": FieldSpec(Fraction),
+        "reject_null": FieldSpec(bool),
+        "test": FieldSpec(str),
     },
     OneArmCandidatesIR: {
         "analysis": FieldSpec(OneSampleAnalysisIR),
@@ -203,6 +218,8 @@ for kind in (CalculationResultIR, CalculationResult):
 
 def details_kind(claim: ClaimIR) -> type:
     """The calculation record published for this claim's kind."""
+    if isinstance(claim.subject, OneSampleObservationIR):
+        return OneSampleResultDetails
     if claim.kind not in ("meets", "sample_size"):
         return CalculationDetails
     subject = claim.subject

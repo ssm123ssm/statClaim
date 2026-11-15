@@ -10,13 +10,19 @@ from statproof.language import (
     FeasibilityIR,
     LocatedValue,
     ObservationIR,
+    OneSampleObservationIR,
     RequestIR,
     TwoStageAnalysisIR,
     VerificationResultIR,
     normalize,
 )
 from statproof.language_compiler import Compilation, requirements
-from statproof.planning import PLANNING_ASSUMPTIONS, composite_null, policy_assumptions
+from statproof.planning import (
+    PLANNING_ASSUMPTIONS,
+    RESULT_ASSUMPTIONS,
+    composite_null,
+    policy_assumptions,
+)
 from statproof.report import planning_report
 
 
@@ -75,6 +81,19 @@ def inspect_request(request: RequestIR) -> dict:
     subject = request.claim.subject
     if request.claim.kind in ("meets", "sample_size"):
         return inspect_planning(request)
+    if isinstance(subject, OneSampleObservationIR):
+        result = subject.lower()
+        return planning_report(
+            "result",
+            f"Exact one-sided p-value and decision for {result.responses} responses out of "
+            f"{result.n} at alpha {result.alpha}."
+            + (
+                " Calculate only; no formal evidence."
+                if request.operation == "calculate"
+                else " Also check the test's Type I bound."
+            ),
+            RESULT_ASSUMPTIONS,
+        )
     if isinstance(subject, FamilyIR):
         return inspect_family(subject.lower())
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject

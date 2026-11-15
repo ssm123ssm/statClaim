@@ -610,6 +610,155 @@ def search_one_sample(
     return None, high - low + 1
 
 
+RESULT_KIND = "statproof_binomial_result_certificate"
+RESULT_CHECKED_THEOREMS = [
+    "checked_p_value",
+    "checked_critical",
+    "checked_decision",
+    "checked_typeI",
+]
+
+
+@dataclass(frozen=True)
+class OneSampleResult:
+    """An observed response count analysed by the one-sided exact binomial test."""
+
+    n: int
+    null_rate: Fraction
+    alpha: Fraction
+    responses: int
+
+    def __post_init__(self) -> None:
+        if type(self.n) is not int or not 1 <= self.n <= MAX_ONE_ARM:
+            raise ValueError(f"n must be an integer between 1 and {MAX_ONE_ARM}.")
+        if type(self.responses) is not int or not 0 <= self.responses <= self.n:
+            raise ValueError("responses must be an integer between 0 and n.")
+        _probability(self.null_rate, "null_rate")
+        _probability(self.alpha, "alpha")
+
+    @property
+    def _test(self) -> OneSamplePlan:
+        return OneSamplePlan(
+            self.n, self.null_rate, self.alpha, Fraction(1), Fraction(0), self.alpha
+        )
+
+    @property
+    def critical(self) -> int:
+        return self._test.critical
+
+    @property
+    def p_value(self) -> Fraction:
+        return self._test.tail(self.null_rate, self.responses)
+
+    @property
+    def reject_null(self) -> bool:
+        return self.responses >= self.critical
+
+    def evaluate(self) -> dict:
+        return {
+            "test": "binomial_exact_one_sided",
+            "n": self.n,
+            "responses": self.responses,
+            "critical_value": self.critical,
+            "p_value": fraction_record(self.p_value),
+            "alpha": fraction_record(self.alpha),
+            "reject_null": self.reject_null,
+        }
+
+
+def result_payload(result: OneSampleResult) -> dict:
+    return {
+        "schema_version": 1,
+        "scope": "result",
+        "design": {
+            "module": "one_sample_binomial",
+            "module_version": "0.1.0",
+            "n": result.n,
+            "critical_value": result.critical,
+        },
+        "analysis": {
+            "null_rate": str(result.null_rate),
+            "alpha": str(result.alpha),
+            "alternative": "greater",
+        },
+        "result": {
+            "responses": result.responses,
+            "p_value": str(result.p_value),
+            "reject_null": result.reject_null,
+        },
+    }
+
+
+def parse_result_payload(payload: dict) -> OneSampleResult:
+    result = OneSampleResult(
+        payload["design"]["n"],
+        parse_alpha(payload["analysis"]["null_rate"]),
+        parse_alpha(payload["analysis"]["alpha"]),
+        payload["result"]["responses"],
+    )
+    if payload != result_payload(result):
+        raise ValueError("Bound result inputs are inconsistent.")
+    return result
+
+
+def result_claims(result: OneSampleResult) -> list[str]:
+    decision = "reject the null" if result.reject_null else "do not reject the null"
+    return [
+        f"The exact one-sided p-value for {result.responses} responses out of {result.n} "
+        f"at the null rate {result.null_rate} is {result.p_value} "
+        f"(approximately {float(result.p_value):.4g}).",
+        f"The test at level {result.alpha} rejects at {result.critical} or more responses, "
+        f"so the decision is: {decision}.",
+        f"That test rejects with probability at most {result.alpha} for every response rate "
+        f"at or below {result.null_rate}.",
+    ]
+
+
+RESULT_ASSUMPTIONS = [
+    "Responses are independent with one common response rate.",
+    "The sample size, null rate and level were fixed before outcomes were observed.",
+    "The supplied count describes the declared study.",
+]
+
+
+def render_result_proof(result: OneSampleResult, input_sha256: str) -> str:
+    n, k, c = result.n, result.responses, result.critical
+    a, d = result.null_rate.as_integer_ratio()
+    an, ad = result.alpha.as_integer_ratio()
+    pn, pd = result.p_value.as_integer_ratio()
+    decision = f"{c} ≤ {k}" if result.reject_null else f"¬ {c} ≤ {k}"
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical result SHA-256: {input_sha256}
+-- The proposed p-value is confirmed by the kernel against the formal definition.
+set_option maxRecDepth 8192
+set_option maxHeartbeats 2000000
+
+namespace StatProofCertificate
+open StatProof StatProof.Modules
+
+theorem checked_p_value :
+    ((OneSampleBinomial.policy ⟨{n}, {k}⟩).law (ratPoint {a} {d} (by decide) (by decide))).real
+        {{count | {k} ≤ count}} = ((({pn} : ℕ) : ℝ) / (({pd} : ℕ) : ℝ)) :=
+  OneSampleBinomial.pValue_eq_of_cross_product {n} {k} {a} {d} (by decide) (by decide)
+    {pn} {pd} (by decide) (by decide +kernel)
+
+theorem checked_critical :
+    OneSampleBinomial.criticalValue {n} {a} {d} {an} {ad} = {c} := by decide +kernel
+
+theorem checked_decision : {decision} := by decide
+
+theorem checked_typeI :
+    ((OneSampleBinomial.analysis ⟨{n}, {c}⟩ (ratPoint {a} {d} (by decide) (by decide))).typeIClaim
+      ((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))).statement :=
+  OneSampleBinomial.typeI_of_check ⟨{n}, {c}⟩ {a} {d} (by decide) (by decide)
+    {an} {ad} (by decide) (by decide +kernel)
+
+end StatProofCertificate
+{_audit(RESULT_CHECKED_THEOREMS, input_sha256)}"""
+
+
 def policy_payload(plan: "TwoStagePlan | OneSamplePlan") -> dict:
     if isinstance(plan, OneSamplePlan):
         payload = {

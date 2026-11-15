@@ -87,6 +87,19 @@ theorem power_of_check (design : Design) (nullRate : unitInterval) (a d : ℕ) (
   rw [rejection_probability]
   exact le_ratio_of_check _ _ _ _ (Nat.pow_pos positive) boundDen_pos check
 
+/-- The exact one-sided p-value of an observed count is the upper tail at the
+null rate. A proposed fraction is confirmed by one cross-multiplication. -/
+theorem pValue_eq_of_cross_product (n observed a d : ℕ) (le : a ≤ d) (positive : 0 < d)
+    (numerator denominator : ℕ) (denominator_pos : 0 < denominator)
+    (cross : tailNumerator n a d observed * denominator = numerator * d ^ n) :
+    ((policy ⟨n, observed⟩).law (ratPoint a d le positive)).real {count | observed ≤ count} =
+      (numerator : ℝ) / denominator := by
+  refine (rejection_probability ⟨n, observed⟩ a d le positive).trans ?_
+  dsimp only
+  rw [div_eq_div_iff (by exact_mod_cast (Nat.pow_pos positive).ne')
+    (by exact_mod_cast denominator_pos.ne')]
+  exact_mod_cast cross
+
 /-- The smallest response count whose upper tail at rate a/d is at most
 `levelNum/levelDen`; `n + 1` (never reject) if there is none. -/
 def criticalValue (n a d levelNum levelDen : ℕ) : ℕ :=

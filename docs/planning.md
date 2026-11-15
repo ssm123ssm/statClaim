@@ -91,6 +91,16 @@ The result is 35 participants, rejecting at 12 or more responses. The test
 rejects at the smallest count whose tail probability at `null_rate` is at most
 alpha. See `examples/one_sample.stat`.
 
+Once the data are in, analyse them with the same test:
+
+```stat
+let data = responses(analysis=analysis, count=14)
+let verification = verify(binomial_result(data))
+```
+
+Lean confirms the exact p-value, the critical value and the decision. See
+`examples/one_sample_result.stat`.
+
 ## Plan an adaptive design
 
 The same target applies to a complete two-stage policy:

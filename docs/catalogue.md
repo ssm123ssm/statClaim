@@ -16,6 +16,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
 | OneArmModel | One arm with a fixed sample size. | `n: integer` |
 | OneSampleAnalysis | One-sided exact binomial test with its null rate and alpha. | `model: OneArmModel`, `null_rate: exact number`, `alpha: exact number` |
+| OneSampleObservation | Observed responses for a one-sample test. | `analysis: OneSampleAnalysis`, `responses: integer` |
 
 ## Planning objects
 
@@ -55,6 +56,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | CalculationDetails | Exact p-value, alpha and test details. | `p_value: exact number`, `alpha: exact number`, `observed_table_probability: exact number`, `p_value_le_alpha: boolean`, `test: string`, `test_version: string` |
 | PlanningDetails | Calculated sizes, power and target components; not proof evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | OneSampleDetails | Calculated critical value, error and power of a one-sample test. | `n: Option[integer]`, `critical_value: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
+| OneSampleResultDetails | Exact one-sided p-value, critical value and decision. | `n: integer`, `responses: integer`, `critical_value: integer`, `p_value: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: integer`, `n_stage2: integer`, `maximum_sample_size: integer`, `typeI: exact number`, `typeI_target_met: boolean`, `power: exact number`, `power_target_met: boolean`, `expected_sample_size_null: exact number`, `expected_sample_size_alternative: exact number`, `early_stop_probability_null: exact number` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
@@ -122,10 +124,12 @@ Single-arm two-stage binomial policy with an interim stop, using count threshold
 
 ### `tests.binomial` — Analyses and claims
 
-One-sided exact binomial test for a single arm. Type I error is checked for every rate at or below the null rate; power and sample size use the planning module.
+One-sided exact binomial test for a single arm. Type I error is checked for every rate at or below the null rate; power and sample size use the planning module. Observed counts give a Lean-checked p-value and decision.
 
 - `one_arm_binomial(n) -> OneArmModel`
 - `binomial_test(model, null_rate, alpha) -> OneSampleAnalysis`
+- `responses(analysis, count) -> OneSampleObservation`
+- `binomial_result(observation) -> ResultClaim`
 
 ## Built-in operations
 

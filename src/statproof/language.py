@@ -32,6 +32,7 @@ from statproof.planning import (
     MAX_PER_ARM,
     MAX_STAGE,
     OneSamplePlan,
+    OneSampleResult,
     PowerPlan,
     TwoStagePlan,
     TwoStageRule,
@@ -198,6 +199,16 @@ class OneSampleAnalysisIR(PlannableIR):
 
 
 @dataclass(frozen=True)
+class OneSampleObservationIR:
+    analysis: OneSampleAnalysisIR
+    responses: int
+
+    def lower(self) -> OneSampleResult:
+        analysis = self.analysis
+        return OneSampleResult(analysis.model.n, analysis.null_rate, analysis.alpha, self.responses)
+
+
+@dataclass(frozen=True)
 class FeasibilityIR:
     """One analysis assessed against one target."""
 
@@ -256,7 +267,7 @@ class SizingIR:
 @dataclass(frozen=True)
 class ClaimIR:
     kind: Choice["typeI", "familywise", "result", "meets", "sample_size"]
-    subject: AnalysisIR | FamilyIR | ObservationIR | FeasibilityIR | SizingIR
+    subject: object
     name: str
 
 
@@ -318,6 +329,7 @@ class ValueType:
                 TwoStageAnalysisIR: "TwoStageAnalysis",
                 OneSampleAnalysisIR: "OneSampleAnalysis",
                 OneArmModelIR: "OneArmModel",
+                OneSampleObservationIR: "OneSampleObservation",
                 OneArmCandidatesIR: "OneArmCandidates",
             }.get(self.kind, self.kind.__name__.removesuffix("IR"))
         )
@@ -445,6 +457,8 @@ def normalize(value: object) -> object:
                 "null_rate": str(rate),
                 "alpha": str(alpha),
             }
+        case OneSampleObservationIR(analysis=analysis, responses=responses):
+            return {"analysis": normalize(analysis), "responses": responses}
         case OneArmCandidatesIR(analysis=analysis, min_n=low, max_n=high):
             return {"analysis": normalize(analysis), "min_n": low, "max_n": high}
         case FeasibilityIR(analysis=analysis, target=target):
@@ -704,6 +718,13 @@ def _binomial_test(arguments: dict[str, LocatedValue], span: Span) -> OneSampleA
     if not 0 < rate.value < 1:
         fail("domain", "null_rate must lie strictly between 0 and 1.", rate.span)
     return OneSampleAnalysisIR(arguments["model"].value, rate.value, arguments["alpha"].value)
+
+
+def _responses(arguments: dict[str, LocatedValue], span: Span) -> OneSampleObservationIR:
+    analysis, count = arguments["analysis"].value, arguments["count"]
+    if not 0 <= count.value <= analysis.model.n:
+        fail("domain", f"count must be between 0 and {analysis.model.n}.", count.span)
+    return OneSampleObservationIR(analysis, count.value)
 
 
 def _one_arm_candidates(arguments: dict[str, LocatedValue], span: Span) -> OneArmCandidatesIR:
@@ -1048,6 +1069,21 @@ MODULES = {
                     documentation="One-sided exact binomial test. Null: response rate <= "
                     "null_rate. Rejects at the smallest response count whose upper tail "
                     "probability at null_rate is at most alpha.",
+                ),
+                _constructor(
+                    "responses",
+                    (("analysis", OneSampleAnalysisIR), ("count", "integer")),
+                    "OneSampleObservation",
+                    _responses,
+                    documentation="The observed number of responses for this analysis.",
+                ),
+                _constructor(
+                    "binomial_result",
+                    (("observation", OneSampleObservationIR),),
+                    "ResultClaim",
+                    _claim("result", "observation"),
+                    documentation="Claim about the exact p-value and decision for the "
+                    "observed count, with the test's Type I bound.",
                 ),
             ),
         ),

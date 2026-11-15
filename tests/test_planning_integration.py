@@ -21,7 +21,7 @@ pytestmark = [
 def runs(tmp_path_factory):
     directory = tmp_path_factory.mktemp("planning")
     reports = {}
-    for name in ("planning", "two_stage", "two_stage_posterior", "one_sample"):
+    for name in ("planning", "two_stage", "two_stage_posterior", "one_sample", "one_sample_result"):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
             Source(path.read_text(), str(path)), project=ROOT, output=directory / name
@@ -49,6 +49,21 @@ def test_policy_certificates_replay(runs, name):
     certificate = report["values"]["verification"]["evidence"]["certificate"]
     replay = recheck_certificate(Path(certificate["directory"]), project=ROOT)
     assert replay["kind"] == "statproof_policy_certificate"
+
+
+def test_one_sample_result_certificate_replays_and_resists_tampering(runs, tmp_path):
+    evidence = runs["one_sample_result"]["values"]["verification"]["evidence"]
+    source = Path(evidence["certificate"]["directory"])
+    assert recheck_certificate(source, project=ROOT)["kind"] == (
+        "statproof_binomial_result_certificate"
+    )
+    bundle = tmp_path / "tampered"
+    shutil.copytree(source, bundle)
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    inputs["result"]["p_value"] = "1/1000"
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT)
 
 
 def test_ten_endpoint_family_is_verified(tmp_path):

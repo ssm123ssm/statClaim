@@ -10,7 +10,7 @@ bounded equal-arm sample-size search. A selected size can be certified as
 sufficient, or as the smallest sufficient size within the declared range. A single-arm two-stage binomial policy with an interim stop is supported
 with count or Beta-posterior rules: its Type I error and power are checked for
 the complete policy. The one-sided exact binomial test is supported for a single
-arm. Error bounds for that test and for count thresholds cover every rate at or
+arm, for planning and for analysing an observed count. Error bounds for that test and for count thresholds cover every rate at or
 below the null rate; posterior thresholds cover the declared null rate only. The posterior rule's closed form
 is a definition; its identity with the Beta integral is not proved in Lean.
 

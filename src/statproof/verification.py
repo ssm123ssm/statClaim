@@ -21,10 +21,15 @@ from statproof.planning import (
     PLANNING_ASSUMPTIONS,
     PLANNING_KIND,
     POLICY_KIND,
+    RESULT_ASSUMPTIONS,
+    RESULT_CHECKED_THEOREMS,
+    RESULT_KIND,
+    OneSampleResult,
     PowerPlan,
     TwoStagePlan,
     parse_planning_payload,
     parse_policy_payload,
+    parse_result_payload,
     planning_claims,
     planning_payload,
     planning_theorems,
@@ -34,7 +39,10 @@ from statproof.planning import (
     policy_theorems,
     render_planning_proof,
     render_policy_proof,
+    render_result_proof,
+    result_claims,
 )
+from statproof.planning import result_payload as binomial_result_payload
 from statproof.proof import (
     CHECKED_THEOREMS,
     DESIGN_CHECKED_THEOREMS,
@@ -113,6 +121,11 @@ def _profile(kind: str, payload: dict) -> dict:
             "planning point; no observed results or minimality are certified."
         )
         general_theorem = "StatProof.Modules.TwoStageBinomial.rejection_probability"
+    elif kind == RESULT_KIND:
+        claims = result_claims(parse_result_payload(payload))
+        assumptions, theorems = RESULT_ASSUMPTIONS, RESULT_CHECKED_THEOREMS
+        scope = "This observed count and the declared test; not other data or analyses."
+        general_theorem = "StatProof.Modules.OneSampleBinomial.typeI_of_check"
     else:
         raise VerificationError("integrity", "Unsupported certificate kind.")
     if kind in ("statproof_per_result_certificate", "statproof_design_certificate"):
@@ -256,6 +269,8 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_planning_proof(parse_planning_payload(payload), input_id)
     if kind == POLICY_KIND:
         return render_policy_proof(parse_policy_payload(payload), input_id)
+    if kind == RESULT_KIND:
+        return render_result_proof(parse_result_payload(payload), input_id)
     raise VerificationError("integrity", "Unsupported certificate kind.")
 
 
@@ -507,6 +522,19 @@ def certify_policy(
     """Certify a complete two-stage policy's error and power at its declared rates."""
     return _certify_payload(
         policy_payload(plan), POLICY_KIND, project=project, output=output, timeout=timeout
+    )
+
+
+def certify_binomial_result(
+    result: OneSampleResult, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify an observed one-sample result; Lean confirms the proposed p-value."""
+    return _certify_payload(
+        binomial_result_payload(result),
+        RESULT_KIND,
+        project=project,
+        output=output,
+        timeout=timeout,
     )
 
 

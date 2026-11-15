@@ -33,7 +33,8 @@ MODULE_CLASSES = {
     "tests.binomial": (
         "Analyses and claims",
         "One-sided exact binomial test for a single arm. Type I error is checked for every "
-        "rate at or below the null rate; power and sample size use the planning module.",
+        "rate at or below the null rate; power and sample size use the planning module. "
+        "Observed counts give a Lean-checked p-value and decision.",
     ),
     "designs.two_stage": (
         "Adaptive designs",
@@ -60,6 +61,10 @@ OBJECT_CLASSES = {
     "OneSampleAnalysis": (
         "Core statistical objects",
         "One-sided exact binomial test with its null rate and alpha.",
+    ),
+    "OneSampleObservation": (
+        "Core statistical objects",
+        "Observed responses for a one-sample test.",
     ),
     "OneArmCandidates": ("Planning objects", "Sample sizes searched for a one-sample test."),
     "TwoStageModel": ("Adaptive design objects", "Stage sizes of a single-arm design."),
@@ -88,6 +93,10 @@ OBJECT_CLASSES = {
     "OneSampleDetails": (
         "Evidence and inspection",
         "Calculated critical value, error and power of a one-sample test.",
+    ),
+    "OneSampleResultDetails": (
+        "Evidence and inspection",
+        "Exact one-sided p-value, critical value and decision.",
     ),
     "PolicyDetails": (
         "Evidence and inspection",

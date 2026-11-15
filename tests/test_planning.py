@@ -15,15 +15,18 @@ from statproof.language_runner import check_source
 from statproof.language_syntax import Source
 from statproof.planning import (
     OneSamplePlan,
+    OneSampleResult,
     PowerPlan,
     TwoStagePlan,
     TwoStageRule,
     fisher_rejection_probability,
     parse_planning_payload,
     parse_policy_payload,
+    parse_result_payload,
     planning_payload,
     policy_payload,
     render_planning_proof,
+    result_payload,
     search_equal_arms,
     search_one_sample,
 )
@@ -357,3 +360,29 @@ def test_smallest_claim_is_bound_into_the_payload():
     assert "checked_smaller" not in render_planning_proof(sufficient, "0" * 64)
     one, _ = search_one_sample(one_sample(), 10, 60, True)
     assert parse_policy_payload(policy_payload(one)).minimal
+
+
+def test_one_sample_result_matches_direct_tail(tmp_path):
+    result = OneSampleResult(35, Fraction(1, 5), ALPHA, 14)
+    assert result.p_value == sum(binomial(35, k, Fraction(1, 5)) for k in range(14, 36))
+    assert result.critical == 12 and result.reject_null
+    assert not OneSampleResult(35, Fraction(1, 5), ALPHA, 11).reject_null
+    # The decision agrees with comparing the p-value to alpha at every count.
+    for count in range(36):
+        observed = OneSampleResult(35, Fraction(1, 5), ALPHA, count)
+        assert observed.reject_null == (observed.p_value <= ALPHA)
+    payload = result_payload(result)
+    assert parse_result_payload(payload) == result
+    payload["result"]["reject_null"] = False
+    with pytest.raises(ValueError):
+        parse_result_payload(payload)
+    text = (ROOT / "examples/one_sample_result.stat").read_text().split("let verification")[0]
+    values = run(text, tmp_path)["values"]
+    assert Fraction(values["p_value"]) == result.p_value
+    assert values["calculation"]["decision"] == "reject_null"
+    invalid = compiled(
+        "use tests.binomial\n"
+        "let a = binomial_test(model=one_arm_binomial(n=5), null_rate=1/5, alpha=1/20)\n"
+        "let d = responses(analysis=a, count=6)\n"
+    )
+    assert "domain" in [d.code for d in invalid.diagnostics]

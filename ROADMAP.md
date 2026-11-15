@@ -11,7 +11,8 @@
   with an optional smallest-in-range claim.
 - Sampling policies with their own records; a two-stage binomial design with
   count or Beta-posterior rules and checked Type I error and power.
-- One-sided exact binomial test for a single arm, with sample-size search.
+- One-sided exact binomial test for a single arm: sample-size search and
+  checked p-values for observed data.
 
 ## Next
 

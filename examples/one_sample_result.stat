@@ -1,0 +1,11 @@
+# Analyse the planned single-arm study once the data are in.
+use tests.binomial
+
+let study = one_arm_binomial(n=35)
+let analysis = binomial_test(model=study, null_rate=1/5, alpha=1/20)
+
+# Fourteen of 35 participants responded.
+let data = responses(analysis=analysis, count=14)
+let calculation = calculate(binomial_result(data))
+let p_value = calculation.calculation.p_value
+let verification = verify(binomial_result(data))
