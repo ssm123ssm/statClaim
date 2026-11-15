@@ -26,7 +26,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def source(name="fisher.stat"):
-    return Source((ROOT / "examples" / name).read_text(), name)
+    folder = "tests/fixtures" if name == "fisher.stat" else "examples"
+    return Source((ROOT / folder / name).read_text(), name)
 
 
 def test_fisher_language_lowers_to_existing_canonical_design():
@@ -279,7 +280,9 @@ def test_changed_source_during_execution_is_marked_stale(monkeypatch, tmp_path):
 
 
 def test_cli_fast_mode_and_module_discovery(capsys):
-    assert main(["check", str(ROOT / "examples/fisher.stat"), "--elaborate-only", "--json"]) == 0
+    assert (
+        main(["check", str(ROOT / "tests/fixtures/fisher.stat"), "--elaborate-only", "--json"]) == 0
+    )
     report = json.loads(capsys.readouterr().out)
     assert report["status"] == "elaborated"
     assert report["certificate_issued"] is False

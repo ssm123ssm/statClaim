@@ -1,0 +1,11 @@
+# Same study/model; the declared null differs from Fisher's supported null.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=100, n_treatment=100)
+let plan = fixed(model=study)
+let null = proportion_difference(model=study, value=0.10)
+
+# This is diagnosed immediately, without calling verify or Lean.
+let analysis = fisher(design=plan, null=null, alpha=0.05)

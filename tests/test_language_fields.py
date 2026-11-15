@@ -14,7 +14,7 @@ from statproof.language_syntax import FieldAccess, Source, parse
 from statproof.verification import VerificationError
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = (ROOT / "examples/fisher.stat").read_text().replace("verify typeI(analysis)\n", "")
+BASE = (ROOT / "tests/fixtures/fisher.stat").read_text().replace("verify typeI(analysis)\n", "")
 CLAIM = "let claim = typeI(analysis)\nlet checked = verify(claim)\n"
 OBSERVATION = "let data = observe(analysis, 10, 25)\nlet computation = calculate(result(data))\n"
 

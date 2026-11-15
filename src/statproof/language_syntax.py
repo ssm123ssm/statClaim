@@ -43,19 +43,32 @@ class Source:
 
 
 @dataclass(frozen=True)
+class RelatedLocation:
+    message: str
+    span: Span
+
+    def to_dict(self) -> dict:
+        return {"message": self.message, "source": self.span.to_dict()}
+
+
+@dataclass(frozen=True)
 class Diagnostic:
     code: str
     message: str
     span: Span
     severity: str = "error"
+    related: tuple[RelatedLocation, ...] = ()
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "code": self.code,
             "message": self.message,
             "severity": self.severity,
             "source": self.span.to_dict(),
         }
+        if self.related:
+            result["related"] = [item.to_dict() for item in self.related]
+        return result
 
     def format(self, source: Source) -> str:
         location = f"{self.span.path}:{self.span.line}:{self.span.column}"

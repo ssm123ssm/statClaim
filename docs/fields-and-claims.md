@@ -24,7 +24,7 @@ are not exposed. Dotted module imports keep their existing spelling.
 | --- | --- |
 | Model | `n_control`, `n_treatment` |
 | Study design | `model`, `stopping` |
-| Hypothesis | `model` |
+| Hypothesis | `model`, `predicate`, `value`, `statement` |
 | Analysis | `design`, `null`, `alpha` |
 | Family | `analyses`, `alpha`, `joint_law` |
 | Observation | `analysis`, `control_successes`, `treatment_successes` |

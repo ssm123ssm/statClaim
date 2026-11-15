@@ -11,6 +11,7 @@ from statproof.language import (
     ClaimIR,
     Elaborator,
     FieldIR,
+    HypothesisIR,
     LocatedValue,
     RequestIR,
     ValueType,
@@ -164,6 +165,22 @@ class Document:
                 "code": d.code,
                 "source": "statproof" if d.severity == "error" else "statproof requirements",
                 "message": d.message,
+                **(
+                    {
+                        "relatedInformation": [
+                            {
+                                "location": {
+                                    "uri": self.uri,
+                                    "range": self.mapping.range(item.span),
+                                },
+                                "message": item.message,
+                            }
+                            for item in d.related
+                        ]
+                    }
+                    if d.related
+                    else {}
+                ),
             }
             for d in self.compilation.diagnostics
         ]
@@ -342,7 +359,7 @@ class Document:
                     constructor.name,
                     3,
                     signature(constructor),
-                    documentation=MEANINGS.get(constructor.name),
+                    documentation=constructor.documentation or MEANINGS.get(constructor.name),
                 )
             )
         if not stack and not before:
@@ -427,6 +444,12 @@ class Document:
             text = f"```stat\n{binding.name}: {kind}\n```"
             if isinstance(binding.value, ClaimIR):
                 text += "\n\n" + claim_markdown(binding.value)
+            if isinstance(binding.value, HypothesisIR):
+                text += f"\n\nDeclared null: `{binding.value.statement}`.\n\n"
+                text += (
+                    "This describes a parameter restriction; "
+                    "it does not assert that the null is true."
+                )
             if kind in ("VerificationResult", "CalculationResult"):
                 text += "\n\nPlanned result only. Editor analysis does not execute this operation."
         else:
@@ -435,7 +458,11 @@ class Document:
             if constructor is None:
                 return None
             text = f"```stat\n{signature(constructor)}\n```"
-            if token.text in MEANINGS:
+            if constructor.hypothesis_contract:
+                text += f"\n\nSupported null: `{constructor.hypothesis_contract.expected}`."
+            if constructor.documentation:
+                text += "\n\n" + constructor.documentation
+            elif token.text in MEANINGS:
                 text += "\n\n" + MEANINGS[token.text]
         return {
             "contents": {"kind": "markdown", "value": text},

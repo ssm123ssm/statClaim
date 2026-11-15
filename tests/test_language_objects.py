@@ -26,7 +26,7 @@ from statproof.language_values import (
 from statproof.verification import VerificationError
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = (ROOT / "examples/fisher.stat").read_text().replace("verify typeI(analysis)\n", "")
+BASE = (ROOT / "tests/fixtures/fisher.stat").read_text().replace("verify typeI(analysis)\n", "")
 OBSERVATION = "let data = observe(analysis, 10, 25)\nlet observed = result(data)\n"
 
 

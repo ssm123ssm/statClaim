@@ -43,7 +43,12 @@ class FieldSpec:
 SCHEMAS = {
     ModelIR: {"n_control": FieldSpec(int), "n_treatment": FieldSpec(int)},
     PlanIR: {"model": FieldSpec(ModelIR), "stopping": FieldSpec(str)},
-    HypothesisIR: {"model": FieldSpec(ModelIR)},
+    HypothesisIR: {
+        "model": FieldSpec(ModelIR),
+        "predicate": FieldSpec(str),
+        "value": FieldSpec(Fraction),
+        "statement": FieldSpec(str),
+    },
     AnalysisIR: {
         "design": FieldSpec(PlanIR, attribute="plan"),
         "null": FieldSpec(HypothesisIR, attribute="hypothesis"),

@@ -35,7 +35,9 @@ function buildClaimsTree(inspection, state, live) {
   const roots = [leaf(`Current source v${live.version}: ${inspection.status}`)];
   if (inspection.diagnostics.length) {
     roots.push(group('Source diagnostics', inspection.diagnostics.map(d =>
-      leaf(`${d.code}: ${d.message}`, { location: { uri: inspection.uri, range: d.range } }))));
+      group(`${d.code}: ${d.message}`, (d.relatedInformation || []).map(related =>
+        leaf(related.message, { location: related.location })),
+      { location: { uri: inspection.uri, range: d.range } }))));
   }
   for (const claim of inspection.claims) {
     const children = [leaf(claim.description),

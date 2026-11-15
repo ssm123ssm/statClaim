@@ -59,6 +59,23 @@ observed data must establish or an assertion that the null is true. -/
 def equalProportions : Core.Hypothesis Parameters :=
   fun parameter => (parameter.1 : ℝ) = (parameter.2 : ℝ)
 
+/-- A declared absolute difference in success probabilities, treatment minus
+control. Declaring this restriction does not establish its truth. -/
+def proportionDifference (value : ℚ) : Core.Hypothesis Parameters :=
+  fun parameter => (parameter.2 : ℝ) - (parameter.1 : ℝ) = (value : ℝ)
+
+/-- A one-sided parameter restriction. At zero it includes unequal proportions;
+it is distinct from the equality null of the probability-ordered Fisher module. -/
+def proportionDifferenceAtMost (value : ℚ) : Core.Hypothesis Parameters :=
+  fun parameter => (parameter.2 : ℝ) - (parameter.1 : ℝ) ≤ (value : ℝ)
+
+/-- The language may canonicalize an exactly zero difference to the existing
+equal-proportions null, without extending Fisher's guarantee to shifted nulls. -/
+theorem proportionDifference_zero_iff (parameter : Parameters) :
+    proportionDifference 0 parameter ↔ equalProportions parameter := by
+  simp only [proportionDifference, Rat.cast_zero, sub_eq_zero, equalProportions]
+  exact eq_comm
+
 /-- Restrict the full family to the null law used by the existing Fisher theorem. -/
 theorem law_under_null (sizes : FixedSampleDesign) (parameter : Parameters)
     (null : equalProportions parameter) :

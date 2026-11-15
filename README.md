@@ -75,6 +75,13 @@ for isolated launch, exact usage, testing, configuration, and limitations.
 
 ## Verify a design before data
 
+The language also checks analysis/hypothesis compatibility while editing. For
+example, declaring `proportion_difference(study, value=0.10)` and passing that null
+to `fisher` reports the unsupported null form with expected/declared meanings and
+guidance. See [hypothesis contracts](docs/hypothesis-contracts.md) and
+`examples/hypothesis_mismatch.stat`. Exactly zero equality difference is accepted
+as the existing equal-proportions null; inequality at zero remains distinct.
+
 After setup, run from this project folder:
 
 ```sh

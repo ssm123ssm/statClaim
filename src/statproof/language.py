@@ -12,6 +12,7 @@ from typing import Literal as Choice
 from statproof.design import Design
 from statproof.family import Endpoint, FisherFamily
 from statproof.fisher import validate_alpha
+from statproof.language_contracts import FISHER_CONTRACT, HypothesisContract
 from statproof.language_syntax import (
     Call,
     Diagnostic,
@@ -27,7 +28,7 @@ from statproof.language_syntax import (
     parse,
 )
 
-LANGUAGE_VERSION = "0.3.0"
+LANGUAGE_VERSION = "0.4.0"
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,29 @@ class PlanIR:
 @dataclass(frozen=True)
 class HypothesisIR:
     model: ModelIR
+    predicate: Choice[
+        "equal_proportions", "proportion_difference", "proportion_difference_at_most"
+    ] = "equal_proportions"
+    value: Fraction = Fraction(0)
+
+    def __post_init__(self):
+        if self.predicate not in (
+            "equal_proportions",
+            "proportion_difference",
+            "proportion_difference_at_most",
+        ):
+            raise ValueError("Unsupported hypothesis predicate.")
+        if not isinstance(self.value, Fraction) or not -1 <= self.value <= 1:
+            raise ValueError("A hypothesis value must be an exact Fraction in [-1, 1].")
+        if self.predicate == "equal_proportions" and self.value != 0:
+            raise ValueError("Equal proportions require zero difference.")
+
+    @property
+    def statement(self) -> str:
+        if self.predicate == "equal_proportions":
+            return "p_treatment = p_control"
+        operator = "=" if self.predicate == "proportion_difference" else "<="
+        return f"p_treatment - p_control {operator} {self.value}"
 
 
 @dataclass(frozen=True)
@@ -52,6 +76,10 @@ class AnalysisIR:
     plan: PlanIR
     hypothesis: HypothesisIR
     alpha: Fraction
+
+    def __post_init__(self):
+        if not FISHER_CONTRACT.accepts(self.plan, self.hypothesis):
+            raise ValueError("A Fisher analysis requires its design's equal-proportions null.")
 
     def lower(self) -> Design:
         return Design(
@@ -90,6 +118,7 @@ class LocatedValue:
     value: object
     span: Span
     name: str | None = None
+    definition_span: Span | None = None
 
 
 @dataclass(frozen=True)
@@ -201,8 +230,11 @@ def normalize(value: object) -> object:
             return {"module": "two_arm_binomial", "n_control": nc, "n_treatment": nt}
         case PlanIR(model=model, stopping=stopping):
             return {"model": normalize(model), "stopping": stopping}
-        case HypothesisIR(model=model):
-            return {"predicate": "equal_proportions", "model": normalize(model)}
+        case HypothesisIR(model=model, predicate=predicate, value=bound):
+            result = {"predicate": predicate, "model": normalize(model)}
+            if predicate != "equal_proportions":
+                result["value"] = str(bound)
+            return result
         case AnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
             return {
                 "test": "fisher",
@@ -251,6 +283,8 @@ class Constructor:
     parameters: tuple[Parameter, ...]
     result: str
     build: Callable[[dict[str, LocatedValue], Span], object]
+    hypothesis_contract: HypothesisContract | None = None
+    documentation: str = ""
 
     @property
     def signature(self) -> str:
@@ -276,14 +310,23 @@ def _model(arguments: dict[str, LocatedValue], span: Span) -> ModelIR:
 
 def _fisher(arguments: dict[str, LocatedValue], span: Span) -> AnalysisIR:
     plan, hypothesis = arguments["design"].value, arguments["null"].value
-    if plan.model != hypothesis.model:
-        fail(
-            "model_mismatch",
-            "The null hypothesis belongs to a different model. "
-            "Declare equal_proportions for this design's model.",
-            arguments["null"].span,
-        )
     return AnalysisIR(plan, hypothesis, arguments["alpha"].value)
+
+
+def _difference(predicate: str) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> HypothesisIR:
+        bound = arguments["value"]
+        if not -1 <= bound.value <= 1:
+            fail("domain", "A proportion-difference value must lie in [-1, 1].", bound.span)
+        # This alias is backed by proportionDifference_zero_iff in the Lean model.
+        canonical = (
+            "equal_proportions"
+            if predicate == "proportion_difference" and bound.value == 0
+            else predicate
+        )
+        return HypothesisIR(arguments["model"].value, canonical, bound.value)
+
+    return build
 
 
 def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyIR:
@@ -337,9 +380,22 @@ def _claim(kind: str, argument: str) -> Callable:
 
 
 def _constructor(
-    name: str, parameters: tuple[tuple[str, str | type], ...], result: str, build: Callable
+    name: str,
+    parameters: tuple[tuple[str, str | type], ...],
+    result: str,
+    build: Callable,
+    *,
+    hypothesis_contract: HypothesisContract | None = None,
+    documentation: str = "",
 ) -> Constructor:
-    return Constructor(name, tuple(Parameter(*p) for p in parameters), result, build)
+    return Constructor(
+        name,
+        tuple(Parameter(*p) for p in parameters),
+        result,
+        build,
+        hypothesis_contract,
+        documentation,
+    )
 
 
 def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
@@ -387,6 +443,26 @@ MODULES = {
                     (("model", ModelIR),),
                     "Hypothesis",
                     lambda args, span: HypothesisIR(args["model"].value),
+                    documentation="Null: p_treatment = p_control. This declares a restriction "
+                    "under which a guarantee is requested, not that the null is true.",
+                ),
+                _constructor(
+                    "proportion_difference",
+                    (("model", ModelIR), ("value", "number")),
+                    "Hypothesis",
+                    _difference("proportion_difference"),
+                    documentation="Null: p_treatment - p_control = value. The difference is "
+                    "absolute, not a relative percentage; value is exact and lies in [-1, 1]. "
+                    "A zero difference is the equal-proportions null.",
+                ),
+                _constructor(
+                    "proportion_difference_at_most",
+                    (("model", ModelIR), ("value", "number")),
+                    "Hypothesis",
+                    _difference("proportion_difference_at_most"),
+                    documentation="Null: p_treatment - p_control <= value. This is an inequality "
+                    "null, including when value=0; it is not the equality null supported by "
+                    "the current two-sided Fisher analysis.",
                 ),
             ),
         ),
@@ -415,6 +491,8 @@ MODULES = {
                     (("design", PlanIR), ("null", HypothesisIR), ("alpha", "level")),
                     "Analysis",
                     _fisher,
+                    hypothesis_contract=FISHER_CONTRACT,
+                    documentation=FISHER_CONTRACT.guidance,
                 ),
                 _constructor(
                     "observe",
@@ -460,7 +538,15 @@ MODULES = {
 
 def module_catalog() -> list[dict]:
     return [
-        {"module": module.name, "constructors": [c.signature for c in module.constructors]}
+        {
+            "module": module.name,
+            "constructors": [c.signature for c in module.constructors],
+            "contracts": {
+                c.name: c.hypothesis_contract.to_dict()
+                for c in module.constructors
+                if c.hypothesis_contract
+            },
+        }
         for module in MODULES.values()
     ]
 
@@ -471,7 +557,7 @@ def _typed(argument: LocatedValue, kind: str | type, name: str) -> LocatedValue:
         actual = value.value_type
         valid = not actual.optional and (
             actual.kind in (int, Fraction)
-            if kind == "level"
+            if kind in ("level", "number")
             else actual.kind is int
             if kind == "integer"
             else actual.kind is str
@@ -492,6 +578,12 @@ def _typed(argument: LocatedValue, kind: str | type, name: str) -> LocatedValue:
         except ValueError as error:
             fail("domain", f"{name}: {error}", argument.span)
         return LocatedValue(value, argument.span, argument.name)
+    if kind == "number":
+        if type(value) is int:
+            value = Fraction(value)
+        if not isinstance(value, Fraction):
+            fail("type", f"{name} expects an exact number.", argument.span)
+        return LocatedValue(value, argument.span, argument.name, argument.definition_span)
     valid = (
         (type(value) is int)
         if kind == "integer"
@@ -528,14 +620,31 @@ class Elaborator:
                     fail("dependency", f"{name!r} depends on an invalid declaration.", span)
                 if name not in self.symbols:
                     fail("unknown_name", f"Unknown name {name!r}. Declare it before use.", span)
-                return LocatedValue(self.symbols[name].value, span, name)
+                binding = self.symbols[name]
+                origin = next(
+                    (
+                        b.span
+                        for b in self.symbols.values()
+                        if b.value is binding.value and b.argument_sources
+                    ),
+                    binding.span,
+                )
+                return LocatedValue(binding.value, span, name, origin)
             case ListExpr(items=items, span=span):
                 return LocatedValue(tuple(self.evaluate(item) for item in items), span)
             case FieldAccess(subject=subject, name=name, name_span=name_span):
                 from statproof.language_fields import project
 
                 value = project(self.evaluate(subject).value, name, name_span, self.requests)
-                return LocatedValue(value, expression.span)
+                origin = next(
+                    (
+                        b.span
+                        for b in self.symbols.values()
+                        if b.value is value and b.argument_sources
+                    ),
+                    None,
+                )
+                return LocatedValue(value, expression.span, definition_span=origin)
             case Call(name=name, arguments=arguments, span=span):
                 if name not in self.constructors:
                     owner = next(
@@ -583,6 +692,8 @@ class Elaborator:
                             "bind or inspect this runtime field instead.",
                             argument.span,
                         )
+                if constructor.hypothesis_contract:
+                    constructor.hypothesis_contract.check(name, fields)
                 value = constructor.build(fields, span)
                 if name in OPERATIONS:
                     self.requests.append(RequestIR(name, value, span))

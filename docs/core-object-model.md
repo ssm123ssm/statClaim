@@ -7,6 +7,10 @@ separation between declaration and execution. A stdio LSP and VS Code integratio
 provide editor guidance and a Claims view with snapshot-scoped evidence;
 interactive REPL sessions remain planned. See the [file-language guide](stat-language.md)
 and [editor guide](editor.md).
+Structured equality, shifted-difference, and inequality nulls now support explicit
+analysis/hypothesis compatibility checks. The Fisher adapter accepts only its
+equality contract, including the Lean-checked exact-zero alias. See
+[hypothesis contracts](hypothesis-contracts.md).
 This document remains the semantic design and comparison plan; the
 [Lean object guide](lean-objects.md) describes the implemented API and examples.
 

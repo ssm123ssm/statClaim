@@ -1,0 +1,9 @@
+# A one-sided null is not an equality null, including at zero difference.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=100, n_treatment=100)
+let plan = fixed(model=study)
+let null = proportion_difference_at_most(model=study, value=0)
+let analysis = fisher(design=plan, null=null, alpha=0.05)

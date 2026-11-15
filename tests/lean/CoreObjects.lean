@@ -113,3 +113,21 @@ def identityResult : Result identityAnalysis := ⟨observed, observed.val⟩
 example : identityResult.exactClaim.statement := rfl
 
 end StatProof.Tests.CoreObjects
+
+namespace StatProof.Tests.HypothesisContracts
+
+open StatProof.Modules.TwoArmBinomial
+
+example (parameter : Parameters) :
+    proportionDifference 0 parameter ↔ equalProportions parameter :=
+  proportionDifference_zero_iff parameter
+
+example (parameter : Parameters)
+    (h : (parameter.2 : ℝ) < (parameter.1 : ℝ)) :
+    proportionDifferenceAtMost 0 parameter ∧ ¬ equalProportions parameter := by
+  constructor
+  · simpa [proportionDifferenceAtMost] using (sub_nonpos.mpr (le_of_lt h))
+  · intro equal
+    exact (ne_of_lt h) equal.symm
+
+end StatProof.Tests.HypothesisContracts

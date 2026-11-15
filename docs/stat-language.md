@@ -1,6 +1,6 @@
 # The statistical file-language prototype
 
-Language version `0.3.0` provides a small declaration grammar over the existing
+Language version `0.4.0` provides a small declaration grammar over the existing
 statistical objects and Lean backend. Claims, verification results, and calculation
 results are first-class values. The statistical language is the researcher-facing
 interface; the Lean and TOML interfaces remain supported.
@@ -84,16 +84,18 @@ escapes. Rational denominators must be nonzero; levels must be in `[0,1]`.
 
 | Module | Constructors and claims |
 | --- | --- |
-| `models.two_arm_binomial` | `two_arm_binomial(n_control, n_treatment)`, `equal_proportions(model)` |
+| `models.two_arm_binomial` | `two_arm_binomial(n_control, n_treatment)`, `equal_proportions(model)`, `proportion_difference(model, value)`, `proportion_difference_at_most(model, value)` |
 | `sampling` | `fixed(model)`, `adaptive(model)` |
 | `tests.fisher` | `fisher(design, null, alpha)`, `observe(analysis, control_successes, treatment_successes)`, `typeI(analysis)`, `result(observation)` |
 | `multiplicity.bonferroni` | `bonferroni(analyses, alpha, joint_law)`, `familywise(family)` |
 
 The intermediate representation distinguishes models, sampling plans, hypotheses,
 analyses, observations, families, and claim requests. Its source map retains
-declaration and argument locations and named dependencies. The only supported
-hypothesis constructor currently denotes equality of arm probabilities; it does
-not turn a hypothesis into an assumed fact.
+declaration and argument locations and named dependencies. Hypotheses describe
+parameter restrictions without asserting their truth. Analysis constructors have
+explicit supported-hypothesis contracts; the current Fisher analysis supports
+equal proportions. See [hypothesis compatibility](hypothesis-contracts.md) for
+same-model mismatches, source guidance, and the exact zero-difference alias.
 
 The supported binomial model descriptions are matched structurally by their sizes.
 Reusing a model or plan reuses its distributional specification. It does not prove

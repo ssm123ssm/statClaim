@@ -13,7 +13,7 @@ from statproof.lsp_features import Document, TextMap
 
 ROOT = Path(__file__).resolve().parents[1]
 URI = "file:///tmp/statproof%20study.stat"
-BASE = (ROOT / "examples/fisher.stat").read_text()
+BASE = (ROOT / "tests/fixtures/fisher.stat").read_text()
 PREFIX = BASE[: BASE.index("let analysis")]
 
 

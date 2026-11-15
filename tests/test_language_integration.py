@@ -31,8 +31,17 @@ pytestmark = [
 def language_runs(tmp_path_factory):
     directory = tmp_path_factory.mktemp("language")
     reports = {}
-    for name in ("fisher", "two_outcomes", "fisher_result", "first_class", "fields"):
-        path = ROOT / f"examples/{name}.stat"
+    for name in (
+        "fisher",
+        "two_outcomes",
+        "fisher_result",
+        "first_class",
+        "fields",
+        "hypothesis_zero",
+    ):
+        path = ROOT / (
+            "tests/fixtures/fisher.stat" if name == "fisher" else f"examples/{name}.stat"
+        )
         report = check_source(
             Source(path.read_text(), str(path)), project=ROOT, output=directory / name
         )
@@ -180,3 +189,15 @@ def test_real_verification_fields_match_checked_evidence_and_exact_calculation(l
         recheck_certificate(Path(values["certificate_file"]).parent, project=ROOT)["status"]
         == "verified"
     )
+
+
+def test_zero_difference_alias_issues_only_the_existing_equality_guarantee(language_runs):
+    report = language_runs["hypothesis_zero"]
+    value = report["values"]["checked"]
+    assert value["status"] == "verified"
+    assert value["claim"]["subject"]["null"]["predicate"] == "equal_proportions"
+    certificate_path = Path(value["evidence"]["certificate"]["file"])
+    certificate = json.loads(certificate_path.read_text())
+    reference = language_runs["fisher"]["requests"][0]["report"]["certificate"]["file"]
+    assert certificate["inputs"] == json.loads(Path(reference).read_text())["inputs"]
+    assert recheck_certificate(certificate_path.parent, project=ROOT)["status"] == "verified"

@@ -68,6 +68,9 @@ to inspect each claim, its requirements/assumptions, and matching explicit check
 results. Old results move to a separate historical section after edits.
 See [public fields and the Claims view](fields-and-claims.md) for the detailed
 workflow, optional evidence semantics, and `examples/fields.stat`.
+For same-study hypothesis incompatibility, open `examples/hypothesis_mismatch.stat`.
+Its diagnostic compares the declared and supported nulls and links the original
+declaration. See the [hypothesis contract guide](hypothesis-contracts.md).
 
 ## Run verification explicitly
 

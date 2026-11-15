@@ -18,6 +18,7 @@ run_cmd do
     ``StatProof.hypergeometricMass_eq_of_cross_product,
     ``StatProof.Core.no_compatibility_without_law,
     ``StatProof.Modules.TwoArmBinomial.law_under_null,
+    ``StatProof.Modules.TwoArmBinomial.proportionDifference_zero_iff,
     ``StatProof.Modules.Fisher.rejectionEvent_eq,
     ``StatProof.Modules.Fisher.typeI_statement,
     ``StatProof.Modules.Fisher.adaptive_requirement_missing,
