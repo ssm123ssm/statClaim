@@ -117,7 +117,15 @@ class Call:
     span: Span
 
 
-type Expression = Literal | Reference | ListExpr | Call
+@dataclass(frozen=True)
+class FieldAccess:
+    subject: "Expression"
+    name: str
+    name_span: Span
+    span: Span
+
+
+type Expression = Literal | Reference | ListExpr | Call | FieldAccess
 
 
 @dataclass(frozen=True)
@@ -132,7 +140,7 @@ _TOKEN = re.compile(
     r"(?P<SPACE>[ \t\r]+)|(?P<COMMENT>\#[^\n]*)|(?P<NEWLINE>\n)|"
     r'(?P<STRING>"(?:[^"\\\n]|\\[^\n])*")|(?P<NUMBER>-?\d+(?:\.\d+)?)|'
     r"(?P<NAME>[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*)*)|"
-    r"(?P<PUNCT>[()\[\],=/])"
+    r"(?P<PUNCT>[()\[\],=/.])"
 )
 
 
@@ -183,6 +191,25 @@ class Parser:
             self.position += 1
 
     def expression(self) -> Expression:
+        value = self.atom()
+        while self.current.kind == ".":
+            self.take(".")
+            name = self.take("NAME", "Expected a field name after '.'.")
+            value = self.fields(value, name)
+        return value
+
+    @staticmethod
+    def fields(value: Expression, token: Token) -> Expression:
+        column = token.span.column
+        for name in token.text.split("."):
+            span = Span(
+                token.span.path, token.span.line, column, token.span.end_line, column + len(name)
+            )
+            value = FieldAccess(value, name, span, Parser.join(value.span, span))
+            column += len(name) + 1
+        return value
+
+    def atom(self) -> Expression:
         token = self.current
         if token.kind == "NUMBER":
             self.take("NUMBER")
@@ -231,7 +258,25 @@ class Parser:
         if token.kind == "NAME":
             self.take("NAME")
             if self.current.kind != "(":
-                return Reference(token.text, token.span)
+                first, _, rest = token.text.partition(".")
+                span = Span(
+                    token.span.path,
+                    token.span.line,
+                    token.span.column,
+                    token.span.line,
+                    token.span.column + len(first),
+                )
+                value = Reference(first, span)
+                if rest:
+                    tail_span = Span(
+                        token.span.path,
+                        token.span.line,
+                        span.end_column + 1,
+                        token.span.end_line,
+                        token.span.end_column,
+                    )
+                    value = self.fields(value, Token("NAME", rest, tail_span))
+                return value
             self.take("(")
             arguments = []
             named = False

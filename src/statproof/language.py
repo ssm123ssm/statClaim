@@ -16,6 +16,7 @@ from statproof.language_syntax import (
     Call,
     Diagnostic,
     Expression,
+    FieldAccess,
     LanguageError,
     ListExpr,
     Literal,
@@ -26,7 +27,7 @@ from statproof.language_syntax import (
     parse,
 )
 
-LANGUAGE_VERSION = "0.2.0"
+LANGUAGE_VERSION = "0.3.0"
 
 
 @dataclass(frozen=True)
@@ -120,6 +121,43 @@ class CalculationResultIR:
 
 
 @dataclass(frozen=True)
+class ValueType:
+    kind: str | type
+    optional: bool = False
+
+    @property
+    def label(self) -> str:
+        name = (
+            self.kind
+            if isinstance(self.kind, str)
+            else {
+                str: "string",
+                int: "integer",
+                Fraction: "exact number",
+                bool: "boolean",
+                PlanIR: "StudyDesign",
+            }.get(self.kind, self.kind.__name__.removesuffix("IR"))
+        )
+        return f"Option[{name}]" if self.optional else name
+
+
+@dataclass(frozen=True)
+class FieldIR:
+    subject: object
+    name: str
+    value_type: ValueType
+    span: Span
+
+
+def is_deferred(value: object) -> bool:
+    if isinstance(value, FieldIR):
+        return True
+    return isinstance(value, tuple) and any(
+        is_deferred(item.value if isinstance(item, LocatedValue) else item) for item in value
+    )
+
+
+@dataclass(frozen=True)
 class ProgramIR:
     modules: tuple[str, ...]
     bindings: tuple[BindingIR, ...]
@@ -132,7 +170,9 @@ class ProgramIR:
             "bindings": [
                 {
                     "name": b.name,
-                    "type": type(b.value).__name__,
+                    "type": b.value.value_type.label
+                    if isinstance(b.value, FieldIR)
+                    else type(b.value).__name__,
                     "value": normalize(b.value),
                     "source": b.span.to_dict(),
                     "dependencies": list(b.dependencies),
@@ -191,6 +231,8 @@ def normalize(value: object) -> object:
             return {"kind": kind, "subject_name": name, "subject": normalize(subject)}
         case VerificationResultIR(request_id=index) | CalculationResultIR(request_id=index):
             return {"request_id": index}
+        case FieldIR(subject=subject, name=name, value_type=value_type):
+            return {"field": name, "subject": normalize(subject), "value_type": value_type.label}
         case tuple():
             return [normalize(item.value) for item in value]
         case _:
@@ -425,6 +467,23 @@ def module_catalog() -> list[dict]:
 
 def _typed(argument: LocatedValue, kind: str | type, name: str) -> LocatedValue:
     value = argument.value
+    if isinstance(value, FieldIR):
+        actual = value.value_type
+        valid = not actual.optional and (
+            actual.kind in (int, Fraction)
+            if kind == "level"
+            else actual.kind is int
+            if kind == "integer"
+            else actual.kind is str
+            if kind == "string"
+            else actual.kind == "list"
+            if kind == "list"
+            else isinstance(actual.kind, type) and issubclass(actual.kind, kind)
+        )
+        if not valid:
+            expected = kind if isinstance(kind, str) else kind.__name__.removesuffix("IR")
+            fail("type", f"{name} expects {expected}; received {actual.label}.", argument.span)
+        return argument
     if kind == "level":
         if type(value) is int:
             value = Fraction(value)
@@ -472,6 +531,11 @@ class Elaborator:
                 return LocatedValue(self.symbols[name].value, span, name)
             case ListExpr(items=items, span=span):
                 return LocatedValue(tuple(self.evaluate(item) for item in items), span)
+            case FieldAccess(subject=subject, name=name, name_span=name_span):
+                from statproof.language_fields import project
+
+                value = project(self.evaluate(subject).value, name, name_span, self.requests)
+                return LocatedValue(value, expression.span)
             case Call(name=name, arguments=arguments, span=span):
                 if name not in self.constructors:
                     owner = next(
@@ -510,6 +574,15 @@ class Elaborator:
                         f"Missing {', '.join(missing)}. Expected {constructor.signature}.",
                         span,
                     )
+                for key, argument in fields.items():
+                    if is_deferred(argument.value):
+                        fail(
+                            "runtime_dependency",
+                            f"{key} depends on execution. "
+                            "Statistical constructors require inputs known during compilation; "
+                            "bind or inspect this runtime field instead.",
+                            argument.span,
+                        )
                 value = constructor.build(fields, span)
                 if name in OPERATIONS:
                     self.requests.append(RequestIR(name, value, span))
@@ -578,6 +651,8 @@ def references(expression: Expression) -> list[str]:
     match expression:
         case Reference(name=name):
             return [name]
+        case FieldAccess(subject=subject):
+            return references(subject)
         case Call(arguments=arguments):
             return list(
                 dict.fromkeys(name for argument in arguments for name in references(argument.value))

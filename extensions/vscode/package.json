@@ -15,7 +15,8 @@
   "activationEvents": [
     "onLanguage:statproof",
     "onCommand:statproof.verifyFile",
-    "onCommand:statproof.restartServer"
+    "onCommand:statproof.restartServer",
+    "onView:statproof.claims"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -23,6 +24,7 @@
     }
   },
   "contributes": {
+    "views": { "explorer": [{ "id": "statproof.claims", "name": "StatProof Claims" }] },
     "languages": [
       {
         "id": "statproof",
@@ -51,6 +53,10 @@
       {
         "command": "statproof.restartServer",
         "title": "StatProof: Restart Language Server"
+      },
+      {
+        "command": "statproof.showClaims",
+        "title": "StatProof: Show Claims"
       }
     ],
     "configuration": {
@@ -70,9 +76,9 @@
     }
   },
   "scripts": {
-    "check": "node --check extension.js && node --check test/suite.js && node --check test/run.js",
+    "check": "node --check extension.js && node --check claims-model.js && node --check claims-view.js && node --check test/suite.js && node --check test/run.js",
     "test": "node test/run.js",
-    "test:unit": "node --test test/grammar.test.js"
+    "test:unit": "node --test test/*.test.js"
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"

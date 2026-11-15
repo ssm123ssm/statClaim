@@ -1,0 +1,25 @@
+# Static object fields are available during compilation.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=100, n_treatment=100)
+let plan = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(plan, null, alpha=0.05)
+let declared_alpha = analysis.alpha
+let control_size = analysis.design.model.n_control
+
+let claim = typeI(analysis)
+let verification = verify(claim)
+let status = verification.status
+let evidence = verification.evidence
+let certificate_file = evidence.certificate.file
+let certificate_hash = evidence.certificate.sha256
+let checked_assumptions = evidence.required_assumptions
+
+# Runtime fields stay deferred during compile; calculations supply no evidence.
+let data = observe(analysis, control_successes=10, treatment_successes=25)
+let computation = calculate(result(data))
+let p_value = computation.calculation.p_value
+let decision = computation.decision

@@ -2,12 +2,15 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from fractions import Fraction
 from types import MappingProxyType
 
 from statproof.language import (
     CalculationResultIR,
     ClaimIR,
+    FieldIR,
     LocatedValue,
+    ValueType,
     VerificationResultIR,
     normalize,
 )
@@ -28,6 +31,70 @@ def thaw(value: object) -> object:
     if isinstance(value, tuple):
         return [thaw(item) for item in value]
     return value
+
+
+@dataclass(frozen=True)
+class CertificateReference:
+    certificate_id: str
+    directory: str
+    file: str
+    sha256: str
+
+    def to_dict(self):
+        return {
+            name: getattr(self, name) for name in ("certificate_id", "directory", "file", "sha256")
+        }
+
+
+@dataclass(frozen=True)
+class CalculationDetails:
+    record: Mapping
+
+    def __post_init__(self):
+        object.__setattr__(self, "record", freeze(self.record))
+
+    @property
+    def p_value(self):
+        return Fraction(self.record["p_value"]["fraction"])
+
+    @property
+    def alpha(self):
+        return Fraction(self.record["alpha"]["fraction"])
+
+    @property
+    def observed_table_probability(self):
+        return Fraction(self.record["observed_table_probability"]["fraction"])
+
+    @property
+    def p_value_le_alpha(self):
+        return self.record["p_value_le_alpha"]
+
+    @property
+    def test(self):
+        return self.record["test"]
+
+    @property
+    def test_version(self):
+        return self.record["test_version"]
+
+    def to_dict(self):
+        return thaw(self.record)
+
+
+@dataclass(frozen=True)
+class PendingField:
+    request_id: int
+    path: tuple[str, ...]
+    value_type: ValueType
+
+    def to_dict(self):
+        return {
+            "type": "DeferredValue",
+            "request_id": self.request_id,
+            "field": ".".join(self.path),
+            "value_type": self.value_type.label,
+            "status": "not_executed",
+        }
 
 
 @dataclass(frozen=True)
@@ -116,13 +183,41 @@ def resolve(value: object, results: Mapping[int, ExecutionResult]) -> object:
     """Resolve aliases and nested lists without ever executing an operation."""
     if isinstance(value, (VerificationResultIR, CalculationResultIR)):
         return results[value.request_id]
+    if isinstance(value, FieldIR):
+        from statproof.language_fields import read_field
+
+        subject = resolve(value.subject, results)
+        if isinstance(subject, PendingField):
+            return PendingField(subject.request_id, (*subject.path, value.name), value.value_type)
+        if (
+            isinstance(subject, (VerificationResult, CalculationResult))
+            and subject.status == "not_executed"
+        ):
+            return PendingField(subject.request_id, (value.name,), value.value_type)
+        if subject is None and value.value_type.optional:
+            return None
+        return read_field(subject, value.name, value.span)
     if isinstance(value, tuple):
-        return tuple(resolve(item.value, results) for item in value)
+        return tuple(
+            resolve(item.value if isinstance(item, LocatedValue) else item, results)
+            for item in value
+        )
     return value
 
 
 def serialize(value: object) -> object:
-    if isinstance(value, (VerificationResult, CalculationResult)):
+    if isinstance(
+        value,
+        (
+            VerificationResult,
+            CalculationResult,
+            Evidence,
+            CertificateReference,
+            CalculationDetails,
+            PendingField,
+            Diagnostic,
+        ),
+    ):
         return value.to_dict()
     if isinstance(value, tuple):
         return [serialize(item.value if isinstance(item, LocatedValue) else item) for item in value]

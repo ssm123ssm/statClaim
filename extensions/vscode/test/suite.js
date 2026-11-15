@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vscode = require('vscode');
+const labels = nodes => nodes.flatMap(node => [node.label, ...labels(node.children || [])]);
 
 async function until(callback, description, timeout = 15000) {
   const start = Date.now();
@@ -51,7 +52,11 @@ async function run() {
   console.log('PASS: modules, named arguments, and typed objects in incomplete input');
 
   const source = base.replace('verify typeI(analysis)',
-    'let validity = typeI(analysis)\nlet checked = verify(validity)');
+    'let validity = typeI(analysis)\nlet checked = verify(validity)\n' +
+    'let state = checked.status\nlet proof = checked.evidence\nlet certificate_file = proof.certificate.file\n' +
+    'let reasons = checked.diagnostics');
+  items = await completion(source + '\nlet more = checked.evidence.');
+  assert.ok(items.items.some(item => item.label === 'certificate' && item.detail === 'Option[CertificateReference]'));
   await replace(source);
   await until(() => diagnostics().length === 0, 'diagnostic clearing');
   const usage = source.indexOf('verify(validity)') + 'verify('.length;
@@ -63,14 +68,31 @@ async function run() {
   assert.equal(definitions[0].range.start.line, document.positionAt(source.indexOf('let plan')).line);
   console.log('PASS: hover meanings, definition lookup, and obsolete diagnostics cleared');
 
+  await vscode.commands.executeCommand('statproof.showClaims');
+  await until(() => labels(api.getClaims()).some(label => label.includes('validity — typeI')), 'current claims view');
+  assert.ok(!labels(api.getClaims()).includes('Checked evidence'));
+  await replace(source.replace('fixed(', 'adaptive('));
+  await until(() => labels(api.getClaims()).some(label => label.includes('sampling_scope')), 'requirements in claims view');
+  assert.ok(!labels(api.getClaims()).includes('Checked evidence'));
+  await replace(source);
+  await until(() => !labels(api.getClaims()).some(label => label.includes('sampling_scope')), 'requirements clear after edit');
+  console.log('PASS: typed field completion and live claims/requirements without verification');
+  await vscode.window.showTextDocument(document);
+
   const result = await vscode.commands.executeCommand('statproof.verifyFile');
   assert.equal(result.status, 'verified');
   assert.equal(result.sha256, result.report.source.sha256);
   assert.ok(result.report.values.checked.evidence.certificate.file);
+  assert.equal(result.report.values.state, 'verified');
+  assert.equal(result.report.values.certificate_file, result.report.values.checked.evidence.certificate.file);
+  await until(() => labels(api.getClaims()).includes('Checked evidence'), 'current checked evidence in claims view');
   const checkedVersion = result.version;
   await replace(source + '\n# changed after verification\n');
   await until(() => api.getVerificationState(document.uri)?.status === 'stale', 'stale status');
   assert.equal(api.getVerificationState(document.uri).version, checkedVersion);
+  await until(() => labels(api.getClaims()).includes('Historical evidence — previous snapshot only'), 'historical evidence');
+  const currentNodes = api.getClaims().filter(node => !node.label.startsWith('Previous execution'));
+  assert.ok(!labels(currentNodes).includes('Checked evidence'));
   console.log('PASS: explicit real Lean verification and stale snapshot status');
 
   await replace(source);
@@ -96,6 +118,17 @@ async function run() {
   assert.equal(restartedCheck.status, 'stale');
   assert.equal(restartedCheck.report.status, 'verified');
   console.log('PASS: a server restart during verification cannot restore a current proof status');
+
+  await replace(source.replace('fixed(', 'adaptive('));
+  const blocked = await vscode.commands.executeCommand('statproof.verifyFile');
+  assert.equal(blocked.status, 'unresolved_obligation');
+  assert.equal(blocked.report.backend_invoked, false);
+  assert.equal(blocked.report.values.proof, null);
+  assert.equal(blocked.report.values.certificate_file, null);
+  assert.equal(blocked.report.values.reasons[0].code, 'sampling_scope');
+  await until(() => labels(api.getClaims()).some(label => label.includes('sampling_scope')), 'failed check view');
+  assert.ok(!labels(api.getClaims()).includes('Checked evidence'));
+  console.log('PASS: failed checks expose projected diagnostics and no evidence in language or view');
 
   await document.save();
   fs.writeFileSync(path.join(directory, 'test-result.json'), JSON.stringify({ passed: true, version: checkedVersion, certificate: result.report.values.checked.evidence.certificate }, null, 2));

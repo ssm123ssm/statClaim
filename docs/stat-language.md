@@ -1,6 +1,6 @@
 # The statistical file-language prototype
 
-Language version `0.2.0` provides a small declaration grammar over the existing
+Language version `0.3.0` provides a small declaration grammar over the existing
 statistical objects and Lean backend. Claims, verification results, and calculation
 results are first-class values. The statistical language is the researcher-facing
 interface; the Lean and TOML interfaces remain supported.
@@ -57,7 +57,7 @@ verify(claim_expression)
 calculate(claim_expression)
 ```
 
-Expressions are references, calls, lists, integers, exact decimals or rational
+Expressions are references, calls, public field projections, lists, integers, exact decimals or rational
 numbers, and double-quoted strings. Calls accept positional arguments followed
 by named arguments. For example, `two_arm_binomial(100, 100)` is equivalent to
 the named call above. Calls and lists can span lines and have trailing commas.
@@ -146,9 +146,11 @@ where a claim or an analysis is expected.
 Calculation results carry the exact numerical calculation and, when supported,
 the decision. Their status is `calculated` or `unresolved_obligation`; they contain
 no formal evidence. All result values are immutable and identify the source hash
-for their execution. Reports expose their fields through `--json`; field access
-in `.stat` expressions, user-defined functions, functions as values, and operations
-that consume checked evidence are future language features. The built-in names
+for their execution. Public fields can be projected in `.stat` expressions and
+inspected through `--json`. See [public fields and the Claims view](fields-and-claims.md)
+for optional evidence, compilation versus execution, and the field schema.
+User-defined functions, functions as values, and operations that consume checked
+evidence remain future work. The built-in names
 `verify` and `calculate` cannot be used as binding names.
 
 ## Compilation and explicit execution
@@ -298,7 +300,9 @@ With no requests, the status is only `elaborated`, and no artifacts are written.
 
 `language_syntax.py` handles the common grammar and source spans. `language.py`
 defines typed objects, constructor schemas, module builders, elaboration, and
-planned operation slots. `language_compiler.py` exposes backend-free compilation
+planned operation slots. `language_fields.py` is the shared public field schema.
+`language_inspection.py` supplies pure claim descriptions and requirements for
+reports and the IDE Claims view. `language_compiler.py` exposes backend-free compilation
 and known requirement diagnostics. `language_values.py` defines immutable runtime
 results and evidence. `language_runner.py` lowers supported claim kinds into the
 existing design, family, and result operations and resolves named execution values.

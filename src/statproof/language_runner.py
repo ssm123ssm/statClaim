@@ -5,8 +5,6 @@ import math
 import tempfile
 from pathlib import Path
 
-from statproof.design import inspect_design
-from statproof.family import inspect_family
 from statproof.language import (
     LANGUAGE_VERSION,
     AnalysisIR,
@@ -15,6 +13,7 @@ from statproof.language import (
     RequestIR,
 )
 from statproof.language_compiler import compile_source
+from statproof.language_inspection import inspect_request
 from statproof.language_syntax import Diagnostic, Source, Span
 from statproof.language_values import (
     CalculationResult,
@@ -45,27 +44,6 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
     return verify_design(
         subject.analysis.lower(), **options, project=project, output=output, timeout=timeout
     )
-
-
-def _inspection(request: RequestIR) -> dict:
-    subject = request.claim.subject
-    if isinstance(subject, FamilyIR):
-        return inspect_family(subject.lower())
-    analysis = subject.analysis if isinstance(subject, ObservationIR) else subject
-    report = inspect_design(analysis.lower())
-    if isinstance(subject, ObservationIR):
-        report["verification_scope"] = "result"
-        report["target_property"] = (
-            "Exact p-value, table probability, support, and decision for "
-            f"counts ({subject.control_successes}, {subject.treatment_successes}) "
-            f"at alpha {analysis.alpha}."
-        )
-        report["target_property"] += (
-            " Calculate only; no formal evidence."
-            if request.operation == "calculate"
-            else " Also check the model's Type I bound."
-        )
-    return report
 
 
 def _result_value(
@@ -147,7 +125,7 @@ def check_source(
         for index, (request, blockers) in enumerate(
             zip(program.requests, obligations, strict=True), 1
         ):
-            details = _inspection(request)
+            details = inspect_request(request)
             value = _result_value(index, request, source_id, "not_executed", {}, blockers)
             values[index] = value
             report["requests"].append(
@@ -187,7 +165,7 @@ def check_source(
     for index, (request, blockers) in enumerate(zip(program.requests, obligations, strict=True), 1):
         request_diagnostics = list(blockers)
         if blockers:
-            result = _inspection(request)
+            result = inspect_request(request)
             status = "unresolved_obligation"
         else:
             result = _run_request(request, project, directory / f"request-{index:03d}", timeout)

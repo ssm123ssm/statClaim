@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const { LanguageClient } = require('vscode-languageclient/node');
+const { ClaimsView } = require('./claims-view');
 
 const hash = text => createHash('sha256').update(text, 'utf8').digest('hex');
 let client;
@@ -20,7 +21,9 @@ async function activate(context) {
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 20);
   const states = new Map();
   let generation = 0;
+  let claimsView;
   function refresh() {
+    claimsView?.schedule();
     const document = vscode.window.activeTextEditor?.document;
     if (!document || document.languageId !== 'statproof') { statusBar.hide(); return; }
     const state = states.get(document.uri.toString());
@@ -92,7 +95,7 @@ async function activate(context) {
           hash(document.getText()) !== sha256 || (report && (
             report.source?.sha256 !== sha256 || report.status === 'stale_source')));
         const state = { status: stale ? 'stale' : status, version, sha256, stale };
-        states.set(key, state);
+        states.set(key, { ...state, report });
         output.appendLine(`Result: ${state.status}; checked version ${version}, exit ${code}.`);
         refresh();
         resolve({ ...state, report });
@@ -108,14 +111,27 @@ async function activate(context) {
     outputChannel: output
   });
   await client.start();
+  claimsView = new ClaimsView(client, states, hash);
+  const tree = vscode.window.createTreeView('statproof.claims', { treeDataProvider: claimsView });
+  context.subscriptions.push(claimsView, tree,
+    vscode.commands.registerCommand('statproof.showClaims', () => vscode.commands.executeCommand('statproof.claims.focus')),
+    vscode.commands.registerCommand('statproof.revealLocation', async location => {
+      const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(location.uri));
+      await vscode.window.showTextDocument(document, { selection: new vscode.Range(
+        location.range.start.line, location.range.start.character,
+        location.range.end.line, location.range.end.character) });
+    })
+  );
   context.subscriptions.push(vscode.commands.registerCommand('statproof.restartServer', async () => {
     generation += 1;
     for (const [key, state] of states) states.set(key, { ...state, status: 'stale', stale: true });
     refresh();
     await client.restart();
+    claimsView.schedule();
   }));
   refresh();
-  return { ready: true, project, getVerificationState: uri => states.get(uri.toString()) };
+  return { ready: true, project, getVerificationState: uri => states.get(uri.toString()),
+    getClaims: () => claimsView.roots };
 }
 
 async function deactivate() {

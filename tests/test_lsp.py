@@ -408,3 +408,79 @@ def test_position_map_clamps_to_content_and_never_splits_surrogates():
     assert mapping.offset({"line": 0, "character": 2}) == 1
     assert mapping.offset({"line": 0, "character": 100}) == 2
     assert mapping.offset({"line": 100, "character": 0}) == len(mapping.source.text)
+
+
+def test_typed_field_completion_and_optional_evidence_chains(connection):
+    _, _, send = connection
+    base = BASE + "let checked = verify(typeI(analysis))\n"
+    for suffix, expected in (
+        ("analysis.", {"alpha": "exact number", "design": "StudyDesign"}),
+        ("checked.", {"status": "string", "evidence": "Option[Evidence]"}),
+        ("checked.evidence.", {"certificate": "Option[CertificateReference]"}),
+        ("checked.evidence.certificate.", {"file": "Option[string]"}),
+    ):
+        items = complete(base + "let field = " + suffix)
+        for label, kind in expected.items():
+            assert items[label]["detail"] == kind
+    open_document(send, base + "let field = checked.evidence\n")
+    result = send("statproof/inspect", {"textDocument": {"uri": URI}}, 50)["result"]
+    assert result["version"] == 1
+    assert all("evidence" not in claim for claim in result["claims"])
+
+
+def test_field_completion_in_the_middle_of_a_chain_preserves_following_fields():
+    text = (
+        BASE
+        + "let checked = verify(typeI(analysis))\nlet path = checked.evidence.cer|tificate.file\n"
+    )
+    cursor = text.index("|")
+    document = Document(URI, 1, text.replace("|", ""))
+    items = document.completion(document.mapping.position(cursor))["items"]
+    item = next(i for i in items if i["label"] == "certificate")
+    start = document.mapping.offset(item["textEdit"]["range"]["start"])
+    end = document.mapping.offset(item["textEdit"]["range"]["end"])
+    assert document.text[start:end] == "certificate"
+    assert document.text[end:].startswith(".file")
+
+
+def test_field_hover_is_typed_and_definition_resolves_the_root_declaration():
+    text = (
+        BASE
+        + "let checked = verify(typeI(analysis))\nlet path = checked.evidence.certificate.file\n"
+    )
+    document = Document(URI, 1, text)
+    hover = document.hover(position(document, "evidence"))["contents"]["value"]
+    assert "Option[Evidence]" in hover
+    assert "Absent on unmet requirements" in hover
+    definition = document.definition(position(document, "checked.evidence"))
+    assert definition["range"]["start"]["line"] == len(BASE.splitlines())
+
+
+def test_claim_inspection_groups_aliases_and_reports_unrequested_requirements(connection):
+    _, _, send = connection
+    text = BASE.replace(
+        "verify typeI(analysis)",
+        "let validity = typeI(analysis)\nlet alias = validity\nlet checked = verify(alias)",
+    )
+    open_document(send, text.replace("fixed(", "adaptive("))
+    result = send("statproof/inspect", {"textDocument": {"uri": URI}, "version": 0}, 60)["result"]
+    assert result["version"] == 1
+    assert result["status"] == "unresolved_obligation"
+    assert len(result["claims"]) == 1
+    claim = result["claims"][0]
+    assert claim["names"] == ["validity", "alias"]
+    assert claim["requirements"][0]["code"] == "sampling_scope"
+    assert "range" in claim["requirements"][0]
+    assert claim["requests"][0]["names"] == ["checked"]
+    assert claim["assumptions"]
+    text = text.replace("let checked = verify(alias)", "")
+    send(
+        "textDocument/didChange",
+        {
+            "textDocument": {"uri": URI, "version": 2},
+            "contentChanges": [{"text": text.replace("fixed(", "adaptive(")}],
+        },
+    )
+    unrequested = send("statproof/inspect", {"textDocument": {"uri": URI}}, 61)["result"]
+    assert unrequested["claims"][0]["requests"] == []
+    assert unrequested["claims"][0]["requirements"][0]["code"] == "sampling_scope"

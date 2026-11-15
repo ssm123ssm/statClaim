@@ -5,19 +5,21 @@ import re
 from dataclasses import dataclass, field
 from fractions import Fraction
 
-from statproof.design import inspect_design
-from statproof.family import inspect_family
 from statproof.language import (
     MODULES,
     OPERATIONS,
     ClaimIR,
-    FamilyIR,
+    Elaborator,
+    FieldIR,
     LocatedValue,
-    ObservationIR,
+    RequestIR,
+    ValueType,
     _typed,
 )
 from statproof.language_compiler import Compilation, compile_source
-from statproof.language_syntax import LanguageError, Source, Span, Token, tokenize
+from statproof.language_fields import fields_for
+from statproof.language_inspection import inspect_program, inspect_request
+from statproof.language_syntax import LanguageError, Parser, Source, Span, Token, tokenize
 
 
 @dataclass
@@ -73,18 +75,8 @@ def signature(constructor) -> str:
 
 
 def claim_markdown(claim: ClaimIR) -> str:
-    subject = claim.subject
-    if isinstance(subject, FamilyIR):
-        report = inspect_family(subject.lower())
-    else:
-        analysis = subject.analysis if isinstance(subject, ObservationIR) else subject
-        report = inspect_design(analysis.lower())
+    report = inspect_request(RequestIR("verify", claim, Span("<hover>", 1, 1, 1, 1)))
     description = report["target_property"]
-    if isinstance(subject, ObservationIR):
-        description = (
-            f"Exact p-value, table probability, support, and decision for counts "
-            f"({subject.control_successes}, {subject.treatment_successes}); " + description
-        )
     assumptions = "\n".join(f"- {item}" for item in report["required_assumptions"])
     return (
         f"{description}\n\nRequired assumptions:\n{assumptions}\n\n"
@@ -194,6 +186,44 @@ class Document:
             constructors.update((c.name, c) for c in MODULES[name].constructors)
         return program.bindings, constructors
 
+    def evaluate_text(self, text: str, offset: int):
+        program = compile_source(Source(self.text[:offset], self.uri)).program
+        elaborator = Elaborator()
+        elaborator.symbols = {b.name: b for b in program.bindings}
+        elaborator.requests = list(program.requests)
+        for module in program.modules:
+            elaborator.constructors.update((c.name, c) for c in MODULES[module].constructors)
+        parser = Parser(tokenize(Source(text, self.uri))[0])
+        expression = parser.expression()
+        parser.take("EOF")
+        return elaborator.evaluate(expression).value
+
+    def receiver_before(self, dot: int):
+        tokens = tokenize(Source(self.text[:dot], self.uri))[0]
+        for token in reversed(tokens[-256:]):
+            if token.kind not in ("NAME", "(", "[", "NUMBER", "STRING"):
+                continue
+            start = self.mapping.bounds(token.span)[0]
+            try:
+                return self.evaluate_text(self.text[start:dot], start)
+            except (LanguageError, RecursionError):
+                continue
+        return None
+
+    def inspection(self) -> dict:
+        claims = inspect_program(self.compilation)
+        for claim in claims:
+            claim["range"] = self.mapping.range(Span(**claim["source"]))
+            for requirement in claim["requirements"]:
+                requirement["range"] = self.mapping.range(Span(**requirement["source"]))
+        return {
+            "uri": self.uri,
+            "version": self.version,
+            "status": self.compilation.status,
+            "claims": claims,
+            "diagnostics": self.diagnostics(),
+        }
+
     def completion(self, position: dict) -> dict:
         offset = self.mapping.offset(position)
         token = self.token_at(offset)
@@ -225,6 +255,29 @@ class Document:
                 "isIncomplete": False,
                 "items": [
                     item(name, 9, "StatProof module") for name in MODULES if name.startswith(prefix)
+                ],
+            }
+        dot = self.text.rfind(".", start, offset)
+        if dot < 0 and start > 0 and self.text[start - 1] == ".":
+            dot = start - 1
+        if dot >= 0:
+            receiver = self.receiver_before(dot)
+            field_prefix = self.text[dot + 1 : offset]
+            edit_range["start"] = self.mapping.position(dot + 1)
+            suffix = re.match(r"[A-Za-z_0-9]*", self.text[offset:]).group()
+            edit_range["end"] = self.mapping.position(offset + len(suffix))
+            optional = isinstance(receiver, FieldIR) and receiver.value_type.optional
+            return {
+                "isIncomplete": False,
+                "items": [
+                    item(
+                        name,
+                        5,
+                        ValueType(spec.kind, spec.optional or optional).label,
+                        documentation=spec.description,
+                    )
+                    for name, spec in fields_for(receiver).items()
+                    if name.startswith(field_prefix)
                 ],
             }
         bindings, constructors = self.scope(start)
@@ -270,7 +323,12 @@ class Document:
                     _typed(LocatedValue(binding.value, binding.span), expected, binding.name)
                 except LanguageError:
                     continue
-            items.append(item(binding.name, 6, type_name(type(binding.value))))
+            kind = (
+                binding.value.value_type.label
+                if isinstance(binding.value, FieldIR)
+                else type_name(type(binding.value))
+            )
+            items.append(item(binding.name, 6, kind))
         for constructor in constructors.values():
             # Schemas use a more specific display type for claim constructors.
             result_type = constructor.result
@@ -305,7 +363,10 @@ class Document:
         ):
             return None
         for binding in self.compilation.program.bindings:
-            if binding.name == token.text and self.mapping.bounds(binding.span)[0] <= offset:
+            if (
+                binding.name == token.text.split(".")[0]
+                and self.mapping.bounds(binding.span)[0] <= offset
+            ):
                 return binding
         return None
 
@@ -331,9 +392,36 @@ class Document:
         token = self.token_at(offset)
         if not token or token.kind != "NAME":
             return None
+        start = self.mapping.bounds(token.span)[0]
+        field_start = start
+        for name in token.text.split("."):
+            field_end = field_start + len(name)
+            if field_start <= offset <= field_end:
+                if field_start > start or (field_start and self.text[field_start - 1] == "."):
+                    receiver = self.receiver_before(field_start - 1)
+                    spec = fields_for(receiver).get(name)
+                    if spec:
+                        optional = spec.optional or (
+                            isinstance(receiver, FieldIR) and receiver.value_type.optional
+                        )
+                        text = f"```stat\n{name}: {ValueType(spec.kind, optional).label}\n```"
+                        if spec.description:
+                            text += "\n\n" + spec.description
+                        if isinstance(receiver, (FieldIR,)) or optional:
+                            text += "\n\nRuntime fields remain unevaluated while editing."
+                        return {
+                            "contents": {"kind": "markdown", "value": text},
+                            "range": self.mapping.range(self.source.span(field_start, field_end)),
+                        }
+                break
+            field_start = field_end + 1
         binding = self.binding_at(token)
         if binding:
-            kind = type_name(type(binding.value))
+            kind = (
+                binding.value.value_type.label
+                if isinstance(binding.value, FieldIR)
+                else type_name(type(binding.value))
+            )
             if isinstance(binding.value, (int, Fraction)):
                 kind += f" = {binding.value}"
             text = f"```stat\n{binding.name}: {kind}\n```"

@@ -150,13 +150,17 @@ class Server:
                 "textDocument/completion",
                 "textDocument/hover",
                 "textDocument/definition",
+                "statproof/inspect",
             ):
                 document = self.documents.get(params["textDocument"]["uri"])
                 if document is None:
                     result = None
                 else:
                     feature = method.rsplit("/", 1)[1]
-                    result = getattr(document, feature)(params["position"])
+                    if method == "statproof/inspect":
+                        result = document.inspection()
+                    else:
+                        result = getattr(document, feature)(params["position"])
             else:
                 if is_request:
                     self.error(identifier, -32601, f"Method not found: {method}")

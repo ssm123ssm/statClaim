@@ -31,7 +31,7 @@ pytestmark = [
 def language_runs(tmp_path_factory):
     directory = tmp_path_factory.mktemp("language")
     reports = {}
-    for name in ("fisher", "two_outcomes", "fisher_result", "first_class"):
+    for name in ("fisher", "two_outcomes", "fisher_result", "first_class", "fields"):
         path = ROOT / f"examples/{name}.stat"
         report = check_source(
             Source(path.read_text(), str(path)), project=ROOT, output=directory / name
@@ -158,3 +158,25 @@ def test_recompiling_edited_source_never_reuses_first_class_evidence(language_ru
     assert value["evidence"] is None
     assert value["source_sha256"] != previous["values"]["result_verification"]["source_sha256"]
     assert previous["values"]["result_verification"]["evidence"] is not None
+
+
+def test_real_verification_fields_match_checked_evidence_and_exact_calculation(language_runs):
+    report = language_runs["fields"]
+    values = report["values"]
+    evidence = values["verification"]["evidence"]
+    assert values["status"] == "verified"
+    assert values["evidence"] == evidence
+    assert values["certificate_file"] == evidence["certificate"]["file"]
+    assert values["certificate_hash"] == digest(Path(values["certificate_file"]).read_bytes())
+    assert values["checked_assumptions"] == evidence["required_assumptions"]
+    assert (
+        values["p_value"] == report["requests"][1]["report"]["calculation"]["p_value"]["fraction"]
+    )
+    assert values["decision"] == "reject_null"
+    assert values["declared_alpha"] == "1/20"
+    assert values["control_size"] == 100
+    assert len(report["requests"]) == 2
+    assert (
+        recheck_certificate(Path(values["certificate_file"]).parent, project=ROOT)["status"]
+        == "verified"
+    )

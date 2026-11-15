@@ -1,8 +1,8 @@
 # StatProof in VS Code
 
-The prototype provides live diagnostics, module/constructor/named-argument
-completion, typed object completion, statistical hover explanations, and
-go-to-definition for local declarations. Both the original command spelling and
+The prototype provides live diagnostics, module/constructor/named-argument/field
+completion, typed object completion, statistical hover explanations,
+go-to-definition for local declarations, and a Claims view. Both the original command spelling and
 first-class calls such as `let checked = verify(claim)` are supported.
 
 ## Start an extension development host
@@ -63,6 +63,12 @@ declarations. Constructors are offered only after their modules have been
 imported. Expected-type filtering uses the existing constructor schemas; list
 element refinements and more specific claim subtypes are not yet inferred.
 
+Run **StatProof: Show Claims**, or expand **StatProof Claims** in the Explorer,
+to inspect each claim, its requirements/assumptions, and matching explicit check
+results. Old results move to a separate historical section after edits.
+See [public fields and the Claims view](fields-and-claims.md) for the detailed
+workflow, optional evidence semantics, and `examples/fields.stat`.
+
 ## Run verification explicitly
 
 Open a file-backed `.stat` document and run **StatProof: Verify Current File** from
@@ -73,7 +79,7 @@ uv run --locked statproof check /path/to/file.stat --project /path/to/statProof 
 ```
 
 The **StatProof** output channel retains the complete report and certificate
-locations. The status bar identifies the checked editor version, with the full
+locations; the Claims view shows matching evidence. The status bar identifies the checked editor version, with the full
 source SHA-256 in its tooltip. A successful `verified` status concerns the report's
 listed claims under its assumptions. Inspect the per-request results for scope;
 an unresolved request can coexist with a successful certificate for another.

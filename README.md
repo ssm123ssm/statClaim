@@ -56,7 +56,11 @@ observations, report scope, replay, and the comparison with Lean.
 ## Try the IDE
 
 A stdio LSP and a minimal VS Code extension provide diagnostics, completion,
-hover, and go-to-definition using the same compiler. Editing never invokes Lean.
+hover, field access, go-to-definition, and a Claims view using the same compiler.
+Editing never invokes Lean. Run **StatProof: Show Claims** to inspect requirements,
+assumptions, and matching evidence. See [public fields and the Claims view](docs/fields-and-claims.md)
+and `examples/fields.stat` for typed projections such as `verification.status`
+and optional `verification.evidence.certificate.file`.
 The explicit **StatProof: Verify Current File** command saves and checks a source
 snapshot, with a versioned status that becomes stale after edits.
 

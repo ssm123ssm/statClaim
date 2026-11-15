@@ -2,7 +2,9 @@
 
 Status: the shared Lean objects, Fisher and Bonferroni providers, and standalone
 file language with first-class claims/results and backend-free compilation are
-implemented. A stdio LSP and minimal VS Code integration provide editor guidance;
+implemented. Typed public fields and optional evidence projections preserve the
+separation between declaration and execution. A stdio LSP and VS Code integration
+provide editor guidance and a Claims view with snapshot-scoped evidence;
 interactive REPL sessions remain planned. See the [file-language guide](stat-language.md)
 and [editor guide](editor.md).
 This document remains the semantic design and comparison plan; the
