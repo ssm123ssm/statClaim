@@ -74,7 +74,8 @@ verification; a valid specification alone is not a proof.
 
 **0.1 developer preview.** Current proof support covers the specified fixed-sample
 Fisher setting, its exact power at a planning point, two-endpoint Bonferroni
-composition, and a two-stage binomial design with an interim stop. The language
+composition, the one-sample exact binomial test, and a two-stage binomial design
+with an interim stop. The language
 and APIs may change. A checked theorem establishes its stated claim under its assumptions;
 whether a real study satisfies those assumptions still needs scientific judgment.
 See [scope and trust](docs/scope.md).

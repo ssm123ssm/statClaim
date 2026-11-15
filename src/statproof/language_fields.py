@@ -11,6 +11,7 @@ from statproof.language import (
     AnalysisIR,
     CalculationResultIR,
     CandidatesIR,
+    CandidateSpaceIR,
     ClaimIR,
     FamilyIR,
     FeasibilityIR,
@@ -19,6 +20,9 @@ from statproof.language import (
     LocatedValue,
     ModelIR,
     ObservationIR,
+    OneArmCandidatesIR,
+    OneArmModelIR,
+    OneSampleAnalysisIR,
     PlanIR,
     PlannableIR,
     PlanningPointIR,
@@ -40,6 +44,7 @@ from statproof.language_values import (
     CalculationResult,
     CertificateReference,
     Evidence,
+    OneSampleDetails,
     PlanningDetails,
     PolicyDetails,
     VerificationResult,
@@ -109,7 +114,30 @@ SCHEMAS = {
         "min_per_arm": FieldSpec(int),
         "max_per_arm": FieldSpec(int),
     },
-    SizingIR: {"candidates": FieldSpec(CandidatesIR), "target": FieldSpec(PowerTargetIR)},
+    SizingIR: {"candidates": FieldSpec(CandidateSpaceIR), "target": FieldSpec(PowerTargetIR)},
+    OneArmModelIR: {"n": FieldSpec(int)},
+    OneSampleAnalysisIR: {
+        "model": FieldSpec(OneArmModelIR),
+        "null_rate": FieldSpec(Fraction),
+        "alpha": FieldSpec(Fraction),
+    },
+    OneArmCandidatesIR: {
+        "analysis": FieldSpec(OneSampleAnalysisIR),
+        "min_n": FieldSpec(int),
+        "max_n": FieldSpec(int),
+    },
+    OneSampleDetails: {
+        "n": FieldSpec(int, optional=True),
+        "critical_value": FieldSpec(
+            int, optional=True, description="Smallest response count that rejects."
+        ),
+        "typeI": FieldSpec(Fraction, optional=True),
+        "typeI_target_met": FieldSpec(bool, optional=True),
+        "power": FieldSpec(Fraction, optional=True),
+        "power_target_met": FieldSpec(bool),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+        "minimum_sample_size_claim": FieldSpec(str, optional=True),
+    },
     TwoStageModelIR: {"n_stage1": FieldSpec(int), "n_stage2": FieldSpec(int)},
     PriorIR: {"a": FieldSpec(int), "b": FieldSpec(int)},
     RuleIR: {"kind": FieldSpec(str)},
@@ -178,7 +206,12 @@ def details_kind(claim: ClaimIR) -> type:
     if claim.kind not in ("meets", "sample_size"):
         return CalculationDetails
     subject = claim.subject
-    if isinstance(subject, FeasibilityIR) and isinstance(subject.analysis, TwoStageAnalysisIR):
+    analysis = (
+        subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
+    )
+    if isinstance(analysis, OneSampleAnalysisIR):
+        return OneSampleDetails
+    if isinstance(analysis, TwoStageAnalysisIR):
         return PolicyDetails
     return PlanningDetails
 

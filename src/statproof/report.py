@@ -5,7 +5,13 @@ from pathlib import Path
 from statproof.design import Design, inspect_design
 from statproof.family import FisherFamily, inspect_family
 from statproof.fisher import FisherResult, fisher_exact
-from statproof.planning import PowerPlan, TwoStagePlan, search_equal_arms
+from statproof.planning import (
+    OneSamplePlan,
+    PowerPlan,
+    TwoStagePlan,
+    search_equal_arms,
+    search_one_sample,
+)
 from statproof.verification import (
     DESIGN_ASSUMPTIONS,
     VerificationError,
@@ -381,9 +387,15 @@ def run_sample_size(
 
 
 def run_policy_plan(
-    report: dict, plan: TwoStagePlan, *, verify: bool, project: Path, output, timeout: float
+    report: dict,
+    plan: TwoStagePlan | OneSamplePlan,
+    *,
+    verify: bool,
+    project: Path,
+    output,
+    timeout: float,
 ) -> dict:
-    """Assess a complete two-stage policy at its declared null and alternative rates."""
+    """Assess a single-arm design at its declared null and alternative rates."""
     calculation = plan.evaluate()
     report["calculation"] = calculation
     met = calculation["power_target_met"] and calculation["typeI_target_met"]
@@ -399,7 +411,7 @@ def run_policy_plan(
             report,
             "typeI_target",
             "typeI_target_not_met",
-            f"The policy's calculated rejection probability at the null rate, "
+            f"The calculated rejection probability at the null rate, "
             f"{_approx(calculation['typeI'])}, exceeds the requested {plan.maximum_typeI}. "
             "No evidence is issued.",
         )
@@ -413,3 +425,40 @@ def run_policy_plan(
             "combined planning claim.",
         )
     return _certified(report, certify_policy, plan, project=project, output=output, timeout=timeout)
+
+
+def run_one_sample_search(
+    report: dict,
+    template: OneSamplePlan,
+    bounds: tuple[int, int],
+    *,
+    verify: bool,
+    project: Path,
+    output,
+    timeout: float,
+) -> dict:
+    """Search ascending for a sufficient one-sample size; minimality is never claimed."""
+    plan, evaluated = search_one_sample(template, *bounds)
+    search = {
+        "min_n": bounds[0],
+        "max_n": bounds[1],
+        "candidates_evaluated": evaluated,
+        "minimum_sample_size_claim": "not_requested",
+    }
+    if plan is None:
+        report["calculation"] = {**search, "power_target_met": False}
+        report["decision"] = "no_feasible_candidate"
+        if verify:
+            _unmet(
+                report,
+                "search_exhausted",
+                "no_feasible_candidate",
+                f"No sample size from {bounds[0]} to {bounds[1]} meets the targets. "
+                "Nothing is claimed about other designs or larger samples.",
+            )
+        return report
+    report = run_policy_plan(
+        report, plan, verify=verify, project=project, output=output, timeout=timeout
+    )
+    report["calculation"] = {**report["calculation"], **search}
+    return report

@@ -21,7 +21,7 @@ pytestmark = [
 def runs(tmp_path_factory):
     directory = tmp_path_factory.mktemp("planning")
     reports = {}
-    for name in ("planning", "two_stage", "two_stage_posterior"):
+    for name in ("planning", "two_stage", "two_stage_posterior", "one_sample"):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
             Source(path.read_text(), str(path)), project=ROOT, output=directory / name
@@ -42,10 +42,10 @@ def test_planning_example_components(runs):
     assert replay["kind"] == "statproof_planning_certificate"
 
 
-@pytest.mark.parametrize("name", ["two_stage", "two_stage_posterior"])
+@pytest.mark.parametrize("name", ["two_stage", "two_stage_posterior", "one_sample"])
 def test_policy_certificates_replay(runs, name):
     report = runs[name]
-    assert report["status"] == "verified", report["diagnostics"]
+    assert report["values"]["verification"]["status"] == "verified", report["diagnostics"]
     certificate = report["values"]["verification"]["evidence"]["certificate"]
     replay = recheck_certificate(Path(certificate["directory"]), project=ROOT)
     assert replay["kind"] == "statproof_policy_certificate"

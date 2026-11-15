@@ -15,3 +15,5 @@ public import StatProof.ProductBinomial
 public import StatProof.Core.Policy
 public import StatProof.Modules.TwoStageBinomial
 public import StatProof.Modules.FisherPower
+public import StatProof.BinomialMonotone
+public import StatProof.Modules.OneSampleBinomial

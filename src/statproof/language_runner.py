@@ -11,8 +11,8 @@ from statproof.language import (
     FamilyIR,
     FeasibilityIR,
     ObservationIR,
+    OneArmCandidatesIR,
     RequestIR,
-    TwoStageAnalysisIR,
 )
 from statproof.language_compiler import compile_source
 from statproof.language_inspection import inspect_planning, inspect_request
@@ -26,6 +26,7 @@ from statproof.language_values import (
     serialize,
 )
 from statproof.report import (
+    run_one_sample_search,
     run_policy_plan,
     run_power_plan,
     run_sample_size,
@@ -48,13 +49,16 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         }
         report = inspect_planning(request)
         if isinstance(subject, FeasibilityIR):
-            run = (
-                run_policy_plan
-                if isinstance(subject.analysis, TwoStageAnalysisIR)
-                else run_power_plan
-            )
+            run = run_power_plan if isinstance(subject.analysis, AnalysisIR) else run_policy_plan
             return run(report, subject.lower(), **options)
         target, candidates = subject.target, subject.candidates
+        if isinstance(candidates, OneArmCandidatesIR):
+            return run_one_sample_search(
+                report,
+                candidates.analysis.plan(target, candidates.min_n),
+                (candidates.min_n, candidates.max_n),
+                **options,
+            )
         return run_sample_size(
             report,
             candidates.analysis.alpha,
@@ -289,6 +293,11 @@ def _planning_lines(details: dict) -> list[str]:
         lines.append(
             f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
             f"total = {calculation['total_sample_size']}"
+        )
+    if "critical_value" in calculation:
+        lines.append(
+            f"  n = {calculation['n']}; reject at {calculation['critical_value']} or more "
+            f"responses; Type I at the null rate ~ {calculation['typeI']['decimal_approximation']}"
         )
     if "n_stage1" in calculation:
         lines.append(

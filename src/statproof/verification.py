@@ -109,8 +109,8 @@ def _profile(kind: str, payload: dict) -> dict:
         claims, assumptions = policy_claims(plan), policy_assumptions(plan)
         theorems = POLICY_CHECKED_THEOREMS
         scope = (
-            "The complete declared two-stage policy at the declared null and alternative "
-            "rates; no observed results or other rates are certified."
+            "The complete declared single-arm design, its error bound and its power at one "
+            "planning point; no observed results or minimality are certified."
         )
         general_theorem = "StatProof.Modules.TwoStageBinomial.rejection_probability"
     else:

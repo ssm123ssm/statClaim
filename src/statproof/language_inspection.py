@@ -3,6 +3,7 @@
 from statproof.design import inspect_design
 from statproof.family import inspect_family
 from statproof.language import (
+    AnalysisIR,
     CalculationResultIR,
     ClaimIR,
     FamilyIR,
@@ -15,7 +16,7 @@ from statproof.language import (
     normalize,
 )
 from statproof.language_compiler import Compilation, requirements
-from statproof.planning import PLANNING_ASSUMPTIONS, policy_assumptions
+from statproof.planning import PLANNING_ASSUMPTIONS, composite_null, policy_assumptions
 from statproof.report import planning_report
 
 
@@ -23,29 +24,45 @@ def inspect_planning(request: RequestIR) -> dict:
     """Describe a planning claim from its declaration, without calculating."""
     subject = request.claim.subject
     target = subject.target
-    if isinstance(subject, FeasibilityIR) and isinstance(subject.analysis, TwoStageAnalysisIR):
-        return planning_report(
-            "policy",
-            "Complete two-stage policy: rejection probability "
-            f"<= {target.maximum_typeI} at the null response rate {subject.analysis.null_rate} "
-            f"and >= {target.minimum} at the response rate {target.at.value}.",
-            policy_assumptions(subject.lower()),
+    feasibility = isinstance(subject, FeasibilityIR)
+    analysis = subject.analysis if feasibility else subject.candidates.analysis
+    if isinstance(analysis, AnalysisIR):
+        point = f"p_control = {target.at.p_control}, p_treatment = {target.at.p_treatment}"
+        goal = (
+            f"power >= {target.minimum} at {point}; "
+            f"Type I error <= {target.maximum_typeI} under the null"
         )
-    point = f"p_control = {target.at.p_control}, p_treatment = {target.at.p_treatment}"
-    goal = (
-        f"power >= {target.minimum} at {point}; "
-        f"Type I error <= {target.maximum_typeI} under the null"
+        if feasibility:
+            model = analysis.plan.model
+            text = f"Arm sizes ({model.n_control}, {model.n_treatment}) give {goal}."
+        else:
+            candidates = subject.candidates
+            text = (
+                f"Some equal-arm size from {candidates.min_per_arm} to {candidates.max_per_arm} "
+                f"gives {goal}. Minimality is not claimed."
+            )
+        return planning_report("planning", text, PLANNING_ASSUMPTIONS)
+    plan = subject.lower() if feasibility else analysis.plan(target, subject.candidates.min_n)
+    null = (
+        f"for every response rate at or below {analysis.null_rate}"
+        if composite_null(plan)
+        else f"at the null response rate {analysis.null_rate}"
     )
-    if isinstance(subject, FeasibilityIR):
-        model = subject.analysis.plan.model
-        text = f"Arm sizes ({model.n_control}, {model.n_treatment}) give {goal}."
+    goal = (
+        f"rejection probability <= {target.maximum_typeI} {null} "
+        f"and >= {target.minimum} at the response rate {target.at.value}"
+    )
+    if isinstance(analysis, TwoStageAnalysisIR):
+        text = f"Complete two-stage policy: {goal}."
+    elif feasibility:
+        text = f"Exact binomial test with {analysis.model.n} participants: {goal}."
     else:
         candidates = subject.candidates
         text = (
-            f"Some equal-arm size from {candidates.min_per_arm} to {candidates.max_per_arm} "
-            f"gives {goal}. Minimality is not claimed."
+            f"Some sample size from {candidates.min_n} to {candidates.max_n} gives {goal}. "
+            "Minimality is not claimed."
         )
-    return planning_report("planning", text, PLANNING_ASSUMPTIONS)
+    return planning_report("policy", text, policy_assumptions(plan))
 
 
 def inspect_request(request: RequestIR) -> dict:

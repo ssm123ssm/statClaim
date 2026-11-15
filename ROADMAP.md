@@ -10,6 +10,7 @@
 - Planning: exact Fisher power, target checks and a bounded sample-size search.
 - Sampling policies with their own records; a two-stage binomial design with
   count or Beta-posterior rules and checked Type I error and power.
+- One-sided exact binomial test for a single arm, with sample-size search.
 
 ## Next
 
@@ -37,8 +38,8 @@ and the smallest possible sample size are separate claims.
 ### Bayesian and adaptive designs
 
 A two-stage binomial policy with Beta-posterior decision rules is implemented.
-Next: prove its error bound for every rate below the null, formalize the Beta
-posterior, and add assurance. Extend to adaptive allocation, further interim analyses
+Next: extend the composite-null error bound from count rules to posterior rules,
+formalize the Beta posterior, and add assurance. Extend to adaptive allocation, further interim analyses
 and stopping policies—the compatibility problem that originally motivated
 StatProof. Support Bayesian planning criteria and, when requested, separate
 repeated-sampling error and power claims for the complete decision policy.

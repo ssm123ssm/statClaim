@@ -26,6 +26,23 @@ theorem simon_power :
     2 5 (by decide) (by decide) 4 5 (by decide) (by decide +kernel)
   simpa using checked
 
+/-- The same bound holds for every response rate at or below 20%. -/
+theorem simon_typeI_composite :
+    ((TwoStageBinomial.analysisAtMost simon (ratPoint 1 5 (by decide) (by decide))).typeIClaim
+      ((1 : ℝ) / 20)).statement := by
+  have checked := TwoStageBinomial.typeI_atMost_of_check simon
+    (TwoStageBinomial.thresholdDesign_monotone 13 30 3 12) 1 5 (by decide) (by decide) 1 20
+    (by decide) (by decide +kernel)
+  simpa using checked
+
+/-- One-sample exact binomial test: 25 patients, reject at 10 or more responses. -/
+theorem one_sample_typeI :
+    ((OneSampleBinomial.analysis ⟨25, 10⟩ (ratPoint 1 5 (by decide) (by decide))).typeIClaim
+      ((1 : ℝ) / 20)).statement := by
+  have checked := OneSampleBinomial.typeI_of_check ⟨25, 10⟩ 1 5 (by decide) (by decide) 1 20
+    (by decide) (by decide +kernel)
+  simpa using checked
+
 /-- The same check refutes a bound the design does not meet. -/
 example : ¬ (rejectionNumerator 13 30 1 5 1 5 simon.rejectRule * 25 ≤
     1 * rejectionDenominator 13 30 5 5) := by decide +kernel

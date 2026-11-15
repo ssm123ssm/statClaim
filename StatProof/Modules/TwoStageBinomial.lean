@@ -2,6 +2,7 @@ module
 
 public import StatProof.Core.Policy
 public import StatProof.ProductBinomial
+public import StatProof.BinomialMonotone
 
 /-!
 A single-arm, two-stage binomial design with an interim futility stop. The
@@ -119,6 +120,53 @@ def thresholdDesign (nFirst nSecond interim final : ℕ) : Design where
   nSecond := nSecond
   continues := fun first => decide (interim < first)
   rejects := fun first second => decide (final < first + second)
+
+/-- Null: the response rate is at most the reference rate. -/
+noncomputable def analysisAtMost (design : Design) (nullRate : unitInterval) :
+    Core.PolicyAnalysis (policy design) where
+  hypothesis := fun rate => rate ≤ nullRate
+  rejection := {record | design.rejected record}
+  rejection_measurable := MeasurableSpace.measurableSet_top
+
+/-- More responses in either stage never turn a rejection into a non-rejection. -/
+def Design.Monotone (design : Design) : Prop :=
+  ∀ first first' second second', first ≤ first' → second ≤ second' →
+    design.rejectRule first second = true → design.rejectRule first' second' = true
+
+/-- For a monotone rule, a check at the reference rate bounds Type I error at
+every smaller rate. -/
+theorem typeI_atMost_of_check (design : Design) (monotone : design.Monotone) (a d : ℕ)
+    (le : a ≤ d) (positive : 0 < d) (boundNum boundDen : ℕ) (boundDen_pos : 0 < boundDen)
+    (check : rejectionNumerator design.nFirst design.nSecond a d a d design.rejectRule * boundDen ≤
+      boundNum * rejectionDenominator design.nFirst design.nSecond d d) :
+    ((analysisAtMost design (ratPoint a d le positive)).typeIClaim
+      ((boundNum : ℝ) / boundDen)).statement := by
+  intro rate null
+  refine le_trans ?_ (typeI_of_check design a d le positive boundNum boundDen boundDen_pos check
+    (ratPoint a d le positive) rfl)
+  change ((policy design).law rate).real {record | design.rejected record} ≤
+    ((policy design).law _).real {record | design.rejected record}
+  rw [Core.Policy.law_real_apply _ _ MeasurableSpace.measurableSet_top,
+    Core.Policy.law_real_apply _ _ MeasurableSpace.measurableSet_top]
+  refine productBinomial_real_mono _ _ rate _ null _ ?_
+  intro lower higher first second member
+  exact (rejection_preimage design higher).mpr
+    (monotone _ _ _ _ first second ((rejection_preimage design lower).mp member))
+
+/-- Power at one declared rate, for the analysis with the composite null. -/
+theorem power_atMost_of_check (design : Design) (nullRate : unitInterval) (a d : ℕ) (le : a ≤ d)
+    (positive : 0 < d) (boundNum boundDen : ℕ) (boundDen_pos : 0 < boundDen)
+    (check : boundNum * rejectionDenominator design.nFirst design.nSecond d d ≤
+      rejectionNumerator design.nFirst design.nSecond a d a d design.rejectRule * boundDen) :
+    ((analysisAtMost design nullRate).powerClaim (fun rate => rate = ratPoint a d le positive)
+      ((boundNum : ℝ) / boundDen)).statement :=
+  power_of_check design nullRate a d le positive boundNum boundDen boundDen_pos check
+
+theorem thresholdDesign_monotone (nFirst nSecond interim final : ℕ) :
+    (thresholdDesign nFirst nSecond interim final).Monotone := by
+  intro first first' second second' first_le second_le
+  simp only [Design.rejectRule, thresholdDesign, Bool.and_eq_true, decide_eq_true_eq]
+  omega
 
 /-- Numerator of the posterior probability that the rate exceeds `rateNum/rateDen`
 under a Beta(a, b) distribution with positive integer parameters; the

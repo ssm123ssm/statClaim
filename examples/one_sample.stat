@@ -1,0 +1,22 @@
+# A single-arm study: is the response rate above 20%?
+# One-sided exact binomial test, with a sample-size search.
+use tests.binomial
+use planning
+
+let study = one_arm_binomial(n=25)
+let analysis = binomial_test(model=study, null_rate=1/5, alpha=1/20)
+
+# Planning input: we hope for a 40% response rate and want 80% power.
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)
+
+# Twenty-five participants are not enough at this point.
+let feasibility = meets(analysis=analysis, target=target)
+let calculation = calculate(feasibility)
+
+# Search for a sufficient sample size; it is not claimed to be the smallest.
+let candidates = sample_sizes(analysis=analysis, min_n=10, max_n=60)
+let sizing = sample_size(candidates=candidates, target=target)
+let recommendation = calculate(sizing)
+let verification = verify(sizing)
+let recommended_n = recommendation.calculation.n
+let critical_value = recommendation.calculation.critical_value

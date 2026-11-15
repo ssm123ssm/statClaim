@@ -155,7 +155,7 @@ def test_incomplete_input_keeps_all_editor_requests_responsive(connection, text)
 
 
 def test_module_constructor_and_builtin_completion_use_registry():
-    assert set(complete("use tests.")) == {"tests.fisher"}
+    assert set(complete("use tests.")) == {"tests.fisher", "tests.binomial"}
     assert set(complete("use models.")) == {"models.two_arm_binomial"}
     assert "fisher" not in complete("let x = fi")
     assert "fisher" in complete(PREFIX + "let x = fi")

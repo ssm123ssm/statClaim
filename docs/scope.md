@@ -9,7 +9,9 @@ Planning adds exact Fisher power at one declared point, target checks and a
 bounded equal-arm sample-size search; sufficiency is certified, minimality is
 not. A single-arm two-stage binomial policy with an interim stop is supported
 with count or Beta-posterior rules: its Type I error and power are checked for
-the complete policy at the declared rates only. The posterior rule's closed form
+the complete policy. The one-sided exact binomial test is supported for a single
+arm. Error bounds for that test and for count thresholds cover every rate at or
+below the null rate; posterior thresholds cover the declared null rate only. The posterior rule's closed form
 is a definition; its identity with the Beta integral is not proved in Lean.
 
 Difference and inequality nulls can be described. Fisher rejects them with

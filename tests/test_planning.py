@@ -14,6 +14,7 @@ from statproof.language_compiler import compile_source
 from statproof.language_runner import check_source
 from statproof.language_syntax import Source
 from statproof.planning import (
+    OneSamplePlan,
     PowerPlan,
     TwoStagePlan,
     TwoStageRule,
@@ -24,6 +25,7 @@ from statproof.planning import (
     policy_payload,
     render_planning_proof,
     search_equal_arms,
+    search_one_sample,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -271,3 +273,57 @@ def test_new_objects_are_catalogued():
     assert {"PowerTarget", "PlanningDetails", "PolicyDetails"} <= {
         o["name"] for o in data["objects"]
     }
+
+
+def one_sample(n: int = 25, **changes) -> OneSamplePlan:
+    fields = {
+        "n": n,
+        "null_rate": Fraction(1, 5),
+        "alpha": ALPHA,
+        "alternative_rate": Fraction(2, 5),
+        "minimum_power": Fraction(4, 5),
+        "maximum_typeI": ALPHA,
+    }
+    return OneSamplePlan(**{**fields, **changes})
+
+
+def null_tail(n: int, critical: int) -> Fraction:
+    return sum(binomial(n, k, Fraction(1, 5)) for k in range(critical, n + 1))
+
+
+def test_one_sample_critical_value_is_the_smallest_valid_one():
+    for n in (1, 7, 25, 40):
+        plan = one_sample(n)
+        assert null_tail(n, plan.critical) <= ALPHA
+        assert plan.critical == 0 or null_tail(n, plan.critical - 1) > ALPHA
+        assert plan.rejection_probability(plan.null_rate) == null_tail(n, plan.critical)
+
+
+def test_one_sample_search_and_payload():
+    plan, evaluated = search_one_sample(one_sample(), 10, 60)
+    assert (plan.n, plan.critical, evaluated) == (35, 12, 26)
+    assert parse_policy_payload(policy_payload(plan)) == plan
+    tampered = policy_payload(plan)
+    tampered["design"]["critical_value"] = 11
+    with pytest.raises(ValueError):
+        parse_policy_payload(tampered)
+    assert search_one_sample(one_sample(), 10, 20)[0] is None
+    with pytest.raises(ValueError):
+        one_sample(alternative_rate=Fraction(1, 10))
+
+
+def test_one_sample_language(tmp_path):
+    text = (
+        (ROOT / "examples/one_sample.stat")
+        .read_text()
+        .replace("let verification = verify(sizing)\n", "")
+    )
+    values = run(text, tmp_path)["values"]
+    assert values["recommended_n"] == 35 and values["critical_value"] == 12
+    below = compiled(
+        "use tests.binomial\nuse planning\n"
+        "let a = binomial_test(model=one_arm_binomial(n=25), null_rate=1/5, alpha=1/20)\n"
+        "let c = meets(analysis=a, target=power_target(at=response_rate(value=1/10), "
+        "minimum=4/5, maximum_typeI=1/20))\n"
+    )
+    assert "alternative_in_null" in [d.code for d in below.diagnostics]

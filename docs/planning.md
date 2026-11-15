@@ -66,6 +66,26 @@ The certificate covers the selected design: its Type I bound and its power at
 the planning point. An exhausted search reports `no_feasible_candidate` and
 claims nothing about other designs or larger samples.
 
+## Plan a single-arm study
+
+`tests.binomial` provides the one-sided exact binomial test. Its null is every
+response rate at or below `null_rate`.
+
+```stat
+use tests.binomial
+use planning
+
+let study = one_arm_binomial(n=25)
+let analysis = binomial_test(model=study, null_rate=1/5, alpha=1/20)
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)
+let candidates = sample_sizes(analysis=analysis, min_n=10, max_n=60)
+let verification = verify(sample_size(candidates=candidates, target=target))
+```
+
+The result is 35 participants, rejecting at 12 or more responses. The test
+rejects at the smallest count whose tail probability at `null_rate` is at most
+alpha. See `examples/one_sample.stat`.
+
 ## Plan an adaptive design
 
 The same target applies to a complete two-stage policy:
@@ -102,7 +122,8 @@ Published fields include `calculation.power`, `power_target_met`,
 `expected_sample_size_null`. Decimals are display only. See the
 [catalogue](catalogue.md) for all fields.
 
-Limits: power is at one declared point; two-stage error is at the declared null
-rate, not for every smaller rate; minimal sample size, assurance and precision
+Limits: power is at one declared point. Error bounds for the one-sample test and
+for two-stage count thresholds hold for every rate at or below the null rate;
+for posterior thresholds they hold at the declared null rate only. Minimal sample size, assurance and precision
 targets are not yet supported. Kernel checking enumerates every outcome, so very
 large designs may time out and remain unresolved.

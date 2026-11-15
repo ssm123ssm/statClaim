@@ -23,6 +23,7 @@ POLICY_CHECKED_THEOREMS = ["checked_stages", "checked_typeI", "checked_power"]
 # Kernel checking enumerates every table; larger searches remain calculations.
 MAX_PER_ARM = 500
 MAX_STAGE = 200
+MAX_ONE_ARM = 1000
 
 AUDIT = """
 open Lean Elab Command in
@@ -385,6 +386,8 @@ class TwoStagePlan:
             _probability(getattr(self, name), name)
         if self.null_rate == self.alternative_rate:
             raise ValueError("The alternative rate must differ from the null rate.")
+        if self.rule.kind == "threshold" and self.alternative_rate < self.null_rate:
+            raise ValueError("The alternative rate must exceed the null rate.")
 
     def continues(self, first: int) -> bool:
         if self.rule.kind == "threshold":
@@ -440,7 +443,107 @@ class TwoStagePlan:
         }
 
 
-def policy_payload(plan: TwoStagePlan) -> dict:
+@dataclass(frozen=True)
+class OneSamplePlan:
+    """One-sided exact binomial test: reject when responses reach the critical value."""
+
+    n: int
+    null_rate: Fraction
+    alpha: Fraction
+    alternative_rate: Fraction
+    minimum_power: Fraction
+    maximum_typeI: Fraction
+    search: tuple[int, int] | None = None
+
+    def __post_init__(self) -> None:
+        if type(self.n) is not int or not 1 <= self.n <= MAX_ONE_ARM:
+            raise ValueError(f"n must be an integer between 1 and {MAX_ONE_ARM}.")
+        for name in ("null_rate", "alpha", "alternative_rate", "minimum_power", "maximum_typeI"):
+            _probability(getattr(self, name), name)
+        if self.alternative_rate <= self.null_rate:
+            raise ValueError("The alternative rate must exceed the null rate.")
+        if self.search is not None:
+            low, high = self.search
+            if type(low) is not int or type(high) is not int or not 1 <= low <= self.n <= high:
+                raise ValueError("The certified design must be a candidate of the search.")
+
+    def tail(self, rate: Fraction, critical: int) -> Fraction:
+        return Fraction(sum(_weights(self.n, rate)[critical:]), rate.denominator**self.n)
+
+    @property
+    def critical(self) -> int:
+        """Smallest response count whose upper tail at the null rate is at most alpha."""
+        weights = _weights(self.n, self.null_rate)
+        limit = self.alpha * self.null_rate.denominator**self.n
+        tail, critical = 0, self.n + 1
+        while critical > 0 and tail + weights[critical - 1] <= limit:
+            critical -= 1
+            tail += weights[critical]
+        return critical
+
+    def rejection_probability(self, rate: Fraction) -> Fraction:
+        return self.tail(rate, self.critical)
+
+    def evaluate(self) -> dict:
+        typeI = self.rejection_probability(self.null_rate)
+        power = self.rejection_probability(self.alternative_rate)
+        return {
+            "n": self.n,
+            "critical_value": self.critical,
+            "typeI": fraction_record(typeI),
+            "maximum_typeI": fraction_record(self.maximum_typeI),
+            "typeI_target_met": typeI <= self.maximum_typeI,
+            "power": fraction_record(power),
+            "minimum_power": fraction_record(self.minimum_power),
+            "power_target_met": power >= self.minimum_power,
+        }
+
+
+def search_one_sample(
+    template: OneSamplePlan, low: int, high: int
+) -> tuple[OneSamplePlan | None, int]:
+    """First sample size in ascending order meeting both targets; each is evaluated."""
+    for evaluated, n in enumerate(range(low, high + 1), 1):
+        plan = OneSamplePlan(
+            n,
+            template.null_rate,
+            template.alpha,
+            template.alternative_rate,
+            template.minimum_power,
+            template.maximum_typeI,
+            (low, high),
+        )
+        values = plan.evaluate()
+        if values["power_target_met"] and values["typeI_target_met"]:
+            return plan, evaluated
+    return None, high - low + 1
+
+
+def policy_payload(plan: "TwoStagePlan | OneSamplePlan") -> dict:
+    if isinstance(plan, OneSamplePlan):
+        payload = {
+            "schema_version": 1,
+            "scope": "policy",
+            "design": {
+                "module": "one_sample_binomial",
+                "module_version": "0.1.0",
+                "n": plan.n,
+                "critical_value": plan.critical,
+            },
+            "analysis": {
+                "null_rate": str(plan.null_rate),
+                "alpha": str(plan.alpha),
+                "alternative": "greater",
+            },
+            "target": {
+                "alternative_rate": str(plan.alternative_rate),
+                "minimum_power": str(plan.minimum_power),
+                "maximum_typeI": str(plan.maximum_typeI),
+            },
+        }
+        if plan.search is not None:
+            payload["search"] = {"min_n": plan.search[0], "max_n": plan.search[1]}
+        return payload
     return {
         "schema_version": 1,
         "scope": "policy",
@@ -460,8 +563,22 @@ def policy_payload(plan: TwoStagePlan) -> dict:
     }
 
 
-def parse_policy_payload(payload: dict) -> TwoStagePlan:
+def parse_policy_payload(payload: dict) -> "TwoStagePlan | OneSamplePlan":
     design, target = payload["design"], payload["target"]
+    if design["module"] == "one_sample_binomial":
+        search = payload.get("search")
+        plan = OneSamplePlan(
+            design["n"],
+            parse_alpha(payload["analysis"]["null_rate"]),
+            parse_alpha(payload["analysis"]["alpha"]),
+            parse_alpha(target["alternative_rate"]),
+            parse_alpha(target["minimum_power"]),
+            parse_alpha(target["maximum_typeI"]),
+            (search["min_n"], search["max_n"]) if search else None,
+        )
+        if payload != policy_payload(plan):
+            raise ValueError("Bound policy inputs are inconsistent.")
+        return plan
     plan = TwoStagePlan(
         design["n_stage1"],
         design["n_stage2"],
@@ -476,24 +593,59 @@ def parse_policy_payload(payload: dict) -> TwoStagePlan:
     return plan
 
 
-def policy_claims(plan: TwoStagePlan) -> list[str]:
+def composite_null(plan: "TwoStagePlan | OneSamplePlan") -> bool:
+    """Whether the error bound covers every rate at or below the null rate."""
+    return isinstance(plan, OneSamplePlan) or plan.rule.kind == "threshold"
+
+
+def _null_scope(plan: "TwoStagePlan | OneSamplePlan") -> str:
+    if composite_null(plan):
+        return f"for every response rate at or below {plan.null_rate}"
+    return f"at the null response rate {plan.null_rate}"
+
+
+def policy_claims(plan: "TwoStagePlan | OneSamplePlan") -> list[str]:
+    if isinstance(plan, OneSamplePlan):
+        claims = [
+            f"The exact binomial test with {plan.n} participants, rejecting at "
+            f"{plan.critical} or more responses, rejects with probability at most "
+            f"{plan.maximum_typeI} {_null_scope(plan)}.",
+            f"It rejects with probability at least {plan.minimum_power} at the response rate "
+            f"{plan.alternative_rate}.",
+        ]
+        if plan.search is not None:
+            claims.append(
+                f"A sample size of {plan.n} is therefore sufficient among candidates "
+                f"{plan.search[0]} to {plan.search[1]}. Minimality is not claimed."
+            )
+        return claims
     return [
         f"The complete two-stage policy (stages {plan.n_first} and {plan.n_second}, with its "
-        f"interim stop) rejects with probability at most {plan.maximum_typeI} at the null "
-        f"response rate {plan.null_rate}.",
+        f"interim stop) rejects with probability at most {plan.maximum_typeI} "
+        f"{_null_scope(plan)}.",
         f"It rejects with probability at least {plan.minimum_power} at the response rate "
         f"{plan.alternative_rate}.",
     ]
 
 
-def policy_assumptions(plan: TwoStagePlan) -> list[str]:
+def policy_assumptions(plan: "TwoStagePlan | OneSamplePlan") -> list[str]:
+    power = "The power bound is at one planning point, which is an input, not a fact."
+    if isinstance(plan, OneSamplePlan):
+        return [
+            "Responses are independent with one common response rate.",
+            "The sample size and critical value were fixed before outcomes were observed.",
+            power,
+        ]
     assumptions = [
         "Responses are independent with one common response rate in both stages.",
         "Stage sizes and the interim and final rules were fixed before outcomes were observed "
         "and are followed exactly.",
-        "Both bounds are at the declared rates only: the error bound is at the null rate, "
-        "not for every smaller rate, and the power bound is at one planning point.",
+        power,
     ]
+    if not composite_null(plan):
+        assumptions.append(
+            "The error bound is at the declared null rate only, not for every smaller rate."
+        )
     if plan.rule.kind == "posterior":
         assumptions.append(
             "The posterior rule is the binomial-sum form of the Beta tail probability for "
@@ -522,10 +674,26 @@ def _lean_design(plan: TwoStagePlan) -> str:
     )
 
 
-def render_policy_proof(plan: TwoStagePlan, input_sha256: str) -> str:
+def render_policy_proof(plan: "TwoStagePlan | OneSamplePlan", input_sha256: str) -> str:
     (a, d), (b, e) = plan.null_rate.as_integer_ratio(), plan.alternative_rate.as_integer_ratio()
     mn, md = plan.maximum_typeI.as_integer_ratio()
     bn, bd = plan.minimum_power.as_integer_ratio()
+    if isinstance(plan, OneSamplePlan):
+        module, design = "OneSampleBinomial", f"⟨{plan.n}, {plan.critical}⟩"
+        analysis, typeI, power = "analysis", "typeI_of_check declaredDesign", "power_of_check"
+        shape = f"declaredDesign.n = {plan.n} ∧ declaredDesign.critical = {plan.critical}"
+    else:
+        module, design = "TwoStageBinomial", _lean_design(plan)
+        shape = f"declaredDesign.nFirst = {plan.n_first} ∧ declaredDesign.nSecond = {plan.n_second}"
+        if composite_null(plan):
+            rule = plan.rule
+            analysis, power = "analysisAtMost", "power_atMost_of_check"
+            typeI = (
+                "typeI_atMost_of_check declaredDesign (TwoStageBinomial.thresholdDesign_monotone "
+                f"{plan.n_first} {plan.n_second} {rule.continue_above} {rule.reject_above})"
+            )
+        else:
+            analysis, typeI, power = "analysis", "typeI_of_check declaredDesign", "power_of_check"
     return f"""import StatProof
 import Lean.Util.CollectAxioms
 
@@ -537,23 +705,22 @@ set_option maxHeartbeats 2000000
 namespace StatProofCertificate
 open StatProof StatProof.Modules
 
-def declaredDesign : TwoStageBinomial.Design :=
-  {_lean_design(plan)}
+def declaredDesign : {module}.Design :=
+  {design}
 noncomputable def nullRate : unitInterval := ratPoint {a} {d} (by decide) (by decide)
-noncomputable def declaredAnalysis := TwoStageBinomial.analysis declaredDesign nullRate
+noncomputable def declaredAnalysis := {module}.{analysis} declaredDesign nullRate
 
-theorem checked_stages : declaredDesign.nFirst = {plan.n_first} ∧
-    declaredDesign.nSecond = {plan.n_second} := ⟨rfl, rfl⟩
+theorem checked_stages : {shape} := ⟨rfl, rfl⟩
 
 theorem checked_typeI :
     (declaredAnalysis.typeIClaim ((({mn} : ℕ) : ℝ) / (({md} : ℕ) : ℝ))).statement :=
-  TwoStageBinomial.typeI_of_check declaredDesign {a} {d} (by decide) (by decide)
+  {module}.{typeI} {a} {d} (by decide) (by decide)
     {mn} {md} (by decide) (by decide +kernel)
 
 theorem checked_power :
     (declaredAnalysis.powerClaim (fun rate => rate = ratPoint {b} {e} (by decide) (by decide))
       ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
-  TwoStageBinomial.power_of_check declaredDesign nullRate {b} {e} (by decide) (by decide)
+  {module}.{power} declaredDesign nullRate {b} {e} (by decide) (by decide)
     {bn} {bd} (by decide) (by decide +kernel)
 
 end StatProofCertificate

@@ -39,7 +39,14 @@ run_cmd do
     ``StatProof.Modules.FisherPower.checkedReject_iff,
     ``StatProof.Modules.FisherPower.rejection_probability,
     ``StatProof.Modules.FisherPower.power_of_check,
-    ``StatProof.Modules.FisherPower.typeI_statement]
+    ``StatProof.Modules.FisherPower.typeI_statement,
+    ``StatProof.binomialExpectation_mono,
+    ``StatProof.binomial_real_mono,
+    ``StatProof.productBinomial_real_mono,
+    ``StatProof.Modules.OneSampleBinomial.typeI_of_check,
+    ``StatProof.Modules.OneSampleBinomial.power_of_check,
+    ``StatProof.Modules.TwoStageBinomial.typeI_atMost_of_check,
+    ``StatProof.Modules.TwoStageBinomial.thresholdDesign_monotone]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

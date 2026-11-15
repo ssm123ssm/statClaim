@@ -42,13 +42,23 @@ specific design. No general theorem about two-stage designs is assumed.
 
 Current limits, stated plainly:
 
-- The null and the alternative are single response rates. The Type I claim is
-  at the declared null rate, not for every smaller rate.
+- For count thresholds the null is every rate at or below the reference rate
+  (`typeI_atMost_of_check`). For posterior thresholds the Type I claim is at the
+  declared null rate only. Power is at a single rate.
 - The posterior rule is *defined* by the binomial-sum form of the Beta tail.
   Its identity with the Beta integral is standard but not proved in Lean.
   Operating characteristics are proved for the rule as defined.
 - A posterior threshold is a decision rule. Its Type I error and power are
   separate, repeated-sampling claims about the complete policy.
+
+## One-sample binomial test
+
+`StatProof/Modules/OneSampleBinomial.lean` is the one-sided exact binomial
+test. Its Type I bound is checked at the reference rate and holds for every
+smaller rate.
+
+Both composite-null results rest on `StatProof/BinomialMonotone.lean`: the
+probability of an upper set of counts does not decrease as the rate increases.
 
 ## Fisher power
 

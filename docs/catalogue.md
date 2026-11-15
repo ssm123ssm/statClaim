@@ -14,6 +14,8 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
+| OneArmModel | One arm with a fixed sample size. | `n: integer` |
+| OneSampleAnalysis | One-sided exact binomial test with its null rate and alpha. | `model: OneArmModel`, `null_rate: exact number`, `alpha: exact number` |
 
 ## Planning objects
 
@@ -25,6 +27,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Feasibility | One analysis assessed against one target. | `analysis: Analysis`, `target: PowerTarget` |
 | Candidates | Finite equal-arm design space for a search. | `analysis: Analysis`, `min_per_arm: integer`, `max_per_arm: integer` |
 | Sizing | Candidates searched for a design meeting a target. | `candidates: Candidates`, `target: PowerTarget` |
+| OneArmCandidates | Sample sizes searched for a one-sample test. | `analysis: OneSampleAnalysis`, `min_n: integer`, `max_n: integer` |
 
 ## Adaptive design objects
 
@@ -51,6 +54,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | CertificateReference | Certificate identity, path and hash. | `certificate_id: string`, `file: string`, `directory: string`, `sha256: string` |
 | CalculationDetails | Exact p-value, alpha and test details. | `p_value: exact number`, `alpha: exact number`, `observed_table_probability: exact number`, `p_value_le_alpha: boolean`, `test: string`, `test_version: string` |
 | PlanningDetails | Calculated sizes, power and target components; not proof evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
+| OneSampleDetails | Calculated critical value, error and power of a one-sample test. | `n: Option[integer]`, `critical_value: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: integer`, `n_stage2: integer`, `maximum_sample_size: integer`, `typeI: exact number`, `typeI_target_met: boolean`, `power: exact number`, `power_target_met: boolean`, `expected_sample_size_null: exact number`, `expected_sample_size_alternative: exact number`, `early_stop_probability_null: exact number` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
@@ -101,18 +105,26 @@ Exact power at a planning point, target checks and a bounded equal-arm sample-si
 - `power_target(at, minimum, maximum_typeI) -> PowerTarget`
 - `meets(analysis, target) -> PlanningClaim`
 - `equal_arm_sizes(analysis, min_per_arm, max_per_arm) -> Candidates`
+- `sample_sizes(analysis, min_n, max_n) -> OneArmCandidates`
+- `response_rate(value) -> Rate`
 - `sample_size(candidates, target) -> PlanningClaim`
 
 ### `designs.two_stage` — Adaptive designs
 
-Single-arm two-stage binomial policy with an interim stop, using count thresholds or Beta-posterior thresholds. Type I error and power are checked for the complete policy at declared rates.
+Single-arm two-stage binomial policy with an interim stop, using count thresholds or Beta-posterior thresholds. Type I error and power are checked for the complete policy. Count thresholds cover every rate at or below the null rate; posterior thresholds cover the declared null rate only.
 
 - `two_stage_binomial(n_stage1, n_stage2) -> TwoStageModel`
 - `threshold_rule(continue_above, reject_above) -> Rule`
 - `beta_prior(a, b) -> Prior`
 - `posterior_rule(prior, reference, continue_at_least, success_at_least) -> Rule`
 - `two_stage_test(design, rule, null_rate) -> TwoStageAnalysis`
-- `response_rate(value) -> Rate`
+
+### `tests.binomial` — Analyses and claims
+
+One-sided exact binomial test for a single arm. Type I error is checked for every rate at or below the null rate; power and sample size use the planning module.
+
+- `one_arm_binomial(n) -> OneArmModel`
+- `binomial_test(model, null_rate, alpha) -> OneSampleAnalysis`
 
 ## Built-in operations
 

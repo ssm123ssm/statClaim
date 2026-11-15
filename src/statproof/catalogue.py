@@ -30,11 +30,17 @@ MODULE_CLASSES = {
         "search for the fixed Fisher analysis; targets also apply to two-stage policies. "
         "Sufficiency is certified; minimality is not claimed.",
     ),
+    "tests.binomial": (
+        "Analyses and claims",
+        "One-sided exact binomial test for a single arm. Type I error is checked for every "
+        "rate at or below the null rate; power and sample size use the planning module.",
+    ),
     "designs.two_stage": (
         "Adaptive designs",
         "Single-arm two-stage binomial policy with an interim stop, using count thresholds "
         "or Beta-posterior thresholds. Type I error and power are checked for the complete "
-        "policy at declared rates.",
+        "policy. Count thresholds cover every rate at or below the null rate; posterior "
+        "thresholds cover the declared null rate only.",
     ),
 }
 OBJECT_CLASSES = {
@@ -50,6 +56,12 @@ OBJECT_CLASSES = {
     "Feasibility": ("Planning objects", "One analysis assessed against one target."),
     "Candidates": ("Planning objects", "Finite equal-arm design space for a search."),
     "Sizing": ("Planning objects", "Candidates searched for a design meeting a target."),
+    "OneArmModel": ("Core statistical objects", "One arm with a fixed sample size."),
+    "OneSampleAnalysis": (
+        "Core statistical objects",
+        "One-sided exact binomial test with its null rate and alpha.",
+    ),
+    "OneArmCandidates": ("Planning objects", "Sample sizes searched for a one-sample test."),
     "TwoStageModel": ("Adaptive design objects", "Stage sizes of a single-arm design."),
     "Prior": ("Adaptive design objects", "Beta prior with positive integer parameters."),
     "Rule": ("Adaptive design objects", "Interim continuation and final decision rule."),
@@ -72,6 +84,10 @@ OBJECT_CLASSES = {
     "PlanningDetails": (
         "Evidence and inspection",
         "Calculated sizes, power and target components; not proof evidence.",
+    ),
+    "OneSampleDetails": (
+        "Evidence and inspection",
+        "Calculated critical value, error and power of a one-sample test.",
     ),
     "PolicyDetails": (
         "Evidence and inspection",

@@ -27,13 +27,25 @@ from statproof.language_syntax import (
     Statement,
     parse,
 )
-from statproof.planning import MAX_PER_ARM, MAX_STAGE, PowerPlan, TwoStagePlan, TwoStageRule
+from statproof.planning import (
+    MAX_ONE_ARM,
+    MAX_PER_ARM,
+    MAX_STAGE,
+    OneSamplePlan,
+    PowerPlan,
+    TwoStagePlan,
+    TwoStageRule,
+)
 
-LANGUAGE_VERSION = "0.5.0"
+LANGUAGE_VERSION = "0.6.0"
 
 
 class PlannableIR:
     """An analysis that planning targets can be assessed against."""
+
+
+class CandidateSpaceIR:
+    """A finite set of candidate designs for a sample-size search."""
 
 
 class PlanningPointIR:
@@ -162,14 +174,40 @@ class TwoStageAnalysisIR(PlannableIR):
 
 
 @dataclass(frozen=True)
+class OneArmModelIR:
+    n: int
+
+
+@dataclass(frozen=True)
+class OneSampleAnalysisIR(PlannableIR):
+    """One-sided exact binomial test of a response rate at or below null_rate."""
+
+    model: OneArmModelIR
+    null_rate: Fraction
+    alpha: Fraction
+
+    def plan(self, target: "PowerTargetIR", n: int | None = None) -> OneSamplePlan:
+        return OneSamplePlan(
+            self.model.n if n is None else n,
+            self.null_rate,
+            self.alpha,
+            target.at.value,
+            target.minimum,
+            target.maximum_typeI,
+        )
+
+
+@dataclass(frozen=True)
 class FeasibilityIR:
     """One analysis assessed against one target."""
 
     analysis: PlannableIR
     target: PowerTargetIR
 
-    def lower(self) -> PowerPlan | TwoStagePlan:
+    def lower(self) -> PowerPlan | TwoStagePlan | OneSamplePlan:
         target = self.target
+        if isinstance(self.analysis, OneSampleAnalysisIR):
+            return self.analysis.plan(target)
         if isinstance(self.analysis, TwoStageAnalysisIR):
             analysis = self.analysis
             return TwoStagePlan(
@@ -191,7 +229,7 @@ class FeasibilityIR:
 
 
 @dataclass(frozen=True)
-class CandidatesIR:
+class CandidatesIR(CandidateSpaceIR):
     """Equal-arm designs sharing the analysis's test, null form, alpha and sampling."""
 
     analysis: AnalysisIR
@@ -200,8 +238,17 @@ class CandidatesIR:
 
 
 @dataclass(frozen=True)
+class OneArmCandidatesIR(CandidateSpaceIR):
+    """Sample sizes for a one-sample test, keeping its null rate and alpha."""
+
+    analysis: OneSampleAnalysisIR
+    min_n: int
+    max_n: int
+
+
+@dataclass(frozen=True)
 class SizingIR:
-    candidates: CandidatesIR
+    candidates: "CandidatesIR | OneArmCandidatesIR"
     target: PowerTargetIR
 
 
@@ -265,8 +312,12 @@ class ValueType:
                 bool: "boolean",
                 PlanIR: "StudyDesign",
                 PlannableIR: "Analysis",
+                CandidateSpaceIR: "Candidates",
                 PlanningPointIR: "PlanningPoint",
                 TwoStageAnalysisIR: "TwoStageAnalysis",
+                OneSampleAnalysisIR: "OneSampleAnalysis",
+                OneArmModelIR: "OneArmModel",
+                OneArmCandidatesIR: "OneArmCandidates",
             }.get(self.kind, self.kind.__name__.removesuffix("IR"))
         )
         return f"Option[{name}]" if self.optional else name
@@ -384,6 +435,17 @@ def normalize(value: object) -> object:
                 "rule": normalize(rule),
                 "null_rate": str(rate),
             }
+        case OneArmModelIR(n=n):
+            return {"module": "one_arm_binomial", "n": n}
+        case OneSampleAnalysisIR(model=model, null_rate=rate, alpha=alpha):
+            return {
+                "test": "binomial_exact_one_sided",
+                "model": normalize(model),
+                "null_rate": str(rate),
+                "alpha": str(alpha),
+            }
+        case OneArmCandidatesIR(analysis=analysis, min_n=low, max_n=high):
+            return {"analysis": normalize(analysis), "min_n": low, "max_n": high}
         case FeasibilityIR(analysis=analysis, target=target):
             return {"analysis": normalize(analysis), "target": normalize(target)}
         case CandidatesIR(analysis=analysis, min_per_arm=low, max_per_arm=high):
@@ -572,15 +634,20 @@ def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTarget
 def _check_point(analysis: PlannableIR, target: LocatedValue) -> None:
     """The planning point must belong to the analysis's parameter space, outside its null."""
     point = target.value.at
-    if isinstance(analysis, TwoStageAnalysisIR):
+    if isinstance(analysis, (TwoStageAnalysisIR, OneSampleAnalysisIR)):
         if not isinstance(point, RateIR):
             fail(
                 "planning_point",
-                "A two-stage analysis has one response rate. "
+                "A single-arm analysis has one response rate. "
                 "Declare the target at response_rate(value=...).",
                 target.span,
             )
-        null, outside = f"response rate = {analysis.null_rate}", point.value != analysis.null_rate
+        if isinstance(analysis, TwoStageAnalysisIR) and analysis.rule.kind == "posterior":
+            null = f"response rate = {analysis.null_rate}"
+            outside = point.value != analysis.null_rate
+        else:
+            null = f"response rate <= {analysis.null_rate}"
+            outside = point.value > analysis.null_rate
     else:
         if not isinstance(point, RatesIR):
             fail(
@@ -618,6 +685,31 @@ def _candidates(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
     if high.value > MAX_PER_ARM:
         fail("domain", f"max_per_arm is currently limited to {MAX_PER_ARM}.", high.span)
     return CandidatesIR(arguments["analysis"].value, low.value, high.value)
+
+
+def _one_arm(arguments: dict[str, LocatedValue], span: Span) -> OneArmModelIR:
+    n = arguments["n"]
+    if not 1 <= n.value <= MAX_ONE_ARM:
+        fail("domain", f"n must be between 1 and {MAX_ONE_ARM}.", n.span)
+    return OneArmModelIR(n.value)
+
+
+def _binomial_test(arguments: dict[str, LocatedValue], span: Span) -> OneSampleAnalysisIR:
+    rate = arguments["null_rate"]
+    if not 0 < rate.value < 1:
+        fail("domain", "null_rate must lie strictly between 0 and 1.", rate.span)
+    return OneSampleAnalysisIR(arguments["model"].value, rate.value, arguments["alpha"].value)
+
+
+def _one_arm_candidates(arguments: dict[str, LocatedValue], span: Span) -> OneArmCandidatesIR:
+    low, high = arguments["min_n"], arguments["max_n"]
+    if low.value < 1:
+        fail("domain", "min_n must be a positive integer.", low.span)
+    if high.value < low.value:
+        fail("domain", "max_n must be at least min_n.", high.span)
+    if high.value > MAX_ONE_ARM:
+        fail("domain", f"max_n is currently limited to {MAX_ONE_ARM}.", high.span)
+    return OneArmCandidatesIR(arguments["analysis"].value, low.value, high.value)
 
 
 def _sizing(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
@@ -848,8 +940,23 @@ MODULES = {
                     "bounds, keeping the analysis's sampling, null form, test and alpha.",
                 ),
                 _constructor(
+                    "sample_sizes",
+                    (("analysis", OneSampleAnalysisIR), ("min_n", "integer"), ("max_n", "integer")),
+                    "OneArmCandidates",
+                    _one_arm_candidates,
+                    documentation="A finite design space: sample sizes within inclusive "
+                    "bounds for a one-sample test, keeping its null rate and alpha.",
+                ),
+                _constructor(
+                    "response_rate",
+                    (("value", "number"),),
+                    "Rate",
+                    lambda args, span: RateIR(_probability(args["value"], "value")),
+                    documentation="A planning point for a single-arm design.",
+                ),
+                _constructor(
                     "sample_size",
-                    (("candidates", CandidatesIR), ("target", PowerTargetIR)),
+                    (("candidates", CandidateSpaceIR), ("target", PowerTargetIR)),
                     "PlanningClaim",
                     _sizing,
                     documentation="Claim that some candidate meets the target. The search is "
@@ -905,12 +1012,26 @@ MODULES = {
                     documentation="The complete policy: stages, interim stop, final decision "
                     "and the null response rate it tests.",
                 ),
+            ),
+        ),
+        Module(
+            "tests.binomial",
+            (
                 _constructor(
-                    "response_rate",
-                    (("value", "number"),),
-                    "Rate",
-                    lambda args, span: RateIR(_probability(args["value"], "value")),
-                    documentation="A planning point for a single-arm design.",
+                    "one_arm_binomial",
+                    (("n", "integer"),),
+                    "OneArmModel",
+                    _one_arm,
+                    documentation="One arm with n independent binary responses.",
+                ),
+                _constructor(
+                    "binomial_test",
+                    (("model", OneArmModelIR), ("null_rate", "number"), ("alpha", "level")),
+                    "OneSampleAnalysis",
+                    _binomial_test,
+                    documentation="One-sided exact binomial test. Null: response rate <= "
+                    "null_rate. Rejects at the smallest response count whose upper tail "
+                    "probability at null_rate is at most alpha.",
                 ),
             ),
         ),
