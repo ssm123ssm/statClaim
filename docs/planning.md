@@ -71,6 +71,10 @@ There are two sizing claims:
 An exhausted search reports `no_feasible_candidate` and claims nothing about
 other designs or larger samples.
 
+For unequal allocation, replace `equal_arm_sizes` with `allocated_arm_sizes`.
+With `treatment_per_control=2`, each candidate has `n` controls and `2n`
+treated participants. See `examples/unequal_allocation.stat`.
+
 ## Plan a single-arm study
 
 `tests.binomial` provides the one-sided exact binomial test. Its null is every

@@ -28,6 +28,7 @@ def runs(tmp_path_factory):
         "one_sample",
         "one_sample_result",
         "confidence_interval",
+        "unequal_allocation",
     ):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
@@ -86,6 +87,13 @@ def test_interval_certificate_replays_and_rejects_a_narrower_interval(runs, tmp_
     (bundle / "inputs.json").write_text(json.dumps(inputs))
     with pytest.raises(VerificationError):
         recheck_certificate(bundle, project=ROOT)
+
+
+def test_unequal_allocation_is_verified(runs):
+    report = runs["unequal_allocation"]
+    assert report["status"] == "verified", report["diagnostics"]
+    evidence = report["values"]["verification"]["evidence"]
+    assert "(26, 52) is the smallest" in evidence["established_properties"][-1]
 
 
 def test_ten_endpoint_family_is_verified(tmp_path):

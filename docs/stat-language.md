@@ -3,8 +3,17 @@
 Language version `0.7.0` provides a small declaration grammar over the existing
 statistical objects and Lean backend. Claims, verification results, and calculation
 results are first-class values. The statistical language is the researcher-facing
-interface; the Lean and TOML interfaces remain supported. Version `0.5.0` adds the
-`planning` and `designs.two_stage` modules; see [planning a study](planning.md).
+interface; the Lean and TOML interfaces remain supported.
+
+| Module | Provides |
+| --- | --- |
+| `models.two_arm_binomial`, `sampling`, `tests.fisher` | Two-arm studies and Fisher's exact test (this guide) |
+| `multiplicity.bonferroni` | Several endpoints ([multiple testing](multiple-testing.md)) |
+| `planning` | Power targets and sample-size searches ([planning](planning.md)) |
+| `tests.binomial` | One-sample exact test and confidence interval ([planning](planning.md)) |
+| `designs.two_stage` | Two-stage designs with an interim stop ([planning](planning.md)) |
+
+The [catalogue](catalogue.md) lists every constructor and field.
 
 ## First file
 

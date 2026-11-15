@@ -83,7 +83,7 @@ namespace StatProof.Tests.Minimality
 open StatProof StatProof.Modules
 
 /-- No equal-arm size from 2 to 11 reaches 80% Fisher power at 10% versus 40%. -/
-example : FisherPower.SmallerFail 2 12 1 20 1 10 2 5 4 5 := by decide +kernel
+example : FisherPower.SmallerFail 1 2 12 1 20 1 10 2 5 4 5 := by decide +kernel
 
 /-- Proposed thresholds are validated, so a wrong one is rejected. -/
 example : ¬ FisherPower.HintsValid 2 2 1 20 [0, 0, 6, 0, 0] [0, 0, 0, 0, 0] := by decide +kernel

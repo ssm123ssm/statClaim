@@ -15,7 +15,7 @@ Other files in `playground/`:
 
 | File | Shows |
 | --- | --- |
-| `planning.stat` | Power and sample size for two arms |
+| `planning.stat`, `unequal_allocation.stat` | Power and sample size for two arms |
 | `one_sample.stat`, `one_sample_result.stat` | Planning and analysing a single-arm study |
 | `confidence_interval.stat` | An exact confidence interval for a proportion |
 | `three_outcomes.stat` | Several endpoints with Bonferroni |

@@ -26,8 +26,9 @@ MODULE_CLASSES = {
     ),
     "planning": (
         "Study planning",
-        "Exact power at a planning point, target checks and a bounded equal-arm sample-size "
-        "search for the fixed Fisher analysis; targets also apply to two-stage policies. "
+        "Exact power at a planning point, target checks and a bounded sample-size search "
+        "with equal or unequal allocation for the fixed Fisher analysis. "
+        "Targets also apply to one-sample tests and two-stage designs. "
         "A size can be certified as sufficient or as the smallest in the declared range.",
     ),
     "tests.binomial": (

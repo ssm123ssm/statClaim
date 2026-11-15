@@ -423,3 +423,31 @@ def test_interval_endpoints_bracket_the_exact_limits(tmp_path):
         "let c = confidence_interval(model=one_arm_binomial(n=5), count=2, level=1)\n"
     )
     assert "domain" in [d.code for d in invalid.diagnostics]
+
+
+def test_unequal_allocation_search():
+    plan, evaluated = search_equal_arms(ALPHA, *RATES, Fraction(4, 5), ALPHA, 10, 40, True, 2)
+    assert (plan.design.n_control, plan.design.n_treatment, evaluated) == (26, 52, 17)
+    # Every smaller candidate was evaluated and falls short.
+    for controls in range(10, 26):
+        assert fisher_rejection_probability(controls, 2 * controls, ALPHA, *RATES) < Fraction(4, 5)
+    payload = planning_payload(plan)
+    assert payload["search"]["treatment_per_control"] == 2
+    assert parse_planning_payload(payload) == plan
+    assert "⟨n, 2 * n," in render_planning_proof(plan, "0" * 64)
+    with pytest.raises(ValueError):
+        PowerPlan(
+            Design(26, 26, "fixed", ALPHA),
+            *RATES,
+            Fraction(4, 5),
+            ALPHA,
+            "sample_size",
+            (10, 40),
+            False,
+            2,
+        )
+    invalid = compiled(
+        FIXED + "let c = allocated_arm_sizes(analysis=analysis, min_control=1, max_control=9, "
+        "treatment_per_control=0)\n"
+    )
+    assert "domain" in [d.code for d in invalid.diagnostics]

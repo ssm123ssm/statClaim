@@ -360,15 +360,16 @@ def run_sample_size(
     bounds: tuple[int, int],
     *,
     minimal: bool = False,
+    ratio: int = 1,
     verify: bool,
     project: Path,
     output,
     timeout: float,
 ) -> dict:
-    """Search ascending for a sufficient equal-arm size."""
+    """Search ascending for a sufficient design with the given allocation ratio."""
     p_control, p_treatment, minimum, maximum = target
     plan, evaluated = search_equal_arms(
-        alpha, p_control, p_treatment, minimum, maximum, *bounds, minimal
+        alpha, p_control, p_treatment, minimum, maximum, *bounds, minimal, ratio
     )
     search = {
         "min_per_arm": bounds[0],
@@ -384,7 +385,7 @@ def run_sample_size(
                 report,
                 "search_exhausted",
                 "no_feasible_candidate",
-                f"No equal-arm size from {bounds[0]} to {bounds[1]} meets the power target. "
+                f"No candidate with {bounds[0]} to {bounds[1]} controls meets the power target. "
                 "Nothing is claimed about other designs or larger samples.",
             )
         return report

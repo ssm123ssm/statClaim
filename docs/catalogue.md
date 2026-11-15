@@ -27,7 +27,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Rate | Planning point for a single response rate. | `value: exact number` |
 | PowerTarget | Required power at a point and a Type I bound. | `at: PlanningPoint`, `minimum: exact number`, `maximum_typeI: exact number` |
 | Feasibility | One analysis assessed against one target. | `analysis: Analysis`, `target: PowerTarget` |
-| Candidates | Finite equal-arm design space for a search. | `analysis: Analysis`, `min_per_arm: integer`, `max_per_arm: integer` |
+| Candidates | Finite equal-arm design space for a search. | `analysis: Analysis`, `min_per_arm: integer`, `max_per_arm: integer`, `ratio: integer` |
 | Sizing | Candidates searched for a design meeting a target. | `candidates: Candidates`, `target: PowerTarget` |
 | OneArmCandidates | Sample sizes searched for a one-sample test. | `analysis: OneSampleAnalysis`, `min_n: integer`, `max_n: integer` |
 
@@ -103,12 +103,13 @@ Bonferroni for two or more Fisher endpoints with an explicit joint-law contract.
 
 ### `planning` — Study planning
 
-Exact power at a planning point, target checks and a bounded equal-arm sample-size search for the fixed Fisher analysis; targets also apply to two-stage policies. A size can be certified as sufficient or as the smallest in the declared range.
+Exact power at a planning point, target checks and a bounded sample-size search with equal or unequal allocation for the fixed Fisher analysis. Targets also apply to one-sample tests and two-stage designs. A size can be certified as sufficient or as the smallest in the declared range.
 
 - `binomial_rates(p_control, p_treatment) -> Rates`
 - `power_target(at, minimum, maximum_typeI) -> PowerTarget`
 - `meets(analysis, target) -> PlanningClaim`
 - `equal_arm_sizes(analysis, min_per_arm, max_per_arm) -> Candidates`
+- `allocated_arm_sizes(analysis, min_control, max_control, treatment_per_control) -> Candidates`
 - `sample_sizes(analysis, min_n, max_n) -> OneArmCandidates`
 - `response_rate(value) -> Rate`
 - `sample_size(candidates, target) -> PlanningClaim`

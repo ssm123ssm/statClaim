@@ -8,7 +8,7 @@
 - VS Code diagnostics and Claims view, Codespaces and contributor checks.
 - Classified catalogue and documented scope.
 - Planning: exact Fisher power, target checks and a bounded sample-size search,
-  with an optional smallest-in-range claim.
+  with an optional smallest-in-range claim and unequal allocation.
 - Sampling policies with their own records; a two-stage binomial design with
   count or Beta-posterior rules and checked Type I error and power.
 - One-sided exact binomial test for a single arm: sample-size search and
@@ -17,7 +17,7 @@
 
 ## Next
 
-1. One-sided and unequal-allocation options for the two-arm analysis.
+1. A one-sided option for the two-arm analysis.
 2. Confidence intervals for a difference of two proportions.
 3. An analysis for a nonzero difference null, with its own theorem.
 4. Assurance and precision targets for planning.

@@ -30,6 +30,7 @@ from statproof.language_syntax import (
 from statproof.planning import (
     MAX_ONE_ARM,
     MAX_PER_ARM,
+    MAX_RATIO,
     MAX_STAGE,
     BinomialInterval,
     OneSamplePlan,
@@ -257,6 +258,7 @@ class CandidatesIR(CandidateSpaceIR):
     analysis: AnalysisIR
     min_per_arm: int
     max_per_arm: int
+    ratio: int = 1
 
 
 @dataclass(frozen=True)
@@ -476,10 +478,10 @@ def normalize(value: object) -> object:
             return {"analysis": normalize(analysis), "min_n": low, "max_n": high}
         case FeasibilityIR(analysis=analysis, target=target):
             return {"analysis": normalize(analysis), "target": normalize(target)}
-        case CandidatesIR(analysis=analysis, min_per_arm=low, max_per_arm=high):
+        case CandidatesIR(analysis=analysis, min_per_arm=low, max_per_arm=high, ratio=ratio):
             return {
                 "analysis": normalize(analysis),
-                "allocation": "equal_arms",
+                "allocation": "equal_arms" if ratio == 1 else f"1:{ratio}",
                 "min_per_arm": low,
                 "max_per_arm": high,
             }
@@ -764,6 +766,24 @@ def _one_arm_candidates(arguments: dict[str, LocatedValue], span: Span) -> OneAr
     return OneArmCandidatesIR(arguments["analysis"].value, low.value, high.value)
 
 
+def _allocated(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
+    low, high = arguments["min_control"], arguments["max_control"]
+    ratio = arguments["treatment_per_control"]
+    if not 1 <= ratio.value <= MAX_RATIO:
+        fail("domain", f"treatment_per_control must be between 1 and {MAX_RATIO}.", ratio.span)
+    if low.value < 1:
+        fail("domain", "min_control must be a positive integer.", low.span)
+    if high.value < low.value:
+        fail("domain", "max_control must be at least min_control.", high.span)
+    if high.value * ratio.value > MAX_PER_ARM:
+        fail(
+            "domain",
+            f"The larger arm is currently limited to {MAX_PER_ARM} participants.",
+            high.span,
+        )
+    return CandidatesIR(arguments["analysis"].value, low.value, high.value, ratio.value)
+
+
 def _sizing(minimal: bool) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         candidates = arguments["candidates"]
@@ -993,6 +1013,20 @@ MODULES = {
                     _candidates,
                     documentation="A finite design space: equal arm sizes within inclusive "
                     "bounds, keeping the analysis's sampling, null form, test and alpha.",
+                ),
+                _constructor(
+                    "allocated_arm_sizes",
+                    (
+                        ("analysis", AnalysisIR),
+                        ("min_control", "integer"),
+                        ("max_control", "integer"),
+                        ("treatment_per_control", "integer"),
+                    ),
+                    "Candidates",
+                    _allocated,
+                    documentation="A finite design space with unequal allocation: each "
+                    "candidate has n controls and treatment_per_control * n treated "
+                    "participants, for n within the inclusive bounds.",
                 ),
                 _constructor(
                     "sample_sizes",

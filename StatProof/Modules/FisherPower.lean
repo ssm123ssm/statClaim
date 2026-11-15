@@ -187,55 +187,61 @@ theorem power_of_check (sizes : FixedSampleDesign) (level : SignificanceLevel)
   exact le_ratio_of_check _ _ _ _ (rejectionDenominator_pos _ _ _ _ positive₁ positive₂)
     boundDen_pos check
 
-/-- Every equal-arm size from `low` up to, but excluding, `high` has power
-below the bound at the planning point. A decidable natural-number statement. -/
-def SmallerFail (low high levelNum levelDen a d b e boundNum boundDen : ℕ) : Prop :=
+/-- Every candidate with `n` controls and `ratio * n` treated participants, for
+`n` from `low` up to but excluding `high`, has power below the bound at the
+planning point. A decidable natural-number statement. -/
+def SmallerFail (ratio low high levelNum levelDen a d b e boundNum boundDen : ℕ) : Prop :=
   ∀ n, n < high → low ≤ n →
-    rejectionNumerator n n a d b e (checkedReject n n levelNum levelDen) * boundDen <
-      boundNum * rejectionDenominator n n d e
+    rejectionNumerator n (ratio * n) a d b e (checkedReject n (ratio * n) levelNum levelDen) *
+        boundDen < boundNum * rejectionDenominator n (ratio * n) d e
 
-instance (low high levelNum levelDen a d b e boundNum boundDen : ℕ) :
-    Decidable (SmallerFail low high levelNum levelDen a d b e boundNum boundDen) := by
+instance (ratio low high levelNum levelDen a d b e boundNum boundDen : ℕ) :
+    Decidable (SmallerFail ratio low high levelNum levelDen a d b e boundNum boundDen) := by
   unfold SmallerFail
   infer_instance
 
 /-- `SmallerFail` checked with supplied thresholds for each candidate size. -/
-def SmallerFailHinted (low high levelNum levelDen a d b e boundNum boundDen : ℕ)
+def SmallerFailHinted (ratio low high levelNum levelDen a d b e boundNum boundDen : ℕ)
     (cuts nexts : List (List ℕ)) : Prop :=
   ∀ n, n < high → low ≤ n →
-    HintsValid n n levelNum levelDen (cuts.getD (n - low) []) (nexts.getD (n - low) []) ∧
-      rejectionNumerator n n a d b e (hintReject n n (cuts.getD (n - low) [])) * boundDen <
-        boundNum * rejectionDenominator n n d e
+    HintsValid n (ratio * n) levelNum levelDen (cuts.getD (n - low) [])
+        (nexts.getD (n - low) []) ∧
+      rejectionNumerator n (ratio * n) a d b e
+          (hintReject n (ratio * n) (cuts.getD (n - low) [])) * boundDen <
+        boundNum * rejectionDenominator n (ratio * n) d e
 
-instance (low high levelNum levelDen a d b e boundNum boundDen : ℕ)
+instance (ratio low high levelNum levelDen a d b e boundNum boundDen : ℕ)
     (cuts nexts : List (List ℕ)) :
-    Decidable (SmallerFailHinted low high levelNum levelDen a d b e boundNum boundDen
+    Decidable (SmallerFailHinted ratio low high levelNum levelDen a d b e boundNum boundDen
       cuts nexts) := by
   unfold SmallerFailHinted
   infer_instance
 
-theorem smallerFail_of_hinted (low high levelNum levelDen a d b e boundNum boundDen : ℕ)
+theorem smallerFail_of_hinted (ratio low high levelNum levelDen a d b e boundNum boundDen : ℕ)
     (cuts nexts : List (List ℕ))
-    (check : SmallerFailHinted low high levelNum levelDen a d b e boundNum boundDen cuts nexts) :
-    SmallerFail low high levelNum levelDen a d b e boundNum boundDen := by
+    (check : SmallerFailHinted ratio low high levelNum levelDen a d b e boundNum boundDen
+      cuts nexts) :
+    SmallerFail ratio low high levelNum levelDen a d b e boundNum boundDen := by
   intro n upper lower
   obtain ⟨valid, strict⟩ := check n upper lower
   rw [rejectionNumerator_hint _ _ _ _ _ _ _ _ _ _ valid]
   exact strict
 
-/-- No smaller equal-arm candidate reaches the power bound. -/
+/-- No smaller candidate with the same allocation ratio reaches the power bound. -/
 theorem power_lt_of_smallerFail (level : SignificanceLevel)
     (levelNum levelDen : ℕ) (levelDen_pos : 0 < levelDen)
     (level_eq : level.value = (levelNum : ℚ) / levelDen)
     (a d b e : ℕ) (le₁ : a ≤ d) (positive₁ : 0 < d) (le₂ : b ≤ e) (positive₂ : 0 < e)
-    (boundNum boundDen : ℕ) (boundDen_pos : 0 < boundDen) (low high : ℕ)
-    (check : SmallerFail low high levelNum levelDen a d b e boundNum boundDen)
+    (boundNum boundDen : ℕ) (boundDen_pos : 0 < boundDen) (ratio : ℕ) (ratio_pos : 0 < ratio)
+    (low high : ℕ)
+    (check : SmallerFail ratio low high levelNum levelDen a d b e boundNum boundDen)
     (n : ℕ) (positive : 0 < n) (lower : low ≤ n) (upper : n < high) :
-    ((Core.Policy.fixed (model ⟨n, n, positive, positive⟩)).law
+    ((Core.Policy.fixed (model ⟨n, ratio * n, positive, Nat.mul_pos ratio_pos positive⟩)).law
         (ratePoint a d b e le₁ positive₁ le₂ positive₂)).real
-        (analysis ⟨n, n, positive, positive⟩ level).rejection < (boundNum : ℝ) / boundDen := by
-  rw [rejection_probability ⟨n, n, positive, positive⟩ level levelNum levelDen levelDen_pos
-    level_eq]
+        (analysis ⟨n, ratio * n, positive, Nat.mul_pos ratio_pos positive⟩ level).rejection <
+      (boundNum : ℝ) / boundDen := by
+  rw [rejection_probability ⟨n, ratio * n, positive, Nat.mul_pos ratio_pos positive⟩ level
+    levelNum levelDen levelDen_pos level_eq]
   exact ratio_lt_of_check _ _ _ _ (rejectionDenominator_pos _ _ _ _ positive₁ positive₂)
     boundDen_pos (check n upper lower)
 

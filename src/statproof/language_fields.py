@@ -117,6 +117,7 @@ SCHEMAS = {
         "analysis": FieldSpec(AnalysisIR),
         "min_per_arm": FieldSpec(int),
         "max_per_arm": FieldSpec(int),
+        "ratio": FieldSpec(int, description="Treated participants per control."),
     },
     SizingIR: {"candidates": FieldSpec(CandidateSpaceIR), "target": FieldSpec(PowerTargetIR)},
     OneArmModelIR: {"n": FieldSpec(int)},

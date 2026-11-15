@@ -36,6 +36,7 @@ def policy_theorems(plan) -> list[str]:
 # Kernel checking enumerates every table; larger searches remain calculations.
 MAX_PER_ARM = 500
 MAX_STAGE = 200
+MAX_RATIO = 10
 MAX_ONE_ARM = 1000
 
 AUDIT = """
@@ -143,10 +144,15 @@ class PowerPlan:
     request: Literal["meets", "sample_size"] = "meets"
     search: tuple[int, int] | None = None
     minimal: bool = False
+    ratio: int = 1
 
     def __post_init__(self) -> None:
         if self.minimal and self.search is None:
             raise ValueError("A smallest-size claim needs a search range.")
+        if type(self.ratio) is not int or not 1 <= self.ratio <= MAX_RATIO:
+            raise ValueError(f"The allocation ratio must be an integer from 1 to {MAX_RATIO}.")
+        if self.ratio != 1 and self.search is None:
+            raise ValueError("An allocation ratio describes a search.")
         for name in ("p_control", "p_treatment", "minimum_power", "maximum_typeI"):
             _probability(getattr(self, name), name)
         if self.p_control == self.p_treatment:
@@ -157,12 +163,9 @@ class PowerPlan:
             low, high = self.search
             if type(low) is not int or type(high) is not int or not 1 <= low <= high:
                 raise ValueError("Search bounds must be integers with 1 <= min <= max.")
-            if not (low <= self.design.n_control <= high and self.equal_arms):
+            allocated = self.design.n_treatment == self.ratio * self.design.n_control
+            if not (low <= self.design.n_control <= high and allocated):
                 raise ValueError("The certified design must be a candidate of the search.")
-
-    @property
-    def equal_arms(self) -> bool:
-        return self.design.n_control == self.design.n_treatment
 
     @property
     def power(self) -> Fraction:
@@ -203,14 +206,16 @@ def search_equal_arms(
     low: int,
     high: int,
     minimal: bool = False,
+    ratio: int = 1,
 ) -> tuple[PowerPlan | None, int]:
-    """First equal-arm size in ascending order meeting the power target.
+    """First control-arm size in ascending order meeting the power target, with
+    `ratio` treated participants per control.
 
     Power is not assumed monotone in sample size; each candidate is evaluated.
     """
     for evaluated, size in enumerate(range(low, high + 1), 1):
         plan = PowerPlan(
-            Design(size, size, "fixed", alpha),
+            Design(size, ratio * size, "fixed", alpha),
             p_control,
             p_treatment,
             minimum_power,
@@ -218,6 +223,7 @@ def search_equal_arms(
             "sample_size",
             (low, high),
             minimal,
+            ratio,
         )
         if plan.power >= minimum_power:
             return plan, evaluated
@@ -254,6 +260,8 @@ def planning_payload(plan: PowerPlan) -> dict:
         payload["search"] = {"min_per_arm": plan.search[0], "max_per_arm": plan.search[1]}
         if plan.minimal:
             payload["search"]["claim"] = SMALLEST
+        if plan.ratio != 1:
+            payload["search"]["treatment_per_control"] = plan.ratio
     return payload
 
 
@@ -273,6 +281,7 @@ def parse_planning_payload(payload: dict) -> PowerPlan:
         payload["request"],
         (search["min_per_arm"], search["max_per_arm"]) if search else None,
         bool(search) and search.get("claim") == SMALLEST,
+        search.get("treatment_per_control", 1) if search else 1,
     )
     if payload != planning_payload(plan):
         raise ValueError("Bound planning inputs are inconsistent.")
@@ -288,16 +297,18 @@ def planning_claims(plan: PowerPlan) -> list[str]:
         f"Its power is at least {plan.minimum_power} at p_control = {plan.p_control}, "
         f"p_treatment = {plan.p_treatment}.",
     ]
+    kind = "equal-arm" if plan.ratio == 1 else f"1:{plan.ratio} (control:treatment)"
     if plan.minimal:
         claims.append(
-            f"No equal-arm size from {plan.search[0]} up to {plan.design.n_control - 1} reaches "
-            f"that power, so {sizes} is the smallest sufficient candidate in the range "
-            f"{plan.search[0]} to {plan.search[1]}. Nothing is claimed outside the range."
+            f"No {kind} candidate with {plan.search[0]} up to {plan.design.n_control - 1} "
+            f"controls reaches that power, so {sizes} is the smallest sufficient candidate "
+            f"in the range {plan.search[0]} to {plan.search[1]}. "
+            "Nothing is claimed outside the range."
         )
     elif plan.search is not None:
         claims.append(
-            f"Arm sizes {sizes} are therefore sufficient among equal-arm candidates "
-            f"{plan.search[0]} to {plan.search[1]}. Minimality is not claimed."
+            f"Arm sizes {sizes} are therefore sufficient among {kind} candidates with "
+            f"{plan.search[0]} to {plan.search[1]} controls. Minimality is not claimed."
         )
     return claims
 
@@ -329,19 +340,21 @@ def render_planning_proof(plan: PowerPlan, input_sha256: str) -> str:
     smaller = ""
     if plan.minimal:
         low = plan.search[0]
-        hints = [fisher_cuts(n, n, alpha) for n in range(low, nc)]
+        r = plan.ratio
+        hints = [fisher_cuts(n, r * n, alpha) for n in range(low, nc)]
         smaller = f"""
 def smallerCuts : List (List ℕ) := {_lean_list(_lean_list(c) for c, _ in hints)}
 def smallerNexts : List (List ℕ) := {_lean_list(_lean_list(x) for _, x in hints)}
 
 theorem checked_smaller (n : ℕ) (positive : 0 < n) (lower : {low} ≤ n) (upper : n < {nc}) :
-    ((Core.Policy.fixed (TwoArmBinomial.model ⟨n, n, positive, positive⟩)).law
-        planningPoint).real
-        (FisherPower.analysis ⟨n, n, positive, positive⟩ declaredLevel).rejection <
+    ((Core.Policy.fixed (TwoArmBinomial.model
+        ⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩)).law planningPoint).real
+        (FisherPower.analysis ⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩
+          declaredLevel).rejection <
       ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ)) :=
   FisherPower.power_lt_of_smallerFail declaredLevel {an} {ad} (by decide)
-    (by norm_num [declaredLevel]) {point} {bn} {bd} (by decide) {low} {nc}
-    (FisherPower.smallerFail_of_hinted _ _ _ _ _ _ _ _ _ _ smallerCuts smallerNexts
+    (by norm_num [declaredLevel]) {point} {bn} {bd} (by decide) {r} (by decide) {low} {nc}
+    (FisherPower.smallerFail_of_hinted _ _ _ _ _ _ _ _ _ _ _ smallerCuts smallerNexts
       (by decide +kernel)) n positive lower upper
 """
     return f"""import StatProof

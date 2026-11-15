@@ -27,6 +27,10 @@ from statproof.planning import (
 from statproof.report import interval_report, planning_report
 
 
+def _allocation(candidates) -> str:
+    return "equal-arm" if candidates.ratio == 1 else f"1:{candidates.ratio} allocation"
+
+
 def _scope(sizing) -> str:
     if sizing.minimal:
         return "No smaller candidate in the range does."
@@ -51,7 +55,8 @@ def inspect_planning(request: RequestIR) -> dict:
         else:
             candidates = subject.candidates
             text = (
-                f"Some equal-arm size from {candidates.min_per_arm} to {candidates.max_per_arm} "
+                f"Some {_allocation(candidates)} size from {candidates.min_per_arm} to "
+                f"{candidates.max_per_arm} controls "
                 f"gives {goal}. {_scope(subject)}"
             )
         return planning_report("planning", text, PLANNING_ASSUMPTIONS)
