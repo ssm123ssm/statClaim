@@ -10,7 +10,7 @@ from fractions import Fraction
 from typing import Literal as Choice
 
 from statproof.design import Design
-from statproof.family import Endpoint, FisherFamily
+from statproof.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statproof.fisher import validate_alpha
 from statproof.language_contracts import FISHER_CONTRACT, HypothesisContract
 from statproof.language_syntax import (
@@ -534,10 +534,10 @@ def _difference(predicate: str) -> Callable:
 
 def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyIR:
     items = arguments["analyses"].value
-    if len(items) != 2:
+    if not 2 <= len(items) <= MAX_ENDPOINTS:
         fail(
             "family_size",
-            "The Fisher-family adapter currently requires exactly two analyses.",
+            f"A Bonferroni family needs between 2 and {MAX_ENDPOINTS} analyses.",
             arguments["analyses"].span,
         )
     analyses = []

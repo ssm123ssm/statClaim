@@ -38,20 +38,20 @@ FAMILY_CHECKED_THEOREMS = [
 
 def render_family_proof(family: FisherFamily, input_sha256: str) -> str:
     if not family.supported:
-        raise ValueError("A Fisher family certificate requires fixed sampling for both analyses.")
+        raise ValueError("A Fisher family certificate requires fixed sampling for every analysis.")
     if family.allocated_alpha > family.alpha:
         raise ValueError("The allocated alpha exceeds the requested familywise bound.")
     if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
         raise ValueError("Expected a SHA-256 input identifier.")
-    declarations = []
-    for prefix, endpoint in zip(("left", "right"), family.endpoints, strict=True):
+    count = len(family.endpoints)
+    sizes, levels = [], []
+    for endpoint in family.endpoints:
         design = endpoint.design
         numerator, denominator = design.alpha.as_integer_ratio()
-        declarations.append(f"""def {prefix}Sizes : FixedSampleDesign :=
-  ⟨{design.n_control}, {design.n_treatment}, by decide, by decide⟩
-def {prefix}Level : SignificanceLevel :=
-  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩""")
+        sizes.append(f"⟨{design.n_control}, {design.n_treatment}, by decide, by decide⟩")
+        levels.append(f"⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩")
     numerator, denominator = family.alpha.as_integer_ratio()
+    separator = ",\n    "
     names = ", ".join(f"``StatProofCertificate.{name}" for name in FAMILY_CHECKED_THEOREMS)
     return f"""import StatProof
 import Lean.Util.CollectAxioms
@@ -60,34 +60,30 @@ import Lean.Util.CollectAxioms
 -- The theorem is conditional on the explicitly quantified marginal-law contract.
 namespace StatProofCertificate
 open StatProof
-open Modules.FisherFamily
+open Modules.FisherFamilyN
 
-{chr(10).join(declarations)}
-def familyLevel : SignificanceLevel :=
-  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩
+def designs : Fin {count} → FixedSampleDesign :=
+  ![{separator.join(sizes)}]
+def levels : Fin {count} → SignificanceLevel :=
+  ![{separator.join(levels)}]
+def familyLevel : ℚ := ({numerator} : ℚ) / {denominator}
 
-theorem checked_sizes : 0 < leftSizes.nControl ∧ 0 < leftSizes.nTreatment ∧
-    0 < rightSizes.nControl ∧ 0 < rightSizes.nTreatment := by decide
+theorem checked_sizes (i : Fin {count}) :
+    0 < (designs i).nControl ∧ 0 < (designs i).nTreatment :=
+  ⟨(designs i).controlPositive, (designs i).treatmentPositive⟩
 
-theorem checked_allocation : (leftLevel.value : ℝ) + (rightLevel.value : ℝ) ≤
-    (familyLevel.value : ℝ) := by
-  norm_num [leftLevel, rightLevel, familyLevel]
+theorem checked_allocation : ∑ i, (levels i).value ≤ familyLevel := by
+  norm_num [Fin.sum_univ_succ, levels, familyLevel]
 
-theorem checked_marginals (law : Core.SamplingLaw Parameters Outcomes)
-    (matching : MarginalContract leftSizes rightSizes law) :
-    (family leftSizes rightSizes leftLevel rightLevel law).marginalBounds :=
-  marginal_bounds leftSizes rightSizes leftLevel rightLevel law matching
+theorem checked_marginals (law : Core.SamplingLaw (Parameters {count}) (Outcomes {count}))
+    (matching : MarginalContract designs law) :
+    (family designs levels law).marginalBounds :=
+  marginal_bounds designs levels law matching
 
-noncomputable def guarantee (law : Core.SamplingLaw Parameters Outcomes)
-    (matching : MarginalContract leftSizes rightSizes law) :=
-  (module leftSizes rightSizes leftLevel rightLevel (familyLevel.value : ℝ)).provide law
-    ⟨matching, checked_allocation⟩
-
-theorem checked_family (law : Core.SamplingLaw Parameters Outcomes)
-    (matching : MarginalContract leftSizes rightSizes law) :
-    ((family leftSizes rightSizes leftLevel rightLevel law).familywiseClaim
-      (familyLevel.value : ℝ)).statement :=
-  (guarantee law matching).certificate.establishes
+theorem checked_family (law : Core.SamplingLaw (Parameters {count}) (Outcomes {count}))
+    (matching : MarginalContract designs law) :
+    ((family designs levels law).familywiseClaim (familyLevel : ℝ)).statement :=
+  strong_control designs levels familyLevel checked_allocation law matching
 
 end StatProofCertificate
 

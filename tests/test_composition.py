@@ -120,5 +120,13 @@ def test_duplicate_names_and_wrong_family_size_are_rejected():
     endpoint = Endpoint("same", Design(4, 4, "fixed"))
     with pytest.raises(ValueError, match="distinct"):
         FisherFamily(Fraction(1, 10), (endpoint, endpoint))
-    with pytest.raises(ValueError, match="exactly two"):
+    with pytest.raises(ValueError, match="between 2 and"):
         FisherFamily(Fraction(1, 10), (endpoint,))
+
+
+def test_families_of_several_endpoints_are_supported():
+    endpoints = tuple(Endpoint(f"e{i}", Design(4, 5, "fixed", Fraction(1, 200))) for i in range(10))
+    family = FisherFamily(Fraction(1, 20), endpoints)
+    assert family.allocated_alpha == Fraction(1, 20)
+    proof = render_family_proof(family, "0" * 64)
+    assert "Fin 10 → FixedSampleDesign" in proof and "FisherFamilyN" in proof

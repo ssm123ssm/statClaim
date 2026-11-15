@@ -17,3 +17,4 @@ public import StatProof.Modules.TwoStageBinomial
 public import StatProof.Modules.FisherPower
 public import StatProof.BinomialMonotone
 public import StatProof.Modules.OneSampleBinomial
+public import StatProof.Modules.FisherFamilyN

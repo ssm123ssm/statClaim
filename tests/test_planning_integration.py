@@ -51,6 +51,28 @@ def test_policy_certificates_replay(runs, name):
     assert replay["kind"] == "statproof_policy_certificate"
 
 
+def test_ten_endpoint_family_is_verified(tmp_path):
+    lines = [
+        "use models.two_arm_binomial",
+        "use sampling",
+        "use tests.fisher",
+        "use multiplicity.bonferroni",
+        "let study = two_arm_binomial(n_control=40, n_treatment=40)",
+        "let null = equal_proportions(model=study)",
+    ]
+    names = [f"outcome_{index}" for index in range(10)]
+    lines += [f"let {n} = fisher(design=fixed(model=study), null=null, alpha=1/200)" for n in names]
+    lines.append(
+        f"let family = bonferroni(analyses=[{', '.join(names)}], alpha=1/20, "
+        'joint_law="binomial_marginals")'
+    )
+    lines.append("let verification = verify(familywise(family))")
+    report = check_source(
+        Source("\n".join(lines) + "\n", "ten.stat"), project=ROOT, output=tmp_path / "ten"
+    )
+    assert report["status"] == "verified", report["diagnostics"]
+
+
 def test_strengthened_claim_is_rejected(runs, tmp_path):
     source = Path(runs["two_stage"]["values"]["evidence"]["certificate"]["directory"])
     bundle = tmp_path / "tampered"

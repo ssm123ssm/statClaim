@@ -1,9 +1,8 @@
 # Configurable Fisher levels and Bonferroni composition
 
-This milestone adds a reusable composition proof and a two-outcome Fisher adapter.
-It needs no observed counts. The generic Lean Bonferroni module accepts any finite
-number of tests on a common sampling law; the first TOML/CLI adapter supports
-exactly two Fisher analyses.
+A reusable Bonferroni proof composes two to twenty Fisher analyses. It needs no
+observed counts. Dependence between outcomes is unrestricted. In the file
+language, see `examples/two_outcomes.stat` and `examples/three_outcomes.stat`.
 
 ## Declare the family
 
@@ -93,7 +92,8 @@ the law and proves its marginal contract before receiving the composed guarantee
 - `FisherFamily.MarginalContract` requires the two projected laws to match the
   respective binomial models. `marginal_bound` transports an individual Fisher
   guarantee along such an equality.
-- `FisherFamily.module` combines those pieces for two outcomes.
+- `FisherFamily.module` combines those pieces for two outcomes;
+  `FisherFamilyN` does the same for any finite number.
 
 `examples/MultipleTesting.lean` supplies a concrete independent-outcome joint law,
 proves its marginals, and obtains the guarantee. `tests/lean/Composition.lean`

@@ -4,7 +4,7 @@
 
 - Typed study, null, analysis, claim and result objects.
 - Fisher equality-null contracts, exact calculations and Lean certificates.
-- Two-endpoint Bonferroni composition under declared joint laws.
+- Bonferroni composition of two to twenty endpoints under declared joint laws.
 - VS Code diagnostics and Claims view, Codespaces and contributor checks.
 - Classified catalogue and documented scope.
 - Planning: exact Fisher power, target checks and a bounded sample-size search,

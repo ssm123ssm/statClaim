@@ -224,7 +224,7 @@ rejections of true endpoint nulls for every joint parameter configuration. Each
 endpoint still requires the independent-binomial law within its two arms.
 See the [multiple-testing guide](multiple-testing.md) for the precise theorem.
 
-The first adapter supports exactly two named Fisher analyses. Their allocated
+A family has two to twenty named Fisher analyses. Their allocated
 levels must sum to at most family alpha. `examples/overallocated.stat` exposes
 that unmet requirement at the alpha declaration. `examples/adaptive.stat` points
 to its unjustified adaptive sampling declaration. Both remain unresolved, without

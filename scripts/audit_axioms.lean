@@ -50,7 +50,8 @@ run_cmd do
     ``StatProof.Modules.FisherPower.rejectionNumerator_hint,
     ``StatProof.Modules.FisherPower.power_lt_of_smallerFail,
     ``StatProof.Modules.FisherPower.smallerFail_of_hinted,
-    ``StatProof.Modules.OneSampleBinomial.fails_of_smallerFail]
+    ``StatProof.Modules.OneSampleBinomial.fails_of_smallerFail,
+    ``StatProof.Modules.FisherFamilyN.strong_control]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

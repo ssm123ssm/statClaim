@@ -21,8 +21,8 @@ MODULE_CLASSES = {
     ),
     "multiplicity.bonferroni": (
         "Multiplicity and composition",
-        "File adapter for two Fisher endpoints with an explicit supported joint law. "
-        "The Lean composition library is more general.",
+        "Bonferroni for two or more Fisher endpoints with an explicit joint-law contract. "
+        "Dependence between endpoints is unrestricted.",
     ),
     "planning": (
         "Study planning",

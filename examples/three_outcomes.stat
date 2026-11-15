@@ -1,0 +1,21 @@
+# Three endpoints with an unequal Bonferroni allocation.
+# Dependence between the endpoints is unrestricted.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use multiplicity.bonferroni
+
+let study = two_arm_binomial(n_control=150, n_treatment=150)
+let plan = fixed(model=study)
+let null = equal_proportions(model=study)
+
+let response = fisher(design=plan, null=null, alpha=1/40)
+let remission = fisher(design=plan, null=null, alpha=1/80)
+let relapse = fisher(design=plan, null=null, alpha=1/80)
+
+let endpoints = bonferroni(
+    analyses=[response, remission, relapse],
+    alpha=1/20,
+    joint_law="binomial_marginals",
+)
+let verification = verify(familywise(endpoints))

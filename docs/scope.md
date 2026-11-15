@@ -2,8 +2,8 @@
 
 The preview supports fixed samples from two independent binomial arms, an
 equality null, and the specified two-sided Fisher test using exact rational
-arithmetic. Alpha is explicit. The file-language Bonferroni adapter currently
-handles two Fisher endpoints; the Lean composition library is more general.
+arithmetic. Alpha is explicit. Bonferroni composition handles two to twenty
+Fisher endpoints with any allocation that sums to at most the family level.
 
 Planning adds exact Fisher power at one declared point, target checks and a
 bounded equal-arm sample-size search. A selected size can be certified as

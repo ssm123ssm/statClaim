@@ -91,10 +91,10 @@ def _profile(kind: str, payload: dict) -> dict:
         ]
         assumptions, theorems = FAMILY_ASSUMPTIONS, FAMILY_CHECKED_THEOREMS
         scope = (
-            "The two declared analyses, conditional on their marginal sampling laws; "
+            "The declared analyses, conditional on their marginal sampling laws; "
             "no observed results are certified."
         )
-        general_theorem = "StatProof.Modules.FisherFamily.strong_control"
+        general_theorem = "StatProof.Modules.FisherFamilyN.strong_control"
     elif kind == PLANNING_KIND:
         plan = parse_planning_payload(payload)
         claims, assumptions = planning_claims(plan), PLANNING_ASSUMPTIONS
@@ -192,7 +192,7 @@ def design_payload(design: Design) -> dict:
 
 def family_payload(family: FisherFamily) -> dict:
     if not family.supported:
-        raise ValueError("A Fisher family certificate requires fixed sampling for both analyses.")
+        raise ValueError("A Fisher family certificate requires fixed sampling for every analysis.")
     if family.allocated_alpha > family.alpha:
         raise ValueError("The allocated alpha exceeds the requested familywise bound.")
     return {

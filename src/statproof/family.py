@@ -1,4 +1,4 @@
-"""Declarations for a two-outcome Fisher family with explicit marginal contracts."""
+"""Declarations for a family of Fisher analyses with explicit marginal contracts."""
 
 import tomllib
 from dataclasses import dataclass
@@ -7,6 +7,8 @@ from pathlib import Path
 
 from statproof.design import Design
 from statproof.fisher import parse_alpha, validate_alpha
+
+MAX_ENDPOINTS = 20
 
 
 @dataclass(frozen=True)
@@ -24,15 +26,15 @@ class Endpoint:
 @dataclass(frozen=True)
 class FisherFamily:
     alpha: Fraction
-    endpoints: tuple[Endpoint, Endpoint]
+    endpoints: tuple[Endpoint, ...]
 
     def __post_init__(self):
         validate_alpha(self.alpha)
-        if not isinstance(self.endpoints, tuple) or len(self.endpoints) != 2:
-            raise ValueError("This Fisher-family adapter requires exactly two analyses.")
+        if not isinstance(self.endpoints, tuple) or not 2 <= len(self.endpoints) <= MAX_ENDPOINTS:
+            raise ValueError(f"A Fisher family needs between 2 and {MAX_ENDPOINTS} analyses.")
         if not all(isinstance(endpoint, Endpoint) for endpoint in self.endpoints):
             raise ValueError("Invalid endpoint declaration.")
-        if len({endpoint.name for endpoint in self.endpoints}) != 2:
+        if len({endpoint.name for endpoint in self.endpoints}) != len(self.endpoints):
             raise ValueError("Analysis names must be distinct.")
 
     @property
@@ -48,7 +50,7 @@ def load_family(path: Path) -> FisherFamily:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
     if set(data) != {"family", "analyses"} or not isinstance(data["family"], dict):
-        raise ValueError("Expected [family] and exactly two [[analyses]] tables.")
+        raise ValueError("Expected [family] and two or more [[analyses]] tables.")
     settings = data["family"]
     if set(settings) != {"module", "alpha", "joint_law"}:
         raise ValueError("[family] requires exactly module, alpha, and joint_law.")
@@ -119,7 +121,7 @@ def inspect_family(family: FisherFamily) -> dict:
         "outstanding_obligations": obligations,
         "evidence": [],
         "formal_reference": {
-            "theorem": "StatProof.Modules.FisherFamily.strong_control",
+            "theorem": "StatProof.Modules.FisherFamilyN.strong_control",
             "checked_in_this_run": False,
             "application_to_this_run": "unresolved_family_verification",
         },
@@ -128,7 +130,7 @@ def inspect_family(family: FisherFamily) -> dict:
 
 FAMILY_ASSUMPTIONS = [
     "Each outcome's two arms follow the declared independent-binomial marginal model.",
-    "Positive sample sizes and the two analyses and alpha allocation are fixed before outcomes.",
+    "Positive sample sizes, the analyses and the alpha allocation are fixed before outcomes.",
     "The joint sampling law is a probability law with those binomial marginals; "
     "dependence between outcomes is unrestricted.",
     "Each endpoint null is equality of its arm probabilities; the bound counts rejections "

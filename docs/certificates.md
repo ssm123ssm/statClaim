@@ -35,12 +35,12 @@ procedure identifier/version, equal-proportions null, and the exact chosen thres
 It certifies only the named design properties under explicit assumptions.
 
 `verify-family` issues a third kind, `statproof_family_certificate`, with
-`verification_scope: "family"` in its report. It composes two Fisher analyses
+`verification_scope: "family"` in its report. It composes the declared Fisher analyses
 using the generic Bonferroni theorem. Its retained proof quantifies over all
 joint sampling-law families satisfying the explicitly declared binomial marginal
 contracts and all joint parameters, including mixed true/false nulls. No
-independence between outcomes is assumed. The sum of the two exact allocated
-levels must be at most the requested family bound. Both sampling plans must be
+independence between outcomes is assumed. The sum of the exact allocated
+levels must be at most the requested family bound. Every sampling plan must be
 fixed for this adapter. See the [multiple-testing guide](multiple-testing.md).
 
 Observed data and execution correctness are a separate, optional workflow.

@@ -107,7 +107,7 @@ Type I error is a real probability. Omitting the level argument keeps the defaul
 The module now also composes with Bonferroni to establish familywise control.
 See [multiple testing](multiple-testing.md) and run `make composition-demo`.
 The generic composition module supports any finite family; the CLI adapter
-currently supports two Fisher analyses and records their marginal-law contracts.
+supports two or more Fisher analyses and records their marginal-law contracts.
 
 ## Propose and check an observed result
 

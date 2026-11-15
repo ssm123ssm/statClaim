@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     recheck.add_argument("bundle", type=Path)
     recheck.add_argument("--project", type=Path, default=Path.cwd())
     recheck.add_argument("--timeout", type=float, default=120)
-    family_inspect = commands.add_parser("inspect-family", help="Inspect a two-analysis family")
+    family_inspect = commands.add_parser("inspect-family", help="Inspect a family of analyses")
     family_inspect.add_argument("family", type=Path)
     family_check = commands.add_parser(
         "verify-family", help="Certify strong familywise error control"
