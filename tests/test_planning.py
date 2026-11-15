@@ -458,12 +458,11 @@ def test_two_stage_search_reproduces_published_simon_designs(tmp_path):
     arguments = (Fraction(1, 5), Fraction(2, 5), Fraction(4, 5), ALPHA, 45)
     optimal, _ = search_two_stage(*arguments, "optimal")
     minimax, _ = search_two_stage(*arguments, "minimax")
-    shape = lambda p: (
-        p.rule.continue_above,
-        p.n_first,
-        p.rule.reject_above,
-        p.n_first + p.n_second,
-    )  # noqa: E731
+
+    def shape(plan):
+        rule = plan.rule
+        return (rule.continue_above, plan.n_first, rule.reject_above, plan.n_first + plan.n_second)
+
     assert shape(optimal) == (3, 13, 12, 43)
     assert shape(minimax) == (4, 18, 10, 33)
     assert optimal.expected_sample_size(Fraction(1, 5)) < minimax.expected_sample_size(
