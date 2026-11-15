@@ -1,0 +1,83 @@
+{
+  "name": "statproof",
+  "displayName": "StatProof",
+  "description": "Statistical language diagnostics, completion, hover, and explicit Lean verification.",
+  "publisher": "statproof-local",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:statproof",
+    "onCommand:statproof.verifyFile",
+    "onCommand:statproof.restartServer"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    }
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "statproof",
+        "aliases": [
+          "StatProof",
+          "stat"
+        ],
+        "extensions": [
+          ".stat"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "statproof",
+        "scopeName": "source.statproof",
+        "path": "./syntaxes/statproof.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "statproof.verifyFile",
+        "title": "StatProof: Verify Current File"
+      },
+      {
+        "command": "statproof.restartServer",
+        "title": "StatProof: Restart Language Server"
+      }
+    ],
+    "configuration": {
+      "title": "StatProof",
+      "properties": {
+        "statproof.uvPath": {
+          "type": "string",
+          "default": "uv",
+          "description": "Path to the uv executable. Reload the extension host after changing."
+        },
+        "statproof.projectPath": {
+          "type": "string",
+          "default": "",
+          "description": "StatProof repository root. Defaults to the workspace root or the development repository. Reload after changing."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "node --check extension.js && node --check test/suite.js && node --check test/run.js",
+    "test": "node test/run.js",
+    "test:unit": "node --test test/grammar.test.js"
+  },
+  "dependencies": {
+    "vscode-languageclient": "9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "3.1.0"
+  }
+}

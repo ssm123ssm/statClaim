@@ -2,8 +2,9 @@
 
 Status: the shared Lean objects, Fisher and Bonferroni providers, and standalone
 file language with first-class claims/results and backend-free compilation are
-implemented. Interactive sessions, completion, and an LSP remain planned. See the
-[file-language guide](stat-language.md).
+implemented. A stdio LSP and minimal VS Code integration provide editor guidance;
+interactive REPL sessions remain planned. See the [file-language guide](stat-language.md)
+and [editor guide](editor.md).
 This document remains the semantic design and comparison plan; the
 [Lean object guide](lean-objects.md) describes the implemented API and examples.
 
@@ -184,6 +185,7 @@ The language now also supports named claims and first-class calculation and
 verification results, with a backend-free compiler that inspects known
 requirements. Explicit execution invokes Python calculations or generated Lean
 proofs; aliases and lists reuse existing results. The next step is interactive
-guidance and completion using this same compiler. The statistical language is
-the primary researcher interface, with Lean and TOML retained. No REPL or LSP has
-been implemented yet.
+guidance and completion using this same compiler; the initial stdio LSP and
+VS Code extension now implement these features. The statistical language is the
+primary researcher interface, with Lean and TOML retained. No REPL has been
+implemented yet.

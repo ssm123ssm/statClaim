@@ -44,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="Check Python, uv, and the local Lean toolchain")
+    commands.add_parser("lsp", help="Start the stdio language server (no proof execution)")
     inspect = commands.add_parser("inspect", help="Read a design and list unresolved obligations")
     inspect.add_argument("design", type=Path)
     test = commands.add_parser("test", help="Compute Fisher's test at the declared exact alpha")
@@ -112,6 +113,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     modules.add_argument("--json", action="store_true")
     options = parser.parse_args(argv)
+    if options.command == "lsp":
+        from statproof.lsp import run_stdio
+
+        return run_stdio()
     if options.command == "doctor":
         return doctor()
     try:

@@ -136,7 +136,9 @@ _TOKEN = re.compile(
 )
 
 
-def tokenize(source: Source) -> tuple[list[Token], list[Diagnostic]]:
+def tokenize(
+    source: Source, *, include_trivia: bool = False
+) -> tuple[list[Token], list[Diagnostic]]:
     tokens, diagnostics = [], []
     offset = 0
     while offset < len(source.text):
@@ -152,7 +154,7 @@ def tokenize(source: Source) -> tuple[list[Token], list[Diagnostic]]:
             offset += 1
             continue
         kind, text = match.lastgroup, match.group()
-        if kind not in ("SPACE", "COMMENT"):
+        if include_trivia or kind not in ("SPACE", "COMMENT"):
             tokens.append(
                 Token(text if kind == "PUNCT" else kind, text, source.span(offset, match.end()))
             )

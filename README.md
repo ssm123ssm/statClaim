@@ -53,6 +53,22 @@ aliased or collected in lists; reusing a result does not rerun its operation.
 See the [file-language guide](docs/stat-language.md) for grammar, optional
 observations, report scope, replay, and the comparison with Lean.
 
+## Try the IDE
+
+A stdio LSP and a minimal VS Code extension provide diagnostics, completion,
+hover, and go-to-definition using the same compiler. Editing never invokes Lean.
+The explicit **StatProof: Verify Current File** command saves and checks a source
+snapshot, with a versioned status that becomes stale after edits.
+
+```sh
+npm --prefix extensions/vscode ci --ignore-scripts
+code --new-window "$PWD"
+```
+
+Select **Run and Debug → StatProof Extension** and press **F5**. Open a `.stat`
+example in the new development window. See the [editor guide](docs/editor.md)
+for isolated launch, exact usage, testing, configuration, and limitations.
+
 ## Verify a design before data
 
 After setup, run from this project folder:

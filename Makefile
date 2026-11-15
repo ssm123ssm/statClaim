@@ -1,4 +1,4 @@
-.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo design-demo design-objects-demo alpha-demo family-demo composition-demo language-demo language-family-demo language-result-demo
+.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo design-demo design-objects-demo alpha-demo family-demo composition-demo language-demo language-family-demo language-result-demo editor-check
 
 setup:
 	uv sync --locked
@@ -77,3 +77,8 @@ language-family-demo:
 
 language-result-demo:
 	uv run --locked statproof check examples/fisher_result.stat
+
+editor-check:
+	npm --prefix extensions/vscode run check
+	npm --prefix extensions/vscode run test:unit
+	npm --prefix extensions/vscode test

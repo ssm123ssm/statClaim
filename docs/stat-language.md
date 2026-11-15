@@ -314,6 +314,7 @@ The Lean examples remain the reference for direct proof construction and manual
 proofs. The standalone route currently offers simpler declarations and domain
 diagnostics, while relying on a trusted translation layer.
 
-File execution, first-class claims/results, and the fast compiler are implemented.
-Interactive sessions, completion, and an LSP remain future work. The module
-schemas and source-aware compiler provide concrete inputs for those experiments.
+File execution, first-class claims/results, the fast compiler, a stdio LSP, and
+a minimal VS Code extension are implemented. The [editor guide](editor.md)
+describes live diagnostics, completion, hover, definition lookup, and explicit
+verification. Interactive REPL sessions remain future work.
