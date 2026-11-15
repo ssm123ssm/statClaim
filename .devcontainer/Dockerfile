@@ -1,7 +1,10 @@
 FROM mcr.microsoft.com/devcontainers/python:1-3.12-bookworm
 
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# The base image includes an unused Yarn apt feed with an expired signing key.
+# Remove that feed; Node is installed by the devcontainer feature.
+RUN rm -f /etc/apt/sources.list.d/yarn.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git make zstd libgmp-dev \
     && rm -rf /var/lib/apt/lists/*
 USER vscode
