@@ -73,23 +73,41 @@ and Lean checks. `verification.evidence` is present only after successful
 verification; a valid specification alone is not a proof.
 
 **0.1 developer preview.** Current proof support covers the specified fixed-sample
-Fisher setting and two-endpoint Bonferroni composition. The language and APIs may
-change. A checked theorem establishes its stated claim under its assumptions;
+Fisher setting, its exact power at a planning point, two-endpoint Bonferroni
+composition, and a two-stage binomial design with an interim stop. The language
+and APIs may change. A checked theorem establishes its stated claim under its assumptions;
 whether a real study satisfies those assumptions still needs scientific judgment.
 See [scope and trust](docs/scope.md).
 
+## Plan a study
+
+State the rates you expect and the power you need, then check a design or
+search for a sufficient sample size:
+
+```stat
+let alternative = binomial_rates(p_control=1/10, p_treatment=2/5)
+let target = power_target(at=alternative, minimum=4/5, maximum_typeI=1/20)
+let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=2, max_per_arm=40)
+let sizing = verify(sample_size(candidates=candidates, target=target))
+```
+
+Lean recomputes the power of the selected design, so the recommendation carries
+checked evidence with its assumptions. Adaptive designs are planned the same
+way: a two-stage design with an interim stop, using count or Bayesian posterior
+rules, has its Type I error and power checked for the complete policy.
+See [planning a study](docs/planning.md).
+
 ## Where we are going
 
-Study planning is a core goal: specify the effect or precision that matters,
-then obtain a sample-size recommendation with explicit assumptions and supporting
-claims. We aim to introduce planning support alongside new tests and designs.
-Bayesian analyses and adaptive sampling are equally central, including checks
-that priors, decision rules and stopping policies fit together. These features
-are planned; see the [roadmap](ROADMAP.md) and [planning proposal](docs/study-planning.md).
+Next come assurance and precision targets, more tests and designs, and richer
+Bayesian and adaptive policies, including checks that priors, decision rules
+and stopping policies fit together. See the [roadmap](ROADMAP.md) and
+[planning roadmap](docs/study-planning.md).
 
 ## Try it
 
-Open Codespaces above, wait for setup, then open `playground/welcome.stat`.
+Open Codespaces above, wait for setup, then open `playground/welcome.stat`
+(or `playground/planning.stat` and `playground/two_stage.stat`).
 Use **StatProof: Show Claims** and **StatProof: Verify Current File** in the
 command palette. Your GitHub account controls Codespaces quota and billing.
 

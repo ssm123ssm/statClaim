@@ -1,9 +1,10 @@
 # The statistical file-language prototype
 
-Language version `0.4.0` provides a small declaration grammar over the existing
+Language version `0.5.0` provides a small declaration grammar over the existing
 statistical objects and Lean backend. Claims, verification results, and calculation
 results are first-class values. The statistical language is the researcher-facing
-interface; the Lean and TOML interfaces remain supported.
+interface; the Lean and TOML interfaces remain supported. Version `0.5.0` adds the
+`planning` and `designs.two_stage` modules; see [planning a study](planning.md).
 
 ## First file
 

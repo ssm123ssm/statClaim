@@ -82,6 +82,29 @@ class CalculationDetails:
 
 
 @dataclass(frozen=True)
+class PlanningDetails:
+    """Calculated planning components. Fractions are exact; absent values are None."""
+
+    record: Mapping
+
+    def __post_init__(self):
+        object.__setattr__(self, "record", freeze(self.record))
+
+    def __getattr__(self, name: str):
+        value = self.record.get(name)
+        if isinstance(value, Mapping) and "fraction" in value:
+            return Fraction(value["fraction"])
+        return value
+
+    def to_dict(self):
+        return thaw(self.record)
+
+
+class PolicyDetails(PlanningDetails):
+    """Calculated operating characteristics of a complete two-stage policy."""
+
+
+@dataclass(frozen=True)
 class PendingField:
     request_id: int
     path: tuple[str, ...]
@@ -214,6 +237,7 @@ def serialize(value: object) -> object:
             Evidence,
             CertificateReference,
             CalculationDetails,
+            PlanningDetails,
             PendingField,
             Diagnostic,
         ),

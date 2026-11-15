@@ -27,8 +27,17 @@ from statproof.language_syntax import (
     Statement,
     parse,
 )
+from statproof.planning import MAX_PER_ARM, MAX_STAGE, PowerPlan, TwoStagePlan, TwoStageRule
 
-LANGUAGE_VERSION = "0.4.0"
+LANGUAGE_VERSION = "0.5.0"
+
+
+class PlannableIR:
+    """An analysis that planning targets can be assessed against."""
+
+
+class PlanningPointIR:
+    """A parameter point used for planning; never a replacement for the null."""
 
 
 @dataclass(frozen=True)
@@ -72,7 +81,7 @@ class HypothesisIR:
 
 
 @dataclass(frozen=True)
-class AnalysisIR:
+class AnalysisIR(PlannableIR):
     plan: PlanIR
     hypothesis: HypothesisIR
     alpha: Fraction
@@ -107,9 +116,99 @@ class ObservationIR:
 
 
 @dataclass(frozen=True)
+class RatesIR(PlanningPointIR):
+    p_control: Fraction
+    p_treatment: Fraction
+
+
+@dataclass(frozen=True)
+class RateIR(PlanningPointIR):
+    value: Fraction
+
+
+@dataclass(frozen=True)
+class PowerTargetIR:
+    at: PlanningPointIR
+    minimum: Fraction
+    maximum_typeI: Fraction
+
+
+@dataclass(frozen=True)
+class TwoStageModelIR:
+    n_stage1: int
+    n_stage2: int
+
+
+@dataclass(frozen=True)
+class PriorIR:
+    a: int
+    b: int
+
+
+@dataclass(frozen=True)
+class RuleIR:
+    rule: TwoStageRule
+
+    @property
+    def kind(self) -> str:
+        return self.rule.kind
+
+
+@dataclass(frozen=True)
+class TwoStageAnalysisIR(PlannableIR):
+    design: TwoStageModelIR
+    rule: RuleIR
+    null_rate: Fraction
+
+
+@dataclass(frozen=True)
+class FeasibilityIR:
+    """One analysis assessed against one target."""
+
+    analysis: PlannableIR
+    target: PowerTargetIR
+
+    def lower(self) -> PowerPlan | TwoStagePlan:
+        target = self.target
+        if isinstance(self.analysis, TwoStageAnalysisIR):
+            analysis = self.analysis
+            return TwoStagePlan(
+                analysis.design.n_stage1,
+                analysis.design.n_stage2,
+                analysis.rule.rule,
+                analysis.null_rate,
+                target.at.value,
+                target.minimum,
+                target.maximum_typeI,
+            )
+        return PowerPlan(
+            self.analysis.lower(),
+            target.at.p_control,
+            target.at.p_treatment,
+            target.minimum,
+            target.maximum_typeI,
+        )
+
+
+@dataclass(frozen=True)
+class CandidatesIR:
+    """Equal-arm designs sharing the analysis's test, null form, alpha and sampling."""
+
+    analysis: AnalysisIR
+    min_per_arm: int
+    max_per_arm: int
+
+
+@dataclass(frozen=True)
+class SizingIR:
+    candidates: CandidatesIR
+    target: PowerTargetIR
+
+
+@dataclass(frozen=True)
 class ClaimIR:
-    kind: Choice["typeI", "familywise", "result"]
-    subject: AnalysisIR | FamilyIR | ObservationIR
+    kind: Choice["typeI", "familywise", "result", "meets", "sample_size"]
+    subject: AnalysisIR | FamilyIR | ObservationIR | FeasibilityIR | SizingIR
     name: str
 
 
@@ -165,6 +264,9 @@ class ValueType:
                 Fraction: "exact number",
                 bool: "boolean",
                 PlanIR: "StudyDesign",
+                PlannableIR: "Analysis",
+                PlanningPointIR: "PlanningPoint",
+                TwoStageAnalysisIR: "TwoStageAnalysis",
             }.get(self.kind, self.kind.__name__.removesuffix("IR"))
         )
         return f"Option[{name}]" if self.optional else name
@@ -259,6 +361,40 @@ def normalize(value: object) -> object:
                 "control_successes": control,
                 "treatment_successes": treatment,
             }
+        case RatesIR(p_control=control, p_treatment=treatment):
+            return {"p_control": str(control), "p_treatment": str(treatment)}
+        case RateIR(value=rate):
+            return {"response_rate": str(rate)}
+        case PowerTargetIR(at=point, minimum=minimum, maximum_typeI=maximum):
+            return {
+                "at": normalize(point),
+                "minimum_power": str(minimum),
+                "maximum_typeI": str(maximum),
+            }
+        case TwoStageModelIR(n_stage1=first, n_stage2=second):
+            return {"module": "two_stage_binomial", "n_stage1": first, "n_stage2": second}
+        case PriorIR(a=a, b=b):
+            return {"distribution": "beta", "a": a, "b": b}
+        case RuleIR(rule=rule):
+            return rule.to_dict()
+        case TwoStageAnalysisIR(design=design, rule=rule, null_rate=rate):
+            return {
+                "test": "two_stage",
+                "design": normalize(design),
+                "rule": normalize(rule),
+                "null_rate": str(rate),
+            }
+        case FeasibilityIR(analysis=analysis, target=target):
+            return {"analysis": normalize(analysis), "target": normalize(target)}
+        case CandidatesIR(analysis=analysis, min_per_arm=low, max_per_arm=high):
+            return {
+                "analysis": normalize(analysis),
+                "allocation": "equal_arms",
+                "min_per_arm": low,
+                "max_per_arm": high,
+            }
+        case SizingIR(candidates=candidates, target=target):
+            return {"candidates": normalize(candidates), "target": normalize(target)}
         case ClaimIR(kind=kind, subject=subject, name=name):
             return {"kind": kind, "subject_name": name, "subject": normalize(subject)}
         case VerificationResultIR(request_id=index) | CalculationResultIR(request_id=index):
@@ -400,14 +536,153 @@ def _constructor(
 
 def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     claim = arguments["claim"]
-    if claim.value.kind != "result":
+    if claim.value.kind not in ("result", "meets", "sample_size"):
         fail(
             "type",
-            "Only result(observation) is a numerical calculation. "
+            "Only result(observation) and planning claims are numerical calculations. "
             "Use verify(claim) for design guarantees.",
             claim.span,
         )
     return claim.value
+
+
+def _probability(argument: LocatedValue, name: str, *, positive: bool = False) -> Fraction:
+    low_ok = argument.value > 0 if positive else argument.value >= 0
+    if not (low_ok and argument.value <= 1):
+        bounds = "(0, 1]" if positive else "[0, 1]"
+        fail("domain", f"{name} must lie in {bounds}.", argument.span)
+    return argument.value
+
+
+def _rates(arguments: dict[str, LocatedValue], span: Span) -> RatesIR:
+    return RatesIR(
+        _probability(arguments["p_control"], "p_control"),
+        _probability(arguments["p_treatment"], "p_treatment"),
+    )
+
+
+def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTargetIR:
+    return PowerTargetIR(
+        arguments["at"].value,
+        _probability(arguments["minimum"], "minimum", positive=True),
+        arguments["maximum_typeI"].value,
+    )
+
+
+def _check_point(analysis: PlannableIR, target: LocatedValue) -> None:
+    """The planning point must belong to the analysis's parameter space, outside its null."""
+    point = target.value.at
+    if isinstance(analysis, TwoStageAnalysisIR):
+        if not isinstance(point, RateIR):
+            fail(
+                "planning_point",
+                "A two-stage analysis has one response rate. "
+                "Declare the target at response_rate(value=...).",
+                target.span,
+            )
+        null, outside = f"response rate = {analysis.null_rate}", point.value != analysis.null_rate
+    else:
+        if not isinstance(point, RatesIR):
+            fail(
+                "planning_point",
+                "A two-arm analysis needs both rates. "
+                "Declare the target at binomial_rates(p_control=..., p_treatment=...).",
+                target.span,
+            )
+        null, outside = "p_treatment = p_control", point.p_control != point.p_treatment
+    if not outside:
+        fail(
+            "alternative_in_null",
+            f"The planning point satisfies the analysis's null ({null}). "
+            "Power is assessed at an alternative; choose a point outside the null.",
+            target.span,
+        )
+
+
+def _meets(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    analysis = arguments["analysis"]
+    _check_point(analysis.value, arguments["target"])
+    return ClaimIR(
+        "meets",
+        FeasibilityIR(analysis.value, arguments["target"].value),
+        analysis.name or "<expression>",
+    )
+
+
+def _candidates(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
+    low, high = arguments["min_per_arm"], arguments["max_per_arm"]
+    if low.value < 1:
+        fail("domain", "min_per_arm must be a positive integer.", low.span)
+    if high.value < low.value:
+        fail("domain", "max_per_arm must be at least min_per_arm.", high.span)
+    if high.value > MAX_PER_ARM:
+        fail("domain", f"max_per_arm is currently limited to {MAX_PER_ARM}.", high.span)
+    return CandidatesIR(arguments["analysis"].value, low.value, high.value)
+
+
+def _sizing(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    candidates = arguments["candidates"]
+    _check_point(candidates.value.analysis, arguments["target"])
+    return ClaimIR(
+        "sample_size",
+        SizingIR(candidates.value, arguments["target"].value),
+        candidates.name or "<expression>",
+    )
+
+
+def _two_stage_model(arguments: dict[str, LocatedValue], span: Span) -> TwoStageModelIR:
+    for name, argument in arguments.items():
+        if not 1 <= argument.value <= MAX_STAGE:
+            fail("domain", f"{name} must be between 1 and {MAX_STAGE}.", argument.span)
+    return TwoStageModelIR(arguments["n_stage1"].value, arguments["n_stage2"].value)
+
+
+def _threshold_rule(arguments: dict[str, LocatedValue], span: Span) -> RuleIR:
+    for name, argument in arguments.items():
+        if argument.value < 0:
+            fail("domain", f"{name} must be a nonnegative integer.", argument.span)
+    return RuleIR(
+        TwoStageRule(
+            "threshold", arguments["continue_above"].value, arguments["reject_above"].value
+        )
+    )
+
+
+def _prior(arguments: dict[str, LocatedValue], span: Span) -> PriorIR:
+    for name, argument in arguments.items():
+        if argument.value < 1:
+            fail(
+                "domain",
+                f"{name} must be a positive integer; "
+                "the exact posterior rule currently supports integer Beta parameters.",
+                argument.span,
+            )
+    return PriorIR(arguments["a"].value, arguments["b"].value)
+
+
+def _posterior_rule(arguments: dict[str, LocatedValue], span: Span) -> RuleIR:
+    reference = arguments["reference"]
+    if not 0 < reference.value < 1:
+        fail("domain", "reference must lie strictly between 0 and 1.", reference.span)
+    prior = arguments["prior"].value
+    return RuleIR(
+        TwoStageRule(
+            "posterior",
+            prior_a=prior.a,
+            prior_b=prior.b,
+            reference=reference.value,
+            continue_at_least=arguments["continue_at_least"].value,
+            success_at_least=arguments["success_at_least"].value,
+        )
+    )
+
+
+def _two_stage_test(arguments: dict[str, LocatedValue], span: Span) -> TwoStageAnalysisIR:
+    return TwoStageAnalysisIR(
+        arguments["design"].value,
+        arguments["rule"].value,
+        _probability(arguments["null_rate"], "null_rate"),
+    )
 
 
 # Always available, with the same argument checking as module constructors.
@@ -529,6 +804,113 @@ MODULES = {
                     (("family", FamilyIR),),
                     "FamilywiseClaim",
                     _claim("familywise", "family"),
+                ),
+            ),
+        ),
+        Module(
+            "planning",
+            (
+                _constructor(
+                    "binomial_rates",
+                    (("p_control", "number"), ("p_treatment", "number")),
+                    "Rates",
+                    _rates,
+                    documentation="A planning point: one success probability per arm. "
+                    "It is an input for power, not the null and not an established fact.",
+                ),
+                _constructor(
+                    "power_target",
+                    (("at", PlanningPointIR), ("minimum", "number"), ("maximum_typeI", "level")),
+                    "PowerTarget",
+                    _power_target,
+                    documentation="Require power of at least minimum at one planning point, "
+                    "and a Type I error bound of at most maximum_typeI under the null. "
+                    "Power at this point is not a guarantee for other alternatives.",
+                ),
+                _constructor(
+                    "meets",
+                    (("analysis", PlannableIR), ("target", PowerTargetIR)),
+                    "PlanningClaim",
+                    _meets,
+                    documentation="Claim that this analysis meets every component of the "
+                    "target. calculate computes the components; verify must establish all.",
+                ),
+                _constructor(
+                    "equal_arm_sizes",
+                    (
+                        ("analysis", AnalysisIR),
+                        ("min_per_arm", "integer"),
+                        ("max_per_arm", "integer"),
+                    ),
+                    "Candidates",
+                    _candidates,
+                    documentation="A finite design space: equal arm sizes within inclusive "
+                    "bounds, keeping the analysis's sampling, null form, test and alpha.",
+                ),
+                _constructor(
+                    "sample_size",
+                    (("candidates", CandidatesIR), ("target", PowerTargetIR)),
+                    "PlanningClaim",
+                    _sizing,
+                    documentation="Claim that some candidate meets the target. The search is "
+                    "ascending; a sufficient size is not claimed to be the smallest possible.",
+                ),
+            ),
+        ),
+        Module(
+            "designs.two_stage",
+            (
+                _constructor(
+                    "two_stage_binomial",
+                    (("n_stage1", "integer"), ("n_stage2", "integer")),
+                    "TwoStageModel",
+                    _two_stage_model,
+                    documentation="One arm, two stages, one response rate. Stage two is "
+                    "observed only if the interim rule continues.",
+                ),
+                _constructor(
+                    "threshold_rule",
+                    (("continue_above", "integer"), ("reject_above", "integer")),
+                    "Rule",
+                    _threshold_rule,
+                    documentation="Continue when stage-one responses exceed continue_above; "
+                    "reject the null when total responses exceed reject_above.",
+                ),
+                _constructor(
+                    "beta_prior",
+                    (("a", "integer"), ("b", "integer")),
+                    "Prior",
+                    _prior,
+                    documentation="Beta(a, b) prior on the response rate, positive integers.",
+                ),
+                _constructor(
+                    "posterior_rule",
+                    (
+                        ("prior", PriorIR),
+                        ("reference", "number"),
+                        ("continue_at_least", "level"),
+                        ("success_at_least", "level"),
+                    ),
+                    "Rule",
+                    _posterior_rule,
+                    documentation="Continue, and finally declare success, when the posterior "
+                    "probability that the response rate exceeds reference reaches the given "
+                    "level. A posterior threshold does not by itself bound Type I error.",
+                ),
+                _constructor(
+                    "two_stage_test",
+                    (("design", TwoStageModelIR), ("rule", RuleIR), ("null_rate", "number")),
+                    "TwoStageAnalysis",
+                    _two_stage_test,
+                    documentation="The complete policy: stages, interim stop, final decision "
+                    "and the null response rate it tests.",
+                ),
+                _constructor(
+                    "response_rate",
+                    (("value", "number"),),
+                    "Rate",
+                    lambda args, span: RateIR(_probability(args["value"], "value")),
+                    documentation="A planning point for a single-arm design.",
                 ),
             ),
         ),

@@ -1,0 +1,28 @@
+# Check a proposed study, then search for a sufficient sample size.
+# The rates and targets are illustrative planning inputs, not defaults.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use planning
+
+let study = two_arm_binomial(n_control=20, n_treatment=20)
+let design = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(design=design, null=null, alpha=1/20)
+
+# A planning point; it does not replace the equality null.
+let alternative = binomial_rates(p_control=1/10, p_treatment=2/5)
+let target = power_target(at=alternative, minimum=4/5, maximum_typeI=1/20)
+
+# Twenty per arm does not reach 80% power at this point.
+let feasibility = meets(analysis=analysis, target=target)
+let calculation = calculate(feasibility)
+let verification = verify(feasibility)
+
+# Search equal arm sizes; a sufficient size is not claimed to be the smallest.
+let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=2, max_per_arm=40)
+let sizing = sample_size(candidates=candidates, target=target)
+let recommendation = calculate(sizing)
+let sizing_verification = verify(sizing)
+let recommended_size = recommendation.calculation.n_control
+let sizing_evidence = sizing_verification.evidence

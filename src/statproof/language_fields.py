@@ -10,14 +10,26 @@ from fractions import Fraction
 from statproof.language import (
     AnalysisIR,
     CalculationResultIR,
+    CandidatesIR,
     ClaimIR,
     FamilyIR,
+    FeasibilityIR,
     FieldIR,
     HypothesisIR,
     LocatedValue,
     ModelIR,
     ObservationIR,
     PlanIR,
+    PlannableIR,
+    PlanningPointIR,
+    PowerTargetIR,
+    PriorIR,
+    RateIR,
+    RatesIR,
+    RuleIR,
+    SizingIR,
+    TwoStageAnalysisIR,
+    TwoStageModelIR,
     ValueType,
     VerificationResultIR,
     fail,
@@ -28,6 +40,8 @@ from statproof.language_values import (
     CalculationResult,
     CertificateReference,
     Evidence,
+    PlanningDetails,
+    PolicyDetails,
     VerificationResult,
 )
 
@@ -82,6 +96,53 @@ SCHEMAS = {
         "test": FieldSpec(str),
         "test_version": FieldSpec(str),
     },
+    RatesIR: {"p_control": FieldSpec(Fraction), "p_treatment": FieldSpec(Fraction)},
+    RateIR: {"value": FieldSpec(Fraction)},
+    PowerTargetIR: {
+        "at": FieldSpec(PlanningPointIR),
+        "minimum": FieldSpec(Fraction, description="Required power at the planning point."),
+        "maximum_typeI": FieldSpec(Fraction, description="Requested Type I error bound."),
+    },
+    FeasibilityIR: {"analysis": FieldSpec(PlannableIR), "target": FieldSpec(PowerTargetIR)},
+    CandidatesIR: {
+        "analysis": FieldSpec(AnalysisIR),
+        "min_per_arm": FieldSpec(int),
+        "max_per_arm": FieldSpec(int),
+    },
+    SizingIR: {"candidates": FieldSpec(CandidatesIR), "target": FieldSpec(PowerTargetIR)},
+    TwoStageModelIR: {"n_stage1": FieldSpec(int), "n_stage2": FieldSpec(int)},
+    PriorIR: {"a": FieldSpec(int), "b": FieldSpec(int)},
+    RuleIR: {"kind": FieldSpec(str)},
+    TwoStageAnalysisIR: {
+        "design": FieldSpec(TwoStageModelIR),
+        "rule": FieldSpec(RuleIR),
+        "null_rate": FieldSpec(Fraction),
+    },
+    PlanningDetails: {
+        "n_control": FieldSpec(int, optional=True),
+        "n_treatment": FieldSpec(int, optional=True),
+        "total_sample_size": FieldSpec(int, optional=True),
+        "power": FieldSpec(
+            Fraction, optional=True, description="Exact calculated power; not checked evidence."
+        ),
+        "power_target_met": FieldSpec(bool),
+        "typeI_bound": FieldSpec(Fraction, optional=True),
+        "typeI_target_met": FieldSpec(bool, optional=True),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+        "minimum_sample_size_claim": FieldSpec(str, optional=True),
+    },
+    PolicyDetails: {
+        "n_stage1": FieldSpec(int),
+        "n_stage2": FieldSpec(int),
+        "maximum_sample_size": FieldSpec(int),
+        "typeI": FieldSpec(Fraction, description="Exact rejection probability at the null rate."),
+        "typeI_target_met": FieldSpec(bool),
+        "power": FieldSpec(Fraction),
+        "power_target_met": FieldSpec(bool),
+        "expected_sample_size_null": FieldSpec(Fraction),
+        "expected_sample_size_alternative": FieldSpec(Fraction),
+        "early_stop_probability_null": FieldSpec(Fraction),
+    },
     Diagnostic: {"code": FieldSpec(str), "message": FieldSpec(str), "severity": FieldSpec(str)},
 }
 COMMON_RESULT = {
@@ -112,6 +173,16 @@ for kind in (CalculationResultIR, CalculationResult):
     SCHEMAS[kind] = CALCULATION_FIELDS
 
 
+def details_kind(claim: ClaimIR) -> type:
+    """The calculation record published for this claim's kind."""
+    if claim.kind not in ("meets", "sample_size"):
+        return CalculationDetails
+    subject = claim.subject
+    if isinstance(subject, FeasibilityIR) and isinstance(subject.analysis, TwoStageAnalysisIR):
+        return PolicyDetails
+    return PlanningDetails
+
+
 def fields_for(value: object) -> dict[str, FieldSpec]:
     kind = value.value_type.kind if isinstance(value, FieldIR) else type(value)
     fields = SCHEMAS.get(kind, {})
@@ -128,7 +199,9 @@ def read_field(value: object, name: str, span: Span) -> object:
     if isinstance(value, Evidence) and name == "certificate":
         return CertificateReference(**dict(value.certificate))
     if isinstance(value, CalculationResult) and name == "calculation":
-        return CalculationDetails(value.calculation) if value.calculation is not None else None
+        if value.calculation is None:
+            return None
+        return details_kind(value.claim)(value.calculation)
     if isinstance(value, FamilyIR) and name == "analyses":
         return tuple(LocatedValue(analysis, span, label) for label, analysis in value.analyses)
     return getattr(value, spec.attribute or name)
@@ -150,6 +223,9 @@ def project(value: object, name: str, span: Span, requests) -> object:
         )
     if isinstance(value, (VerificationResultIR, CalculationResultIR)) and name == "claim":
         return requests[value.request_id - 1].claim
+    if isinstance(value, CalculationResultIR) and name == "calculation":
+        kind = details_kind(requests[value.request_id - 1].claim)
+        return FieldIR(value, name, ValueType(kind, True), span)
     if isinstance(value, (FieldIR, VerificationResultIR, CalculationResultIR)):
         optional = spec.optional or (isinstance(value, FieldIR) and value.value_type.optional)
         return FieldIR(value, name, ValueType(spec.kind, optional), span)

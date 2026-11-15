@@ -1,0 +1,21 @@
+# A Bayesian two-stage design: decisions use posterior probabilities.
+# A posterior threshold alone does not bound Type I error; the claim below
+# checks the repeated-sampling behaviour of the complete policy.
+use designs.two_stage
+use planning
+
+let stages = two_stage_binomial(n_stage1=10, n_stage2=20)
+let prior = beta_prior(a=1, b=1)
+# Continue if P(rate > 1/5 | data) >= 1/2; declare success if it reaches 19/20.
+let rule = posterior_rule(
+    prior=prior,
+    reference=1/5,
+    continue_at_least=1/2,
+    success_at_least=19/20,
+)
+let analysis = two_stage_test(design=stages, rule=rule, null_rate=1/5)
+
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/10)
+let claim = meets(analysis=analysis, target=target)
+let characteristics = calculate(claim)
+let verification = verify(claim)

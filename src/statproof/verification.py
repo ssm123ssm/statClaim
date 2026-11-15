@@ -17,6 +17,24 @@ from statproof import __version__
 from statproof.design import Design
 from statproof.family import FAMILY_ASSUMPTIONS, Endpoint, FisherFamily
 from statproof.fisher import TEST_ID, TEST_VERSION, FisherResult, parse_alpha
+from statproof.planning import (
+    PLANNING_ASSUMPTIONS,
+    PLANNING_CHECKED_THEOREMS,
+    PLANNING_KIND,
+    POLICY_CHECKED_THEOREMS,
+    POLICY_KIND,
+    PowerPlan,
+    TwoStagePlan,
+    parse_planning_payload,
+    parse_policy_payload,
+    planning_claims,
+    planning_payload,
+    policy_assumptions,
+    policy_claims,
+    policy_payload,
+    render_planning_proof,
+    render_policy_proof,
+)
 from statproof.proof import (
     CHECKED_THEOREMS,
     DESIGN_CHECKED_THEOREMS,
@@ -77,9 +95,27 @@ def _profile(kind: str, payload: dict) -> dict:
             "no observed results are certified."
         )
         general_theorem = "StatProof.Modules.FisherFamily.strong_control"
+    elif kind == PLANNING_KIND:
+        plan = parse_planning_payload(payload)
+        claims, assumptions = planning_claims(plan), PLANNING_ASSUMPTIONS
+        theorems = PLANNING_CHECKED_THEOREMS
+        scope = (
+            "The declared fixed design, its Type I bound and its power at one planning point; "
+            "no observed results, other alternatives or minimality are certified."
+        )
+        general_theorem = "StatProof.Modules.FisherPower.power_of_check"
+    elif kind == POLICY_KIND:
+        plan = parse_policy_payload(payload)
+        claims, assumptions = policy_claims(plan), policy_assumptions(plan)
+        theorems = POLICY_CHECKED_THEOREMS
+        scope = (
+            "The complete declared two-stage policy at the declared null and alternative "
+            "rates; no observed results or other rates are certified."
+        )
+        general_theorem = "StatProof.Modules.TwoStageBinomial.rejection_probability"
     else:
         raise VerificationError("integrity", "Unsupported certificate kind.")
-    if kind != "statproof_family_certificate":
+    if kind in ("statproof_per_result_certificate", "statproof_design_certificate"):
         alpha = (
             _parse_payload(payload)[0].alpha
             if kind == "statproof_per_result_certificate"
@@ -216,6 +252,10 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_design_proof(design, input_id)
     if kind == "statproof_family_certificate":
         return render_family_proof(_parse_family_payload(payload), input_id)
+    if kind == PLANNING_KIND:
+        return render_planning_proof(parse_planning_payload(payload), input_id)
+    if kind == POLICY_KIND:
+        return render_policy_proof(parse_policy_payload(payload), input_id)
     raise VerificationError("integrity", "Unsupported certificate kind.")
 
 
@@ -449,6 +489,24 @@ def certify_family(
         project=project,
         output=output,
         timeout=timeout,
+    )
+
+
+def certify_planning(
+    plan: PowerPlan, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify a fixed design's Type I bound and its power at one planning point."""
+    return _certify_payload(
+        planning_payload(plan), PLANNING_KIND, project=project, output=output, timeout=timeout
+    )
+
+
+def certify_policy(
+    plan: TwoStagePlan, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify a complete two-stage policy's error and power at its declared rates."""
+    return _certify_payload(
+        policy_payload(plan), POLICY_KIND, project=project, output=output, timeout=timeout
     )
 
 

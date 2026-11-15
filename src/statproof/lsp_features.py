@@ -65,7 +65,7 @@ class TextMap:
 def type_name(kind: str | type) -> str:
     if isinstance(kind, str):
         return kind
-    return {"PlanIR": "StudyDesign", "Fraction": "exact number"}.get(
+    return {"PlanIR": "StudyDesign", "Fraction": "exact number", "PlannableIR": "Analysis"}.get(
         kind.__name__, kind.__name__.removesuffix("IR")
     )
 

@@ -24,6 +24,18 @@ MODULE_CLASSES = {
         "File adapter for two Fisher endpoints with an explicit supported joint law. "
         "The Lean composition library is more general.",
     ),
+    "planning": (
+        "Study planning",
+        "Exact power at a planning point, target checks and a bounded equal-arm sample-size "
+        "search for the fixed Fisher analysis; targets also apply to two-stage policies. "
+        "Sufficiency is certified; minimality is not claimed.",
+    ),
+    "designs.two_stage": (
+        "Adaptive designs",
+        "Single-arm two-stage binomial policy with an interim stop, using count thresholds "
+        "or Beta-posterior thresholds. Type I error and power are checked for the complete "
+        "policy at declared rates.",
+    ),
 }
 OBJECT_CLASSES = {
     "Model": ("Core statistical objects", "Sampling model and arm sizes."),
@@ -32,7 +44,23 @@ OBJECT_CLASSES = {
     "Analysis": ("Core statistical objects", "Design, compatible null and exact alpha."),
     "Observation": ("Core statistical objects", "Observed counts tied to an analysis."),
     "Family": ("Core statistical objects", "Analyses, family alpha and declared joint law."),
-    "Claim": ("Claims and results", "Requested typeI, result or familywise proposition."),
+    "Rates": ("Planning objects", "Planning point for two arms; an input, not a fact."),
+    "Rate": ("Planning objects", "Planning point for a single response rate."),
+    "PowerTarget": ("Planning objects", "Required power at a point and a Type I bound."),
+    "Feasibility": ("Planning objects", "One analysis assessed against one target."),
+    "Candidates": ("Planning objects", "Finite equal-arm design space for a search."),
+    "Sizing": ("Planning objects", "Candidates searched for a design meeting a target."),
+    "TwoStageModel": ("Adaptive design objects", "Stage sizes of a single-arm design."),
+    "Prior": ("Adaptive design objects", "Beta prior with positive integer parameters."),
+    "Rule": ("Adaptive design objects", "Interim continuation and final decision rule."),
+    "TwoStageAnalysis": (
+        "Adaptive design objects",
+        "Complete policy: stages, rule and the null response rate.",
+    ),
+    "Claim": (
+        "Claims and results",
+        "Requested typeI, result, familywise or planning proposition.",
+    ),
     "VerificationResult": (
         "Claims and results",
         "Explicit verification outcome; optional evidence.",
@@ -41,9 +69,17 @@ OBJECT_CLASSES = {
     "Evidence": ("Evidence and inspection", "Checked properties, assumptions and certificate."),
     "CertificateReference": ("Evidence and inspection", "Certificate identity, path and hash."),
     "CalculationDetails": ("Evidence and inspection", "Exact p-value, alpha and test details."),
+    "PlanningDetails": (
+        "Evidence and inspection",
+        "Calculated sizes, power and target components; not proof evidence.",
+    ),
+    "PolicyDetails": (
+        "Evidence and inspection",
+        "Calculated error, power and expected sample size of a two-stage policy.",
+    ),
     "Diagnostic": ("Evidence and inspection", "A diagnostic code, severity and message."),
 }
-CLAIM_TYPES = {"TypeIClaim", "ResultClaim", "FamilywiseClaim"}
+CLAIM_TYPES = {"TypeIClaim", "ResultClaim", "FamilywiseClaim", "PlanningClaim"}
 
 
 def catalogue() -> dict:
@@ -115,7 +151,8 @@ def render_catalogue() -> str:
                 lines.append(f"| {obj['name']} | {obj['description']} | {fields} |")
         lines.append("")
     lines += [
-        "Claim constructors return `TypeIClaim`, `ResultClaim` or `FamilywiseClaim`, "
+        "Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or "
+        "`PlanningClaim`, "
         "all represented by Claim. Exact numbers, strings, booleans and lists are value types. "
         "Optional evidence stays optional through field access.",
         "",

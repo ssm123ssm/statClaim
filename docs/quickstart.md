@@ -7,7 +7,8 @@ the pinned Lean toolchain and Mathlib cache, so the first start takes several
 minutes. A workspace extension is installed on attachment. Reload the window
 if `.stat` support has not appeared. Codespaces uses your GitHub quota.
 
-Open `playground/welcome.stat`. The file is your scratch copy; it is ignored by
+Open `playground/welcome.stat`. `planning.stat` and `two_stage.stat` beside it show
+sample-size planning and an adaptive design. The file is your scratch copy; it is ignored by
 git. Edit the null to `proportion_difference(model=study, value=1/10)` and inspect
 the diagnostic. Restore equality, then run **StatProof: Verify Current File**.
 

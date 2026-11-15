@@ -57,4 +57,5 @@ analysis at one pair of rational success probabilities. The rejection region is
 recomputed in the kernel from the formal p-value. Power at a planning point says
 nothing about other alternatives.
 
-See `tests/lean/Policies.lean` for checked and deliberately failing examples.
+See `tests/lean/Policies.lean` for checked and deliberately failing examples,
+and [planning a study](planning.md) for the `.stat` interface.

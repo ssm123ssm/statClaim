@@ -9,11 +9,13 @@ from statproof.language import (
     LANGUAGE_VERSION,
     AnalysisIR,
     FamilyIR,
+    FeasibilityIR,
     ObservationIR,
     RequestIR,
+    TwoStageAnalysisIR,
 )
 from statproof.language_compiler import compile_source
-from statproof.language_inspection import inspect_request
+from statproof.language_inspection import inspect_planning, inspect_request
 from statproof.language_syntax import Diagnostic, Source, Span
 from statproof.language_values import (
     CalculationResult,
@@ -23,12 +25,43 @@ from statproof.language_values import (
     resolve,
     serialize,
 )
-from statproof.report import test_design, verify_design, verify_design_only, verify_family
+from statproof.report import (
+    run_policy_plan,
+    run_power_plan,
+    run_sample_size,
+    test_design,
+    verify_design,
+    verify_design_only,
+    verify_family,
+)
 from statproof.verification import digest
 
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
+    if request.claim.kind in ("meets", "sample_size"):
+        options = {
+            "verify": request.operation == "verify",
+            "project": project,
+            "output": output,
+            "timeout": timeout,
+        }
+        report = inspect_planning(request)
+        if isinstance(subject, FeasibilityIR):
+            run = (
+                run_policy_plan
+                if isinstance(subject.analysis, TwoStageAnalysisIR)
+                else run_power_plan
+            )
+            return run(report, subject.lower(), **options)
+        target, candidates = subject.target, subject.candidates
+        return run_sample_size(
+            report,
+            candidates.analysis.alpha,
+            (target.at.p_control, target.at.p_treatment, target.minimum, target.maximum_typeI),
+            (candidates.min_per_arm, candidates.max_per_arm),
+            **options,
+        )
     if request.claim.kind == "familywise" and isinstance(subject, FamilyIR):
         return verify_family(subject.lower(), project=project, output=output, timeout=timeout)
     if request.claim.kind == "typeI" and isinstance(subject, AnalysisIR):
@@ -78,7 +111,8 @@ def _result_value(
     if (
         status == "unresolved_obligation"
         and failure
-        and failure.get("stage") not in ("sampling_scope", "allocation")
+        and failure.get("stage")
+        not in ("sampling_scope", "allocation", "typeI_target", "power_target", "search_exhausted")
     ):
         status = "backend_error"
     return VerificationResult(index, request.claim, source_id, status, evidence, diagnostics)
@@ -177,7 +211,8 @@ def check_source(
                     "message",
                     "The requested guarantee remains unresolved under the declared sampling plan.",
                 )
-                diagnostic = Diagnostic("verification", message, request.span, "obligation")
+                code = result.get("verification", {}).get("code", "verification")
+                diagnostic = Diagnostic(code, message, request.span, "obligation")
                 diagnostics.append(diagnostic)
                 request_diagnostics.append(diagnostic)
         value = _result_value(index, request, source_id, status, result, tuple(request_diagnostics))
@@ -247,6 +282,36 @@ def check_source(
     return report
 
 
+def _planning_lines(details: dict) -> list[str]:
+    calculation = details["calculation"]
+    lines = []
+    if "n_control" in calculation:
+        lines.append(
+            f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
+            f"total = {calculation['total_sample_size']}"
+        )
+    if "n_stage1" in calculation:
+        lines.append(
+            f"  stages = ({calculation['n_stage1']}, {calculation['n_stage2']}); "
+            f"Type I at the null rate ~ {calculation['typeI']['decimal_approximation']}; "
+            "expected sample size under the null ~ "
+            f"{calculation['expected_sample_size_null']['decimal_approximation']}"
+        )
+    if "power" in calculation:
+        lines.append(
+            f"  power ~ {calculation['power']['decimal_approximation']}; "
+            f"power target met = {str(calculation['power_target_met']).lower()}; "
+            f"Type I target met = {str(calculation['typeI_target_met']).lower()}"
+        )
+    if "candidates_evaluated" in calculation:
+        lines.append(
+            f"  candidates evaluated = {calculation['candidates_evaluated']}; "
+            "minimum sample size claim: not requested"
+        )
+    lines.append(f"  decision = {details['decision']}; no formal certificate issued.")
+    return lines
+
+
 def render_report(report: dict, source: Source) -> str:
     lines = []
     for diagnostic in report["diagnostics"]:
@@ -282,6 +347,8 @@ def render_report(report: dict, source: Source) -> str:
             lines.append(f"  {details['target_property']}")
             lines.append("  Assumptions:")
             lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
+        elif request["status"] == "calculated" and request["claim"] in ("meets", "sample_size"):
+            lines.extend(_planning_lines(details))
         elif request["status"] == "calculated":
             lines.append(
                 f"  p-value = {details['calculation']['p_value']['fraction']}; "

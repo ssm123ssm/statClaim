@@ -1,0 +1,16 @@
+# A single-arm two-stage design with an interim futility stop (Simon-type).
+# Type I error and power are claims about the complete policy.
+use designs.two_stage
+use planning
+
+let stages = two_stage_binomial(n_stage1=13, n_stage2=30)
+# Stop after stage one with 3 or fewer responses; reject with more than 12 in total.
+let rule = threshold_rule(continue_above=3, reject_above=12)
+let analysis = two_stage_test(design=stages, rule=rule, null_rate=1/5)
+
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)
+let claim = meets(analysis=analysis, target=target)
+let characteristics = calculate(claim)
+let verification = verify(claim)
+let expected_size = characteristics.calculation.expected_sample_size_null
+let evidence = verification.evidence

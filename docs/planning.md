@@ -1,0 +1,108 @@
+# Planning a study
+
+Planning asks whether a design meets a target, or searches for one that does.
+`examples/planning.stat` and `examples/two_stage.stat` are complete files.
+The rates and targets below are illustrative inputs, not defaults.
+
+## Check a proposed study
+
+The researcher expects success rates of 10% and 40%, wants at least 80% power,
+and requires a Type I error bound of 5%. First try 20 participants per arm.
+
+```stat
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use planning
+
+let study = two_arm_binomial(n_control=20, n_treatment=20)
+let design = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(design=design, null=null, alpha=1/20)
+
+let alternative = binomial_rates(p_control=1/10, p_treatment=2/5)
+let target = power_target(at=alternative, minimum=4/5, maximum_typeI=1/20)
+let feasibility = meets(analysis=analysis, target=target)
+let calculation = calculate(feasibility)
+let verification = verify(feasibility)
+```
+
+- `alternative` is a planning point. It does not replace the equality null, and
+  it must lie outside it. A difference alone would not specify both rates.
+- `minimum` is power at this point, not a guarantee for other alternatives.
+- `alpha` defines the rejection rule; `maximum_typeI` is the requested error
+  bound. Verification is blocked if alpha exceeds it.
+
+```text
+calculated [calculation]: power ~ 0.492; power target met = false
+unresolved_obligation [verification]: power_target_not_met
+```
+
+`calculate` reports each component. `verify` issues evidence only when every
+component is established, so here evidence is absent. Failing a planning claim
+says nothing about whether the null is true.
+
+## Find a sufficient sample size
+
+```stat
+let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=2, max_per_arm=40)
+let sizing = sample_size(candidates=candidates, target=target)
+let recommendation = calculate(sizing)
+let sizing_verification = verify(sizing)
+let recommended_size = recommendation.calculation.n_control
+```
+
+Candidates keep the analysis's sampling, null form, test and alpha, and change
+only the arm sizes. The search is ascending with step one and evaluates every
+candidate; power is not assumed to increase with sample size.
+
+```text
+calculated [recommendation]: arm sizes = (36, 36); power ~ 0.8004
+verified [sizing_verification]: Arm sizes (36, 36) are sufficient among
+  equal-arm candidates 2 to 40. Minimality is not claimed.
+```
+
+The certificate covers the selected design: its Type I bound and its power at
+the planning point. An exhausted search reports `no_feasible_candidate` and
+claims nothing about other designs or larger samples.
+
+## Plan an adaptive design
+
+The same target applies to a complete two-stage policy:
+
+```stat
+use designs.two_stage
+use planning
+
+let stages = two_stage_binomial(n_stage1=13, n_stage2=30)
+let rule = threshold_rule(continue_above=3, reject_above=12)
+let analysis = two_stage_test(design=stages, rule=rule, null_rate=1/5)
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)
+let claim = meets(analysis=analysis, target=target)
+let characteristics = calculate(claim)
+let verification = verify(claim)
+```
+
+`calculate` also reports expected sample size and the early-stopping
+probability. `posterior_rule` replaces count thresholds with posterior
+probabilities under a `beta_prior`; see `examples/two_stage_posterior.stat`.
+A posterior threshold is a decision rule. Its Type I error and power are
+separate claims about the whole policy, and are checked the same way.
+See [policies](policies.md) for the model and its limits.
+
+## What is checked
+
+| Result | Meaning |
+| --- | --- |
+| `calculate(...)` | Exact fractions computed in Python. Not proof evidence. |
+| `verify(...)` | Lean recomputes the rejection probability from the formal definitions and checks the requested bounds. No calculated value is trusted. |
+
+Published fields include `calculation.power`, `power_target_met`,
+`typeI_target_met`, sizes and, for two-stage policies, `typeI` and
+`expected_sample_size_null`. Decimals are display only. See the
+[catalogue](catalogue.md) for all fields.
+
+Limits: power is at one declared point; two-stage error is at the declared null
+rate, not for every smaller rate; minimal sample size, assurance and precision
+targets are not yet supported. Kernel checking enumerates every outcome, so very
+large designs may time out and remain unresolved.

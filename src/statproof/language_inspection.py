@@ -6,17 +6,52 @@ from statproof.language import (
     CalculationResultIR,
     ClaimIR,
     FamilyIR,
+    FeasibilityIR,
     LocatedValue,
     ObservationIR,
     RequestIR,
+    TwoStageAnalysisIR,
     VerificationResultIR,
     normalize,
 )
 from statproof.language_compiler import Compilation, requirements
+from statproof.planning import PLANNING_ASSUMPTIONS, policy_assumptions
+from statproof.report import planning_report
+
+
+def inspect_planning(request: RequestIR) -> dict:
+    """Describe a planning claim from its declaration, without calculating."""
+    subject = request.claim.subject
+    target = subject.target
+    if isinstance(subject, FeasibilityIR) and isinstance(subject.analysis, TwoStageAnalysisIR):
+        return planning_report(
+            "policy",
+            "Complete two-stage policy: rejection probability "
+            f"<= {target.maximum_typeI} at the null response rate {subject.analysis.null_rate} "
+            f"and >= {target.minimum} at the response rate {target.at.value}.",
+            policy_assumptions(subject.lower()),
+        )
+    point = f"p_control = {target.at.p_control}, p_treatment = {target.at.p_treatment}"
+    goal = (
+        f"power >= {target.minimum} at {point}; "
+        f"Type I error <= {target.maximum_typeI} under the null"
+    )
+    if isinstance(subject, FeasibilityIR):
+        model = subject.analysis.plan.model
+        text = f"Arm sizes ({model.n_control}, {model.n_treatment}) give {goal}."
+    else:
+        candidates = subject.candidates
+        text = (
+            f"Some equal-arm size from {candidates.min_per_arm} to {candidates.max_per_arm} "
+            f"gives {goal}. Minimality is not claimed."
+        )
+    return planning_report("planning", text, PLANNING_ASSUMPTIONS)
 
 
 def inspect_request(request: RequestIR) -> dict:
     subject = request.claim.subject
+    if request.claim.kind in ("meets", "sample_size"):
+        return inspect_planning(request)
     if isinstance(subject, FamilyIR):
         return inspect_family(subject.lower())
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject

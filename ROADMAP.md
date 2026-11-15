@@ -7,6 +7,9 @@
 - Two-endpoint Bonferroni composition under declared joint laws.
 - VS Code diagnostics and Claims view, Codespaces and contributor checks.
 - Classified catalogue and documented scope.
+- Planning: exact Fisher power, target checks and a bounded sample-size search.
+- Sampling policies with their own records; a two-stage binomial design with
+  count or Beta-posterior rules and checked Type I error and power.
 
 ## Next
 
@@ -26,15 +29,16 @@ Offer documented, overridable method presets; keep scientific inputs explicit.
 The result should attach a sample-size justification and applicable error claims
 to the exact study specification.
 
-Start with power for the existing fixed-sample Fisher analysis and a bounded
-sample-size search. Grow toward assurance, precision targets and adaptive designs,
+Power for the fixed-sample Fisher analysis and a bounded sample-size search are
+implemented; see [planning](docs/planning.md). Grow toward assurance, precision targets and adaptive designs,
 including expected and maximum sample size. A sample size that meets a target
 and the smallest possible sample size are separate claims.
 
 ### Bayesian and adaptive designs
 
-Begin with a small conjugate beta-binomial analysis and explicit prior,
-posterior and decision objects. Extend to adaptive allocation, interim analyses
+A two-stage binomial policy with Beta-posterior decision rules is implemented.
+Next: prove its error bound for every rate below the null, formalize the Beta
+posterior, and add assurance. Extend to adaptive allocation, further interim analyses
 and stopping policies—the compatibility problem that originally motivated
 StatProof. Support Bayesian planning criteria and, when requested, separate
 repeated-sampling error and power claims for the complete decision policy.

@@ -1,12 +1,12 @@
 # Study planning and Bayesian designs
 
-**Roadmap proposal; not implemented in the current preview.** The goal is a
-consistent way to plan a study, understand its expected performance and retain
-the justification with the design. Bayesian and adaptive designs are core
-targets, reflecting StatProof's original motivation.
+**Roadmap.** The goal is a consistent way to plan a study, understand its
+expected performance and retain the justification with the design. Bayesian and
+adaptive designs are core targets, reflecting StatProof's original motivation.
 
-Start with the [proposed Fisher planning example](proposals/planning-example.md)
-for concrete syntax, numerical reference values and expected results.
+Implemented so far: exact Fisher power, target checks, a bounded sample-size
+search, and a two-stage binomial policy with count or Beta-posterior rules.
+See [planning a study](planning.md). The rest of this page is proposed.
 
 ## One planning workflow
 

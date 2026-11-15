@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from statproof.language import (
     AnalysisIR,
     FamilyIR,
+    FeasibilityIR,
     ObservationIR,
     ProgramIR,
     RequestIR,
@@ -45,6 +46,35 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
     """Inspect supported contracts without numerical evaluation or Lean."""
     subject, name = request.claim.subject, request.claim.name
     diagnostics = []
+    if request.claim.kind in ("meets", "sample_size"):
+        analysis = (
+            subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
+        )
+        if not isinstance(analysis, AnalysisIR):
+            return ()
+        if analysis.plan.stopping != "fixed":
+            diagnostics.append(
+                Diagnostic(
+                    "sampling_scope",
+                    f"{name}: planning for this analysis uses the fixed-sample law. "
+                    "Data-dependent stopping needs a complete policy with its own "
+                    "operating characteristics. This is not evidence of inflated error.",
+                    _origin(program, analysis.plan, request.span),
+                    "obligation",
+                )
+            )
+        if request.operation == "verify" and analysis.alpha > subject.target.maximum_typeI:
+            diagnostics.append(
+                Diagnostic(
+                    "typeI_target_not_established",
+                    f"{name}: alpha {analysis.alpha} exceeds the requested Type I bound "
+                    f"{subject.target.maximum_typeI}. The Fisher theorem bounds error by alpha "
+                    "only; this is not evidence that the actual error exceeds the request.",
+                    _origin(program, subject.target, request.span, "maximum_typeI"),
+                    "obligation",
+                )
+            )
+        return tuple(diagnostics)
     if isinstance(subject, FamilyIR):
         family = subject.lower()
         if family.allocated_alpha > family.alpha:
