@@ -20,6 +20,12 @@ from statproof.planning import PLANNING_ASSUMPTIONS, composite_null, policy_assu
 from statproof.report import planning_report
 
 
+def _scope(sizing) -> str:
+    if sizing.minimal:
+        return "No smaller candidate in the range does."
+    return "Minimality is not claimed."
+
+
 def inspect_planning(request: RequestIR) -> dict:
     """Describe a planning claim from its declaration, without calculating."""
     subject = request.claim.subject
@@ -39,7 +45,7 @@ def inspect_planning(request: RequestIR) -> dict:
             candidates = subject.candidates
             text = (
                 f"Some equal-arm size from {candidates.min_per_arm} to {candidates.max_per_arm} "
-                f"gives {goal}. Minimality is not claimed."
+                f"gives {goal}. {_scope(subject)}"
             )
         return planning_report("planning", text, PLANNING_ASSUMPTIONS)
     plan = subject.lower() if feasibility else analysis.plan(target, subject.candidates.min_n)
@@ -60,7 +66,7 @@ def inspect_planning(request: RequestIR) -> dict:
         candidates = subject.candidates
         text = (
             f"Some sample size from {candidates.min_n} to {candidates.max_n} gives {goal}. "
-            "Minimality is not claimed."
+            f"{_scope(subject)}"
         )
     return planning_report("policy", text, policy_assumptions(plan))
 

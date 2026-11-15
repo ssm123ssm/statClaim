@@ -89,11 +89,12 @@ search for a sufficient sample size:
 let alternative = binomial_rates(p_control=1/10, p_treatment=2/5)
 let target = power_target(at=alternative, minimum=4/5, maximum_typeI=1/20)
 let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=2, max_per_arm=40)
-let sizing = verify(sample_size(candidates=candidates, target=target))
+let sizing = verify(smallest_sample_size(candidates=candidates, target=target))
 ```
 
-Lean recomputes the power of the selected design, so the recommendation carries
-checked evidence with its assumptions. Adaptive designs are planned the same
+Lean recomputes the power of the selected design and checks that no smaller
+candidate in the range reaches the target, so the recommendation carries checked
+evidence with its assumptions. Adaptive designs are planned the same
 way: a two-stage design with an interim stop, using count or Bayesian posterior
 rules, has its Type I error and power checked for the complete policy.
 See [planning a study](docs/planning.md).

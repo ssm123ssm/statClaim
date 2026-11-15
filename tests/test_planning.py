@@ -327,3 +327,33 @@ def test_one_sample_language(tmp_path):
         "minimum=4/5, maximum_typeI=1/20))\n"
     )
     assert "alternative_in_null" in [d.code for d in below.diagnostics]
+
+
+def test_cuts_reproduce_the_reference_rejection_region():
+    from statproof.planning import fisher_cuts, fisher_rejection_region
+
+    for nc, nt in ((3, 4), (7, 5), (9, 9)):
+        region = fisher_rejection_region(nc, nt, ALPHA)
+        cuts, nexts = fisher_cuts(nc, nt, ALPHA)
+        assert len(cuts) == len(nexts) == nc + nt + 1
+        for x, y in product(range(nc + 1), range(nt + 1)):
+            reference = fisher_exact(
+                n_control=nc,
+                n_treatment=nt,
+                control_successes=x,
+                treatment_successes=y,
+                alpha=ALPHA,
+            ).reject_null
+            assert region[x][y] == reference
+
+
+def test_smallest_claim_is_bound_into_the_payload():
+    plan, _ = search_equal_arms(ALPHA, *RATES, Fraction(4, 5), ALPHA, 2, 40, True)
+    payload = planning_payload(plan)
+    assert payload["search"]["claim"] == "smallest_in_range"
+    assert parse_planning_payload(payload).minimal
+    assert "checked_smaller" in render_planning_proof(plan, "0" * 64)
+    sufficient, _ = search_equal_arms(ALPHA, *RATES, Fraction(4, 5), ALPHA, 2, 40)
+    assert "checked_smaller" not in render_planning_proof(sufficient, "0" * 64)
+    one, _ = search_one_sample(one_sample(), 10, 60, True)
+    assert parse_policy_payload(policy_payload(one)).minimal

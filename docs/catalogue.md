@@ -99,7 +99,7 @@ File adapter for two Fisher endpoints with an explicit supported joint law. The 
 
 ### `planning` — Study planning
 
-Exact power at a planning point, target checks and a bounded equal-arm sample-size search for the fixed Fisher analysis; targets also apply to two-stage policies. Sufficiency is certified; minimality is not claimed.
+Exact power at a planning point, target checks and a bounded equal-arm sample-size search for the fixed Fisher analysis; targets also apply to two-stage policies. A size can be certified as sufficient or as the smallest in the declared range.
 
 - `binomial_rates(p_control, p_treatment) -> Rates`
 - `power_target(at, minimum, maximum_typeI) -> PowerTarget`
@@ -108,6 +108,7 @@ Exact power at a planning point, target checks and a bounded equal-arm sample-si
 - `sample_sizes(analysis, min_n, max_n) -> OneArmCandidates`
 - `response_rate(value) -> Rate`
 - `sample_size(candidates, target) -> PlanningClaim`
+- `smallest_sample_size(candidates, target) -> PlanningClaim`
 
 ### `designs.two_stage` — Adaptive designs
 

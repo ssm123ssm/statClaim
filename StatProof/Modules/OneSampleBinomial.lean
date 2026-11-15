@@ -87,4 +87,47 @@ theorem power_of_check (design : Design) (nullRate : unitInterval) (a d : ℕ) (
   rw [rejection_probability]
   exact le_ratio_of_check _ _ _ _ (Nat.pow_pos positive) boundDen_pos check
 
+/-- The smallest response count whose upper tail at rate a/d is at most
+`levelNum/levelDen`; `n + 1` (never reject) if there is none. -/
+def criticalValue (n a d levelNum levelDen : ℕ) : ℕ :=
+  ((List.range (n + 1)).find? (fun critical =>
+    decide (tailNumerator n a d critical * levelDen ≤ levelNum * d ^ n))).getD (n + 1)
+
+/-- The test at level `levelNum/levelDen` with the given sample size. -/
+def levelDesign (n a d levelNum levelDen : ℕ) : Design :=
+  ⟨n, criticalValue n a d levelNum levelDen⟩
+
+/-- Every sample size from `low` up to, but excluding, `high` either exceeds the
+error bound at the null rate or falls short of the power bound. -/
+def SmallerFail (low high a d levelNum levelDen maxNum maxDen b e boundNum boundDen : ℕ) : Prop :=
+  ∀ n, n < high → low ≤ n →
+    maxNum * d ^ n < tailNumerator n a d (criticalValue n a d levelNum levelDen) * maxDen ∨
+      tailNumerator n b e (criticalValue n a d levelNum levelDen) * boundDen < boundNum * e ^ n
+
+instance (low high a d levelNum levelDen maxNum maxDen b e boundNum boundDen : ℕ) :
+    Decidable (SmallerFail low high a d levelNum levelDen maxNum maxDen b e boundNum boundDen) := by
+  unfold SmallerFail
+  infer_instance
+
+/-- No smaller candidate meets both targets. -/
+theorem fails_of_smallerFail (a d : ℕ) (le₁ : a ≤ d) (positive₁ : 0 < d) (levelNum levelDen : ℕ)
+    (maxNum maxDen : ℕ) (maxDen_pos : 0 < maxDen) (b e : ℕ) (le₂ : b ≤ e) (positive₂ : 0 < e)
+    (boundNum boundDen : ℕ) (boundDen_pos : 0 < boundDen) (low high : ℕ)
+    (check : SmallerFail low high a d levelNum levelDen maxNum maxDen b e boundNum boundDen)
+    (n : ℕ) (lower : low ≤ n) (upper : n < high) :
+    (maxNum : ℝ) / maxDen <
+        ((policy (levelDesign n a d levelNum levelDen)).law (ratPoint a d le₁ positive₁)).real
+          {count | (levelDesign n a d levelNum levelDen).critical ≤ count} ∨
+      ((policy (levelDesign n a d levelNum levelDen)).law (ratPoint b e le₂ positive₂)).real
+          {count | (levelDesign n a d levelNum levelDen).critical ≤ count} <
+        (boundNum : ℝ) / boundDen := by
+  rw [rejection_probability, rejection_probability]
+  rcases check n upper lower with error | power
+  · left
+    rw [div_lt_div_iff₀ (by exact_mod_cast maxDen_pos)
+      (by exact_mod_cast Nat.pow_pos positive₁)]
+    exact_mod_cast error
+  · right
+    exact ratio_lt_of_check _ _ _ _ (Nat.pow_pos positive₂) boundDen_pos power
+
 end StatProof.Modules.OneSampleBinomial

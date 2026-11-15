@@ -19,9 +19,7 @@ from statproof.family import FAMILY_ASSUMPTIONS, Endpoint, FisherFamily
 from statproof.fisher import TEST_ID, TEST_VERSION, FisherResult, parse_alpha
 from statproof.planning import (
     PLANNING_ASSUMPTIONS,
-    PLANNING_CHECKED_THEOREMS,
     PLANNING_KIND,
-    POLICY_CHECKED_THEOREMS,
     POLICY_KIND,
     PowerPlan,
     TwoStagePlan,
@@ -29,9 +27,11 @@ from statproof.planning import (
     parse_policy_payload,
     planning_claims,
     planning_payload,
+    planning_theorems,
     policy_assumptions,
     policy_claims,
     policy_payload,
+    policy_theorems,
     render_planning_proof,
     render_policy_proof,
 )
@@ -98,7 +98,7 @@ def _profile(kind: str, payload: dict) -> dict:
     elif kind == PLANNING_KIND:
         plan = parse_planning_payload(payload)
         claims, assumptions = planning_claims(plan), PLANNING_ASSUMPTIONS
-        theorems = PLANNING_CHECKED_THEOREMS
+        theorems = planning_theorems(plan)
         scope = (
             "The declared fixed design, its Type I bound and its power at one planning point; "
             "no observed results, other alternatives or minimality are certified."
@@ -107,7 +107,7 @@ def _profile(kind: str, payload: dict) -> dict:
     elif kind == POLICY_KIND:
         plan = parse_policy_payload(payload)
         claims, assumptions = policy_claims(plan), policy_assumptions(plan)
-        theorems = POLICY_CHECKED_THEOREMS
+        theorems = policy_theorems(plan)
         scope = (
             "The complete declared single-arm design, its error bound and its power at one "
             "planning point; no observed results or minimality are certified."

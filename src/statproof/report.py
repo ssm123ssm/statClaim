@@ -353,19 +353,22 @@ def run_sample_size(
     target: tuple,
     bounds: tuple[int, int],
     *,
+    minimal: bool = False,
     verify: bool,
     project: Path,
     output,
     timeout: float,
 ) -> dict:
-    """Search ascending for a sufficient equal-arm size; minimality is never claimed."""
+    """Search ascending for a sufficient equal-arm size."""
     p_control, p_treatment, minimum, maximum = target
-    plan, evaluated = search_equal_arms(alpha, p_control, p_treatment, minimum, maximum, *bounds)
+    plan, evaluated = search_equal_arms(
+        alpha, p_control, p_treatment, minimum, maximum, *bounds, minimal
+    )
     search = {
         "min_per_arm": bounds[0],
         "max_per_arm": bounds[1],
         "candidates_evaluated": evaluated,
-        "minimum_sample_size_claim": "not_requested",
+        "minimum_sample_size_claim": "requested" if minimal else "not_requested",
     }
     if plan is None:
         report["calculation"] = {**search, "power_target_met": False}
@@ -432,18 +435,19 @@ def run_one_sample_search(
     template: OneSamplePlan,
     bounds: tuple[int, int],
     *,
+    minimal: bool = False,
     verify: bool,
     project: Path,
     output,
     timeout: float,
 ) -> dict:
-    """Search ascending for a sufficient one-sample size; minimality is never claimed."""
-    plan, evaluated = search_one_sample(template, *bounds)
+    """Search ascending for a sufficient one-sample size."""
+    plan, evaluated = search_one_sample(template, *bounds, minimal)
     search = {
         "min_n": bounds[0],
         "max_n": bounds[1],
         "candidates_evaluated": evaluated,
-        "minimum_sample_size_claim": "not_requested",
+        "minimum_sample_size_claim": "requested" if minimal else "not_requested",
     }
     if plan is None:
         report["calculation"] = {**search, "power_target_met": False}

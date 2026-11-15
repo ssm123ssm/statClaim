@@ -250,6 +250,7 @@ class OneArmCandidatesIR(CandidateSpaceIR):
 class SizingIR:
     candidates: "CandidatesIR | OneArmCandidatesIR"
     target: PowerTargetIR
+    minimal: bool = False
 
 
 @dataclass(frozen=True)
@@ -455,8 +456,12 @@ def normalize(value: object) -> object:
                 "min_per_arm": low,
                 "max_per_arm": high,
             }
-        case SizingIR(candidates=candidates, target=target):
-            return {"candidates": normalize(candidates), "target": normalize(target)}
+        case SizingIR(candidates=candidates, target=target, minimal=minimal):
+            return {
+                "candidates": normalize(candidates),
+                "target": normalize(target),
+                "claim": "smallest_in_range" if minimal else "sufficient",
+            }
         case ClaimIR(kind=kind, subject=subject, name=name):
             return {"kind": kind, "subject_name": name, "subject": normalize(subject)}
         case VerificationResultIR(request_id=index) | CalculationResultIR(request_id=index):
@@ -712,14 +717,17 @@ def _one_arm_candidates(arguments: dict[str, LocatedValue], span: Span) -> OneAr
     return OneArmCandidatesIR(arguments["analysis"].value, low.value, high.value)
 
 
-def _sizing(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
-    candidates = arguments["candidates"]
-    _check_point(candidates.value.analysis, arguments["target"])
-    return ClaimIR(
-        "sample_size",
-        SizingIR(candidates.value, arguments["target"].value),
-        candidates.name or "<expression>",
-    )
+def _sizing(minimal: bool) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+        candidates = arguments["candidates"]
+        _check_point(candidates.value.analysis, arguments["target"])
+        return ClaimIR(
+            "sample_size",
+            SizingIR(candidates.value, arguments["target"].value, minimal),
+            candidates.name or "<expression>",
+        )
+
+    return build
 
 
 def _two_stage_model(arguments: dict[str, LocatedValue], span: Span) -> TwoStageModelIR:
@@ -958,9 +966,17 @@ MODULES = {
                     "sample_size",
                     (("candidates", CandidateSpaceIR), ("target", PowerTargetIR)),
                     "PlanningClaim",
-                    _sizing,
+                    _sizing(False),
                     documentation="Claim that some candidate meets the target. The search is "
                     "ascending; a sufficient size is not claimed to be the smallest possible.",
+                ),
+                _constructor(
+                    "smallest_sample_size",
+                    (("candidates", CandidateSpaceIR), ("target", PowerTargetIR)),
+                    "PlanningClaim",
+                    _sizing(True),
+                    documentation="Claim that a candidate meets the target and that no smaller "
+                    "candidate in the declared range does. Nothing is claimed outside the range.",
                 ),
             ),
         ),

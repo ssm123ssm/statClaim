@@ -6,8 +6,8 @@ arithmetic. Alpha is explicit. The file-language Bonferroni adapter currently
 handles two Fisher endpoints; the Lean composition library is more general.
 
 Planning adds exact Fisher power at one declared point, target checks and a
-bounded equal-arm sample-size search; sufficiency is certified, minimality is
-not. A single-arm two-stage binomial policy with an interim stop is supported
+bounded equal-arm sample-size search. A selected size can be certified as
+sufficient, or as the smallest sufficient size within the declared range. A single-arm two-stage binomial policy with an interim stop is supported
 with count or Beta-posterior rules: its Type I error and power are checked for
 the complete policy. The one-sided exact binomial test is supported for a single
 arm. Error bounds for that test and for count thresholds cover every rate at or

@@ -37,7 +37,7 @@ def test_planning_example_components(runs):
     assert values["verification"]["evidence"] is None
     assert values["recommended_size"] == 36
     evidence = values["sizing_evidence"]
-    assert "Minimality is not claimed." in evidence["established_properties"][-1]
+    assert "smallest sufficient candidate" in evidence["established_properties"][-1]
     replay = recheck_certificate(Path(evidence["certificate"]["directory"]), project=ROOT)
     assert replay["kind"] == "statproof_planning_certificate"
 

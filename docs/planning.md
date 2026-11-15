@@ -46,7 +46,7 @@ says nothing about whether the null is true.
 
 ```stat
 let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=2, max_per_arm=40)
-let sizing = sample_size(candidates=candidates, target=target)
+let sizing = smallest_sample_size(candidates=candidates, target=target)
 let recommendation = calculate(sizing)
 let sizing_verification = verify(sizing)
 let recommended_size = recommendation.calculation.n_control
@@ -58,13 +58,18 @@ candidate; power is not assumed to increase with sample size.
 
 ```text
 calculated [recommendation]: arm sizes = (36, 36); power ~ 0.8004
-verified [sizing_verification]: Arm sizes (36, 36) are sufficient among
-  equal-arm candidates 2 to 40. Minimality is not claimed.
+verified [sizing_verification]: No equal-arm size from 2 up to 35 reaches that
+  power, so (36, 36) is the smallest sufficient candidate in the range 2 to 40.
 ```
 
-The certificate covers the selected design: its Type I bound and its power at
-the planning point. An exhausted search reports `no_feasible_candidate` and
-claims nothing about other designs or larger samples.
+There are two sizing claims:
+
+- `sample_size` certifies that the selected design meets the target.
+- `smallest_sample_size` also certifies that every smaller candidate in the
+  range fails. It takes longer, and claims nothing outside the range.
+
+An exhausted search reports `no_feasible_candidate` and claims nothing about
+other designs or larger samples.
 
 ## Plan a single-arm study
 
@@ -79,7 +84,7 @@ let study = one_arm_binomial(n=25)
 let analysis = binomial_test(model=study, null_rate=1/5, alpha=1/20)
 let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)
 let candidates = sample_sizes(analysis=analysis, min_n=10, max_n=60)
-let verification = verify(sample_size(candidates=candidates, target=target))
+let verification = verify(smallest_sample_size(candidates=candidates, target=target))
 ```
 
 The result is 35 participants, rejecting at 12 or more responses. The test
@@ -124,6 +129,9 @@ Published fields include `calculation.power`, `power_target_met`,
 
 Limits: power is at one declared point. Error bounds for the one-sample test and
 for two-stage count thresholds hold for every rate at or below the null rate;
-for posterior thresholds they hold at the declared null rate only. Minimal sample size, assurance and precision
-targets are not yet supported. Kernel checking enumerates every outcome, so very
-large designs may time out and remain unresolved.
+for posterior thresholds they hold at the declared null rate only. Assurance and precision
+targets are not yet supported.
+
+Verification time grows with sample size. A Fisher design with 150 per arm
+takes about 20 seconds; much larger designs may exceed `--timeout` and remain
+unresolved.

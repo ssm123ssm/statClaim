@@ -16,10 +16,23 @@ from typing import Literal
 from statproof.design import Design
 from statproof.fisher import TEST_ID, TEST_VERSION, fraction_record, parse_alpha
 
+SMALLEST = "smallest_in_range"
 PLANNING_KIND = "statproof_planning_certificate"
 POLICY_KIND = "statproof_policy_certificate"
-PLANNING_CHECKED_THEOREMS = ["checked_sizes", "checked_typeI", "checked_power"]
-POLICY_CHECKED_THEOREMS = ["checked_stages", "checked_typeI", "checked_power"]
+
+
+def planning_theorems(plan) -> list[str]:
+    names = ["checked_sizes", "checked_region", "checked_typeI", "checked_power"]
+    return names + ["checked_smaller"] if plan.minimal else names
+
+
+def policy_theorems(plan) -> list[str]:
+    names = ["checked_stages", "checked_typeI", "checked_power"]
+    if getattr(plan, "minimal", False):
+        names += ["checked_critical", "checked_smaller"]
+    return names
+
+
 # Kernel checking enumerates every table; larger searches remain calculations.
 MAX_PER_ARM = 500
 MAX_STAGE = 200
@@ -58,22 +71,48 @@ def _weights(n: int, rate: Fraction) -> list[int]:
     return [comb(n, k) * a**k * (d - a) ** (n - k) for k in range(n + 1)]
 
 
+def _table_weights(n_control: int, n_treatment: int, total: int) -> tuple[int, list[int]]:
+    lower, upper = max(0, total - n_treatment), min(n_control, total)
+    return lower, [
+        comb(n_control, k) * comb(n_treatment, total - k) for k in range(lower, upper + 1)
+    ]
+
+
+@lru_cache(maxsize=256)
+def fisher_cuts(
+    n_control: int, n_treatment: int, alpha: Fraction
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """For each pooled total: the largest rejected table weight and the next larger
+    weight, with zero for "none". Lean validates these; they are not trusted."""
+    an, ad = alpha.as_integer_ratio()
+    cuts, nexts = [], []
+    for total in range(n_control + n_treatment + 1):
+        _, weights = _table_weights(n_control, n_treatment, total)
+        limit = an * comb(n_control + n_treatment, total)
+        cut = following = cumulative = 0
+        for weight in sorted(set(weights)):
+            cumulative += weight * weights.count(weight)
+            if cumulative * ad <= limit:
+                cut = weight
+            else:
+                following = weight
+                break
+        cuts.append(cut)
+        nexts.append(following)
+    return tuple(cuts), tuple(nexts)
+
+
 @lru_cache(maxsize=256)
 def fisher_rejection_region(
     n_control: int, n_treatment: int, alpha: Fraction
 ) -> tuple[tuple[bool, ...], ...]:
     """Whether each table (control successes, treatment successes) is rejected."""
-    an, ad = alpha.as_integer_ratio()
+    cuts, _ = fisher_cuts(n_control, n_treatment, alpha)
     region = [[False] * (n_treatment + 1) for _ in range(n_control + 1)]
-    for total in range(n_control + n_treatment + 1):
-        lower, upper = max(0, total - n_treatment), min(n_control, total)
-        weights = [
-            comb(n_control, k) * comb(n_treatment, total - k) for k in range(lower, upper + 1)
-        ]
-        denominator = comb(n_control + n_treatment, total)
-        for offset, observed in enumerate(weights):
-            extreme = sum(weight for weight in weights if weight <= observed)
-            region[lower + offset][total - lower - offset] = extreme * ad <= an * denominator
+    for total, cut in enumerate(cuts):
+        lower, weights = _table_weights(n_control, n_treatment, total)
+        for offset, weight in enumerate(weights):
+            region[lower + offset][total - lower - offset] = weight <= cut
     return tuple(tuple(row) for row in region)
 
 
@@ -103,8 +142,11 @@ class PowerPlan:
     maximum_typeI: Fraction
     request: Literal["meets", "sample_size"] = "meets"
     search: tuple[int, int] | None = None
+    minimal: bool = False
 
     def __post_init__(self) -> None:
+        if self.minimal and self.search is None:
+            raise ValueError("A smallest-size claim needs a search range.")
         for name in ("p_control", "p_treatment", "minimum_power", "maximum_typeI"):
             _probability(getattr(self, name), name)
         if self.p_control == self.p_treatment:
@@ -160,6 +202,7 @@ def search_equal_arms(
     maximum_typeI: Fraction,
     low: int,
     high: int,
+    minimal: bool = False,
 ) -> tuple[PowerPlan | None, int]:
     """First equal-arm size in ascending order meeting the power target.
 
@@ -174,6 +217,7 @@ def search_equal_arms(
             maximum_typeI,
             "sample_size",
             (low, high),
+            minimal,
         )
         if plan.power >= minimum_power:
             return plan, evaluated
@@ -208,6 +252,8 @@ def planning_payload(plan: PowerPlan) -> dict:
     }
     if plan.search is not None:
         payload["search"] = {"min_per_arm": plan.search[0], "max_per_arm": plan.search[1]}
+        if plan.minimal:
+            payload["search"]["claim"] = SMALLEST
     return payload
 
 
@@ -226,6 +272,7 @@ def parse_planning_payload(payload: dict) -> PowerPlan:
         ),
         payload["request"],
         (search["min_per_arm"], search["max_per_arm"]) if search else None,
+        bool(search) and search.get("claim") == SMALLEST,
     )
     if payload != planning_payload(plan):
         raise ValueError("Bound planning inputs are inconsistent.")
@@ -241,7 +288,13 @@ def planning_claims(plan: PowerPlan) -> list[str]:
         f"Its power is at least {plan.minimum_power} at p_control = {plan.p_control}, "
         f"p_treatment = {plan.p_treatment}.",
     ]
-    if plan.search is not None:
+    if plan.minimal:
+        claims.append(
+            f"No equal-arm size from {plan.search[0]} up to {plan.design.n_control - 1} reaches "
+            f"that power, so {sizes} is the smallest sufficient candidate in the range "
+            f"{plan.search[0]} to {plan.search[1]}. Nothing is claimed outside the range."
+        )
+    elif plan.search is not None:
         claims.append(
             f"Arm sizes {sizes} are therefore sufficient among equal-arm candidates "
             f"{plan.search[0]} to {plan.search[1]}. Minimality is not claimed."
@@ -258,21 +311,47 @@ PLANNING_ASSUMPTIONS = [
 ]
 
 
+def _lean_list(values) -> str:
+    return "[" + ", ".join(str(value) for value in values) + "]"
+
+
 def render_planning_proof(plan: PowerPlan, input_sha256: str) -> str:
     if not plan.typeI_target_met or plan.design.stopping != "fixed":
         raise ValueError("The Type I target is not established by the Fisher theorem.")
     nc, nt = plan.design.n_control, plan.design.n_treatment
-    an, ad = plan.design.alpha.as_integer_ratio()
+    alpha = plan.design.alpha
+    an, ad = alpha.as_integer_ratio()
     mn, md = plan.maximum_typeI.as_integer_ratio()
     bn, bd = plan.minimum_power.as_integer_ratio()
     (a, d), (b, e) = plan.p_control.as_integer_ratio(), plan.p_treatment.as_integer_ratio()
+    cuts, nexts = fisher_cuts(nc, nt, alpha)
+    point = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
+    smaller = ""
+    if plan.minimal:
+        low = plan.search[0]
+        hints = [fisher_cuts(n, n, alpha) for n in range(low, nc)]
+        smaller = f"""
+def smallerCuts : List (List ℕ) := {_lean_list(_lean_list(c) for c, _ in hints)}
+def smallerNexts : List (List ℕ) := {_lean_list(_lean_list(x) for _, x in hints)}
+
+theorem checked_smaller (n : ℕ) (positive : 0 < n) (lower : {low} ≤ n) (upper : n < {nc}) :
+    ((Core.Policy.fixed (TwoArmBinomial.model ⟨n, n, positive, positive⟩)).law
+        planningPoint).real
+        (FisherPower.analysis ⟨n, n, positive, positive⟩ declaredLevel).rejection <
+      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ)) :=
+  FisherPower.power_lt_of_smallerFail declaredLevel {an} {ad} (by decide)
+    (by norm_num [declaredLevel]) {point} {bn} {bd} (by decide) {low} {nc}
+    (FisherPower.smallerFail_of_hinted _ _ _ _ _ _ _ _ _ _ smallerCuts smallerNexts
+      (by decide +kernel)) n positive lower upper
+"""
     return f"""import StatProof
 import Lean.Util.CollectAxioms
 
 -- Canonical planning SHA-256: {input_sha256}
--- Power is recomputed in the kernel; no calculated value is supplied.
-set_option maxRecDepth 8192
-set_option maxHeartbeats 2000000
+-- Power is recomputed in the kernel. The listed thresholds are proposals that
+-- the kernel validates against the formal p-value; they are not trusted.
+set_option maxRecDepth 100000
+set_option maxHeartbeats 20000000
 
 namespace StatProofCertificate
 open StatProof StatProof.Modules
@@ -282,10 +361,16 @@ def declaredLevel : SignificanceLevel :=
   ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
 noncomputable def declaredAnalysis := FisherPower.analysis declaredSizes declaredLevel
 noncomputable def planningPoint : TwoArmBinomial.Parameters :=
-  FisherPower.ratePoint {a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)
+  FisherPower.ratePoint {point}
+def cuts : List ℕ := {_lean_list(cuts)}
+def nexts : List ℕ := {_lean_list(nexts)}
 
 theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
     0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+
+theorem checked_region : FisherPower.HintsValid declaredSizes.nControl
+    declaredSizes.nTreatment {an} {ad} cuts nexts := by
+  decide +kernel
 
 theorem checked_typeI :
     (declaredAnalysis.typeIClaim ((({mn} : ℕ) : ℝ) / (({md} : ℕ) : ℝ))).statement := by
@@ -297,11 +382,13 @@ theorem checked_power :
     (declaredAnalysis.powerClaim (fun parameter => parameter = planningPoint)
       ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
   FisherPower.power_of_check declaredSizes declaredLevel {an} {ad} (by decide)
-    (by norm_num [declaredLevel]) {a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)
-    {bn} {bd} (by decide) (by decide +kernel)
-
+    (by norm_num [declaredLevel]) {point}
+    {bn} {bd} (by decide) (by
+      rw [FisherPower.rejectionNumerator_hint _ _ _ _ _ _ _ _ cuts nexts checked_region]
+      decide +kernel)
+{smaller}
 end StatProofCertificate
-{_audit(PLANNING_CHECKED_THEOREMS, input_sha256)}"""
+{_audit(planning_theorems(plan), input_sha256)}"""
 
 
 @dataclass(frozen=True)
@@ -454,8 +541,11 @@ class OneSamplePlan:
     minimum_power: Fraction
     maximum_typeI: Fraction
     search: tuple[int, int] | None = None
+    minimal: bool = False
 
     def __post_init__(self) -> None:
+        if self.minimal and self.search is None:
+            raise ValueError("A smallest-size claim needs a search range.")
         if type(self.n) is not int or not 1 <= self.n <= MAX_ONE_ARM:
             raise ValueError(f"n must be an integer between 1 and {MAX_ONE_ARM}.")
         for name in ("null_rate", "alpha", "alternative_rate", "minimum_power", "maximum_typeI"):
@@ -500,7 +590,7 @@ class OneSamplePlan:
 
 
 def search_one_sample(
-    template: OneSamplePlan, low: int, high: int
+    template: OneSamplePlan, low: int, high: int, minimal: bool = False
 ) -> tuple[OneSamplePlan | None, int]:
     """First sample size in ascending order meeting both targets; each is evaluated."""
     for evaluated, n in enumerate(range(low, high + 1), 1):
@@ -512,6 +602,7 @@ def search_one_sample(
             template.minimum_power,
             template.maximum_typeI,
             (low, high),
+            minimal,
         )
         values = plan.evaluate()
         if values["power_target_met"] and values["typeI_target_met"]:
@@ -543,6 +634,8 @@ def policy_payload(plan: "TwoStagePlan | OneSamplePlan") -> dict:
         }
         if plan.search is not None:
             payload["search"] = {"min_n": plan.search[0], "max_n": plan.search[1]}
+            if plan.minimal:
+                payload["search"]["claim"] = SMALLEST
         return payload
     return {
         "schema_version": 1,
@@ -575,6 +668,7 @@ def parse_policy_payload(payload: dict) -> "TwoStagePlan | OneSamplePlan":
             parse_alpha(target["minimum_power"]),
             parse_alpha(target["maximum_typeI"]),
             (search["min_n"], search["max_n"]) if search else None,
+            bool(search) and search.get("claim") == SMALLEST,
         )
         if payload != policy_payload(plan):
             raise ValueError("Bound policy inputs are inconsistent.")
@@ -613,7 +707,13 @@ def policy_claims(plan: "TwoStagePlan | OneSamplePlan") -> list[str]:
             f"It rejects with probability at least {plan.minimum_power} at the response rate "
             f"{plan.alternative_rate}.",
         ]
-        if plan.search is not None:
+        if plan.minimal:
+            claims.append(
+                f"No sample size from {plan.search[0]} up to {plan.n - 1} meets both bounds "
+                f"with this test, so {plan.n} is the smallest sufficient candidate in the "
+                f"range {plan.search[0]} to {plan.search[1]}. Nothing is claimed outside it."
+            )
+        elif plan.search is not None:
             claims.append(
                 f"A sample size of {plan.n} is therefore sufficient among candidates "
                 f"{plan.search[0]} to {plan.search[1]}. Minimality is not claimed."
@@ -694,6 +794,28 @@ def render_policy_proof(plan: "TwoStagePlan | OneSamplePlan", input_sha256: str)
             )
         else:
             analysis, typeI, power = "analysis", "typeI_of_check declaredDesign", "power_of_check"
+    smaller = ""
+    if getattr(plan, "minimal", False):
+        an, ad = plan.alpha.as_integer_ratio()
+        level = f"levelDesign n {a} {d} {an} {ad}"
+        smaller = f"""
+theorem checked_critical :
+    OneSampleBinomial.criticalValue {plan.n} {a} {d} {an} {ad} = {plan.critical} := by
+  decide +kernel
+
+theorem checked_smaller (n : ℕ) (lower : {plan.search[0]} ≤ n) (upper : n < {plan.n}) :
+    ((({mn} : ℕ) : ℝ) / (({md} : ℕ) : ℝ)) <
+        ((OneSampleBinomial.policy (OneSampleBinomial.{level})).law
+          (ratPoint {a} {d} (by decide) (by decide))).real
+          {{count | (OneSampleBinomial.{level}).critical ≤ count}} ∨
+      ((OneSampleBinomial.policy (OneSampleBinomial.{level})).law
+          (ratPoint {b} {e} (by decide) (by decide))).real
+          {{count | (OneSampleBinomial.{level}).critical ≤ count}} <
+        ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ)) :=
+  OneSampleBinomial.fails_of_smallerFail {a} {d} (by decide) (by decide) {an} {ad}
+    {mn} {md} (by decide) {b} {e} (by decide) (by decide) {bn} {bd} (by decide)
+    {plan.search[0]} {plan.n} (by decide +kernel) n lower upper
+"""
     return f"""import StatProof
 import Lean.Util.CollectAxioms
 
@@ -722,6 +844,6 @@ theorem checked_power :
       ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
   {module}.{power} declaredDesign nullRate {b} {e} (by decide) (by decide)
     {bn} {bd} (by decide) (by decide +kernel)
-
+{smaller}
 end StatProofCertificate
-{_audit(POLICY_CHECKED_THEOREMS, input_sha256)}"""
+{_audit(policy_theorems(plan), input_sha256)}"""

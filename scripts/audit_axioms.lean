@@ -46,7 +46,11 @@ run_cmd do
     ``StatProof.Modules.OneSampleBinomial.typeI_of_check,
     ``StatProof.Modules.OneSampleBinomial.power_of_check,
     ``StatProof.Modules.TwoStageBinomial.typeI_atMost_of_check,
-    ``StatProof.Modules.TwoStageBinomial.thresholdDesign_monotone]
+    ``StatProof.Modules.TwoStageBinomial.thresholdDesign_monotone,
+    ``StatProof.Modules.FisherPower.rejectionNumerator_hint,
+    ``StatProof.Modules.FisherPower.power_lt_of_smallerFail,
+    ``StatProof.Modules.FisherPower.smallerFail_of_hinted,
+    ``StatProof.Modules.OneSampleBinomial.fails_of_smallerFail]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

@@ -57,6 +57,7 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
                 report,
                 candidates.analysis.plan(target, candidates.min_n),
                 (candidates.min_n, candidates.max_n),
+                minimal=subject.minimal,
                 **options,
             )
         return run_sample_size(
@@ -64,6 +65,7 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             candidates.analysis.alpha,
             (target.at.p_control, target.at.p_treatment, target.minimum, target.maximum_typeI),
             (candidates.min_per_arm, candidates.max_per_arm),
+            minimal=subject.minimal,
             **options,
         )
     if request.claim.kind == "familywise" and isinstance(subject, FamilyIR):
@@ -315,7 +317,8 @@ def _planning_lines(details: dict) -> list[str]:
     if "candidates_evaluated" in calculation:
         lines.append(
             f"  candidates evaluated = {calculation['candidates_evaluated']}; "
-            "minimum sample size claim: not requested"
+            "smallest-in-range claim: "
+            f"{calculation['minimum_sample_size_claim'].replace('_', ' ')}"
         )
     lines.append(f"  decision = {details['decision']}; no formal certificate issued.")
     return lines

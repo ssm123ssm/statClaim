@@ -7,7 +7,8 @@
 - Two-endpoint Bonferroni composition under declared joint laws.
 - VS Code diagnostics and Claims view, Codespaces and contributor checks.
 - Classified catalogue and documented scope.
-- Planning: exact Fisher power, target checks and a bounded sample-size search.
+- Planning: exact Fisher power, target checks and a bounded sample-size search,
+  with an optional smallest-in-range claim.
 - Sampling policies with their own records; a two-stage binomial design with
   count or Beta-posterior rules and checked Type I error and power.
 - One-sided exact binomial test for a single arm, with sample-size search.

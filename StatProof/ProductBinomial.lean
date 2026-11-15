@@ -143,4 +143,12 @@ theorem le_ratio_of_check (numerator denominator boundNum boundDen : ℕ)
   rw [div_le_div_iff₀ (by exact_mod_cast boundDen_pos) (by exact_mod_cast denominator_pos)]
   exact_mod_cast check
 
+/-- A strict upper bound on a ratio, from one natural-number comparison. -/
+theorem ratio_lt_of_check (numerator denominator boundNum boundDen : ℕ)
+    (denominator_pos : 0 < denominator) (boundDen_pos : 0 < boundDen)
+    (check : numerator * boundDen < boundNum * denominator) :
+    (numerator : ℝ) / denominator < (boundNum : ℝ) / boundDen := by
+  rw [div_lt_div_iff₀ (by exact_mod_cast denominator_pos) (by exact_mod_cast boundDen_pos)]
+  exact_mod_cast check
+
 end StatProof

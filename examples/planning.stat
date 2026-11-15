@@ -19,9 +19,9 @@ let feasibility = meets(analysis=analysis, target=target)
 let calculation = calculate(feasibility)
 let verification = verify(feasibility)
 
-# Search equal arm sizes; a sufficient size is not claimed to be the smallest.
+# Search equal arm sizes for the smallest one in this range that meets the target.
 let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=2, max_per_arm=40)
-let sizing = sample_size(candidates=candidates, target=target)
+let sizing = smallest_sample_size(candidates=candidates, target=target)
 let recommendation = calculate(sizing)
 let sizing_verification = verify(sizing)
 let recommended_size = recommendation.calculation.n_control
