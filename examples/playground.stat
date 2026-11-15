@@ -1,0 +1,17 @@
+# Try changing the null to proportion_difference(model=study, value=1/10).
+# Fisher will explain the incompatibility before verification runs.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=20, n_treatment=20)
+let plan = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(design=plan, null=null, alpha=1/20)
+let claim = typeI(analysis)
+let verification = verify(claim)
+let status = verification.status
+let evidence = verification.evidence
+let data = observe(analysis=analysis, control_successes=2, treatment_successes=8)
+let calculation = calculate(result(data))
+let p_value = calculation.calculation.p_value

@@ -24,7 +24,14 @@
     }
   },
   "contributes": {
-    "views": { "explorer": [{ "id": "statproof.claims", "name": "StatProof Claims" }] },
+    "views": {
+      "explorer": [
+        {
+          "id": "statproof.claims",
+          "name": "StatProof Claims"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "statproof",
@@ -78,12 +85,28 @@
   "scripts": {
     "check": "node --check extension.js && node --check claims-model.js && node --check claims-view.js && node --check test/suite.js && node --check test/run.js",
     "test": "node test/run.js",
-    "test:unit": "node --test test/*.test.js"
+    "test:unit": "node --test test/*.test.js",
+    "package": "vsce package --out dist/statproof.vsix"
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"
   },
   "devDependencies": {
-    "@vscode/test-electron": "3.1.0"
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.1.1"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ssm123ssm/statProof.git",
+    "directory": "extensions/vscode"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "overrides": {
+    "@vscode/vsce": {
+      "minimatch": "11.0.8"
+    }
   }
 }

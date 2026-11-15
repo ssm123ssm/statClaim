@@ -1,0 +1,21 @@
+name: Bug report
+description: Report unexpected behavior
+body:
+  - type: textarea
+    id: example
+    attributes:
+      label: Small example and steps
+      description: Include the .stat source and command. Remove private data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include release or commit, OS, and statproof doctor output.

@@ -159,7 +159,11 @@ Structural agreement is sufficient for supported canonical objects; other
 semantic equivalences may require an explicit theorem rather than automatic
 normalization.
 
-## Implementation sequence and decision point
+## Original design sequence
+
+This section records the design sequence. The standalone `.stat` interface is
+now the primary researcher interface, with an LSP and VS Code integration. Lean
+remains the shared formal backend. See the [roadmap](../ROADMAP.md) for next steps.
 
 1. Review this object model, especially the boundaries among model, sampling
    plan, hypothesis, procedure, and claim.

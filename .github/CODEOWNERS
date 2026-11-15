@@ -1,0 +1,5 @@
+# Mathematical and evidence changes need maintainer review.
+/StatProof/ @ssm123ssm
+/src/statproof/verification.py @ssm123ssm
+/src/statproof/language_contracts.py @ssm123ssm
+/.github/ @ssm123ssm

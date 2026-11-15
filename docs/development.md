@@ -1,105 +1,34 @@
-# Development scope and next steps
+# Development
 
-The first module concerns two independent binomial samples with positive sample
-sizes fixed before outcomes are observed. The specified test is the
-nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
-`p_value <= alpha`, with an exact configurable level in `[0,1]` (default `1/20`). Its [specification](exact-test-spec.md) defines the details.
+Use the README Codespaces button, or install uv, elan and Node.js 22+ locally.
+`make setup` installs locked Python dependencies and the pinned Lean/Mathlib
+versions. Mathlib needs several GB; its cache download dominates first setup.
 
-## Completed
+```sh
+make python-check             # lint and fast Python tests
+make check                    # plus Lean, axioms and real backend/replay tests
+make editor-check             # JS unit tests and real VS Code integration
+make catalogue-check repository-check
+make editor-package           # distributable VSIX in extensions/vscode/dist
+```
 
-- Reproducible Python and Lean / Mathlib environments, local Git, and CI checks.
-- An exact Fisher calculation using integer combinatorics and rational arithmetic.
-- A CLI taking a design declaration and observed arm success counts, with JSON
-  results that separate the numerical decision from formal-verification status.
-- Exhaustive small-table checks, stored R reference fixtures, and an optional
-  live R comparison script.
-- The Lean theorem `StatProof.probabilityOrdered_rejection_mass_le`: a generic
-  bound on rejected mass for finite, nonnegative rational masses with inclusive
-  probability ordering and ties.
-- Hypergeometric support and positive denominator, Vandermonde normalization,
-  integer probability ordering, and the conditional rejection bound.
-- A normalized finite independent-binomial model, its partition by pooled totals,
-  and the conditional hypergeometric law at positive-probability totals.
-- `StatProof.fisher_typeI_error_le`: the uniform Type I error bound against the
-  product of Mathlib's binomial measures for every common `p` in `[0, 1]`.
-- Concrete Lean examples and a transitive theorem dependency audit allowing only
-  the standard logical axioms. The proof includes both null endpoints.
-- `StatProof/Computation.lean`: proved efficient integer formulas and a bridge
-  from checked cross-products to exact rational p-values and table probabilities.
-- `statproof verify`: per-result kernel checking, generated claims for the precise
-  declaration and result, transitive auditing, and property-specific certificates.
-- `statproof check-certificate`: integrity and binding checks followed by a fresh
-  Lean proof check, using the pinned environment and source snapshot.
-- Tests for false Python candidates, altered bundles, self-consistent false claims,
-  timeouts, unsupported stopping, and missing proof-completion markers.
-- An unsupported stopping example that exposes missing justification and withholds
-  a procedure-level decision, while allowing the fixed-margin statistic to be shown.
-- A minimal shared Lean object library and typed Fisher provider, with a worked
-  example and negative tests for incompatible or missing evidence. See the
-  [Lean object guide](lean-objects.md).
-- `statproof verify-design`: pre-data design certification through the shared
-  objects, with no required observations, numerical p-value, or test decision.
-  Replay distinguishes design-level and per-result certificate scopes.
+On headless Linux use `xvfb-run -a make editor-check`. The test runner downloads
+VS Code unless `VSCODE_EXECUTABLE_PATH` selects an installation. Keep Python and
+Lean source unchanged while certificate/replay tests run: snapshots hash them.
 
-- Configurable exact Fisher alpha through the Lean procedure/provider, TOML,
-  numerical decisions, proof generation, and scope-bound certificate replay.
-- A generic finite-family Bonferroni provider proving strong familywise error
-  control, and a two-Fisher adapter with explicit marginal-law contracts.
-- Two-outcome CLI certification, sufficient and excessive allocation examples,
-  a concrete joint-law Lean example, and a perfectly dependent-event test.
+The devcontainer uses Python 3.12, Node 22, uv and elan. `onCreateCommand` runs
+setup and builds the extension; `postAttachCommand` installs it into remote VS
+Code. The extension runs in the workspace, so Python/Lean also work in the
+browser. Plain vscode.dev without a workspace backend cannot run them.
 
-- A standalone `.stat` file-language prototype with a common grammar, a module
-  registry, typed intermediate objects, immutable bindings, source diagnostics,
-  explicit claim requests, and optional observed-result calculation/verification.
-- The same canonical requests and Lean certificates as the TOML route, with
-  retained source/IR run reports, source-change detection, and parity/replay tests.
-  See the [file-language guide](stat-language.md).
+To test the container locally, install Docker and the Dev Container CLI, then
+run `devcontainer up --workspace-folder .`. CI builds the same Dockerfile and
+runs bootstrap plus a real sample verification. Optional Codespaces prebuilds
+can speed startup; configure them in repository Settings → Codespaces after
+reviewing GitHub Actions/storage usage. They are not required to use the button.
 
-## Verification boundary
+Do not commit `.lake`, `.venv`, certificates, VSIX files, agent instructions or
+memory notes. An ignored local `AGENTS.md` holds workspace-only preferences.
 
-The architectural phase defines a shared object model and compares a
-Lean-facing representation with a small standalone statistical language. The
-[core object draft and comparison plan](core-object-model.md) records the proposed
-concepts, semantic boundaries, and Fisher acceptance cases. Both routes use the same mathematical library and proof backend; their
-interfaces remain open for evaluation. The Lean representation includes Fisher
-and a second composition pattern. The standalone file-language prototype targets
-those same objects. The next step is
-interactive guidance and completion, followed by comparison of both routes.
-
-The current bridge certifies individual results, rather than proving all behavior
-of the Python program. The input parser, numeral-only proof generator, and report
-binding remain trusted application components, with validation and negative tests.
-Generated Lean statements and canonical inputs are retained for review and replay.
-
-The fast `test` command still labels its evidence `exact_computation` and issues no
-certificate. The `verify` command issues a certificate only after a successful
-Lean check and transitive audit, with exact input, source, artifact, and dependency
-bindings. Any incomplete check remains `unresolved_obligation`. The same result
-can be independently checked later with `check-certificate`.
-
-Future work can reduce the trusted application layer, improve certificate
-portability and resource use, or prove the general Python recurrence and its
-implementation correspondence. Authenticity of local imported artifacts and the
-toolchain remains trusted. Bundles are content-bound records, not signed identities.
-
-The [proof walkthrough](formal-proof.md) records the theorem's precise scope.
-
-## Scope boundaries
-
-Reports must distinguish verified properties, demonstrated violations, unresolved
-obligations, and explicit assumptions. Sampling assumptions are requirements,
-not statements that the real study satisfies them. Data-dependent stopping needs
-additional justification; it does not by itself demonstrate inflated error.
-
-Approximate tests, adaptive-design proofs, power, confidence intervals, state-space
-models, a graphical interface, and community-module infrastructure remain later
-work. The current executable focuses on one precisely specified test.
-
-## Tooling references
-
-- [Lean installation and Mathlib project setup](https://lean-lang.org/install/manual/).
-- [Pinned Mathlib release](https://github.com/leanprover-community/mathlib4/releases/tag/v4.35.0).
-- [Mathlib cache documentation](https://github.com/leanprover-community/mathlib4/blob/v4.35.0/Cache/README.md).
-- [R's Fisher test definition](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/fisher.test.html).
-
-The original project brief is retained unchanged.
+The packaging tool pins a patched minimatch via npm overrides; remove the override
+when vsce adopts it. Run `npm audit` when changing extension dependencies.

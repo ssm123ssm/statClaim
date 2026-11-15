@@ -119,5 +119,5 @@ without `[analysis]` keep alpha `1/20`. A certificate from an older source snaps
 must be reissued after this upgrade because replay requires matching sources.
 
 The [standalone file-language prototype](stat-language.md) now expresses the same
-composition in `examples/two_outcomes.stat`, in parallel with Lean. Interactive
-completion, a REPL, and an LSP remain future work.
+composition in `examples/two_outcomes.stat`, in parallel with Lean. The LSP
+provides completion, diagnostics and claim inspection; a REPL remains future work.

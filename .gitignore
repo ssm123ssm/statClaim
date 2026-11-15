@@ -16,3 +16,19 @@ dist/
 !.env.example
 node_modules/
 .vscode-test/
+
+# Local assistant instructions and private working notes
+AGENTS.md
+AGENTS.local.md
+MEMORY.md
+MEMORY.local.md
+memory.md
+memory/
+.codex/
+.claude/
+.agents/
+.agent/
+*.vsix
+playground/
+memory*.md
+*_memory.md

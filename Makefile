@@ -2,7 +2,7 @@
 
 setup:
 	uv sync --locked
-	MATHLIB_NO_CACHE_ON_UPDATE=1 lake update
+	MATHLIB_NO_CACHE_ON_UPDATE=1 lake env lean --version
 	lake exe cache get \
 		Mathlib.Tactic.NormNum \
 		Mathlib.Data.Finset.Max \
@@ -82,3 +82,16 @@ editor-check:
 	npm --prefix extensions/vscode run check
 	npm --prefix extensions/vscode run test:unit
 	npm --prefix extensions/vscode test
+
+.PHONY: catalogue-check repository-check editor-package
+catalogue-check:
+	uv run --locked python scripts/update_catalogue.py --check
+
+repository-check:
+	uv run --locked python scripts/check_repository.py
+
+editor-package:
+	npm --prefix extensions/vscode ci --ignore-scripts
+	uv run --locked python scripts/extension_notices.py
+	mkdir -p extensions/vscode/dist
+	npm --prefix extensions/vscode run package

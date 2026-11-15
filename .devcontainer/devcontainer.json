@@ -1,0 +1,37 @@
+{
+  "name": "StatProof",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    }
+  },
+  "remoteUser": "vscode",
+  "onCreateCommand": "bash .devcontainer/bootstrap.sh",
+  "postAttachCommand": "bash .devcontainer/attach.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "files.exclude": {
+          ".lake": true,
+          ".venv": true,
+          ".statproof": true
+        },
+        "files.watcherExclude": {
+          "**/.lake/**": true,
+          "**/.venv/**": true
+        }
+      },
+      "extensions": []
+    }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+  "waitFor": "onCreateCommand"
+}

@@ -1,0 +1,20 @@
+name: Statistical method proposal
+description: Propose a model, hypothesis, analysis or proof
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Statistical question and example
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Model, null, assumptions and guarantee
+      description: Include unsupported combinations and primary references.
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Suggested implementation and tests

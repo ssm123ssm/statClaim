@@ -112,6 +112,10 @@ def main(argv: list[str] | None = None) -> int:
         "modules", help="List file-language modules and typed constructors"
     )
     modules.add_argument("--json", action="store_true")
+    inventory = commands.add_parser(
+        "catalogue", aliases=["catalog"], help="List classified public objects, modules and fields"
+    )
+    inventory.add_argument("--json", action="store_true")
     options = parser.parse_args(argv)
     if options.command == "lsp":
         from statproof.lsp import run_stdio
@@ -120,6 +124,11 @@ def main(argv: list[str] | None = None) -> int:
     if options.command == "doctor":
         return doctor()
     try:
+        if options.command in ("catalogue", "catalog"):
+            from statproof.catalogue import catalogue, render_catalogue
+
+            print(json.dumps(catalogue(), indent=2) if options.json else render_catalogue())
+            return 0
         if options.command == "modules":
             catalog = module_catalog()
             print(

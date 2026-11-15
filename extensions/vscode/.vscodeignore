@@ -1,0 +1,7 @@
+.vscode/**
+.vscode-test/**
+test/**
+dist/**
+package-lock.json
+node_modules/@vscode/test-electron/**
+node_modules/@vscode/vsce/**

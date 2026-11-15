@@ -7,8 +7,16 @@ name = "statproof"
 version = "0.1.0"
 description = "Exact Fisher testing and a statistical verification library backed by Lean"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Supun Manathunga"}]
 requires-python = ">=3.12"
 dependencies = []
+
+[project.urls]
+Repository = "https://github.com/ssm123ssm/statProof"
+Issues = "https://github.com/ssm123ssm/statProof/issues"
+Documentation = "https://github.com/ssm123ssm/statProof/tree/main/docs"
 
 [project.scripts]
 statproof = "statproof.cli:main"

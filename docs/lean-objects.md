@@ -171,4 +171,4 @@ additional project assumptions have been introduced into those proofs.
 The module type is a typed provider, not a dynamic plugin loader. This version
 does not dynamically load third-party modules or provide general proof automation.
 The standalone file parser and domain diagnostics now operate against these
-concrete definitions; interactive editor integration remains future work.
+concrete definitions; the LSP and VS Code extension provide interactive guidance.
