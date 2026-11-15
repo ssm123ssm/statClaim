@@ -1,8 +1,9 @@
 # The first shared objects in Lean
 
 This is the first implementation of the [core object model](core-object-model.md).
-It uses ordinary Lean declarations. The standalone statistical grammar, its REPL,
-and its LSP are later prototypes over these semantics.
+It uses ordinary Lean declarations. A [standalone file language](stat-language.md)
+now targets the same semantics and certificate pipeline. Its REPL and LSP remain
+later interface experiments.
 
 ## Run the example
 
@@ -168,6 +169,6 @@ only the standard logical assumptions. No statistical proof placeholders or
 additional project assumptions have been introduced into those proofs.
 
 The module type is a typed provider, not a dynamic plugin loader. This version
-also does not implement the standalone parser, editor diagnostics, an independent
-certificate serializer for the core objects, or general proof automation.
-Those interfaces can now be developed against concrete definitions and tests.
+does not dynamically load third-party modules or provide general proof automation.
+The standalone file parser and domain diagnostics now operate against these
+concrete definitions; interactive editor integration remains future work.

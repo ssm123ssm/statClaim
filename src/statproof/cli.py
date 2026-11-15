@@ -10,6 +10,9 @@ from pathlib import Path
 from statproof import __version__
 from statproof.design import inspect_design, load_design
 from statproof.family import inspect_family, load_family
+from statproof.language import module_catalog
+from statproof.language_runner import check_source, render_report
+from statproof.language_syntax import Source
 from statproof.report import test_design, verify_design, verify_design_only, verify_family
 from statproof.verification import VerificationError, recheck_certificate
 
@@ -84,10 +87,57 @@ def main(argv: list[str] | None = None) -> int:
         "--output", type=Path, help="New certificate directory (must not exist)"
     )
     family_check.add_argument("--timeout", type=float, default=120)
+    check = commands.add_parser("check", help="Check and execute a statistical .stat file")
+    check.add_argument("source", type=Path)
+    check.add_argument("--project", type=Path, default=Path.cwd())
+    check.add_argument(
+        "--output", type=Path, help="New directory for source, report, and certificates"
+    )
+    check.add_argument("--timeout", type=float, default=120)
+    check.add_argument(
+        "--elaborate-only",
+        action="store_true",
+        help="Parse and type-check without calculations, Lean, or artifact writes",
+    )
+    check.add_argument("--json", action="store_true", help="Emit the structured report")
+    modules = commands.add_parser(
+        "modules", help="List file-language modules and typed constructors"
+    )
+    modules.add_argument("--json", action="store_true")
     options = parser.parse_args(argv)
     if options.command == "doctor":
         return doctor()
     try:
+        if options.command == "modules":
+            catalog = module_catalog()
+            print(
+                json.dumps(catalog, indent=2)
+                if options.json
+                else "\n".join(
+                    f"use {module['module']}\n  " + "\n  ".join(module["constructors"])
+                    for module in catalog
+                )
+            )
+            return 0
+        if options.command == "check":
+            source = Source(
+                options.source.read_bytes().decode("utf-8"), str(options.source.resolve())
+            )
+            report = check_source(
+                source,
+                project=options.project,
+                output=options.output,
+                timeout=options.timeout,
+                elaborate_only=options.elaborate_only,
+            )
+            print(json.dumps(report, indent=2) if options.json else render_report(report, source))
+            return (
+                2
+                if report["status"] == "invalid"
+                else 1
+                if report["status"] in ("unresolved_obligation", "stale_source")
+                else 0
+            )
         if options.command == "check-certificate":
             try:
                 checked = recheck_certificate(

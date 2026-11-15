@@ -1,0 +1,12 @@
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=100, n_treatment=100)
+let plan = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(design=plan, null=null, alpha=1/20)
+let data = observe(analysis=analysis, control_successes=10, treatment_successes=25)
+
+calculate result(data)
+verify result(data)

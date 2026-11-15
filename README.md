@@ -15,6 +15,38 @@ composes two Fisher analyses into a strong familywise error guarantee using
 Bonferroni, with explicit marginal-law contracts. All three retain replayable
 certificate bundles. The Python program as a whole is not formally verified.
 
+## Write a statistical file
+
+The file-language prototype now runs alongside the Lean and TOML interfaces:
+
+```text
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=100, n_treatment=100)
+let plan = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(design=plan, null=null, alpha=1/20)
+verify typeI(analysis)
+```
+
+After setup, run:
+
+```sh
+uv run --locked statproof check examples/fisher.stat --elaborate-only
+uv run --locked statproof check examples/fisher.stat
+uv run --locked statproof check examples/two_outcomes.stat
+uv run --locked statproof modules
+```
+
+The first command checks structure and displays the intended claim without
+invoking Lean. The next two issue ordinary replayable certificates for Fisher
+and Bonferroni. Invalid declarations and unmet requirements have source locations.
+Each execution retains its source, typed objects, and per-request results.
+See the [file-language guide](docs/stat-language.md) for grammar, optional
+observations, report scope, replay, and the comparison with Lean.
+
 ## Verify a design before data
 
 After setup, run from this project folder:

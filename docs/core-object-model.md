@@ -1,7 +1,8 @@
 # Core objects and parallel language prototypes
 
-Status: the minimal shared Lean objects and Fisher adapter are implemented. The
-standalone statistical language and interactive frontends are still planned.
+Status: the shared Lean objects, Fisher and Bonferroni providers, and standalone
+file-language prototype are implemented. Interactive sessions, completion, and
+an LSP remain planned. See the [file-language guide](stat-language.md).
 This document remains the semantic design and comparison plan; the
 [Lean object guide](lean-objects.md) describes the implemented API and examples.
 
@@ -174,6 +175,10 @@ The implementation completes step 2 and now exercises step 5 with a generic
 Bonferroni provider and a two-Fisher adapter. Alpha is explicit, and the second
 composition requires marginal-law evidence and an adequate sum of error budgets.
 See [multiple testing](multiple-testing.md).
-It does not add statistical syntax, a REPL, an LSP, or a serialized language IR.
-The next step is the small standalone file-language prototype, targeting the
-same objects and acceptance cases while the Lean-facing API is still small.
+Step 3 is now implemented as the small `.stat` file language, with typed objects,
+source maps, module schemas, canonical lowering, and file execution through the
+existing certificate pipeline. The Fisher acceptance cases and the Bonferroni
+composition are covered by examples and cross-interface integration tests.
+The next step is interactive guidance and completion using this same elaborator,
+while retaining the Lean route for the comparison. No primary interface has been
+selected, and no REPL or LSP has been implemented yet.

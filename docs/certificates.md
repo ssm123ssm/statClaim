@@ -1,4 +1,12 @@
-# Design and result certificate guide
+# Certificate and replay guide
+
+The standalone file language uses these same certificate kinds and proof
+generators. `statproof check examples/fisher.stat --output .statproof/my-program`
+retains the source and typed program in a parent run directory, then places each
+verified request's certificate in `request-NNN/`. Replay that request directory
+with `check-certificate`. The parent `run.json` is a source/IR provenance report,
+not a mathematical certificate. Translation from `.stat` declarations remains a
+trusted application boundary. See the [file-language guide](stat-language.md).
 
 Design and family workflows need no observations. Fisher's alpha is configurable
 as an exact string in the optional `[analysis]` table; it defaults to `1/20`.

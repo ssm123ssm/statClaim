@@ -1,4 +1,4 @@
-.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo design-demo design-objects-demo alpha-demo family-demo composition-demo
+.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo design-demo design-objects-demo alpha-demo family-demo composition-demo language-demo language-family-demo language-result-demo
 
 setup:
 	uv sync --locked
@@ -68,3 +68,12 @@ family-demo:
 composition-demo:
 	lake build
 	lake env lean examples/MultipleTesting.lean
+
+language-demo:
+	uv run --locked statproof check examples/fisher.stat
+
+language-family-demo:
+	uv run --locked statproof check examples/two_outcomes.stat
+
+language-result-demo:
+	uv run --locked statproof check examples/fisher_result.stat

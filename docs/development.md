@@ -48,15 +48,23 @@ nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
 - Two-outcome CLI certification, sufficient and excessive allocation examples,
   a concrete joint-law Lean example, and a perfectly dependent-event test.
 
+- A standalone `.stat` file-language prototype with a common grammar, a module
+  registry, typed intermediate objects, immutable bindings, source diagnostics,
+  explicit claim requests, and optional observed-result calculation/verification.
+- The same canonical requests and Lean certificates as the TOML route, with
+  retained source/IR run reports, source-change detection, and parity/replay tests.
+  See the [file-language guide](stat-language.md).
+
 ## Verification boundary
 
 The architectural phase defines a shared object model and compares a
 Lean-facing representation with a small standalone statistical language. The
 [core object draft and comparison plan](core-object-model.md) records the proposed
-concepts, semantic boundaries, and Fisher acceptance cases. Both routes will use
-the same mathematical library and proof backend; their interfaces remain open
-for evaluation. The Lean representation now includes Fisher and a second composition pattern. A standalone
-file-language prototype against those same objects is the next step.
+concepts, semantic boundaries, and Fisher acceptance cases. Both routes use the same mathematical library and proof backend; their
+interfaces remain open for evaluation. The Lean representation includes Fisher
+and a second composition pattern. The standalone file-language prototype targets
+those same objects. The next step is
+interactive guidance and completion, followed by comparison of both routes.
 
 The current bridge certifies individual results, rather than proving all behavior
 of the Python program. The input parser, numeral-only proof generator, and report

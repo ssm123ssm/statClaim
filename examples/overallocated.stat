@@ -1,0 +1,16 @@
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use multiplicity.bonferroni
+
+let study = two_arm_binomial(n_control=200, n_treatment=100)
+let plan = fixed(model=study)
+let null = equal_proportions(model=study)
+let primary_outcome = fisher(design=plan, null=null, alpha=1/20)
+let secondary_outcome = fisher(design=plan, null=null, alpha=1/20)
+let outcomes = bonferroni(
+    analyses=[primary_outcome, secondary_outcome],
+    alpha=1/20,
+    joint_law="binomial_marginals",
+)
+verify familywise(outcomes)

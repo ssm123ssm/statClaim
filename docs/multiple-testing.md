@@ -118,5 +118,6 @@ Single-design and observed-result commands remain available. Old declarations
 without `[analysis]` keep alpha `1/20`. A certificate from an older source snapshot
 must be reissued after this upgrade because replay requires matching sources.
 
-The next interface experiment remains the small standalone statistical language
-in parallel with Lean. This milestone adds no new language, REPL, or LSP.
+The [standalone file-language prototype](stat-language.md) now expresses the same
+composition in `examples/two_outcomes.stat`, in parallel with Lean. Interactive
+completion, a REPL, and an LSP remain future work.
