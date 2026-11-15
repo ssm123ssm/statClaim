@@ -486,7 +486,7 @@ class TwoStagePlan:
             _probability(getattr(self, name), name)
         if self.null_rate == self.alternative_rate:
             raise ValueError("The alternative rate must differ from the null rate.")
-        if self.rule.kind == "threshold" and self.alternative_rate < self.null_rate:
+        if self.alternative_rate < self.null_rate:
             raise ValueError("The alternative rate must exceed the null rate.")
 
     def continues(self, first: int) -> bool:
@@ -987,7 +987,7 @@ def parse_policy_payload(payload: dict) -> "TwoStagePlan | OneSamplePlan":
 
 def composite_null(plan: "TwoStagePlan | OneSamplePlan") -> bool:
     """Whether the error bound covers every rate at or below the null rate."""
-    return isinstance(plan, OneSamplePlan) or plan.rule.kind == "threshold"
+    return True
 
 
 def _null_scope(plan: "TwoStagePlan | OneSamplePlan") -> str:
@@ -1040,10 +1040,6 @@ def policy_assumptions(plan: "TwoStagePlan | OneSamplePlan") -> list[str]:
         "and are followed exactly.",
         power,
     ]
-    if not composite_null(plan):
-        assumptions.append(
-            "The error bound is at the declared null rate only, not for every smaller rate."
-        )
     if plan.rule.kind == "posterior":
         assumptions.append(
             "The posterior rule is the binomial-sum form of the Beta tail probability for "
@@ -1083,15 +1079,11 @@ def render_policy_proof(plan: "TwoStagePlan | OneSamplePlan", input_sha256: str)
     else:
         module, design = "TwoStageBinomial", _lean_design(plan)
         shape = f"declaredDesign.nFirst = {plan.n_first} ∧ declaredDesign.nSecond = {plan.n_second}"
-        if composite_null(plan):
-            rule = plan.rule
-            analysis, power = "analysisAtMost", "power_atMost_of_check"
-            typeI = (
-                "typeI_atMost_of_check declaredDesign (TwoStageBinomial.thresholdDesign_monotone "
-                f"{plan.n_first} {plan.n_second} {rule.continue_above} {rule.reject_above})"
-            )
-        else:
-            analysis, typeI, power = "analysis", "typeI_of_check declaredDesign", "power_of_check"
+        # Both rule families are monotone in the response counts, which extends the
+        # bound checked at the null rate to every smaller rate.
+        monotone = design.replace("Design ", "Design_monotone ", 1)
+        analysis, power = "analysisAtMost", "power_atMost_of_check"
+        typeI = f"typeI_atMost_of_check declaredDesign\n    ({monotone})"
     smaller = ""
     if getattr(plan, "minimal", False):
         an, ad = plan.alpha.as_integer_ratio()

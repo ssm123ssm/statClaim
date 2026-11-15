@@ -117,7 +117,7 @@ Exact power at a planning point, target checks and a bounded sample-size search 
 
 ### `designs.two_stage` — Adaptive designs
 
-Single-arm two-stage binomial policy with an interim stop, using count thresholds or Beta-posterior thresholds. Type I error and power are checked for the complete policy. Count thresholds cover every rate at or below the null rate; posterior thresholds cover the declared null rate only.
+Single-arm two-stage binomial policy with an interim stop, using count thresholds or Beta-posterior thresholds. Type I error and power are checked for the complete policy; the error bound covers every rate at or below the null rate.
 
 - `two_stage_binomial(n_stage1, n_stage2) -> TwoStageModel`
 - `threshold_rule(continue_above, reject_above) -> Rule`

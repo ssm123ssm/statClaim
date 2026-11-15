@@ -22,8 +22,7 @@
 3. An analysis for a nonzero difference null, with its own theorem.
 4. Assurance and precision targets for planning.
 5. More adaptive designs: several interim looks, efficacy stopping, allocation.
-6. Error bounds over composite nulls for posterior stopping rules, and a
-   formalized Beta posterior.
+6. A formalized Beta posterior, so posterior rules need no stated closed form.
 7. A versioned extension API for community modules.
 
 Planning principles: scientific inputs stay explicit; a sufficient sample size

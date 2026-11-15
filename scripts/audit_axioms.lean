@@ -54,7 +54,8 @@ run_cmd do
     ``StatProof.Modules.FisherFamilyN.strong_control,
     ``StatProof.Modules.OneSampleBinomial.pValue_eq_of_cross_product,
     ``StatProof.Modules.BinomialInterval.coverage,
-    ``StatProof.Modules.BinomialInterval.interval_contains]
+    ``StatProof.Modules.BinomialInterval.interval_contains,
+    ``StatProof.Modules.TwoStageBinomial.posteriorDesign_monotone]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

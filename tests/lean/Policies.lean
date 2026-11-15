@@ -59,6 +59,15 @@ theorem posterior_typeI :
     (by decide) (by decide +kernel)
   simpa using checked
 
+/-- The posterior design's error bound also holds for every smaller rate. -/
+theorem posterior_typeI_composite :
+    ((TwoStageBinomial.analysisAtMost posterior (ratPoint 1 5 (by decide) (by decide))).typeIClaim
+      ((1 : ℝ) / 10)).statement := by
+  have checked := TwoStageBinomial.typeI_atMost_of_check posterior
+    (TwoStageBinomial.posteriorDesign_monotone 10 20 1 1 1 5 1 2 19 20) 1 5 (by decide)
+    (by decide) 1 10 (by decide) (by decide +kernel)
+  simpa using checked
+
 /-- Fisher power at 10% versus 40% with 36 per arm exceeds 4/5. -/
 def sizes : FixedSampleDesign := ⟨36, 36, by decide, by decide⟩
 def level : SignificanceLevel := ⟨(1 : ℚ) / 20, by norm_num, by norm_num⟩

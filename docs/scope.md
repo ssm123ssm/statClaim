@@ -1,23 +1,27 @@
 # Scope and trust
 
-The preview supports fixed samples from two independent binomial arms, an
-equality null, and the specified two-sided Fisher test using exact rational
-arithmetic. Alpha is explicit. Bonferroni composition handles two to twenty
-Fisher endpoints with any allocation that sums to at most the family level.
+What is supported:
 
-Planning adds exact Fisher power at one declared point, target checks and a
-bounded equal-arm sample-size search. A selected size can be certified as
-sufficient, or as the smallest sufficient size within the declared range. A single-arm two-stage binomial policy with an interim stop is supported
-with count or Beta-posterior rules: its Type I error and power are checked for
-the complete policy. The one-sided exact binomial test is supported for a single
-arm, for planning and for analysing an observed count. Exact confidence
-intervals for one proportion have checked coverage for every true rate. Error bounds for that test and for count thresholds cover every rate at or
-below the null rate; posterior thresholds cover the declared null rate only. The posterior rule's closed form
-is a definition; its identity with the Beta integral is not proved in Lean.
+- **Two arms.** Fixed samples from two independent binomial arms, an equality
+  null, and the two-sided Fisher test in exact rational arithmetic.
+- **Several endpoints.** Bonferroni composition of two to twenty Fisher
+  endpoints, with any allocation that sums to at most the family level.
+- **Planning.** Exact Fisher power at one declared point and a bounded
+  sample-size search with equal or unequal allocation. A size can be certified
+  as sufficient, or as the smallest sufficient size in the declared range.
+- **One arm.** The one-sided exact binomial test, for planning and for an
+  observed count, and exact confidence intervals with coverage for every true
+  rate.
+- **Two stages.** A single-arm design with an interim stop, using count or
+  Beta-posterior rules. Type I error and power are checked for the whole design.
 
-Difference and inequality nulls can be described. Fisher rejects them with
-contract guidance. Declaring a Fisher analysis `adaptive` still leaves its Type I
-error obligation unresolved; use a complete policy instead. These are useful diagnostics, not new proofs.
+Error bounds for single-arm designs cover every rate at or below the null rate.
+Power is always at one declared planning point. The posterior rule's closed
+form is a definition; its identity with the Beta integral is not proved in Lean.
+
+Difference and inequality nulls can be described; Fisher rejects them with
+guidance. Declaring a Fisher analysis `adaptive` leaves its Type I error
+obligation unresolved; use a complete two-stage design instead.
 
 The design theorem concerns repeated-sampling Type I error. A result certificate
 checks the observed calculation and decision. These are different claims.

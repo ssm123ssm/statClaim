@@ -176,12 +176,31 @@ def betaTailNumerator (a b rateNum rateDen : ℕ) : ℕ :=
     Nat.fast_choose (a + b - 1) j * rateNum ^ j * (rateDen - rateNum) ^ (a + b - 1 - j)
 
 /-- Whether the posterior tail probability after the given data is at least
-`levelNum/levelDen`, for a Beta(priorA, priorB) prior. -/
+`levelNum/levelDen`, for a Beta(priorA, priorB) prior. Successes are capped at
+the number of trials, which changes nothing for possible data. -/
 def posteriorAtLeast (priorA priorB rateNum rateDen levelNum levelDen successes trials : ℕ) :
     Bool :=
   decide (levelNum * rateDen ^ (priorA + priorB + trials - 1) ≤
-    betaTailNumerator (priorA + successes) (priorB + (trials - successes)) rateNum rateDen *
-      levelDen)
+    betaTailNumerator (priorA + min successes trials)
+      (priorB + (trials - min successes trials)) rateNum rateDen * levelDen)
+
+theorem betaTailNumerator_mono (a a' b b' rateNum rateDen : ℕ) (le : a ≤ a')
+    (total : a + b = a' + b') :
+    betaTailNumerator a b rateNum rateDen ≤ betaTailNumerator a' b' rateNum rateDen := by
+  unfold betaTailNumerator
+  rw [total]
+  exact Finset.sum_le_sum_of_subset (Finset.range_mono le)
+
+/-- More successes in the same number of trials never lower the posterior tail. -/
+theorem posteriorAtLeast_mono (priorA priorB rateNum rateDen levelNum levelDen : ℕ)
+    (successes successes' trials : ℕ) (le : successes ≤ successes')
+    (holds : posteriorAtLeast priorA priorB rateNum rateDen levelNum levelDen successes trials =
+      true) :
+    posteriorAtLeast priorA priorB rateNum rateDen levelNum levelDen successes' trials = true := by
+  simp only [posteriorAtLeast, decide_eq_true_eq] at holds ⊢
+  refine holds.trans (Nat.mul_le_mul_right _ (betaTailNumerator_mono _ _ _ _ _ _ ?_ ?_))
+  · omega
+  · omega
 
 /-- Posterior thresholds at the interim and final analyses. -/
 def posteriorDesign (nFirst nSecond priorA priorB rateNum rateDen
@@ -193,5 +212,14 @@ def posteriorDesign (nFirst nSecond priorA priorB rateNum rateDen
   rejects := fun first second =>
     posteriorAtLeast priorA priorB rateNum rateDen successNum successDen
       (first + second) (nFirst + nSecond)
+
+theorem posteriorDesign_monotone (nFirst nSecond priorA priorB rateNum rateDen
+    continueNum continueDen successNum successDen : ℕ) :
+    (posteriorDesign nFirst nSecond priorA priorB rateNum rateDen
+      continueNum continueDen successNum successDen).Monotone := by
+  intro first first' second second' first_le second_le holds
+  simp only [Design.rejectRule, posteriorDesign, Bool.and_eq_true] at holds ⊢
+  exact ⟨posteriorAtLeast_mono _ _ _ _ _ _ _ _ _ first_le holds.1,
+    posteriorAtLeast_mono _ _ _ _ _ _ _ _ _ (by omega) holds.2⟩
 
 end StatProof.Modules.TwoStageBinomial

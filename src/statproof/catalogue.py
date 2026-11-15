@@ -42,8 +42,7 @@ MODULE_CLASSES = {
         "Adaptive designs",
         "Single-arm two-stage binomial policy with an interim stop, using count thresholds "
         "or Beta-posterior thresholds. Type I error and power are checked for the complete "
-        "policy. Count thresholds cover every rate at or below the null rate; posterior "
-        "thresholds cover the declared null rate only.",
+        "policy; the error bound covers every rate at or below the null rate.",
     ),
 }
 OBJECT_CLASSES = {

@@ -153,9 +153,8 @@ Published fields include `calculation.power`, `power_target_met`,
 `expected_sample_size_null`. Decimals are display only. See the
 [catalogue](catalogue.md) for all fields.
 
-Limits: power is at one declared point. Error bounds for the one-sample test and
-for two-stage count thresholds hold for every rate at or below the null rate;
-for posterior thresholds they hold at the declared null rate only. Assurance and precision
+Limits: power is at one declared point. Error bounds for single-arm designs hold
+for every rate at or below the null rate. Assurance and precision
 targets are not yet supported.
 
 Verification time grows with sample size. A Fisher design with 150 per arm

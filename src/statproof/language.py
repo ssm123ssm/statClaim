@@ -676,12 +676,8 @@ def _check_point(analysis: PlannableIR, target: LocatedValue) -> None:
                 "Declare the target at response_rate(value=...).",
                 target.span,
             )
-        if isinstance(analysis, TwoStageAnalysisIR) and analysis.rule.kind == "posterior":
-            null = f"response rate = {analysis.null_rate}"
-            outside = point.value != analysis.null_rate
-        else:
-            null = f"response rate <= {analysis.null_rate}"
-            outside = point.value > analysis.null_rate
+        null = f"response rate <= {analysis.null_rate}"
+        outside = point.value > analysis.null_rate
     else:
         if not isinstance(point, RatesIR):
             fail(
