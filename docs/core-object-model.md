@@ -170,7 +170,10 @@ routes, module-author effort, translation trust, verification performance, IDE
 integration, installation, and maintenance cost. Fisher alone is a useful first
 test but is insufficient evidence for every future module's language needs.
 
-The first implementation completes step 2 through ordinary Lean constructors.
+The implementation completes step 2 and now exercises step 5 with a generic
+Bonferroni provider and a two-Fisher adapter. Alpha is explicit, and the second
+composition requires marginal-law evidence and an adequate sum of error budgets.
+See [multiple testing](multiple-testing.md).
 It does not add statistical syntax, a REPL, an LSP, or a serialized language IR.
 The next step is the small standalone file-language prototype, targeting the
 same objects and acceptance cases while the Lean-facing API is still small.

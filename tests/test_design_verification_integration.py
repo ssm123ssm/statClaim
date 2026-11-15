@@ -90,7 +90,7 @@ def test_changed_bound_is_rejected_by_statement_binding(issued_design, tmp_path)
     certificate = json.loads((bundle / "certificate.json").read_text())
     source = render_design_proof(Design(100, 100, "fixed"), certificate["input_sha256"])
     # Even with a self-consistent file manifest, unbound statements are rejected.
-    (bundle / "Proof.lean").write_text(source.replace("1 / 20", "1 / 100"))
+    (bundle / "Proof.lean").write_text(source.replace("(1 : ℚ) / 20", "(1 : ℚ) / 100"))
     certificate["files_sha256"]["Proof.lean"] = digest((bundle / "Proof.lean").read_bytes())
     _write_changed_certificate(bundle, certificate)
     with pytest.raises(VerificationError, match="Proof statements differ"):

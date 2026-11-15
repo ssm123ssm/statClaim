@@ -8,7 +8,8 @@ import re
 from fractions import Fraction
 
 from statproof.design import Design
-from statproof.fisher import FisherResult
+from statproof.family import FisherFamily
+from statproof.fisher import FisherResult, validate_alpha
 
 CHECKED_THEOREMS = [
     "checked_counts",
@@ -27,6 +28,82 @@ DESIGN_CHECKED_THEOREMS = [
     "checked_typeI",
 ]
 
+FAMILY_CHECKED_THEOREMS = [
+    "checked_sizes",
+    "checked_allocation",
+    "checked_marginals",
+    "checked_family",
+]
+
+
+def render_family_proof(family: FisherFamily, input_sha256: str) -> str:
+    if not family.supported:
+        raise ValueError("A Fisher family certificate requires fixed sampling for both analyses.")
+    if family.allocated_alpha > family.alpha:
+        raise ValueError("The allocated alpha exceeds the requested familywise bound.")
+    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
+        raise ValueError("Expected a SHA-256 input identifier.")
+    declarations = []
+    for prefix, endpoint in zip(("left", "right"), family.endpoints, strict=True):
+        design = endpoint.design
+        numerator, denominator = design.alpha.as_integer_ratio()
+        declarations.append(f"""def {prefix}Sizes : FixedSampleDesign :=
+  ⟨{design.n_control}, {design.n_treatment}, by decide, by decide⟩
+def {prefix}Level : SignificanceLevel :=
+  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩""")
+    numerator, denominator = family.alpha.as_integer_ratio()
+    names = ", ".join(f"``StatProofCertificate.{name}" for name in FAMILY_CHECKED_THEOREMS)
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical family SHA-256: {input_sha256}
+-- The theorem is conditional on the explicitly quantified marginal-law contract.
+namespace StatProofCertificate
+open StatProof
+open Modules.FisherFamily
+
+{chr(10).join(declarations)}
+def familyLevel : SignificanceLevel :=
+  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩
+
+theorem checked_sizes : 0 < leftSizes.nControl ∧ 0 < leftSizes.nTreatment ∧
+    0 < rightSizes.nControl ∧ 0 < rightSizes.nTreatment := by decide
+
+theorem checked_allocation : (leftLevel.value : ℝ) + (rightLevel.value : ℝ) ≤
+    (familyLevel.value : ℝ) := by
+  norm_num [leftLevel, rightLevel, familyLevel]
+
+theorem checked_marginals (law : Core.SamplingLaw Parameters Outcomes)
+    (matching : MarginalContract leftSizes rightSizes law) :
+    (family leftSizes rightSizes leftLevel rightLevel law).marginalBounds :=
+  marginal_bounds leftSizes rightSizes leftLevel rightLevel law matching
+
+noncomputable def guarantee (law : Core.SamplingLaw Parameters Outcomes)
+    (matching : MarginalContract leftSizes rightSizes law) :=
+  (module leftSizes rightSizes leftLevel rightLevel (familyLevel.value : ℝ)).provide law
+    ⟨matching, checked_allocation⟩
+
+theorem checked_family (law : Core.SamplingLaw Parameters Outcomes)
+    (matching : MarginalContract leftSizes rightSizes law) :
+    ((family leftSizes rightSizes leftLevel rightLevel law).familywiseClaim
+      (familyLevel.value : ℝ)).statement :=
+  (guarantee law matching).certificate.establishes
+
+end StatProofCertificate
+
+open Lean Elab Command in
+run_cmd do
+  let allowed := #[``propext, ``Classical.choice, ``Quot.sound]
+  for theoremName in #[{names}] do
+    match ← getConstInfo theoremName with
+    | .thmInfo _ => pure ()
+    | _ => throwError "Expected a theorem: {{theoremName}}"
+    for dependency in ← collectAxioms theoremName do
+      unless allowed.contains dependency do
+        throwError "Unexpected assumption {{dependency}} in {{theoremName}}"
+  logInfo "STATPROOF_CHECKED {input_sha256}"
+"""
+
 
 def render_design_proof(design: Design, input_sha256: str) -> str:
     """Check the declared analysis and its general guarantee without observations."""
@@ -35,6 +112,7 @@ def render_design_proof(design: Design, input_sha256: str) -> str:
     if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
         raise ValueError("Expected a SHA-256 input identifier.")
     nc, nt = design.n_control, design.n_treatment
+    an, ad = design.alpha.as_integer_ratio()
     audit_names = ",\n    ".join(
         f"``StatProofCertificate.{name}" for name in DESIGN_CHECKED_THEOREMS
     )
@@ -47,34 +125,40 @@ namespace StatProofCertificate
 open StatProof
 
 def declaredSizes : FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩
+def declaredLevel : SignificanceLevel :=
+  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
 noncomputable def declaredModel := Modules.TwoArmBinomial.model declaredSizes
 noncomputable def declaredDesign := Core.StudyDesign.fixed declaredModel
-noncomputable def declaredAnalysis := Modules.Fisher.analysis declaredSizes declaredDesign
+noncomputable def declaredAnalysis :=
+  Modules.Fisher.analysis declaredSizes declaredDesign declaredLevel
 
 theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
     0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
 
 theorem checked_stopping : declaredDesign.sampling.kind = Core.SamplingKind.fixedSample := rfl
 
-theorem checked_contract : (Modules.Fisher.module declaredSizes).Requires declaredDesign :=
+theorem checked_contract :
+    (Modules.Fisher.module declaredSizes declaredLevel).Requires declaredDesign :=
   ⟨Core.Compatibility.fixed declaredModel⟩
 
-noncomputable def guarantee : Core.TypeIGuarantee declaredAnalysis (1 / 20 : ℝ) :=
-  (Modules.Fisher.module declaredSizes).provide declaredDesign checked_contract
+noncomputable def guarantee : Core.TypeIGuarantee declaredAnalysis (declaredLevel.value : ℝ) :=
+  (Modules.Fisher.module declaredSizes declaredLevel).provide declaredDesign checked_contract
 
 theorem checked_design :
-    (declaredAnalysis.typeIClaim guarantee.compatibility (1 / 20 : ℝ)).statement :=
+    (declaredAnalysis.typeIClaim guarantee.compatibility (declaredLevel.value : ℝ)).statement :=
   guarantee.certificate.establishes
 
 theorem checked_typeI (p : unitInterval) :
-    (fisherNullLaw {nc} {nt} p).real (fisherRejectionRegion {nc} {nt}) ≤ (1 / 20 : ℝ) := by
+    (fisherNullLaw {nc} {nt} p).real (fisherRejectionRegionAt {nc} {nt} (( {an} : ℚ) / {ad})) ≤
+      (({an} : ℝ) / {ad}) := by
   have bound := checked_design (p, p) rfl
   change (guarantee.compatibility.samplingLaw.law (p, p)).real
-    (Modules.Fisher.procedure declaredSizes).rejectionEvent ≤ (1 / 20 : ℝ) at bound
+    (Modules.Fisher.procedure declaredSizes declaredLevel).rejectionEvent ≤
+    (declaredLevel.value : ℝ) at bound
   rw [guarantee.compatibility.agrees,
     Modules.TwoArmBinomial.law_under_null declaredSizes (p, p) rfl,
-    Modules.Fisher.rejectionEvent_eq] at bound
-  exact bound
+    Modules.Fisher.rejectionEvent_eq declaredSizes declaredLevel] at bound
+  convert bound using 1 <;> norm_num [declaredLevel, declaredSizes]
 
 end StatProofCertificate
 
@@ -97,6 +181,9 @@ def validate_result(design: Design, result: FisherResult) -> None:
         raise ValueError("A fixed-sample certificate requires stopping='fixed'.")
     if (result.n_control, result.n_treatment) != (design.n_control, design.n_treatment):
         raise ValueError("Result sample sizes do not match the declared design.")
+    validate_alpha(result.alpha)
+    if result.alpha != design.alpha:
+        raise ValueError("Result alpha does not match the declared analysis.")
     for count, size in (
         (result.control_successes, design.n_control),
         (result.treatment_successes, design.n_treatment),
@@ -116,6 +203,7 @@ def render_proof(design: Design, result: FisherResult, input_sha256: str) -> str
     if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
         raise ValueError("Expected a SHA-256 input identifier.")
     nc, nt = design.n_control, design.n_treatment
+    an, ad = design.alpha.as_integer_ratio()
     xc, xt = result.control_successes, result.treatment_successes
     total = xc + xt
     numerator, denominator = result.p_value.as_integer_ratio()
@@ -154,15 +242,19 @@ theorem checked_table_probability : hypergeometricMass {nc} {nt} {total} {xc} =
     {observed_num} {observed_den} (by decide) (by decide)
   decide +kernel
 
-theorem checked_decision : (({xc}, {xt}) ∈ fisherRejectionRegion {nc} {nt}) ↔ {truth} := by
-  simp only [fisherRejectionRegion, Finset.mem_filter, binomialCountSupport,
+theorem checked_decision :
+    (({xc}, {xt}) ∈ fisherRejectionRegionAt {nc} {nt} (({an} : ℚ) / {ad})) ↔ {truth} := by
+  simp only [fisherRejectionRegionAt, Finset.mem_filter, binomialCountSupport,
     Finset.mem_product, Finset.mem_range]
   rw [checked_p_value]
-  norm_num [targetAlpha]
+  norm_num
 
 theorem checked_typeI (p : unitInterval) :
-    (fisherNullLaw {nc} {nt} p).real (fisherRejectionRegion {nc} {nt}) ≤ (1 / 20 : ℝ) :=
-  fisher_typeI_error_le {nc} {nt} p
+    (fisherNullLaw {nc} {nt} p).real (fisherRejectionRegionAt {nc} {nt} (( {an} : ℚ) / {ad})) ≤
+      (({an} : ℝ) / {ad}) :=
+  by
+    have bound := fisher_typeI_error_le_alpha {nc} {nt} p (({an} : ℚ) / {ad}) (by norm_num)
+    convert bound using 1 <;> norm_num
 
 end StatProofCertificate
 

@@ -2,10 +2,11 @@
 
 import tomllib
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import Literal
 
-from statproof.fisher import TEST_ID
+from statproof.fisher import ALPHA, TEST_ID, parse_alpha, validate_alpha
 
 
 @dataclass(frozen=True)
@@ -13,8 +14,10 @@ class Design:
     n_control: int
     n_treatment: int
     stopping: Literal["fixed", "data_dependent"]
+    alpha: Fraction = ALPHA
 
     def __post_init__(self) -> None:
+        validate_alpha(self.alpha)
         for name in ("n_control", "n_treatment"):
             value = getattr(self, name)
             if type(value) is not int or value <= 0:
@@ -26,7 +29,9 @@ class Design:
 def load_design(path: Path) -> Design:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
-    if set(data) != {"design"} or not isinstance(data["design"], dict):
+    if set(data) not in ({"design"}, {"design", "analysis"}) or not isinstance(
+        data.get("design"), dict
+    ):
         raise ValueError("Expected exactly one [design] table.")
     fields = data["design"]
     expected = {"module", "n_control", "n_treatment", "stopping"}
@@ -34,7 +39,15 @@ def load_design(path: Path) -> Design:
         raise ValueError(f"[design] must contain exactly: {', '.join(sorted(expected))}.")
     if fields["module"] != "two_arm_binomial":
         raise ValueError("Only the two_arm_binomial module is recognized.")
-    return Design(fields["n_control"], fields["n_treatment"], fields["stopping"])
+    analysis = data.get("analysis", {"alpha": str(ALPHA)})
+    if not isinstance(analysis, dict) or set(analysis) != {"alpha"}:
+        raise ValueError("[analysis] must contain exactly alpha.")
+    return Design(
+        fields["n_control"],
+        fields["n_treatment"],
+        fields["stopping"],
+        parse_alpha(analysis["alpha"]),
+    )
 
 
 def inspect_design(design: Design) -> dict:
@@ -53,7 +66,7 @@ def inspect_design(design: Design) -> dict:
     return {
         "schema_version": 1,
         "module": "two_arm_binomial",
-        "module_version": "0.1.0",
+        "module_version": "0.2.0",
         "specified_test": TEST_ID,
         "verification_scope": "design",
         "formal_reference": {
@@ -72,7 +85,10 @@ def inspect_design(design: Design) -> dict:
             "n_treatment": design.n_treatment,
             "stopping": design.stopping,
         },
-        "target_property": "Null rejection probability <= 1/20 for every common p in [0, 1]",
+        "target_property": (
+            f"Null rejection probability <= {design.alpha} for every common p in [0, 1]"
+        ),
+        "analysis": {"alpha": str(design.alpha)},
         "planned_backend": "Lean 4 + Mathlib",
         "backend_invoked": False,
         "evidence": [],

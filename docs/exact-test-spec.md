@@ -1,6 +1,6 @@
 # Exact test specification: Fisher, two-sided, probability ordering
 
-Specification version: `0.1.0`.
+Specification version: `0.2.0`.
 Test identifier: `fisher_exact_two_sided_probability_ordered`.
 
 ## Sampling model and target claim
@@ -11,17 +11,18 @@ positive integers fixed before outcomes are observed. Test the null hypothesis
 `p_control = p_treatment = p`, with `p` anywhere in `[0, 1]`.
 
 The target theorem is that this specified procedure rejects with probability at
-most `1/20` under that null, for every such common `p`. Discreteness can make the
-actual rejection probability smaller than `1/20`. The procedure does not
+most the declared exact `alpha` in `[0,1]` under that null, for every such common `p`.
+The default is `1/20`. Discreteness can make the actual rejection probability smaller. The procedure does not
 randomize. The mathematical target is now checked in Lean as
-`StatProof.fisher_typeI_error_le`, against the product of Mathlib's binomial
+`StatProof.fisher_typeI_error_le_alpha`, against the product of Mathlib's binomial
 measures. Correspondence between a Python execution and that formal rejection
 event is now checked per result by the `verify` command. The fast `test` command
 does not perform that check.
 
 ## Inputs and table convention
 
-The design supplies positive integer arm sizes. The command supplies integer
+The design supplies positive integer arm sizes. An optional `[analysis]` table
+supplies `alpha` as an exact string, such as `"1/40"`; omitting it uses `1/20`. The command supplies integer
 counts `x` and `y`, with `0 <= x <= n_control` and `0 <= y <= n_treatment`.
 Booleans, fractional counts, zero arm sizes, unknown design fields, and unsupported
 design options are rejected.
@@ -61,7 +62,7 @@ For the observed control count `x`, define
 
 ```text
 p_value(x, y) = sum_{k in [L, U], w(k) <= w(x)} w(k) / D
-reject       = (p_value(x, y) <= 1/20)
+reject       = (p_value(x, y) <= alpha)
 ```
 
 All tables with probability equal to the observed table are included. This is
@@ -129,9 +130,9 @@ binomial mass and the rational hypergeometric mass. Summing the conditional boun
 therefore gives the uniform unconditional bound.
 
 `StatProof/Fisher.lean` connects those finite masses to Mathlib's product of
-binomial probability measures. Its final theorem, `StatProof.fisher_typeI_error_le`,
-states that the probability of the Lean-defined rejection region is at most
-`1/20`, for all arm sizes and all common real probabilities in the closed unit
+binomial probability measures. Its generalized theorem, `StatProof.fisher_typeI_error_le_alpha`,
+states that the probability of the Lean-defined rejection region at a nonnegative
+rational `alpha` is at most that `alpha`, for all arm sizes and all common real probabilities in the closed unit
 interval. The application restricts arm sizes to positive integers; the theorem
 also supports zero-sized arms.
 
@@ -146,6 +147,10 @@ cross-product equality proves equality to the formal p-value. `verify` uses
 `decide +kernel` for those integer checks and instantiates the model theorem for
 the declared sizes. It also checks the observed table probability, support bounds,
 valid counts, and reported rejection decision, and audits the generated proofs.
+
+The original `fisher_typeI_error_le` remains the default 5% specialization.
+The [multiple-testing module](multiple-testing.md) composes these individual
+bounds under explicit common-law marginal contracts.
 
 See the [proof walkthrough](formal-proof.md) and [certificate guide](certificates.md).
 This is per-result verification; the Python implementation is not universally proved.

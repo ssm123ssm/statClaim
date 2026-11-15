@@ -6,12 +6,14 @@ using exact integer and rational arithmetic.
 The [project brief](statistical_design_checker_project_brief.md) defines the scope.
 
 **Working now:** the probability-ordered Fisher calculation, inclusive rejection
-at `alpha = 1/20`, input validation, JSON reports, and a Lean-checked Fisher Type I
+at a configurable exact alpha (default `1/20`), JSON reports, and a Lean-checked Fisher Type I
 error theorem under the independent-binomial null model. The theorem covers every
 common success probability in `[0, 1]`, including both endpoints. `verify-design`
 issues a design-level certificate without observations. `verify-result` (also
-available as `verify`) certifies individual computed results. Both retain
-replayable certificate bundles. The Python program as a whole is not formally verified.
+available as `verify`) certifies individual computed results. `verify-family`
+composes two Fisher analyses into a strong familywise error guarantee using
+Bonferroni, with explicit marginal-law contracts. All three retain replayable
+certificate bundles. The Python program as a whole is not formally verified.
 
 ## Verify a design before data
 
@@ -42,6 +44,54 @@ uv run --locked statproof check-certificate .statproof/my-design
 
 For the same workflow written in Lean, see `examples/DesignGuarantee.lean` and run
 `make design-objects-demo`. Observations and per-result checks are optional later steps.
+
+## Choose alpha
+
+Add an optional analysis table to a single-design declaration:
+
+```toml
+[analysis]
+alpha = "1/40"
+```
+
+Use an exact string, such as `"1/40"` or `"0.025"`; numeric TOML floats are
+rejected. Levels from zero through one are supported. Omitting the table keeps
+the default `1/20`. Both the rejection decision and the proved bound use this
+setting. The p-value itself is unchanged. Run the 2.5% design example with:
+
+```sh
+make alpha-demo
+```
+
+The Lean equivalent is `examples/ConfigurableAlpha.lean`. The
+[Lean guide](docs/lean-objects.md) explains how the level enters the analysis and provider.
+
+## Compose two analyses
+
+`examples/two_outcomes.toml` declares two Fisher analyses, each at `1/40`, and
+requests a probability of any false rejection of at most `1/20`:
+
+```sh
+make family-demo
+# Or choose a certificate directory and replay it:
+uv run --locked statproof verify-family examples/two_outcomes.toml \
+  --output .statproof/my-family
+uv run --locked statproof check-certificate .statproof/my-family
+```
+
+The certificate has `verification_scope: "family"`. It proves a conditional
+guarantee for every joint probability law with the declared binomial marginals.
+It does not infer the actual joint sampling law. Independence between outcomes
+is unnecessary; each outcome still requires independent binomial arms.
+The guarantee covers every configuration of true and false endpoint nulls.
+
+`examples/two_outcomes_overallocated.toml` instead assigns 5% to each test while
+requesting 5% overall. `verify-family` reports an unmet allocation requirement
+and issues no certificate. This does not prove that its actual familywise error
+exceeds 5%; the requested Bonferroni contract has not been satisfied.
+
+Run `make composition-demo` for the Lean version. See the
+[multiple-testing guide](docs/multiple-testing.md) for declarations, proofs, and scope.
 
 ## Optionally run the test
 
@@ -147,8 +197,8 @@ uv run --locked statproof verify-design examples/data_dependent_stopping.toml
 | Command outcome | Exit code |
 | --- | ---: |
 | `test`: completed fixed-sample calculation, either decision | `0` |
-| `verify-design`, `verify-result` / `verify`, or replay: all required checks passed | `0` |
-| `test`: unsupported stopping rule; `inspect`: unresolved obligations | `1` |
+| `verify-design`, `verify-family`, `verify-result` / `verify`, or replay: checks passed | `0` |
+| `test`: unsupported stopping; `inspect` / `inspect-family`: unresolved obligations | `1` |
 | Verification failure, timeout, altered bundle, or unsupported stopping rule | `1` |
 | Malformed declaration, invalid data, or argument error | `2` |
 

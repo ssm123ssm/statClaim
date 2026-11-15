@@ -9,7 +9,8 @@ from pathlib import Path
 
 from statproof import __version__
 from statproof.design import inspect_design, load_design
-from statproof.report import test_design, verify_design, verify_design_only
+from statproof.family import inspect_family, load_family
+from statproof.report import test_design, verify_design, verify_design_only, verify_family
 from statproof.verification import VerificationError, recheck_certificate
 
 
@@ -42,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("doctor", help="Check Python, uv, and the local Lean toolchain")
     inspect = commands.add_parser("inspect", help="Read a design and list unresolved obligations")
     inspect.add_argument("design", type=Path)
-    test = commands.add_parser("test", help="Compute the exact two-sided Fisher test at alpha=1/20")
+    test = commands.add_parser("test", help="Compute Fisher's test at the declared exact alpha")
     test.add_argument("design", type=Path)
     test.add_argument("--control-successes", type=int, required=True)
     test.add_argument("--treatment-successes", type=int, required=True)
@@ -72,6 +73,17 @@ def main(argv: list[str] | None = None) -> int:
     recheck.add_argument("bundle", type=Path)
     recheck.add_argument("--project", type=Path, default=Path.cwd())
     recheck.add_argument("--timeout", type=float, default=120)
+    family_inspect = commands.add_parser("inspect-family", help="Inspect a two-analysis family")
+    family_inspect.add_argument("family", type=Path)
+    family_check = commands.add_parser(
+        "verify-family", help="Certify strong familywise error control"
+    )
+    family_check.add_argument("family", type=Path)
+    family_check.add_argument("--project", type=Path, default=Path.cwd())
+    family_check.add_argument(
+        "--output", type=Path, help="New certificate directory (must not exist)"
+    )
+    family_check.add_argument("--timeout", type=float, default=120)
     options = parser.parse_args(argv)
     if options.command == "doctor":
         return doctor()
@@ -91,6 +103,17 @@ def main(argv: list[str] | None = None) -> int:
                 }
             print(json.dumps(checked, indent=2))
             return 0 if checked["status"] == "verified" else 1
+        if options.command in ("inspect-family", "verify-family"):
+            family = load_family(options.family)
+            report = (
+                inspect_family(family)
+                if options.command == "inspect-family"
+                else verify_family(
+                    family, project=options.project, output=options.output, timeout=options.timeout
+                )
+            )
+            print(json.dumps(report, indent=2))
+            return 0 if report["status"] == "verified" else 1
         design = load_design(options.design)
         if options.command == "verify-design":
             report = verify_design_only(

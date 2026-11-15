@@ -33,6 +33,11 @@ def fisherRejectionRegion (nControl nTreatment : ℕ) : Finset (ℕ × ℕ) :=
   (binomialCountSupport nControl nTreatment).filter (fun counts =>
     hypergeometricPValue nControl nTreatment (counts.1 + counts.2) counts.1 ≤ targetAlpha)
 
+/-- Rejection region at an explicitly chosen rational significance level. -/
+def fisherRejectionRegionAt (nControl nTreatment : ℕ) (alpha : ℚ) : Finset (ℕ × ℕ) :=
+  (binomialCountSupport nControl nTreatment).filter (fun counts =>
+    hypergeometricPValue nControl nTreatment (counts.1 + counts.2) counts.1 ≤ alpha)
+
 /-- The finite-model binomial formula agrees with Mathlib's binomial measure. -/
 theorem binomialMass_eq_mathlib (n k : ℕ) (p : unitInterval) :
     binomialMass n (p : ℝ) k = (ProbabilityTheory.binomial n p).real {k} := by
@@ -67,6 +72,16 @@ theorem fisherNullLaw_rejection_probability (nControl nTreatment : ℕ) (p : uni
   rw [← singletons]
   simp only [fisherNullLaw_real_singleton, fisherRejectionRegion, Finset.sum_filter,
     fisherNullRejectionProbability]
+
+/-- Uniform error control for any nonnegative rational threshold. -/
+theorem fisher_typeI_error_le_alpha (nControl nTreatment : ℕ) (p : unitInterval)
+    (alpha : ℚ) (alpha_nonnegative : 0 ≤ alpha) :
+    (fisherNullLaw nControl nTreatment p).real (fisherRejectionRegionAt nControl nTreatment alpha) ≤
+      (alpha : ℝ) := by
+  rw [← MeasureTheory.sum_measureReal_singleton]
+  simp only [fisherNullLaw_real_singleton, fisherRejectionRegionAt, Finset.sum_filter]
+  exact fisherNullRejectionProbability_le_alpha nControl nTreatment p
+    p.property.1 p.property.2 alpha alpha_nonnegative
 
 /-- Fisher's exact test controls Type I error uniformly over all common success
 probabilities in the closed unit interval, including both endpoints. -/

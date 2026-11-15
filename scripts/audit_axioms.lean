@@ -21,7 +21,13 @@ run_cmd do
     ``StatProof.Modules.Fisher.rejectionEvent_eq,
     ``StatProof.Modules.Fisher.typeI_statement,
     ``StatProof.Modules.Fisher.adaptive_requirement_missing,
-    ``StatProof.fisher_typeI_error_le]
+    ``StatProof.fisher_typeI_error_le,
+    ``StatProof.fisherNullRejectionProbability_le_alpha,
+    ``StatProof.fisher_typeI_error_le_alpha,
+    ``StatProof.Modules.Bonferroni.strong_control,
+    ``StatProof.Modules.FisherFamily.marginal_bound,
+    ``StatProof.Modules.FisherFamily.marginal_bounds,
+    ``StatProof.Modules.FisherFamily.strong_control]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

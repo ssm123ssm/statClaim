@@ -15,11 +15,14 @@ from pathlib import Path
 
 from statproof import __version__
 from statproof.design import Design
-from statproof.fisher import TEST_ID, TEST_VERSION, FisherResult
+from statproof.family import FAMILY_ASSUMPTIONS, Endpoint, FisherFamily
+from statproof.fisher import TEST_ID, TEST_VERSION, FisherResult, parse_alpha
 from statproof.proof import (
     CHECKED_THEOREMS,
     DESIGN_CHECKED_THEOREMS,
+    FAMILY_CHECKED_THEOREMS,
     render_design_proof,
+    render_family_proof,
     render_proof,
     validate_result,
 )
@@ -50,18 +53,39 @@ DESIGN_CLAIMS = [
 DESIGN_ASSUMPTIONS = ASSUMPTIONS[:3]
 
 
-def _profile(kind: str) -> dict:
+def _profile(kind: str, payload: dict) -> dict:
     """Only these built-in scopes may select claims and generated proof obligations."""
     if kind == "statproof_per_result_certificate":
         claims, assumptions, theorems = CLAIMS, ASSUMPTIONS, CHECKED_THEOREMS
         scope = "This result and the specified mathematical model; not all Python executions."
-        general_theorem = "StatProof.fisher_typeI_error_le"
+        general_theorem = "StatProof.fisher_typeI_error_le_alpha"
     elif kind == "statproof_design_certificate":
         claims, assumptions, theorems = DESIGN_CLAIMS, DESIGN_ASSUMPTIONS, DESIGN_CHECKED_THEOREMS
         scope = "The declared analysis and mathematical model; no observed results are certified."
         general_theorem = "StatProof.Modules.Fisher.typeI_statement"
+    elif kind == "statproof_family_certificate":
+        family = _parse_family_payload(payload)
+        claims = [
+            "Each declared Fisher analysis has its marginal Type I bound under its endpoint null.",
+            f"Strong familywise error is at most {family.alpha} under the declared marginal-law "
+            "contracts, for every configuration of true and false endpoint nulls.",
+            "The sum of the allocated endpoint levels does not exceed the familywise bound.",
+        ]
+        assumptions, theorems = FAMILY_ASSUMPTIONS, FAMILY_CHECKED_THEOREMS
+        scope = (
+            "The two declared analyses, conditional on their marginal sampling laws; "
+            "no observed results are certified."
+        )
+        general_theorem = "StatProof.Modules.FisherFamily.strong_control"
     else:
         raise VerificationError("integrity", "Unsupported certificate kind.")
+    if kind != "statproof_family_certificate":
+        alpha = (
+            _parse_payload(payload)[0].alpha
+            if kind == "statproof_per_result_certificate"
+            else parse_alpha(payload["analysis"]["alpha"])
+        )
+        claims = [claim.replace("1/20", str(alpha)) for claim in claims]
     return {
         "schema_version": 1,
         "kind": kind,
@@ -125,9 +149,53 @@ def design_payload(design: Design) -> dict:
             "test": TEST_ID,
             "test_version": TEST_VERSION,
             "null": "equal_proportions",
-            "alpha": "1/20",
+            "alpha": str(design.alpha),
         },
     }
+
+
+def family_payload(family: FisherFamily) -> dict:
+    if not family.supported:
+        raise ValueError("A Fisher family certificate requires fixed sampling for both analyses.")
+    if family.allocated_alpha > family.alpha:
+        raise ValueError("The allocated alpha exceeds the requested familywise bound.")
+    return {
+        "schema_version": 1,
+        "scope": "family",
+        "method": "bonferroni",
+        "module_version": "0.1.0",
+        "alpha": str(family.alpha),
+        "joint_law": "binomial_marginals",
+        "analyses": [{"name": e.name, **design_payload(e.design)} for e in family.endpoints],
+    }
+
+
+def _parse_family_payload(payload: dict) -> FisherFamily:
+    endpoints = []
+    for endpoint in payload["analyses"]:
+        design = endpoint["design"]
+        endpoints.append(
+            Endpoint(
+                endpoint["name"],
+                Design(
+                    design["n_control"],
+                    design["n_treatment"],
+                    design["stopping"],
+                    parse_alpha(endpoint["analysis"]["alpha"]),
+                ),
+            )
+        )
+    family = FisherFamily(parse_alpha(payload["alpha"]), tuple(endpoints))
+    if canonical_bytes(payload) != canonical_bytes(family_payload(family)):
+        raise ValueError("Bound family, analysis, or requested guarantee is inconsistent.")
+    return family
+
+
+def _fraction_from_record(record: dict) -> Fraction:
+    numerator, denominator = record["numerator"], record["denominator"]
+    if type(numerator) is not int or type(denominator) is not int or denominator <= 0:
+        raise ValueError("Invalid rational value in bound inputs.")
+    return Fraction(numerator, denominator)
 
 
 def _proof_for_payload(kind: str, payload: dict) -> str:
@@ -138,11 +206,16 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
     if kind == "statproof_design_certificate":
         declaration = payload["design"]
         design = Design(
-            declaration["n_control"], declaration["n_treatment"], declaration["stopping"]
+            declaration["n_control"],
+            declaration["n_treatment"],
+            declaration["stopping"],
+            parse_alpha(payload["analysis"]["alpha"]),
         )
         if canonical_bytes(payload) != canonical_bytes(design_payload(design)):
             raise ValueError("Bound design, analysis, or requested guarantee is inconsistent.")
         return render_design_proof(design, input_id)
+    if kind == "statproof_family_certificate":
+        return render_family_proof(_parse_family_payload(payload), input_id)
     raise VerificationError("integrity", "Unsupported certificate kind.")
 
 
@@ -150,7 +223,10 @@ def _parse_payload(payload: dict) -> tuple[Design, FisherResult]:
     try:
         declaration, calculation = payload["design"], payload["result"]
         design = Design(
-            declaration["n_control"], declaration["n_treatment"], declaration["stopping"]
+            declaration["n_control"],
+            declaration["n_treatment"],
+            declaration["stopping"],
+            _fraction_from_record(calculation["alpha"]),
         )
         probabilities = []
         for name in ("p_value", "observed_table_probability"):
@@ -168,6 +244,7 @@ def _parse_payload(payload: dict) -> tuple[Design, FisherResult]:
             observed_table_probability=probabilities[1],
             support_min=calculation["control_success_support"]["min"],
             support_max=calculation["control_success_support"]["max"],
+            alpha=design.alpha,
         )
         # Reconstruct all derived fields; reject changed decisions, table labels,
         # sizes, thresholds, approximations, versions, or additional fields.
@@ -363,6 +440,18 @@ def certify_design(
     )
 
 
+def certify_family(
+    family: FisherFamily, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    return _certify_payload(
+        family_payload(family),
+        "statproof_family_certificate",
+        project=project,
+        output=output,
+        timeout=timeout,
+    )
+
+
 def _certify_payload(
     payload: dict,
     kind: str,
@@ -401,7 +490,7 @@ def _certify_payload(
             for name in ("inputs.json", "Proof.lean", "Proof.olean", "transcript.log")
         }
         certificate = {
-            **_profile(kind),
+            **_profile(kind, payload),
             "created_at": datetime.now(UTC).isoformat(),
             "input_sha256": input_id,
             "inputs": payload,
@@ -445,7 +534,7 @@ def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict
     identity = certificate.pop("certificate_id", None)
     if identity != digest(canonical_bytes(certificate)):
         raise VerificationError("integrity", "Certificate content digest does not match.")
-    profile = _profile(certificate.get("kind"))
+    profile = _profile(certificate.get("kind"), certificate["inputs"])
     for key, value in profile.items():
         if canonical_bytes(certificate.get(key)) != canonical_bytes(value):
             raise VerificationError("integrity", f"Unsupported certificate field: {key}.")
@@ -461,7 +550,7 @@ def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict
         raise VerificationError("binding", "Certificate inputs do not match their binding.")
     if (bundle / "Proof.lean").read_text() != _proof_for_payload(certificate["kind"], payload):
         raise VerificationError(
-            "binding", "Proof statements differ from the bound inputs and result."
+            "binding", "Proof statements differ from the bound inputs and requested claims."
         )
     if _source_hashes(project) != certificate["source_sha256"]:
         raise VerificationError("binding", "The source snapshot differs from the certificate.")

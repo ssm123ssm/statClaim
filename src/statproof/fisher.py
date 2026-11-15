@@ -11,7 +11,23 @@ from math import comb
 
 ALPHA = Fraction(1, 20)
 TEST_ID = "fisher_exact_two_sided_probability_ordered"
-TEST_VERSION = "0.1.0"
+TEST_VERSION = "0.2.0"
+
+
+def validate_alpha(alpha: Fraction) -> None:
+    if not isinstance(alpha, Fraction) or not 0 <= alpha <= 1:
+        raise ValueError("alpha must be an exact Fraction between zero and one.")
+
+
+def parse_alpha(value: str) -> Fraction:
+    if not isinstance(value, str):
+        raise ValueError('alpha must be an exact string, for example "1/20" or "0.05".')
+    try:
+        alpha = Fraction(value)
+    except (ValueError, ZeroDivisionError) as error:
+        raise ValueError("Invalid exact alpha.") from error
+    validate_alpha(alpha)
+    return alpha
 
 
 def fraction_record(value: Fraction) -> dict:
@@ -38,10 +54,12 @@ class FisherResult:
     support_min: int
     support_max: int
 
+    alpha: Fraction = ALPHA
+
     @property
     def reject_null(self) -> bool:
-        """Decision of the fixed-sample rule at the project's fixed threshold."""
-        return self.p_value <= ALPHA
+        """Decision of the fixed-sample rule at the declared exact threshold."""
+        return self.p_value <= self.alpha
 
     def to_dict(self) -> dict:
         return {
@@ -62,13 +80,18 @@ class FisherResult:
             "control_success_support": {"min": self.support_min, "max": self.support_max},
             "p_value": fraction_record(self.p_value),
             "observed_table_probability": fraction_record(self.observed_table_probability),
-            "alpha": fraction_record(ALPHA),
+            "alpha": fraction_record(self.alpha),
             "p_value_le_alpha": self.reject_null,
         }
 
 
 def fisher_exact(
-    *, n_control: int, n_treatment: int, control_successes: int, treatment_successes: int
+    *,
+    n_control: int,
+    n_treatment: int,
+    control_successes: int,
+    treatment_successes: int,
+    alpha: Fraction = ALPHA,
 ) -> FisherResult:
     """Compute the exact test for positive arm sizes and integer success counts.
 
@@ -77,6 +100,7 @@ def fisher_exact(
     This function computes a statistic; it does not check sampling assumptions
     or invoke Lean.
     """
+    validate_alpha(alpha)
     for name, value in (("n_control", n_control), ("n_treatment", n_treatment)):
         if type(value) is not int or value <= 0:
             raise ValueError(f"{name} must be a positive integer.")
@@ -115,4 +139,5 @@ def fisher_exact(
         observed_table_probability=Fraction(observed_weight, denominator),
         support_min=lower,
         support_max=upper,
+        alpha=alpha,
     )

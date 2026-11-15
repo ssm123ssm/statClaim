@@ -1,4 +1,4 @@
-.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo design-demo design-objects-demo
+.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo design-demo design-objects-demo alpha-demo family-demo composition-demo
 
 setup:
 	uv sync --locked
@@ -30,8 +30,11 @@ lean-check:
 	lake env lean scripts/audit_axioms.lean
 	lake env lean tests/lean/FisherExamples.lean
 	lake env lean tests/lean/CoreObjects.lean
+	lake env lean tests/lean/Composition.lean
 	lake env lean examples/FisherObjects.lean
 	lake env lean examples/DesignGuarantee.lean
+	lake env lean examples/ConfigurableAlpha.lean
+	lake env lean examples/MultipleTesting.lean
 
 objects-demo:
 	lake build
@@ -55,3 +58,13 @@ verify-demo:
 
 design-demo:
 	uv run --locked statproof verify-design examples/fixed_sample.toml
+
+alpha-demo:
+	uv run --locked statproof verify-design examples/fixed_sample_alpha.toml
+
+family-demo:
+	uv run --locked statproof verify-family examples/two_outcomes.toml
+
+composition-demo:
+	lake build
+	lake env lean examples/MultipleTesting.lean

@@ -1,6 +1,10 @@
 # Design and result certificate guide
 
-The primary design workflow needs no observations:
+Design and family workflows need no observations. Fisher's alpha is configurable
+as an exact string in the optional `[analysis]` table; it defaults to `1/20`.
+The bound in the generated proof and certificate uses that declared value.
+
+The primary design workflow is:
 
 ```sh
 uv run --locked statproof verify-design examples/fixed_sample.toml \
@@ -11,12 +15,21 @@ uv run --locked statproof check-certificate .statproof/my-design
 `verify-design` constructs the declared model, fixed sampling plan, and Fisher
 analysis through the shared Lean objects. It checks positive sizes, the fixed
 plan, the sampling compatibility contract, the core design claim, and the uniform
-Type I error bound for every common success probability in `[0, 1]`.
+Type I error bound at the declared alpha for every common success probability in `[0, 1]`.
 
 The resulting `statproof_design_certificate` has `verification_scope: "design"`
 in its report and no calculation or decision. Its inputs contain the design,
-procedure identifier/version, equal-proportions null, and exact `1/20` threshold.
+procedure identifier/version, equal-proportions null, and the exact chosen threshold.
 It certifies only the named design properties under explicit assumptions.
+
+`verify-family` issues a third kind, `statproof_family_certificate`, with
+`verification_scope: "family"` in its report. It composes two Fisher analyses
+using the generic Bonferroni theorem. Its retained proof quantifies over all
+joint sampling-law families satisfying the explicitly declared binomial marginal
+contracts and all joint parameters, including mixed true/false nulls. No
+independence between outcomes is assumed. The sum of the two exact allocated
+levels must be at most the requested family bound. Both sampling plans must be
+fixed for this adapter. See the [multiple-testing guide](multiple-testing.md).
 
 Observed data and execution correctness are a separate, optional workflow.
 
@@ -49,7 +62,10 @@ timeouts remain unresolved rather than falling back to unverified evidence.
 
 ## Properties checked
 
-Each mode emits its own set of explicit theorems in `Proof.lean`. Design-only
+Each mode emits its own set of explicit theorems in `Proof.lean`. Family
+certificates check positive sizes, the allocation inequality, conditional marginal
+Fisher bounds, and the strong familywise claim. They retain the assumed
+marginal-law equalities as explicit hypotheses of the theorem. Design-only
 certificates verify the declarations and general guarantee, without any supplied
 counts or numerical results. Per-result certificates (`statproof_per_result_certificate`)
 add the following checks:

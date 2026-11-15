@@ -1,5 +1,12 @@
 # Fisher proof walkthrough
 
+This walkthrough describes the default 5% specialization. The library also proves
+`fisher_typeI_error_le_alpha` for any nonnegative rational level; public analyses
+restrict that level to `[0,1]`. The same conditional-mass argument is used, with
+alpha passed through rather than fixed. See [multiple testing](multiple-testing.md)
+for how individual bounds are composed into a familywise guarantee.
+
+
 The mathematical result is now checked in Lean:
 
 > For two independent binomial samples with the same success probability,

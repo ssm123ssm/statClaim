@@ -9,3 +9,5 @@ public import StatProof.Computation
 public import StatProof.Core.Objects
 public import StatProof.Modules.TwoArmBinomial
 public import StatProof.Modules.Fisher
+public import StatProof.Modules.Bonferroni
+public import StatProof.Modules.FisherFamily

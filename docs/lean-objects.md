@@ -81,10 +81,11 @@ open StatProof
 def sizes : FixedSampleDesign := ⟨100, 100, by decide, by decide⟩
 noncomputable def model := Modules.TwoArmBinomial.model sizes
 noncomputable def design := Core.StudyDesign.fixed model
-noncomputable def analysis := Modules.Fisher.analysis sizes design
+def level : SignificanceLevel := ⟨1 / 40, by norm_num, by norm_num⟩
+noncomputable def analysis := Modules.Fisher.analysis sizes design level
 
-noncomputable def guarantee : Core.TypeIGuarantee analysis (1 / 20 : ℝ) :=
-  (Modules.Fisher.module sizes).provide design ⟨Core.Compatibility.fixed model⟩
+noncomputable def guarantee : Core.TypeIGuarantee analysis (level.value : ℝ) :=
+  (Modules.Fisher.module sizes level).provide design ⟨Core.Compatibility.fixed model⟩
 ```
 
 `StudyDesign.fixed` explicitly declares that the plan follows the model's law.
@@ -94,10 +95,18 @@ Whether a real study follows that declared mechanism remains an assumption.
 The Fisher provider requires compatibility before returning a guarantee. Its
 `typeI_statement` proof rewrites the supplied law using that compatibility,
 restricts the parameters under the null, proves equality of the rejection events,
-and applies the original `fisher_typeI_error_le` theorem. It does not reprove
+and applies the generalized `fisher_typeI_error_le_alpha` theorem. It does not reprove
 Fisher's mathematical bound or assume a new statistical result.
 
-This guarantee can be constructed before observations exist.
+This guarantee can be constructed before observations exist. The level is an
+exact rational in `[0,1]`; the real bound is written `(level.value : ℝ)` because
+Type I error is a real probability. Omitting the level argument keeps the default
+5% procedure and provider. `examples/ConfigurableAlpha.lean` is a runnable example.
+
+The module now also composes with Bonferroni to establish familywise control.
+See [multiple testing](multiple-testing.md) and run `make composition-demo`.
+The generic composition module supports any finite family; the CLI adapter
+currently supports two Fisher analyses and records their marginal-law contracts.
 
 ## Propose and check an observed result
 

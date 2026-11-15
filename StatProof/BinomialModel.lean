@@ -167,28 +167,30 @@ def fisherNullRejectionProbability (nControl nTreatment : ℕ) (p : ℝ) : ℝ :
 
 /-- Uniform Type I error bound for the specified finite independent-binomial
 null model. The closed interval includes p = 0 and p = 1. -/
-theorem fisherNullRejectionProbability_le_targetAlpha (nControl nTreatment : ℕ) (p : ℝ)
-    (p_nonnegative : 0 ≤ p) (p_le_one : p ≤ 1) :
-    fisherNullRejectionProbability nControl nTreatment p ≤ (targetAlpha : ℝ) := by
+theorem fisherNullRejectionProbability_le_alpha (nControl nTreatment : ℕ) (p : ℝ)
+    (p_nonnegative : 0 ≤ p) (p_le_one : p ≤ 1)
+    (alpha : ℚ) (alpha_nonnegative : 0 ≤ alpha) :
+    (∑ counts ∈ binomialCountSupport nControl nTreatment,
+      if hypergeometricPValue nControl nTreatment (counts.1 + counts.2) counts.1 ≤ alpha
+      then independentBinomialMass nControl nTreatment p counts else 0) ≤ (alpha : ℝ) := by
   classical
-  unfold fisherNullRejectionProbability
   rw [sum_binomialCountSupport_by_total]
   calc
     _ ≤ ∑ total ∈ Finset.range (nControl + nTreatment + 1),
-        binomialMass (nControl + nTreatment) p total * (targetAlpha : ℝ) := by
+        binomialMass (nControl + nTreatment) p total * (alpha : ℝ) := by
       apply Finset.sum_le_sum
       intro total total_mem
       have feasible : total ≤ nControl + nTreatment := by
         simpa only [Finset.mem_range, Nat.lt_succ_iff] using total_mem
       have conditional_bound :
           (∑ k ∈ (hypergeometricSupport nControl nTreatment total).filter
-            (fun k => hypergeometricPValue nControl nTreatment total k ≤ targetAlpha),
-            (hypergeometricMass nControl nTreatment total k : ℝ)) ≤ (targetAlpha : ℝ) := by
-        exact_mod_cast hypergeometric_rejection_mass_le_targetAlpha nControl nTreatment total
+            (fun k => hypergeometricPValue nControl nTreatment total k ≤ alpha),
+            (hypergeometricMass nControl nTreatment total k : ℝ)) ≤ (alpha : ℝ) := by
+        exact_mod_cast hypergeometric_rejection_mass_le nControl nTreatment total alpha alpha_nonnegative
       calc
         _ = binomialMass (nControl + nTreatment) p total *
             ∑ k ∈ (hypergeometricSupport nControl nTreatment total).filter
-              (fun k => hypergeometricPValue nControl nTreatment total k ≤ targetAlpha),
+              (fun k => hypergeometricPValue nControl nTreatment total k ≤ alpha),
               (hypergeometricMass nControl nTreatment total k : ℝ) := by
           rw [Finset.sum_filter, Finset.mul_sum]
           apply Finset.sum_congr rfl
@@ -202,7 +204,14 @@ theorem fisherNullRejectionProbability_le_targetAlpha (nControl nTreatment : ℕ
           · rfl
         _ ≤ _ := mul_le_mul_of_nonneg_left conditional_bound
           (binomialMass_nonnegative _ p total p_nonnegative p_le_one)
-    _ = (targetAlpha : ℝ) := by
+    _ = (alpha : ℝ) := by
       rw [← Finset.sum_mul, binomialMass_sum_one, one_mul]
+
+/-- Compatibility specialization at the default significance level. -/
+theorem fisherNullRejectionProbability_le_targetAlpha (nControl nTreatment : ℕ) (p : ℝ)
+    (p_nonnegative : 0 ≤ p) (p_le_one : p ≤ 1) :
+    fisherNullRejectionProbability nControl nTreatment p ≤ (targetAlpha : ℝ) :=
+  fisherNullRejectionProbability_le_alpha nControl nTreatment p p_nonnegative p_le_one
+    targetAlpha targetAlpha_pos.le
 
 end StatProof

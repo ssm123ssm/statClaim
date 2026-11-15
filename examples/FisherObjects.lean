@@ -17,7 +17,7 @@ noncomputable def design := StudyDesign.fixed studyModel
 noncomputable def analysis := Modules.Fisher.analysis sizes design
 
 -- The design-level guarantee exists before any observations are supplied.
-noncomputable def guarantee : TypeIGuarantee analysis (1 / 20 : ℝ) :=
+noncomputable def guarantee : TypeIGuarantee analysis (defaultLevel.value : ℝ) :=
   (Modules.Fisher.module sizes).provide design ⟨Compatibility.fixed studyModel⟩
 
 def observation : Observation studyModel :=

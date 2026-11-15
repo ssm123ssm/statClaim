@@ -3,11 +3,13 @@
 from pathlib import Path
 
 from statproof.design import Design, inspect_design
+from statproof.family import FisherFamily, inspect_family
 from statproof.fisher import FisherResult, fisher_exact
 from statproof.verification import (
     DESIGN_ASSUMPTIONS,
     VerificationError,
     certify_design,
+    certify_family,
     certify_result,
     digest,
 )
@@ -19,6 +21,7 @@ def test_design(design: Design, *, control_successes: int, treatment_successes: 
         n_treatment=design.n_treatment,
         control_successes=control_successes,
         treatment_successes=treatment_successes,
+        alpha=design.alpha,
     )
     return _result_report(design, result)
 
@@ -27,7 +30,7 @@ def _result_report(design: Design, result: FisherResult) -> dict:
     report = inspect_design(design)
     report["verification_scope"] = "result"
     report["formal_reference"].update(
-        theorem="StatProof.fisher_typeI_error_le",
+        theorem="StatProof.fisher_typeI_error_le_alpha",
         application_to_this_run="unresolved_implementation_correspondence",
     )
     report["outstanding_obligations"] = [
@@ -74,6 +77,7 @@ def verify_design(
         n_treatment=design.n_treatment,
         control_successes=control_successes,
         treatment_successes=treatment_successes,
+        alpha=design.alpha,
     )
     report = _result_report(design, result)
     if design.stopping != "fixed":
@@ -198,3 +202,31 @@ def _verified_report(report: dict, certificate: dict, bundle: Path, *, scope: st
         }
     )
     return report
+
+
+def verify_family(
+    family: FisherFamily, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> dict:
+    report = inspect_family(family)
+    if not family.supported or family.allocated_alpha > family.alpha:
+        report["verification"] = {
+            "stage": "allocation" if family.supported else "sampling_scope",
+            "message": "The allocated alpha exceeds the requested familywise bound."
+            if family.supported
+            else "Data-dependent stopping needs separate justification; "
+            "this is not evidence of inflated error.",
+        }
+        return report
+    try:
+        certificate, bundle = certify_family(
+            family, project=project, output=output, timeout=timeout
+        )
+    except VerificationError as error:
+        report["backend_invoked"] = error.stage != "project"
+        report["verification"] = {
+            "stage": error.stage,
+            "message": str(error),
+            "attempt_directory": str(error.bundle) if error.bundle else None,
+        }
+        return report
+    return _verified_report(report, certificate, bundle, scope="family")

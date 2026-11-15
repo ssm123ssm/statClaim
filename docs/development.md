@@ -3,7 +3,7 @@
 The first module concerns two independent binomial samples with positive sample
 sizes fixed before outcomes are observed. The specified test is the
 nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
-`p_value <= 1/20`. Its [specification](exact-test-spec.md) defines the details.
+`p_value <= alpha`, with an exact configurable level in `[0,1]` (default `1/20`). Its [specification](exact-test-spec.md) defines the details.
 
 ## Completed
 
@@ -41,6 +41,13 @@ nonrandomized, probability-ordered, two-sided Fisher exact test, rejecting at
   objects, with no required observations, numerical p-value, or test decision.
   Replay distinguishes design-level and per-result certificate scopes.
 
+- Configurable exact Fisher alpha through the Lean procedure/provider, TOML,
+  numerical decisions, proof generation, and scope-bound certificate replay.
+- A generic finite-family Bonferroni provider proving strong familywise error
+  control, and a two-Fisher adapter with explicit marginal-law contracts.
+- Two-outcome CLI certification, sufficient and excessive allocation examples,
+  a concrete joint-law Lean example, and a perfectly dependent-event test.
+
 ## Verification boundary
 
 The architectural phase defines a shared object model and compares a
@@ -48,7 +55,7 @@ Lean-facing representation with a small standalone statistical language. The
 [core object draft and comparison plan](core-object-model.md) records the proposed
 concepts, semantic boundaries, and Fisher acceptance cases. Both routes will use
 the same mathematical library and proof backend; their interfaces remain open
-for evaluation. The first Lean representation is now implemented. A standalone
+for evaluation. The Lean representation now includes Fisher and a second composition pattern. A standalone
 file-language prototype against those same objects is the next step.
 
 The current bridge certifies individual results, rather than proving all behavior

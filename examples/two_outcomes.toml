@@ -1,0 +1,18 @@
+[family]
+module = "bonferroni"
+alpha = "1/20"
+joint_law = "binomial_marginals"
+
+[[analyses]]
+name = "primary_outcome"
+n_control = 200
+n_treatment = 100
+stopping = "fixed"
+alpha = "1/40"
+
+[[analyses]]
+name = "secondary_outcome"
+n_control = 200
+n_treatment = 100
+stopping = "fixed"
+alpha = "1/40"

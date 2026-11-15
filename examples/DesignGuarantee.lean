@@ -14,7 +14,7 @@ noncomputable def studyModel := Modules.TwoArmBinomial.model sizes
 noncomputable def design := StudyDesign.fixed studyModel
 noncomputable def analysis := Modules.Fisher.analysis sizes design
 
-noncomputable def guarantee : TypeIGuarantee analysis (1 / 20 : ℝ) :=
+noncomputable def guarantee : TypeIGuarantee analysis (defaultLevel.value : ℝ) :=
   (Modules.Fisher.module sizes).provide design ⟨Compatibility.fixed studyModel⟩
 
 -- The guarantee quantifies over the null-model parameters; no data are supplied.

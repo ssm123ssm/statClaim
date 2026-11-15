@@ -21,10 +21,10 @@ example : ¬ Modules.TwoArmBinomial.equalProportions
 example : (Modules.Fisher.module sizes).Requires fixedDesign :=
   ⟨Compatibility.fixed model⟩
 
-noncomputable def guarantee : TypeIGuarantee analysis (1 / 20 : ℝ) :=
+noncomputable def guarantee : TypeIGuarantee analysis (defaultLevel.value : ℝ) :=
   (Modules.Fisher.module sizes).provide fixedDesign ⟨Compatibility.fixed model⟩
 
-example : (analysis.typeIClaim guarantee.compatibility (1 / 20 : ℝ)).statement :=
+example : (analysis.typeIClaim guarantee.compatibility (defaultLevel.value : ℝ)).statement :=
   guarantee.certificate.establishes
 
 def observed : Observation model :=
@@ -49,7 +49,7 @@ example : True := by
 -- A point-value certificate does not establish an error-bound claim.
 example : True := by
   fail_if_success
-    have invalid : Certificate (analysis.typeIClaim guarantee.compatibility (1 / 20 : ℝ)) :=
+    have invalid : Certificate (analysis.typeIClaim guarantee.compatibility (defaultLevel.value : ℝ)) :=
       valueCertificate
   trivial
 
