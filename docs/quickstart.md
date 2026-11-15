@@ -7,10 +7,18 @@ the pinned Lean toolchain and Mathlib cache, so the first start takes several
 minutes. A workspace extension is installed on attachment. Reload the window
 if `.stat` support has not appeared. Codespaces uses your GitHub quota.
 
-Open `playground/welcome.stat`. `planning.stat` and `two_stage.stat` beside it show
-sample-size planning and an adaptive design. The file is your scratch copy; it is ignored by
-git. Edit the null to `proportion_difference(model=study, value=1/10)` and inspect
+Open `playground/welcome.stat`. It is your scratch copy and is ignored by git.
+Edit the null to `proportion_difference(model=study, value=1/10)` and inspect
 the diagnostic. Restore equality, then run **StatProof: Verify Current File**.
+
+Other files in `playground/`:
+
+| File | Shows |
+| --- | --- |
+| `planning.stat` | Power and sample size for two arms |
+| `one_sample.stat`, `one_sample_result.stat` | Planning and analysing a single-arm study |
+| `three_outcomes.stat` | Several endpoints with Bonferroni |
+| `two_stage.stat`, `two_stage_posterior.stat` | Designs with an interim stop |
 
 ## Local VS Code
 

@@ -72,18 +72,23 @@ requirements. **Verify Current File** explicitly runs the requested operations
 and Lean checks. `verification.evidence` is present only after successful
 verification; a valid specification alone is not a proof.
 
-**0.1 developer preview.** Current proof support covers the specified fixed-sample
-Fisher setting, its exact power at a planning point, Bonferroni composition
-of several endpoints, the one-sample exact binomial test, and a two-stage binomial design
-with an interim stop. The language
-and APIs may change. A checked theorem establishes its stated claim under its assumptions;
-whether a real study satisfies those assumptions still needs scientific judgment.
-See [scope and trust](docs/scope.md).
+## What is supported
+
+| You want to | Use | Checked by Lean |
+| --- | --- | --- |
+| Compare two proportions | `tests.fisher` | Type I error, exact p-value and decision |
+| Test one proportion | `tests.binomial` | Type I error, exact p-value and decision |
+| Test several endpoints | `multiplicity.bonferroni` | Familywise error, 2 to 20 endpoints |
+| Choose a sample size | `planning` | Power, and the smallest size in a range |
+| Stop early for futility | `designs.two_stage` | Type I error and power of the whole design |
+
+This is a 0.1 developer preview; the language and APIs may change. A checked
+claim holds under its stated assumptions. Whether a real study meets those
+assumptions is a scientific judgment. See [scope and trust](docs/scope.md).
 
 ## Plan a study
 
-State the rates you expect and the power you need, then check a design or
-search for a sufficient sample size:
+State the rates you expect and the power you need, then search for a sample size:
 
 ```stat
 let alternative = binomial_rates(p_control=1/10, p_treatment=2/5)
@@ -92,24 +97,20 @@ let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=2, max_per_arm=4
 let sizing = verify(smallest_sample_size(candidates=candidates, target=target))
 ```
 
-Lean recomputes the power of the selected design and checks that no smaller
-candidate in the range reaches the target, so the recommendation carries checked
-evidence with its assumptions. Adaptive designs are planned the same
-way: a two-stage design with an interim stop, using count or Bayesian posterior
-rules, has its Type I error and power checked for the complete policy.
+The answer is 36 per arm. Lean recomputes the power of that design and checks
+that no smaller size in the range reaches the target. Two-stage designs with
+count or Bayesian posterior stopping rules are planned the same way.
 See [planning a study](docs/planning.md).
 
 ## Where we are going
 
-Next come assurance and precision targets, more tests and designs, and richer
-Bayesian and adaptive policies, including checks that priors, decision rules
-and stopping policies fit together. See the [roadmap](ROADMAP.md) and
-[planning roadmap](docs/study-planning.md).
+Assurance and precision targets, more tests and designs, and richer Bayesian
+and adaptive designs. See the [roadmap](ROADMAP.md).
 
 ## Try it
 
-Open Codespaces above, wait for setup, then open `playground/welcome.stat`
-(or `playground/planning.stat` and `playground/two_stage.stat`).
+Open Codespaces above, wait for setup, then open `playground/welcome.stat`.
+The other files in `playground/` show planning, single-arm and two-stage studies.
 Use **StatProof: Show Claims** and **StatProof: Verify Current File** in the
 command palette. Your GitHub account controls Codespaces quota and billing.
 
