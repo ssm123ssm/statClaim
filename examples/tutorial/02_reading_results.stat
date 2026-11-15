@@ -1,0 +1,13 @@
+# Lesson 2: name the parts of a result.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=50, n_treatment=50)
+let analysis = fisher(design=fixed(model=study), null=equal_proportions(model=study), alpha=1/20)
+let verification = verify(typeI(analysis))
+
+let status = verification.status
+let evidence = verification.evidence
+let assumptions = verification.evidence.required_assumptions
+let level = analysis.alpha

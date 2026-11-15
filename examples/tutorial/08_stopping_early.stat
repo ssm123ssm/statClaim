@@ -1,0 +1,17 @@
+# Lesson 8: a design with a planned interim look.
+use designs.two_stage
+use planning
+
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)
+
+# Propose a design: 13 participants, then 30 more if more than 3 respond.
+let stages = two_stage_binomial(n_stage1=13, n_stage2=30)
+let rule = threshold_rule(continue_above=3, reject_above=12)
+let proposed = two_stage_test(design=stages, rule=rule, null_rate=1/5)
+let characteristics = calculate(meets(analysis=proposed, target=target))
+let expected_size = characteristics.calculation.expected_sample_size_null
+let verification = verify(meets(analysis=proposed, target=target))
+
+# Or let StatProof find one.
+let search = two_stage_designs(null_rate=1/5, max_total=45, criterion="minimax")
+let found = calculate(sample_size(candidates=search, target=target))

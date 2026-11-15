@@ -1,0 +1,23 @@
+# Lesson 6: how many participants?
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use planning
+
+let study = two_arm_binomial(n_control=25, n_treatment=25)
+let analysis = fisher(design=fixed(model=study), null=equal_proportions(model=study), alpha=1/20)
+
+# Planning inputs: the rates we expect, and the power we need there.
+let expected = binomial_rates(p_control=1/10, p_treatment=2/5)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20)
+
+# Is 25 per arm enough?
+let check = calculate(meets(analysis=analysis, target=target))
+let power = check.calculation.power
+
+# What is the smallest equal-arm size between 20 and 60 that is enough?
+let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=20, max_per_arm=60)
+let sizing = smallest_sample_size(candidates=candidates, target=target)
+let recommendation = calculate(sizing)
+let per_arm = recommendation.calculation.n_control
+let verification = verify(sizing)

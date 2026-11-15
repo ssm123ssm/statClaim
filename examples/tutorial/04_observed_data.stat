@@ -1,0 +1,14 @@
+# Lesson 4: analyse the data.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=50, n_treatment=50)
+let analysis = fisher(design=fixed(model=study), null=equal_proportions(model=study), alpha=1/20)
+
+# 12 of 50 controls and 24 of 50 treated participants responded.
+let data = observe(analysis=analysis, control_successes=12, treatment_successes=24)
+let calculation = calculate(result(data))
+let p_value = calculation.calculation.p_value
+let decision = calculation.decision
+let verification = verify(result(data))

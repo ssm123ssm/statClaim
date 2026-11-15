@@ -1,0 +1,17 @@
+# Lesson 9: decide with posterior probabilities, then check error rates.
+use designs.two_stage
+use planning
+
+let stages = two_stage_binomial(n_stage1=10, n_stage2=20)
+let prior = beta_prior(a=1, b=1)
+let rule = posterior_rule(
+    prior=prior,
+    reference=1/5,
+    continue_at_least=1/2,
+    success_at_least=19/20,
+)
+let analysis = two_stage_test(design=stages, rule=rule, null_rate=1/5)
+
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/10)
+let characteristics = calculate(meets(analysis=analysis, target=target))
+let verification = verify(meets(analysis=analysis, target=target))

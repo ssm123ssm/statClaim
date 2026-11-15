@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatProof Tutorial</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: one reading column; code, output and tables break out into their own scroll boxes. */
+:root {
+  --bg: #f7f8fa; --surface: #ffffff; --ink: #18202b; --muted: #5a6675; --line: #dde2e9;
+  --accent: #1f5fbf; --accent-soft: #e8f0fc;
+  --code-bg: #f0f3f7; --code-ink: #1d2733; --kw: #8a3fb0; --fn: #1f5fbf; --str: #a3541a; --com: #6b7888;
+  --ok: #17734a; --ok-bg: #e2f4ea; --warn: #8a5a00; --warn-bg: #fbf0d4;
+  --bad: #b3261e; --bad-bg: #fbe6e4; --calc: #3b5a80; --calc-bg: #e6edf6;
+  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161c; --surface: #1a2028; --ink: #e6eaf0; --muted: #9aa6b5; --line: #2c3541;
+  --accent: #7fb0f5; --accent-soft: #1d2a3d;
+  --code-bg: #161c24; --code-ink: #dbe2ea; --kw: #c79bea; --fn: #8fbcf7; --str: #e7a56f; --com: #7d8a9a;
+  --ok: #6fd3a0; --ok-bg: #173327; --warn: #e9bd5b; --warn-bg: #3a2f12;
+  --bad: #f2938c; --bad-bg: #3d1d1b; --calc: #a8c1e3; --calc-bg: #1f2b3b;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161c; --surface: #1a2028; --ink: #e6eaf0; --muted: #9aa6b5; --line: #2c3541;
+  --accent: #7fb0f5; --accent-soft: #1d2a3d;
+  --code-bg: #161c24; --code-ink: #dbe2ea; --kw: #c79bea; --fn: #8fbcf7; --str: #e7a56f; --com: #7d8a9a;
+  --ok: #6fd3a0; --ok-bg: #173327; --warn: #e9bd5b; --warn-bg: #3a2f12;
+  --bad: #f2938c; --bad-bg: #3d1d1b; --calc: #a8c1e3; --calc-bg: #1f2b3b;
+  color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 }
+main { max-width: 760px; margin: 0 auto; padding-block: 48px 96px; display: flex; flex-direction: column; gap: 56px }
+header.top { display: flex; flex-direction: column; gap: 14px }
+h1, h2, h3, h4 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.2 }
+h1 { font-size: clamp(2rem, 5vw, 2.75rem); letter-spacing: -0.02em }
+h2 { font-size: 1.7rem; letter-spacing: -0.01em }
+h3 { font-size: 1.15rem; margin-top: 12px }
+h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted) }
+p { margin: 0 } a { color: var(--accent) }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px }
+.lede { font-size: 1.15rem; color: var(--muted); max-width: 62ch }
+.eyebrow { font: 600 0.8rem var(--display); text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent) }
+code { font: 0.9em var(--mono); background: var(--code-bg); color: var(--code-ink); padding: 0.1em 0.35em; border-radius: 4px }
+pre { margin: 0 } pre code { background: none; padding: 0; font-size: 0.84rem; line-height: 1.6; display: block }
+.scroll { overflow-x: auto; max-width: 100% }
+.scroll > pre { padding: 14px 16px; min-width: min-content }
+figure.code { margin: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--code-bg); overflow: hidden }
+figure.code figcaption { font: 0.75rem var(--mono); color: var(--muted); padding: 8px 16px; border-bottom: 1px solid var(--line) }
+.snippet, .shell, .output { border-radius: 8px; border: 1px solid var(--line) }
+.shell { background: var(--surface) } .shell code::before { content: "$ "; color: var(--muted) }
+.shell code { white-space: pre }
+.output { background: var(--surface); border-left: 3px solid var(--line) } .output code { color: var(--muted) }
+.k { color: var(--kw) } .f { color: var(--fn) } .s { color: var(--str) } .c { color: var(--com); font-style: italic }
+.ok { color: var(--ok); font-weight: 600 } .warn { color: var(--warn); font-weight: 600 }
+.bad { color: var(--bad); font-weight: 600 } .calc { color: var(--calc); font-weight: 600 }
+.pill { font: 600 0.78rem var(--mono); padding: 0.15em 0.6em; border-radius: 999px; white-space: nowrap }
+.pill.ok { background: var(--ok-bg) } .pill.warn { background: var(--warn-bg) }
+.pill.bad { background: var(--bad-bg) } .pill.calc { background: var(--calc-bg) }
+.lesson, .block { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
+.lesson { padding-top: 40px; border-top: 1px solid var(--line); scroll-margin-top: 16px }
+.goal { background: var(--accent-soft); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px }
+.goal .tag { font: 600 0.75rem var(--display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent) }
+dl.lines { margin: 0; display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 10px 18px }
+dl.lines dt { font-weight: 600 } dl.lines dd { margin: 0; color: var(--ink) }
+@media (max-width: 560px) { dl.lines { grid-template-columns: minmax(0, 1fr); gap: 2px 0 } dl.lines dd { margin-bottom: 10px } }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 0.78rem var(--display); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted) }
+.note { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; background: var(--surface); font-size: 0.95rem }
+.wrap-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 8px }
+.wrap-up > div { display: flex; flex-direction: column; gap: 8px; min-width: 0 }
+.wrap-up ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 4px }
+.task { border: 1px dashed var(--line); border-radius: 8px; padding: 12px 16px }
+ol.toc { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 20px }
+ol.toc a { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; text-decoration: none; color: var(--ink); border-bottom: 1px solid var(--line) }
+ol.toc a:hover { color: var(--accent) }
+ol.toc .n { font: 600 0.8rem var(--mono); color: var(--accent); min-width: 1.2em; font-variant-numeric: tabular-nums }
+footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--line); padding-top: 24px }
+</style>
+</head>
+<body>
+<main>
+<header class="top">
+  <p class="eyebrow">StatProof tutorial</p>
+  <h1>From a study description to a checked claim</h1>
+  <p class="lede">Nine short lessons. Each one adds a few ideas to the previous one, so
+  work through them in order. By the end you can plan a study, analyse its data and
+  know exactly which guarantees were checked.</p>
+</header>
+
+<section class="block" id="before">
+  <h2>Before you start</h2>
+  <p>You need basic statistics: hypothesis tests, p-values, power. You do not need to know
+  Lean or any programming language.</p>
+  <p>Open the repository in GitHub Codespaces, or install it locally with
+  <code>make setup</code> (see the quickstart). Every lesson has a file in
+  <code>examples/tutorial/</code>. Commands are shown as <code>statproof ...</code>; from
+  the repository folder, type <code>uv run --locked statproof ...</code>.</p>
+  <p>In VS Code the same two actions are <strong>StatProof: Show Claims</strong> and
+  <strong>StatProof: Verify Current File</strong>, and mistakes are underlined as you type.</p>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatProof says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#sample-size"><span class="n">6</span>Choosing a sample size</a></li><li><a href="#single-arm"><span class="n">7</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">8</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">9</span>A Bayesian stopping rule</a></li></ol>
+</section>
+
+<section class="lesson" id="first-claim">
+  <p class="eyebrow">Lesson 1</p>
+  <h2>Your first checked claim</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>We describe a simple two-group study, choose a test, and ask StatProof to check one guarantee: that the test's false-positive rate is at most 5%.</p></div>
+
+<p>A <code>.stat</code> file is a list of declarations. It contains no data and runs no
+analysis by itself. It states what the study is and which guarantee you want.</p>
+<figure class="code"><figcaption>examples/tutorial/01_first_claim.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 1: declare a study and ask for one guarantee.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+
+<span class="k">let</span> study = <span class="f">two_arm_binomial</span>(n_control=50, n_treatment=50)
+<span class="k">let</span> design = <span class="f">fixed</span>(model=study)
+<span class="k">let</span> null = <span class="f">equal_proportions</span>(model=study)
+<span class="k">let</span> analysis = <span class="f">fisher</span>(design=design, null=null, alpha=1/20)
+
+<span class="k">let</span> claim = <span class="f">typeI</span>(analysis)
+<span class="k">let</span> verification = <span class="f">verify</span>(claim)</code></pre></div></figure>
+<h3>Reading the file</h3>
+<dl class="lines">
+  <dt><code>use ...</code></dt>
+  <dd>Loads a module of vocabulary. <code>models.two_arm_binomial</code> gives us the study
+  model, <code>sampling</code> the design, and <code>tests.fisher</code> the test.</dd>
+  <dt><code>let name = ...</code></dt>
+  <dd>Names an object. Names cannot be reassigned. Arguments are always written
+  <code>name=value</code>.</dd>
+  <dt><code>study</code></dt>
+  <dd>Two groups of 50 participants, each with a yes/no outcome.</dd>
+  <dt><code>design</code></dt>
+  <dd><code>fixed</code> means the sample sizes are set before any data are seen.</dd>
+  <dt><code>null</code></dt>
+  <dd>The hypothesis being tested: both groups have the same success rate. Declaring a
+  null does not say it is true.</dd>
+  <dt><code>analysis</code></dt>
+  <dd>Fisher's exact test at level <code>1/20</code>. Numbers are exact, so write
+  <code>1/20</code> or <code>0.05</code>; both mean the same fraction.</dd>
+  <dt><code>claim</code></dt>
+  <dd><code>typeI(analysis)</code> is the statement "if the null is true, this test rejects
+  it with probability at most 1/20".</dd>
+  <dt><code>verification</code></dt>
+  <dd><code>verify</code> asks the Lean proof checker to establish the claim.</dd>
+</dl>
+<h3>Run it</h3>
+<p>There are two commands. <code>compile</code> checks the file and lists what would be
+verified. It is instant and proves nothing. <code>check</code> runs the verification.</p>
+<div class="scroll shell"><pre><code>statproof compile examples/tutorial/01_first_claim.stat
+statproof check   examples/tutorial/01_first_claim.stat</code></pre></div>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [verification]: typeI(analysis)
+  The specified two-sided Fisher analysis has Type I error at most 1/20
+  under the null, for every common success probability in [0, 1].
+  Assumptions:
+    The samples follow two independent binomial distributions.
+    Positive arm sizes were fixed before outcomes were observed.
+    The error bound is under the null of equal success probabilities.
+  Certificate: .statproof/programs/.../request-001
+Program status: verified</code></pre></div>
+<p><span class="pill ok">verified</span> means Lean checked a proof of the claim. The assumptions listed
+under it are part of the result: the claim holds <em>if</em> they do. StatProof cannot
+check that your real study was randomised properly or that participants are independent.</p>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>A file declares a study, a null, an analysis and a claim.</li><li><code>compile</code> inspects; <code>check</code> verifies.</li><li>A verified claim always comes with its assumptions.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Change <code>alpha</code> to <code>1/100</code> and run <code>check</code> again. The bound in the output follows your declaration.</p></div>
+  </div>
+</section>
+<section class="lesson" id="results">
+  <p class="eyebrow">Lesson 2</p>
+  <h2>Reading a result</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>A verification is an object like any other. We pull out its status, its evidence and its assumptions by name, and we start writing shorter files.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/02_reading_results.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 2: name the parts of a result.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+
+<span class="k">let</span> study = <span class="f">two_arm_binomial</span>(n_control=50, n_treatment=50)
+<span class="k">let</span> analysis = <span class="f">fisher</span>(design=<span class="f">fixed</span>(model=study), null=<span class="f">equal_proportions</span>(model=study), alpha=1/20)
+<span class="k">let</span> verification = <span class="f">verify</span>(<span class="f">typeI</span>(analysis))
+
+<span class="k">let</span> status = verification.status
+<span class="k">let</span> evidence = verification.evidence
+<span class="k">let</span> assumptions = verification.evidence.required_assumptions
+<span class="k">let</span> level = analysis.alpha</code></pre></div></figure>
+<p>Two things changed. First, constructors are nested: <code>fixed(model=study)</code> is
+written inside <code>fisher(...)</code> instead of being named. Use whichever reads
+better. Second, the last four lines read <strong>fields</strong> with a dot.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Field</th><th>Value after <code>check</code></th></tr></thead>
+  <tbody>
+    <tr><td><code>verification.status</code></td><td><code>verified</code></td></tr>
+    <tr><td><code>verification.evidence</code></td><td>The checked claim and its certificate</td></tr>
+    <tr><td><code>verification.evidence.required_assumptions</code></td><td>The three assumptions from lesson 1</td></tr>
+    <tr><td><code>analysis.alpha</code></td><td><code>1/20</code></td></tr>
+  </tbody>
+</table></div>
+<p>To see the values, ask for the full report:</p>
+<div class="scroll shell"><pre><code>statproof check examples/tutorial/02_reading_results.stat --json</code></pre></div>
+<h3>Evidence can be absent</h3>
+<p><code>evidence</code> exists only after a successful verification. If verification
+fails or was never run, <code>evidence</code> is empty, and so is every field read from
+it. A file that merely compiles never has evidence.</p>
+<div class="note"><strong>Certificates.</strong> Each verified claim leaves a folder with
+the exact inputs, the Lean proof and a log. Anyone can replay it with
+<code>statproof check-certificate &lt;folder&gt;</code>.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Objects have named fields, read with a dot.</li><li><code>status</code> says what happened; <code>evidence</code> exists only on success.</li><li>Certificates can be replayed.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Run <code>compile --json</code> on the same file. The fields are listed as <code>not_executed</code>: nothing has been proved yet.</p></div>
+  </div>
+</section>
+<section class="lesson" id="refusals">
+  <p class="eyebrow">Lesson 3</p>
+  <h2>When StatProof says no</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>We make two common mistakes on purpose and read the explanations. Knowing the two kinds of refusal is most of what you need to work with the tool.</p></div>
+
+<h3>Mistake 1: a question the test does not answer</h3>
+<p>Suppose the real question is whether the treatment improves the success rate by more
+than ten percentage points. We declare that null and keep the Fisher test.</p>
+<figure class="code"><figcaption>examples/tutorial/03_wrong_null.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 3a: a null the Fisher analysis does not support.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+
+<span class="k">let</span> study = <span class="f">two_arm_binomial</span>(n_control=50, n_treatment=50)
+<span class="k">let</span> design = <span class="f">fixed</span>(model=study)
+<span class="k">let</span> null = <span class="f">proportion_difference</span>(model=study, value=1/10)
+<span class="k">let</span> analysis = <span class="f">fisher</span>(design=design, null=null, alpha=1/20)</code></pre></div></figure>
+<div class="scroll output"><pre><code>03_wrong_null.stat:9:43: <span class="bad">error [hypothesis_mismatch]</span>: fisher: hypothesis contract mismatch.
+Declared null: p_treatment - p_control = 1/10.
+Supported null: p_treatment = p_control (equal arm success probabilities).
+... replacing the null changes the statistical question.
+Program status: invalid</code></pre></div>
+<p><span class="pill bad">invalid</span> means the file itself is wrong and nothing can be verified.
+Fisher's test, as supported here, answers one question: are the two rates equal? The
+message does not tell you to switch to that null. Doing so would make the error go away
+by changing your question.</p>
+<h3>Mistake 2: stopping when the result looks good</h3>
+<p>Now the null is fine, but the design is <code>adaptive</code>: the sample size depends
+on the data, for example by checking results as they come in.</p>
+<figure class="code"><figcaption>examples/tutorial/03_optional_stopping.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 3b: a design whose stopping depends on the data.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+
+<span class="k">let</span> study = <span class="f">two_arm_binomial</span>(n_control=50, n_treatment=50)
+<span class="k">let</span> design = <span class="f">adaptive</span>(model=study)
+<span class="k">let</span> null = <span class="f">equal_proportions</span>(model=study)
+<span class="k">let</span> analysis = <span class="f">fisher</span>(design=design, null=null, alpha=1/20)
+<span class="k">let</span> verification = <span class="f">verify</span>(<span class="f">typeI</span>(analysis))</code></pre></div></figure>
+<div class="scroll output"><pre><code>03_optional_stopping.stat:7:1: <span class="warn">obligation [sampling_scope]</span>: analysis: data-dependent
+stopping needs a justified sampling law before the fixed-sample guarantee can be used.
+This is not evidence of inflated error.
+<span class="warn">unresolved_obligation</span> [verification]: typeI(analysis)
+Program status: unresolved_obligation</code></pre></div>
+<p><span class="pill warn">unresolved</span> is different from invalid. The file is well formed, but
+the 5% guarantee was proved for a fixed sample size and nothing here shows it survives
+early stopping. StatProof does not claim the error rate is inflated. It says the
+justification is missing. Lesson 8 shows how to plan an early stop properly.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pill ok">verified</span></td><td>Lean checked the claim under the listed assumptions.</td></tr>
+    <tr><td><span class="pill calc">calculated</span></td><td>A number was computed. No proof (lesson 4).</td></tr>
+    <tr><td><span class="pill warn">unresolved</span></td><td>Something needed for the claim is missing. Not a disproof.</td></tr>
+    <tr><td><span class="pill bad">invalid</span></td><td>The declarations do not fit together.</td></tr>
+  </tbody>
+</table></div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Each analysis supports specific nulls and designs, and says which.</li><li><em>Invalid</em> is a mistake in the file; <em>unresolved</em> is a missing justification.</li><li>Neither says anything about whether your hypothesis is true.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>In the second file, change <code>adaptive</code> back to <code>fixed</code> and confirm the claim verifies.</p></div>
+  </div>
+</section>
+<section class="lesson" id="data">
+  <p class="eyebrow">Lesson 4</p>
+  <h2>Analysing the data</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>The study has finished. We enter the counts, compute the exact p-value, and have Lean confirm the number and the decision.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/04_observed_data.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 4: analyse the data.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+
+<span class="k">let</span> study = <span class="f">two_arm_binomial</span>(n_control=50, n_treatment=50)
+<span class="k">let</span> analysis = <span class="f">fisher</span>(design=<span class="f">fixed</span>(model=study), null=<span class="f">equal_proportions</span>(model=study), alpha=1/20)
+
+<span class="c"># 12 of 50 controls and 24 of 50 treated participants responded.</span>
+<span class="k">let</span> data = <span class="f">observe</span>(analysis=analysis, control_successes=12, treatment_successes=24)
+<span class="k">let</span> calculation = <span class="f">calculate</span>(<span class="f">result</span>(data))
+<span class="k">let</span> p_value = calculation.calculation.p_value
+<span class="k">let</span> decision = calculation.decision
+<span class="k">let</span> verification = <span class="f">verify</span>(<span class="f">result</span>(data))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>observe</code></dt>
+  <dd>Attaches counts to an analysis. Counts outside the declared sample sizes are
+  rejected when the file is compiled.</dd>
+  <dt><code>result(data)</code></dt>
+  <dd>The claim "this is the exact p-value and decision for these counts".</dd>
+  <dt><code>calculate</code></dt>
+  <dd>Computes the answer in exact arithmetic. Fast, and not a proof.</dd>
+  <dt><code>verify</code></dt>
+  <dd>Has Lean recompute the p-value from its own definition and compare.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [calculation]: result(data)
+  p-value = 1255807221238/58971773773923; decision = reject_null; no formal certificate issued.
+<span class="ok">verified</span> [verification]: result(data)
+  Exact p-value equals the Lean Fisher definition for these counts.
+  Reported decision equals membership in the formal rejection event.
+  The specified fixed-sample rule has Type I error at most 1/20 under the null model.
+  Assumptions:
+    ...
+    The supplied counts describe the declared sampling procedure.</code></pre></div>
+<p>The p-value is an exact fraction, about 0.021. Results keep fractions; decimals are for
+display. Note the new assumption: Lean can check the arithmetic, but only you know whether
+these are the counts your study produced.</p>
+<div class="note"><strong>Calculate or verify?</strong> Use <code>calculate</code> while
+exploring. Use <code>verify</code> for anything you will report. The same split applies
+to every claim in the rest of this tutorial.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>observe</code> attaches data; <code>result</code> is a claim about it.</li><li><code>calculate</code> gives numbers, <code>verify</code> gives checked numbers.</li><li>Verifying a result adds the assumption that the counts are the real ones.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Change the treatment count to 18. The decision becomes <code>do_not_reject_null</code>, and it still verifies: a checked result is not the same as a significant one.</p></div>
+  </div>
+</section>
+<section class="lesson" id="endpoints">
+  <p class="eyebrow">Lesson 5</p>
+  <h2>Several endpoints</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>The study measures three outcomes. We split the 5% error budget between them so that the chance of any false positive stays at most 5%.</p></div>
+
+<p>Testing each of three outcomes at 5% does not give a 5% study-wide error rate. The
+Bonferroni method gives each test a share of the budget.</p>
+<figure class="code"><figcaption>examples/tutorial/05_several_endpoints.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 5: three endpoints, one overall error rate.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> multiplicity.bonferroni
+
+<span class="k">let</span> study = <span class="f">two_arm_binomial</span>(n_control=50, n_treatment=50)
+<span class="k">let</span> design = <span class="f">fixed</span>(model=study)
+<span class="k">let</span> null = <span class="f">equal_proportions</span>(model=study)
+
+<span class="k">let</span> response = <span class="f">fisher</span>(design=design, null=null, alpha=1/40)
+<span class="k">let</span> remission = <span class="f">fisher</span>(design=design, null=null, alpha=1/80)
+<span class="k">let</span> relapse = <span class="f">fisher</span>(design=design, null=null, alpha=1/80)
+
+<span class="k">let</span> endpoints = <span class="f">bonferroni</span>(
+    analyses=[response, remission, relapse],
+    alpha=1/20,
+    joint_law=<span class="s">&quot;binomial_marginals&quot;</span>,
+)
+<span class="k">let</span> verification = <span class="f">verify</span>(<span class="f">familywise</span>(endpoints))</code></pre></div></figure>
+<dl class="lines">
+  <dt>Three analyses</dt>
+  <dd>Each endpoint is a Fisher analysis with its own level. The primary endpoint gets
+  half the budget; the shares add up to exactly <code>1/20</code>.</dd>
+  <dt><code>bonferroni</code></dt>
+  <dd>Groups the analyses into a family with an overall level. The list is written in
+  square brackets.</dd>
+  <dt><code>joint_law</code></dt>
+  <dd>States what is assumed about how the outcomes relate. <code>"binomial_marginals"</code>
+  assumes only that each outcome follows its own two-group model. The outcomes may be
+  correlated in any way.</dd>
+  <dt><code>familywise</code></dt>
+  <dd>The claim: the probability of rejecting <em>any</em> true null is at most the
+  overall level.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [verification]: familywise(endpoints)
+  Strong familywise error is at most 1/20 under the declared marginal-law contracts,
+  for every configuration of true and false endpoint nulls.
+  The sum of the allocated endpoint levels does not exceed the familywise bound.</code></pre></div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>A family groups analyses under one overall error level.</li><li>The shares must add up to no more than that level.</li><li>The guarantee holds however the endpoints are correlated.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Set all three levels to <code>1/20</code>. You get an <code>allocation</code> obligation: the shares now add up to 3/20.</p></div>
+  </div>
+</section>
+<section class="lesson" id="sample-size">
+  <p class="eyebrow">Lesson 6</p>
+  <h2>Choosing a sample size</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Before the study, we ask how many participants are needed to have an 80% chance of detecting the effect we expect.</p></div>
+
+<p>Power depends on what you expect to happen. Those expectations are inputs you must
+supply. Here we expect a 10% success rate under control and 40% under treatment.</p>
+<figure class="code"><figcaption>examples/tutorial/06_sample_size.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 6: how many participants?</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> planning
+
+<span class="k">let</span> study = <span class="f">two_arm_binomial</span>(n_control=25, n_treatment=25)
+<span class="k">let</span> analysis = <span class="f">fisher</span>(design=<span class="f">fixed</span>(model=study), null=<span class="f">equal_proportions</span>(model=study), alpha=1/20)
+
+<span class="c"># Planning inputs: the rates we expect, and the power we need there.</span>
+<span class="k">let</span> expected = <span class="f">binomial_rates</span>(p_control=1/10, p_treatment=2/5)
+<span class="k">let</span> target = <span class="f">power_target</span>(at=expected, minimum=4/5, maximum_typeI=1/20)
+
+<span class="c"># Is 25 per arm enough?</span>
+<span class="k">let</span> check = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=analysis, target=target))
+<span class="k">let</span> power = check.calculation.power
+
+<span class="c"># What is the smallest equal-arm size between 20 and 60 that is enough?</span>
+<span class="k">let</span> candidates = <span class="f">equal_arm_sizes</span>(analysis=analysis, min_per_arm=20, max_per_arm=60)
+<span class="k">let</span> sizing = <span class="f">smallest_sample_size</span>(candidates=candidates, target=target)
+<span class="k">let</span> recommendation = <span class="f">calculate</span>(sizing)
+<span class="k">let</span> per_arm = recommendation.calculation.n_control
+<span class="k">let</span> verification = <span class="f">verify</span>(sizing)</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>binomial_rates</code></dt>
+  <dd>The planning point: one expected rate per group. It is a guess for planning and
+  does not replace the null.</dd>
+  <dt><code>power_target</code></dt>
+  <dd>What the design must achieve: power of at least <code>4/5</code> at the planning
+  point, with a false-positive rate of at most <code>1/20</code>.</dd>
+  <dt><code>meets</code></dt>
+  <dd>The claim "this analysis meets this target".</dd>
+  <dt><code>equal_arm_sizes</code></dt>
+  <dd>A range of designs to search, here 20 to 60 per group.</dd>
+  <dt><code>smallest_sample_size</code></dt>
+  <dd>The claim "some design in the range meets the target, and no smaller one does".</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [check]: meets(analysis)
+  arm sizes = (25, 25); total = 50
+  power ~ 0.5905; power target met = false; Type I target met = true
+<span class="calc">calculated</span> [recommendation]: sample_size(candidates)
+  arm sizes = (36, 36); total = 72
+  power ~ 0.8004; power target met = true; Type I target met = true
+<span class="ok">verified</span> [verification]: sample_size(candidates)
+  Its power is at least 4/5 at p_control = 1/10, p_treatment = 2/5.
+  No equal-arm candidate with 20 up to 35 controls reaches that power, so (36, 36)
+  is the smallest sufficient candidate in the range 20 to 60.</code></pre></div>
+<p>Twenty-five per group gives only 59% power. The answer is 36 per group. Lean recomputes
+the power of that design and of every smaller one in the range.</p>
+<div class="note"><strong>What the result covers.</strong> Power is checked at your
+planning point only. If the true rates differ, the power differs. The "smallest" claim
+is about the range you declared, not about all possible designs.</div>
+<p>For unequal groups, use <code>allocated_arm_sizes</code> with
+<code>treatment_per_control=2</code> for two treated participants per control
+(<code>examples/unequal_allocation.stat</code>).</p>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Planning needs expected rates and a power target, both stated explicitly.</li><li><code>meets</code> checks one design; <code>smallest_sample_size</code> searches a range.</li><li>Verified power is power at the planning point.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Raise the required power to <code>9/10</code>. The recommendation grows; if it exceeds your range you get <code>no_feasible_candidate</code>, so widen the range.</p></div>
+  </div>
+</section>
+<section class="lesson" id="single-arm">
+  <p class="eyebrow">Lesson 7</p>
+  <h2>A single-arm study</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Everyone receives the treatment and we ask whether the response rate beats a known benchmark of 20%. We plan the study, analyse it, and report an interval.</p></div>
+
+<p>This lesson uses a new test module but the planning vocabulary from lesson 6.</p>
+<figure class="code"><figcaption>examples/tutorial/07_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 7: one arm, from planning to estimate.</span>
+<span class="k">use</span> tests.binomial
+<span class="k">use</span> planning
+
+<span class="c"># Plan: is the response rate above 20%? We hope for 40%.</span>
+<span class="k">let</span> pilot = <span class="f">one_arm_binomial</span>(n=25)
+<span class="k">let</span> test = <span class="f">binomial_test</span>(model=pilot, null_rate=1/5, alpha=1/20)
+<span class="k">let</span> target = <span class="f">power_target</span>(at=<span class="f">response_rate</span>(value=2/5), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> sizing = <span class="f">smallest_sample_size</span>(
+    candidates=<span class="f">sample_sizes</span>(analysis=test, min_n=10, max_n=60),
+    target=target,
+)
+<span class="k">let</span> plan = <span class="f">verify</span>(sizing)</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>binomial_test</code></dt>
+  <dd>A one-sided exact test. The null is "the response rate is at most
+  <code>null_rate</code>".</dd>
+  <dt><code>response_rate</code></dt>
+  <dd>The planning point for one group: we hope for 40%.</dd>
+  <dt><code>sample_sizes</code></dt>
+  <dd>The range to search, written inside the call this time.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [plan]: sample_size(&lt;expression&gt;)
+  The exact binomial test with 35 participants, rejecting at 12 or more responses,
+  rejects with probability at most 1/20 for every response rate at or below 1/5.
+  It rejects with probability at least 4/5 at the response rate 2/5.
+  No sample size from 10 up to 34 meets both bounds with this test, so 35 is the
+  smallest sufficient candidate in the range 10 to 60.</code></pre></div>
+<p>So we recruit 35 and will declare success with 12 or more responders.</p>
+<h3>After the study</h3>
+<figure class="code"><figcaption>examples/tutorial/07_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Analyse: the study ran with 35 participants and 14 responded.</span>
+<span class="k">let</span> study = <span class="f">one_arm_binomial</span>(n=35)
+<span class="k">let</span> analysis = <span class="f">binomial_test</span>(model=study, null_rate=1/5, alpha=1/20)
+<span class="k">let</span> data = <span class="f">responses</span>(analysis=analysis, count=14)
+<span class="k">let</span> result = <span class="f">verify</span>(<span class="f">binomial_result</span>(data))
+
+<span class="c"># Estimate: an exact 95% confidence interval for the response rate.</span>
+<span class="k">let</span> interval = <span class="f">confidence_interval</span>(model=study, count=14, level=19/20)
+<span class="k">let</span> estimate = <span class="f">calculate</span>(interval)
+<span class="k">let</span> lower = estimate.calculation.lower
+<span class="k">let</span> upper = estimate.calculation.upper
+<span class="k">let</span> coverage = <span class="f">verify</span>(interval)</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>responses</code>, <code>binomial_result</code></dt>
+  <dd>The one-arm counterparts of <code>observe</code> and <code>result</code> from
+  lesson 4.</dd>
+  <dt><code>confidence_interval</code></dt>
+  <dd>An exact interval for the response rate. <code>level=19/20</code> is 95%.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [result]: result(data)
+  The exact one-sided p-value for 14 responses out of 35 at the null rate 1/5 is
+  approximately 0.005258.
+  The test at level 1/20 rejects at 12 or more responses, so the decision is: reject the null.
+<span class="calc">calculated</span> [estimate]: interval(study)
+  14 responses out of 35; estimate ~ 0.4000; interval = [0.2387, 0.5789] at level 19/20
+<span class="ok">verified</span> [coverage]: interval(study)
+  For every true response rate, the exact confidence set for 35 participants contains
+  that rate with probability at least 19/20.</code></pre></div>
+<p>The report writes itself: 14 of 35 responded (40%, 95% CI 24% to 58%), p = 0.005. The
+verified interval claim is about the method: whatever the true rate, intervals built this
+way contain it at least 95% of the time.</p>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>tests.binomial</code> covers testing and estimating one proportion.</li><li>Planning, testing and estimation share the same study declaration.</li><li>A confidence interval's guarantee is about the procedure, for every true rate.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Change the count to 10. The test no longer rejects, and the interval now includes 20%. The two results agree, as they should.</p></div>
+  </div>
+</section>
+<section class="lesson" id="stopping">
+  <p class="eyebrow">Lesson 8</p>
+  <h2>Stopping early</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>We return to the problem from lesson 3 and solve it: a study with a planned interim look that stops early if the treatment is clearly not working.</p></div>
+
+<p>Early stopping is fine when the rule is part of the design and the error rates are
+worked out for the whole procedure. A two-stage design does this: treat a first group,
+stop if too few respond, otherwise continue.</p>
+<figure class="code"><figcaption>examples/tutorial/08_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 8: a design with a planned interim look.</span>
+<span class="k">use</span> designs.two_stage
+<span class="k">use</span> planning
+
+<span class="k">let</span> target = <span class="f">power_target</span>(at=<span class="f">response_rate</span>(value=2/5), minimum=4/5, maximum_typeI=1/20)
+
+<span class="c"># Propose a design: 13 participants, then 30 more if more than 3 respond.</span>
+<span class="k">let</span> stages = <span class="f">two_stage_binomial</span>(n_stage1=13, n_stage2=30)
+<span class="k">let</span> rule = <span class="f">threshold_rule</span>(continue_above=3, reject_above=12)
+<span class="k">let</span> proposed = <span class="f">two_stage_test</span>(design=stages, rule=rule, null_rate=1/5)
+<span class="k">let</span> characteristics = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=proposed, target=target))
+<span class="k">let</span> expected_size = characteristics.calculation.expected_sample_size_null
+<span class="k">let</span> verification = <span class="f">verify</span>(<span class="f">meets</span>(analysis=proposed, target=target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>two_stage_binomial</code></dt>
+  <dd>Thirteen participants first, thirty more if the study continues.</dd>
+  <dt><code>threshold_rule</code></dt>
+  <dd>Continue only with more than 3 responders in stage one. At the end, reject the
+  null with more than 12 responders in total.</dd>
+  <dt><code>two_stage_test</code></dt>
+  <dd>The complete design: stages, rule, and the benchmark rate it is tested against.</dd>
+</dl>
+<p>The target and <code>meets</code> are the ones you know. The claim is now about the
+whole procedure, interim look included.</p>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [characteristics]: meets(proposed)
+  stages = (13, 30); Type I at the null rate ~ 0.0496; expected sample size under the null ~ 20.58
+  power ~ 0.8002; power target met = true; Type I target met = true
+<span class="ok">verified</span> [verification]: meets(proposed)
+  The complete two-stage design (stages 13 and 30, continuing above 3 responses and
+  rejecting above 12 in total) rejects with probability at most 1/20 for every
+  response rate at or below 1/5.
+  It rejects with probability at least 4/5 at the response rate 2/5.</code></pre></div>
+<p>Compare with lesson 7. The fixed design needed 35 participants. This one needs up to
+43, but if the treatment does not work it stops after 13 about three times in four, for
+an average of 21.</p>
+<h3>Finding a design</h3>
+<p>You do not have to guess the numbers. Describe the search and use
+<code>sample_size</code>:</p>
+<figure class="code"><figcaption>examples/tutorial/08_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Or let StatProof find one.</span>
+<span class="k">let</span> search = <span class="f">two_stage_designs</span>(null_rate=1/5, max_total=45, criterion=<span class="s">&quot;minimax&quot;</span>)
+<span class="k">let</span> found = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=search, target=target))</code></pre></div></figure>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [found]: sample_size(search)
+  continue above 4 responses in stage one; reject above 10 in total (minimax design)
+  stages = (18, 15); expected sample size under the null ~ 22.25
+  power ~ 0.8011; power target met = true; Type I target met = true</code></pre></div>
+<p><code>"minimax"</code> finds the design with the smallest maximum size (33 here).
+<code>"optimal"</code> finds the one with the smallest average size when the treatment
+does not work, which is the design we proposed by hand. Verifying a search certifies the
+selected design. That it is the best one is a calculation, and the output says so.</p>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>An early stop is safe when it is declared as part of the design.</li><li>The same target and <code>meets</code> claim apply to the whole procedure.</li><li>A search finds a design; verification checks the one it found.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Replace <code>calculate</code> with <code>verify</code> on the last line, then switch the criterion to <code>"optimal"</code>.</p></div>
+  </div>
+</section>
+<section class="lesson" id="bayesian">
+  <p class="eyebrow">Lesson 9</p>
+  <h2>A Bayesian stopping rule</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Many teams prefer to decide with posterior probabilities. We write such a rule and then check its false-positive rate and power, which the rule alone does not give us.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/09_bayesian_rule.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 9: decide with posterior probabilities, then check error rates.</span>
+<span class="k">use</span> designs.two_stage
+<span class="k">use</span> planning
+
+<span class="k">let</span> stages = <span class="f">two_stage_binomial</span>(n_stage1=10, n_stage2=20)
+<span class="k">let</span> prior = <span class="f">beta_prior</span>(a=1, b=1)
+<span class="k">let</span> rule = <span class="f">posterior_rule</span>(
+    prior=prior,
+    reference=1/5,
+    continue_at_least=1/2,
+    success_at_least=19/20,
+)
+<span class="k">let</span> analysis = <span class="f">two_stage_test</span>(design=stages, rule=rule, null_rate=1/5)
+
+<span class="k">let</span> target = <span class="f">power_target</span>(at=<span class="f">response_rate</span>(value=2/5), minimum=4/5, maximum_typeI=1/10)
+<span class="k">let</span> characteristics = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=analysis, target=target))
+<span class="k">let</span> verification = <span class="f">verify</span>(<span class="f">meets</span>(analysis=analysis, target=target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>beta_prior</code></dt>
+  <dd>The prior belief about the response rate. <code>a=1, b=1</code> is uniform.
+  Parameters are positive whole numbers.</dd>
+  <dt><code>posterior_rule</code></dt>
+  <dd>Decisions are based on the posterior probability that the response rate exceeds
+  <code>reference</code>. Continue after stage one if it is at least 1/2. Declare
+  success at the end if it is at least 19/20.</dd>
+</dl>
+<p>Only the rule changed. The stages, the test and the target are declared as in
+lesson 8.</p>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [characteristics]: meets(analysis)
+  stages = (10, 20); Type I at the null rate ~ 0.0581; expected sample size under the null ~ 22.48
+  power ~ 0.8059; power target met = true; Type I target met = true
+<span class="ok">verified</span> [verification]: meets(analysis)
+  The complete two-stage design (stages 10 and 20, with its posterior interim and
+  final rules) rejects with probability at most 1/10 for every response rate at or below 1/5.</code></pre></div>
+<p>Look at the false-positive rate: 5.8%. Requiring 95% posterior probability does
+<em>not</em> make it 5%. A posterior threshold and a false-positive rate are different
+quantities, and this is why we asked for <code>maximum_typeI=1/10</code>. If you need
+5%, raise <code>success_at_least</code> and check again.</p>
+<div class="note"><strong>One stated limit.</strong> The posterior probability is
+computed with a standard closed formula. That the formula equals the Beta posterior is
+not proved in Lean, and the certificate lists this under its assumptions.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Bayesian decision rules fit the same design and target vocabulary.</li><li>A posterior threshold does not set the false-positive rate; check it.</li><li>Certificates say what was assumed as well as what was proved.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Set <code>maximum_typeI=1/20</code> and verify: you get <code>typeI_target_not_met</code>. Then raise <code>success_at_least</code> to <code>39/40</code> and see what happens to the power.</p></div>
+  </div>
+</section>
+<section class="lesson" id="reference">
+  <p class="eyebrow">Reference</p>
+  <h2>What to reach for</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>You want to</th><th>Modules</th><th>Claim</th><th>Lesson</th></tr></thead>
+    <tbody>
+      <tr><td>Compare two proportions</td><td><code>models.two_arm_binomial</code>, <code>sampling</code>, <code>tests.fisher</code></td><td><code>typeI</code>, <code>result</code></td><td>1, 4</td></tr>
+      <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5</td></tr>
+      <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>6</td></tr>
+      <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>7</td></tr>
+      <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>8, 9</td></tr>
+    </tbody>
+  </table></div>
+  <p>Every claim goes through <code>calculate</code> for numbers or <code>verify</code> for
+  checked evidence. <code>statproof catalogue</code> lists every constructor and field.</p>
+  <h3>Habits worth keeping</h3>
+  <ul>
+    <li>Write the file before the data arrive. The assumptions all say "fixed before
+    outcomes were observed".</li>
+    <li>Read the assumptions under every verified claim. They are yours to defend.</li>
+    <li>Treat <em>unresolved</em> as a to-do, not a verdict.</li>
+    <li>Report verified numbers; explore with calculated ones.</li>
+  </ul>
+</section>
+<footer>StatProof is a developer preview. See <code>docs/scope.md</code> for what is and
+is not checked, and <code>docs/planning.md</code> for more on planning.</footer>
+</main>
+</body>
+</html>

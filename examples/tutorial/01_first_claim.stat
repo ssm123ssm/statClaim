@@ -1,0 +1,12 @@
+# Lesson 1: declare a study and ask for one guarantee.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=50, n_treatment=50)
+let design = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(design=design, null=null, alpha=1/20)
+
+let claim = typeI(analysis)
+let verification = verify(claim)

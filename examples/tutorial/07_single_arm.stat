@@ -1,0 +1,26 @@
+# Lesson 7: one arm, from planning to estimate.
+use tests.binomial
+use planning
+
+# Plan: is the response rate above 20%? We hope for 40%.
+let pilot = one_arm_binomial(n=25)
+let test = binomial_test(model=pilot, null_rate=1/5, alpha=1/20)
+let target = power_target(at=response_rate(value=2/5), minimum=4/5, maximum_typeI=1/20)
+let sizing = smallest_sample_size(
+    candidates=sample_sizes(analysis=test, min_n=10, max_n=60),
+    target=target,
+)
+let plan = verify(sizing)
+
+# Analyse: the study ran with 35 participants and 14 responded.
+let study = one_arm_binomial(n=35)
+let analysis = binomial_test(model=study, null_rate=1/5, alpha=1/20)
+let data = responses(analysis=analysis, count=14)
+let result = verify(binomial_result(data))
+
+# Estimate: an exact 95% confidence interval for the response rate.
+let interval = confidence_interval(model=study, count=14, level=19/20)
+let estimate = calculate(interval)
+let lower = estimate.calculation.lower
+let upper = estimate.calculation.upper
+let coverage = verify(interval)
