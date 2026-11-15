@@ -28,22 +28,28 @@ let study = two_arm_binomial(n_control=100, n_treatment=100)
 let plan = fixed(model=study)
 let null = equal_proportions(model=study)
 let analysis = fisher(design=plan, null=null, alpha=1/20)
-verify typeI(analysis)
+let claim = typeI(analysis)
+let verification = verify(claim)
 ```
 
 After setup, run:
 
 ```sh
-uv run --locked statproof check examples/fisher.stat --elaborate-only
+uv run --locked statproof compile examples/first_class.stat
+uv run --locked statproof check examples/first_class.stat
 uv run --locked statproof check examples/fisher.stat
 uv run --locked statproof check examples/two_outcomes.stat
 uv run --locked statproof modules
 ```
 
-The first command checks structure and displays the intended claim without
-invoking Lean. The next two issue ordinary replayable certificates for Fisher
-and Bonferroni. Invalid declarations and unmet requirements have source locations.
-Each execution retains its source, typed objects, and per-request results.
+The first command compiles a typed execution plan, checks known requirements,
+and displays the intended claims without calculations, Lean, or artifact writes.
+The other `check` commands explicitly execute calculations and verification,
+issuing replayable certificates for supported claims. `check --elaborate-only`
+remains an alternative spelling of the fast path. Invalid declarations and unmet
+requirements have source locations. Each execution retains its source, typed
+objects, named result values, and per-request results. Claims and results can be
+aliased or collected in lists; reusing a result does not rerun its operation.
 See the [file-language guide](docs/stat-language.md) for grammar, optional
 observations, report scope, replay, and the comparison with Lean.
 

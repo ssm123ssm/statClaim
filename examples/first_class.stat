@@ -1,0 +1,21 @@
+# Claims and execution results are ordinary immutable values.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+
+let study = two_arm_binomial(n_control=100, n_treatment=100)
+let plan = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(design=plan, null=null, alpha=0.05)
+
+let validity = typeI(analysis)
+let design_verification = verify(validity)
+
+let data = observe(analysis=analysis, control_successes=10, treatment_successes=25)
+let observed_result = result(data)
+let computation = calculate(observed_result)
+let result_verification = verify(claim=observed_result)
+
+# These reuse the existing values; they do not execute the operations again.
+let saved_verification = result_verification
+let results = [design_verification, computation, saved_verification]

@@ -1,8 +1,9 @@
 # The statistical file-language prototype
 
-Version `0.1.0` provides a small declaration grammar over the existing statistical
-objects and Lean backend. Keep using the Lean interface alongside it: both routes
-are supported while we compare their usability and extension requirements.
+Language version `0.2.0` provides a small declaration grammar over the existing
+statistical objects and Lean backend. Claims, verification results, and calculation
+results are first-class values. The statistical language is the researcher-facing
+interface; the Lean and TOML interfaces remain supported.
 
 ## First file
 
@@ -18,25 +19,27 @@ let plan = fixed(model=study)
 let null = equal_proportions(model=study)
 let analysis = fisher(design=plan, null=null, alpha=1/20)
 
-verify typeI(analysis)
+let claim = typeI(analysis)
+let verification = verify(claim)
 ```
 
 After the usual project setup, run from the project directory:
 
 ```sh
-# Fast inspection of types, requested claims, and known contract obligations:
-uv run --locked statproof check examples/fisher.stat --elaborate-only
+# Compile a plan and inspect types, requested claims, and known requirements:
+uv run --locked statproof compile examples/first_class.stat
 
 # Run the actual Lean verification and issue a certificate:
-uv run --locked statproof check examples/fisher.stat
+uv run --locked statproof check examples/first_class.stat
 
 # Discover the available constructors:
 uv run --locked statproof modules
 ```
 
-`--elaborate-only` performs no numerical calculations, builds, or certificate
-writes. A successful elaboration is not a proof. Ordinary `check` executes the
-requests after the entire file has parsed and type-checked successfully.
+`compile` performs no numerical calculations, builds, or artifact writes.
+`check --elaborate-only` uses the same fast path. A successful compilation is not
+a proof. Ordinary `check` explicitly executes the operations after the entire
+file has parsed and type-checked and its known requirements have been inspected.
 
 The output states the precise properties established, assumptions, and certificate
 directory. `typeI(analysis)` requests the bound at the analysis's declared alpha,
@@ -45,22 +48,25 @@ true in the study. Alpha and sample sizes are exact inputs; observations are opt
 
 ## Grammar
 
-The grammar has four statement forms:
+The grammar has imports, immutable declarations, and operation calls:
 
 ```text
 use module.name
 let name = expression
-verify claim_expression
-calculate claim_expression
+verify(claim_expression)
+calculate(claim_expression)
 ```
 
 Expressions are references, calls, lists, integers, exact decimals or rational
 numbers, and double-quoted strings. Calls accept positional arguments followed
 by named arguments. For example, `two_arm_binomial(100, 100)` is equivalent to
 the named call above. Calls and lists can span lines and have trailing commas.
+The original `verify claim_expression` and `calculate claim_expression` spellings
+remain supported as sugar for the corresponding calls.
 Comments start with `#`. Statements are separated by newlines; there are no
 semicolons, assignments after declaration, loops, arbitrary arithmetic, Python
-evaluation, or raw Lean escapes.
+evaluation, or raw Lean escapes. Only verification and calculation calls may be
+used as unnamed statements; other objects are introduced with `let`.
 
 ```text
 let threshold = 0.025       # exactly 1/40, not a binary floating-point value
@@ -93,6 +99,99 @@ The supported binomial model descriptions are matched structurally by their size
 Reusing a model or plan reuses its distributional specification. It does not prove
 that real observations follow it or introduce independence between outcomes.
 General equivalence of arbitrary future models is outside this prototype.
+
+## First-class claims and execution results
+
+The built-in operations are available without an additional import:
+
+```text
+verify(claim) -> VerificationResult
+calculate(claim) -> CalculationResult
+```
+
+Both accept positional or named `claim` arguments. Verification accepts the
+supported Type I, familywise, and observed-result claims. Calculation accepts
+only an observed-result claim.
+
+```text
+let validity = typeI(analysis)
+let checked = verify(validity)
+let saved = checked
+let checks = [checked, saved]
+```
+
+`validity` describes a proposition; it does not establish that proposition.
+`checked` holds the result of an explicit execution. During compilation it has a
+known type and an execution slot, but no result has been produced. Fast reports
+represent it as `not_executed`, with no evidence.
+
+Aliases and lists preserve the identity of execution results. The example above
+executes one verification, not three. Two separate calls to `verify(validity)`
+create two operations; there is no persistent proof cache. Calls inside lists
+also work, and operations execute in source order, left to right within a list.
+
+An executed verification result has one of these statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `verified` | Lean checked the claim; the result contains an `Evidence` object with certificate references, established properties, and required assumptions |
+| `unresolved_obligation` | A known statistical requirement prevents the supported proof route; no evidence is supplied |
+| `backend_error` | The verification backend could not complete the proof or certificate operation; no evidence is supplied |
+
+Neither unresolved requirements nor backend errors disprove a claim. A successful
+result establishes the listed claim under the listed assumptions, rather than
+establishing that real data obey the model. A verification result cannot be passed
+where a claim or an analysis is expected.
+
+Calculation results carry the exact numerical calculation and, when supported,
+the decision. Their status is `calculated` or `unresolved_obligation`; they contain
+no formal evidence. All result values are immutable and identify the source hash
+for their execution. Reports expose their fields through `--json`; field access
+in `.stat` expressions, user-defined functions, functions as values, and operations
+that consume checked evidence are future language features. The built-in names
+`verify` and `calculate` cannot be used as binding names.
+
+## Compilation and explicit execution
+
+The source compiles to a typed statistical execution plan, not Python source or
+machine code:
+
+```text
+.stat source -> parser -> typed objects and planned operations
+                                   |
+                         known requirement checks
+                                   |
+                          explicit check command
+                             /             \
+                   Python calculation    generated Lean proof
+                             |             |
+                     CalculationResult   Lean checks -> VerificationResult
+```
+
+The Python runtime orchestrates execution. Verification adapters instantiate
+existing formal definitions and theorems in generated `Proof.lean` files. Lean
+checks those proofs; Python retains their certificates and binds results to their
+source snapshot. We do not translate arbitrary statistical source into arbitrary
+Python or promise automatic discovery of mathematical proofs.
+
+`statproof.language_compiler.compile_source(Source(...))` is the backend-free API
+for tooling. It returns the typed program, diagnostics, and per-operation known
+requirements. These include invalid types and domains, incompatible models,
+overallocated Bonferroni levels, and unjustified adaptive stopping. It can report
+multiple unmet requirements for one operation, with source locations preserved
+through aliases. The compiler never calls numerical evaluators, Lean, or artifact
+writers. A clean plan reports `elaborated`, meaning no known blocker was detected.
+
+`statproof compile file.stat --json` exposes this analysis on the command line.
+Planned operations report `planned` or `blocked`; their result values remain
+`not_executed`. The explicit `statproof check file.stat` command performs supported
+operations and returns named results. Independent operations continue when one
+verification has unmet requirements or a backend error. Any syntax or type error
+anywhere in the file prevents all execution and artifact creation.
+
+Full formal verification still requires running Lean, even if a future build
+command chooses to do that work during compilation. Ordinary editor analysis
+should call the fast compiler API without executing the plan.
 
 ## Compose outcomes
 
@@ -130,13 +229,14 @@ issuing the requested certificate. Neither is a proof of excessive actual error.
 
 ```text
 let data = observe(analysis=analysis, control_successes=10, treatment_successes=25)
-calculate result(data)
-verify result(data)
+let observed_claim = result(data)
+let computation = calculate(observed_claim)
+let checked = verify(observed_claim)
 ```
 
 Run `examples/fisher_result.stat` for the complete example. `observe` checks the
 count domains. `calculate` proposes the exact value and decision through Python;
-it creates no formal evidence. `verify result(data)` independently checks that
+it creates no formal evidence. `verify(observed_claim)` independently checks that
 result and the scoped error guarantee through the existing Lean certificate
 pipeline. A numerical result and a Type I guarantee remain different claim kinds.
 
@@ -154,10 +254,16 @@ under `.statproof/programs/`. A run retains:
 - `run.json`: the source hash, normalized typed objects, source locations,
   dependencies, per-request statuses, diagnostics, and certificate references.
 - `request-NNN/`: ordinary certificate bundles for successful verification
-  requests, using their statement positions. Calculation-only or unresolved
+  requests, numbered in execution order. Calculation-only or unresolved
   requests have no certificate bundle.
 
 `run.json` is a provenance/reporting record, not a mathematical certificate.
+Its `program` records static objects and typed execution slots. Its `values` map
+contains named values with resolved results, and each request also exposes its
+result as `value`. Backend reports remain in each request's `report`. This keeps
+the aggregate/per-request status interface compatible: a backend error still
+produces aggregate `unresolved_obligation` and exit code 1, while its named
+`VerificationResult` has the more specific `backend_error` status.
 `check-certificate` replays a request directory, not the parent run directory.
 The certificate binds canonical mathematical inputs and generated Lean statements;
 it does not certify the spelling of the original `.stat` source. The parser,
@@ -170,6 +276,8 @@ the lowered request and requires new evidence. Existing certificates continue to
 describe their old inputs; they are not automatically attached to edited code.
 If the original source is edited/deleted, or its retained snapshot changes during
 execution, the aggregate status is `stale_source`; rerun the current file.
+Immutable result values continue to describe their recorded `source_sha256`;
+their evidence must not be presented as verification of the newly edited file.
 
 Independent requests have separate results. A run can retain a successfully
 verified claim while another remains unresolved; the aggregate exit code is then
@@ -189,9 +297,12 @@ With no requests, the status is only `elaborated`, and no artifacts are written.
 ## Implementation and parallel comparison
 
 `language_syntax.py` handles the common grammar and source spans. `language.py`
-defines typed objects, constructor schemas, module builders, and elaboration.
-`language_runner.py` lowers supported claim kinds into the existing design,
-family, and result operations. Module constructors extend the registry without
+defines typed objects, constructor schemas, module builders, elaboration, and
+planned operation slots. `language_compiler.py` exposes backend-free compilation
+and known requirement diagnostics. `language_values.py` defines immutable runtime
+results and evidence. `language_runner.py` lowers supported claim kinds into the
+existing design, family, and result operations and resolves named execution values.
+Module constructors extend the registry without
 changing the parser; a new statistical claim additionally needs an explicit
 verification adapter and its Lean proof. Similar-looking objects alone do not
 authorize reuse of a theorem. This is a built-in module registry, not a runtime
@@ -203,6 +314,6 @@ The Lean examples remain the reference for direct proof construction and manual
 proofs. The standalone route currently offers simpler declarations and domain
 diagnostics, while relying on a trusted translation layer.
 
-This milestone implements file execution. Interactive sessions, completion,
-an LSP, and a decision about the primary interface remain future work. The module
-schemas and source-aware elaborator provide concrete inputs for those experiments.
+File execution, first-class claims/results, and the fast compiler are implemented.
+Interactive sessions, completion, and an LSP remain future work. The module
+schemas and source-aware compiler provide concrete inputs for those experiments.

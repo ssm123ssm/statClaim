@@ -97,9 +97,16 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument(
         "--elaborate-only",
         action="store_true",
-        help="Parse and type-check without calculations, Lean, or artifact writes",
+        help="Compile and inspect requirements without calculations, Lean, or artifact writes",
     )
     check.add_argument("--json", action="store_true", help="Emit the structured report")
+    compile_command = commands.add_parser(
+        "compile", help="Compile a .stat plan and inspect requirements without executing it"
+    )
+    compile_command.add_argument("source", type=Path)
+    compile_command.add_argument(
+        "--json", action="store_true", help="Emit the typed plan and report"
+    )
     modules = commands.add_parser(
         "modules", help="List file-language modules and typed constructors"
     )
@@ -119,16 +126,16 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             return 0
-        if options.command == "check":
+        if options.command in ("check", "compile"):
             source = Source(
                 options.source.read_bytes().decode("utf-8"), str(options.source.resolve())
             )
             report = check_source(
                 source,
-                project=options.project,
-                output=options.output,
-                timeout=options.timeout,
-                elaborate_only=options.elaborate_only,
+                project=getattr(options, "project", Path.cwd()),
+                output=getattr(options, "output", None),
+                timeout=getattr(options, "timeout", 120),
+                elaborate_only=options.command == "compile" or options.elaborate_only,
             )
             print(json.dumps(report, indent=2) if options.json else render_report(report, source))
             return (

@@ -31,7 +31,7 @@ pytestmark = [
 def language_runs(tmp_path_factory):
     directory = tmp_path_factory.mktemp("language")
     reports = {}
-    for name in ("fisher", "two_outcomes", "fisher_result"):
+    for name in ("fisher", "two_outcomes", "fisher_result", "first_class"):
         path = ROOT / f"examples/{name}.stat"
         report = check_source(
             Source(path.read_text(), str(path)), project=ROOT, output=directory / name
@@ -96,3 +96,65 @@ def test_editing_alpha_requires_new_evidence_and_retains_old_snapshot(language_r
     assert new_certificate["inputs"]["analysis"]["alpha"] == "1/40"
     assert original_report["source"]["sha256"] != edited["source"]["sha256"]
     assert recheck_certificate(original_bundle, project=ROOT)["status"] == "verified"
+
+
+def test_first_class_results_retain_real_evidence_and_reuse_it(language_runs):
+    report = language_runs["first_class"]
+    values = report["values"]
+    assert len(report["requests"]) == 3
+    assert values["computation"]["status"] == "calculated"
+    assert values["saved_verification"] == values["result_verification"]
+    assert values["results"] == [
+        values["design_verification"],
+        values["computation"],
+        values["result_verification"],
+    ]
+    assert all(value["source_sha256"] == report["source"]["sha256"] for value in values["results"])
+    for name, reference in (
+        ("design_verification", "fisher"),
+        ("result_verification", "fisher_result"),
+    ):
+        value = values[name]
+        assert value["status"] == "verified"
+        evidence = value["evidence"]
+        assert evidence["claim"] == value["claim"]
+        assert evidence["required_assumptions"]
+        certificate_path = Path(evidence["certificate"]["file"])
+        certificate = json.loads(certificate_path.read_text())
+        reference_path = Path(
+            language_runs[reference]["requests"][-1]["report"]["certificate"]["file"]
+        )
+        expected = json.loads(reference_path.read_text())
+        assert certificate["input_sha256"] == expected["input_sha256"]
+        assert recheck_certificate(certificate_path.parent, project=ROOT)["status"] == "verified"
+    directory = Path(report["run_directory"])
+    assert json.loads((directory / "run.json").read_text()) == report
+    assert not (directory / "request-004").exists()
+
+
+def test_first_class_family_proof_uses_the_existing_bonferroni_inputs(language_runs, tmp_path):
+    path = ROOT / "examples/two_outcomes.stat"
+    text = path.read_text().replace(
+        "verify familywise(outcomes)",
+        "let guarantee = familywise(outcomes)\nlet checked = verify(guarantee)",
+    )
+    report = check_source(Source(text), project=ROOT, output=tmp_path / "family")
+    value = report["values"]["checked"]
+    assert value["status"] == "verified"
+    actual = json.loads(Path(value["evidence"]["certificate"]["file"]).read_text())
+    expected = family_payload(load_family(ROOT / "examples/two_outcomes.toml"))
+    assert canonical_bytes(actual["inputs"]) == canonical_bytes(expected)
+    bundle = Path(value["evidence"]["certificate"]["directory"])
+    assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
+
+
+def test_recompiling_edited_source_never_reuses_first_class_evidence(language_runs):
+    previous = language_runs["first_class"]
+    path = ROOT / "examples/first_class.stat"
+    edited = path.read_text().replace("alpha=0.05", "alpha=0.025")
+    report = check_source(Source(edited), project=ROOT, elaborate_only=True)
+    value = report["values"]["result_verification"]
+    assert value["status"] == "not_executed"
+    assert value["evidence"] is None
+    assert value["source_sha256"] != previous["values"]["result_verification"]["source_sha256"]
+    assert previous["values"]["result_verification"]["evidence"] is not None

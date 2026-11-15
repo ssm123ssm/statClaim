@@ -26,6 +26,8 @@ from statproof.language_syntax import (
     parse,
 )
 
+LANGUAGE_VERSION = "0.2.0"
+
 
 @dataclass(frozen=True)
 class ModelIR:
@@ -106,6 +108,18 @@ class RequestIR:
 
 
 @dataclass(frozen=True)
+class VerificationResultIR:
+    """A typed result slot, never evidence that verification has executed."""
+
+    request_id: int
+
+
+@dataclass(frozen=True)
+class CalculationResultIR:
+    request_id: int
+
+
+@dataclass(frozen=True)
 class ProgramIR:
     modules: tuple[str, ...]
     bindings: tuple[BindingIR, ...]
@@ -113,7 +127,7 @@ class ProgramIR:
 
     def to_dict(self) -> dict:
         return {
-            "language_version": "0.1.0",
+            "language_version": LANGUAGE_VERSION,
             "modules": list(self.modules),
             "bindings": [
                 {
@@ -127,8 +141,13 @@ class ProgramIR:
                 for b in self.bindings
             ],
             "requests": [
-                {"operation": r.operation, "claim": normalize(r.claim), "source": r.span.to_dict()}
-                for r in self.requests
+                {
+                    "request_id": index,
+                    "operation": r.operation,
+                    "claim": normalize(r.claim),
+                    "source": r.span.to_dict(),
+                }
+                for index, r in enumerate(self.requests, 1)
             ],
         }
 
@@ -170,6 +189,8 @@ def normalize(value: object) -> object:
             }
         case ClaimIR(kind=kind, subject=subject, name=name):
             return {"kind": kind, "subject_name": name, "subject": normalize(subject)}
+        case VerificationResultIR(request_id=index) | CalculationResultIR(request_id=index):
+            return {"request_id": index}
         case tuple():
             return [normalize(item.value) for item in value]
         case _:
@@ -277,6 +298,33 @@ def _constructor(
     name: str, parameters: tuple[tuple[str, str | type], ...], result: str, build: Callable
 ) -> Constructor:
     return Constructor(name, tuple(Parameter(*p) for p in parameters), result, build)
+
+
+def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    claim = arguments["claim"]
+    if claim.value.kind != "result":
+        fail(
+            "type",
+            "Only result(observation) is a numerical calculation. "
+            "Use verify(claim) for design guarantees.",
+            claim.span,
+        )
+    return claim.value
+
+
+# Always available, with the same argument checking as module constructors.
+# Their builders validate claims only; evaluate records execution slots below.
+OPERATIONS = {
+    "verify": _constructor(
+        "verify",
+        (("claim", ClaimIR),),
+        "VerificationResult",
+        lambda args, span: args["claim"].value,
+    ),
+    "calculate": _constructor(
+        "calculate", (("claim", ClaimIR),), "CalculationResult", _calculation
+    ),
+}
 
 
 # Extending this registry adds vocabulary and typed builders; parsing is unchanged.
@@ -407,7 +455,7 @@ def _typed(argument: LocatedValue, kind: str | type, name: str) -> LocatedValue:
 class Elaborator:
     def __init__(self):
         self.symbols: dict[str, BindingIR] = {}
-        self.constructors: dict[str, Constructor] = {}
+        self.constructors: dict[str, Constructor] = dict(OPERATIONS)
         self.modules: list[str] = []
         self.requests: list[RequestIR] = []
         self.invalid: set[str] = set()
@@ -462,7 +510,12 @@ class Elaborator:
                         f"Missing {', '.join(missing)}. Expected {constructor.signature}.",
                         span,
                     )
-                return LocatedValue(constructor.build(fields, span), span)
+                value = constructor.build(fields, span)
+                if name in OPERATIONS:
+                    self.requests.append(RequestIR(name, value, span))
+                    result_type = VerificationResultIR if name == "verify" else CalculationResultIR
+                    value = result_type(len(self.requests))
+                return LocatedValue(value, span)
         raise AssertionError("Unrecognized syntax node")
 
     def statement(self, statement: Statement) -> None:
@@ -494,6 +547,8 @@ class Elaborator:
                 f"{statement.name!r} is already declared. Bindings are immutable.",
                 statement.span,
             )
+        if statement.kind == "let" and statement.name in OPERATIONS:
+            fail("reserved_name", f"{statement.name!r} names a built-in operation.", statement.span)
         value = self.evaluate(statement.expression).value
         if statement.kind == "let":
             fields = ()
@@ -510,22 +565,13 @@ class Elaborator:
                 tuple(references(statement.expression)),
                 fields,
             )
-        elif not isinstance(value, ClaimIR):
+        elif not isinstance(value, (VerificationResultIR, CalculationResultIR)):
             fail(
                 "type",
-                "Verification and calculation require a claim such as typeI(analysis), "
-                "familywise(family), or result(observation).",
+                "Only verify(claim) and calculate(claim) may be used as statements. "
+                "Use 'let' to name other objects.",
                 statement.expression.span,
             )
-        elif statement.kind == "calculate" and value.kind != "result":
-            fail(
-                "type",
-                "Only result(observation) is a numerical calculation. "
-                "Use 'verify' for design guarantees.",
-                statement.expression.span,
-            )
-        else:
-            self.requests.append(RequestIR(statement.kind, value, statement.span))
 
 
 def references(expression: Expression) -> list[str]:
@@ -546,13 +592,16 @@ def elaborate(source: Source) -> tuple[ProgramIR, list[Diagnostic]]:
     statements, diagnostics = parse(source)
     elaborator = Elaborator()
     for statement in statements:
+        request_count = len(elaborator.requests)
         try:
             elaborator.statement(statement)
         except LanguageError as error:
+            del elaborator.requests[request_count:]
             diagnostics.append(error.diagnostic)
             if statement.kind == "let" and statement.name not in elaborator.symbols:
                 elaborator.invalid.add(statement.name)
         except RecursionError:
+            del elaborator.requests[request_count:]
             diagnostics.append(
                 Diagnostic("depth", "Expression nesting is too deep.", statement.span)
             )

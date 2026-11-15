@@ -1,8 +1,9 @@
 # Core objects and parallel language prototypes
 
 Status: the shared Lean objects, Fisher and Bonferroni providers, and standalone
-file-language prototype are implemented. Interactive sessions, completion, and
-an LSP remain planned. See the [file-language guide](stat-language.md).
+file language with first-class claims/results and backend-free compilation are
+implemented. Interactive sessions, completion, and an LSP remain planned. See the
+[file-language guide](stat-language.md).
 This document remains the semantic design and comparison plan; the
 [Lean object guide](lean-objects.md) describes the implemented API and examples.
 
@@ -10,9 +11,9 @@ This document remains the semantic design and comparison plan; the
 
 Define the statistical objects and their meaning first. Represent them in a
 shared Lean library, and express the Fisher example through that representation.
-Develop a small standalone statistical language alongside the Lean-facing route.
-Maintain both long enough to compare their usability, extension, tooling, and
-verification challenges before choosing the primary interface.
+Use the standalone statistical language as the primary researcher interface,
+with a small, consistent constructor grammar. Preserve the Lean and TOML routes;
+direct Lean programming primarily serves module authors and advanced work.
 
 The two routes share mathematical definitions, module contracts, proof results,
 and certificate requirements. Their differences are syntax, elaboration, user
@@ -179,6 +180,10 @@ Step 3 is now implemented as the small `.stat` file language, with typed objects
 source maps, module schemas, canonical lowering, and file execution through the
 existing certificate pipeline. The Fisher acceptance cases and the Bonferroni
 composition are covered by examples and cross-interface integration tests.
-The next step is interactive guidance and completion using this same elaborator,
-while retaining the Lean route for the comparison. No primary interface has been
-selected, and no REPL or LSP has been implemented yet.
+The language now also supports named claims and first-class calculation and
+verification results, with a backend-free compiler that inspects known
+requirements. Explicit execution invokes Python calculations or generated Lean
+proofs; aliases and lists reuse existing results. The next step is interactive
+guidance and completion using this same compiler. The statistical language is
+the primary researcher interface, with Lean and TOML retained. No REPL or LSP has
+been implemented yet.

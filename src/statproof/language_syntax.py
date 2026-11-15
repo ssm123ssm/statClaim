@@ -265,25 +265,32 @@ class Parser:
         return Span(first.path, first.line, first.column, last.end_line, last.end_column)
 
     def statement(self) -> Statement:
-        start = self.take("NAME", "Expected 'use', 'let', 'verify', or 'calculate'.")
+        start = self.take("NAME", "Expected 'use', 'let', or an operation call.")
         if start.text == "use":
             module = self.take("NAME", "Expected a module name after 'use'.")
             return Statement("use", module.text, None, self.join(start.span, module.span))
-        name = None
         if start.text == "let":
             identifier = self.take("NAME", "Expected a binding name after 'let'.")
             if "." in identifier.text:
                 raise LanguageError(
                     Diagnostic("name", "Binding names cannot contain dots.", identifier.span)
                 )
-            name = identifier.text
             self.take("=", "Expected '=' after the binding name.")
-        elif start.text not in ("verify", "calculate"):
-            raise LanguageError(
-                Diagnostic("syntax", "Expected 'use', 'let', 'verify', or 'calculate'.", start.span)
-            )
+            value = self.expression()
+            return Statement("let", identifier.text, value, self.join(start.span, value.span))
+        # Preserve the original command spelling as sugar for an ordinary call.
+        if start.text in ("verify", "calculate") and self.current.kind != "(":
+            value = self.expression()
+            span = self.join(start.span, value.span)
+            call = Call(start.text, (Argument(None, value, value.span),), span)
+            return Statement("expression", None, call, span)
+        self.position -= 1
         value = self.expression()
-        return Statement(start.text, name, value, self.join(start.span, value.span))
+        if not isinstance(value, Call):
+            raise LanguageError(
+                Diagnostic("syntax", "Expected an operation call or a declaration.", value.span)
+            )
+        return Statement("expression", None, value, value.span)
 
 
 def parse(source: Source) -> tuple[list[Statement], list[Diagnostic]]:
