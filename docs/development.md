@@ -22,7 +22,8 @@ Code. The extension runs in the workspace, so Python/Lean also work in the
 browser. Plain vscode.dev without a workspace backend cannot run them.
 
 To test the container locally, install Docker and the Dev Container CLI, then
-run `devcontainer up --workspace-folder .`. CI builds the same Dockerfile and
+run `devcontainer up --workspace-folder . --skip-post-attach` for a headless
+startup, or use VS Code’s **Reopen in Container**. CI builds the same Dockerfile and
 runs bootstrap plus a real sample verification. Optional Codespaces prebuilds
 can speed startup; configure them in repository Settings → Codespaces after
 reviewing GitHub Actions/storage usage. They are not required to use the button.

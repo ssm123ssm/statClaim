@@ -54,6 +54,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --global @devcontainers/cli@0.80.3
-      - run: devcontainer up --workspace-folder .
+      - run: devcontainer up --workspace-folder . --skip-post-attach
       - run: devcontainer exec --workspace-folder . uv run --locked statproof check examples/playground.stat
       - run: devcontainer exec --workspace-folder . make catalogue-check repository-check
