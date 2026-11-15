@@ -5,8 +5,8 @@
 StatProof helps researchers make study assumptions explicit, catch incompatible
 analyses, and obtain machine-checked evidence for supported statistical claims.
 
-[![Check](https://github.com/ssm123ssm/statProof/actions/workflows/check.yml/badge.svg)](https://github.com/ssm123ssm/statProof/actions/workflows/check.yml)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ssm123ssm/statProof)
+[![Check](https://img.shields.io/github/actions/workflow/status/ssm123ssm/statProof/check.yml?branch=main&style=flat&label=Check&logo=github&logoColor=white)](https://github.com/ssm123ssm/statProof/actions/workflows/check.yml)
+[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in_GitHub_Codespaces-24292f?style=flat&logo=github&logoColor=white)](https://codespaces.new/ssm123ssm/statProof)
 
 ## Why StatProof?
 
