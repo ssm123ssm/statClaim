@@ -78,6 +78,7 @@ verification; a valid specification alone is not a proof.
 | --- | --- | --- |
 | Compare two proportions | `tests.fisher` | Type I error, exact p-value and decision |
 | Test one proportion | `tests.binomial` | Type I error, exact p-value and decision |
+| Estimate one proportion | `tests.binomial` | Coverage of the exact confidence interval |
 | Test several endpoints | `multiplicity.bonferroni` | Familywise error, 2 to 20 endpoints |
 | Choose a sample size | `planning` | Power, and the smallest size in a range |
 | Stop early for futility | `designs.two_stage` | Type I error and power of the whole design |

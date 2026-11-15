@@ -13,11 +13,12 @@
   count or Beta-posterior rules and checked Type I error and power.
 - One-sided exact binomial test for a single arm: sample-size search and
   checked p-values for observed data.
+- Exact confidence intervals for one proportion with checked coverage.
 
 ## Next
 
 1. One-sided and unequal-allocation options for the two-arm analysis.
-2. Exact confidence intervals with checked coverage.
+2. Confidence intervals for a difference of two proportions.
 3. An analysis for a nonzero difference null, with its own theorem.
 4. Assurance and precision targets for planning.
 5. More adaptive designs: several interim looks, efficacy stopping, allocation.

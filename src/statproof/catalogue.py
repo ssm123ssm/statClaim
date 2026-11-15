@@ -34,7 +34,8 @@ MODULE_CLASSES = {
         "Analyses and claims",
         "One-sided exact binomial test for a single arm. Type I error is checked for every "
         "rate at or below the null rate; power and sample size use the planning module. "
-        "Observed counts give a Lean-checked p-value and decision.",
+        "Observed counts give a Lean-checked p-value and decision, and an exact "
+        "confidence interval with checked coverage.",
     ),
     "designs.two_stage": (
         "Adaptive designs",
@@ -66,6 +67,7 @@ OBJECT_CLASSES = {
         "Core statistical objects",
         "Observed responses for a one-sample test.",
     ),
+    "Interval": ("Core statistical objects", "Observed count and confidence level."),
     "OneArmCandidates": ("Planning objects", "Sample sizes searched for a one-sample test."),
     "TwoStageModel": ("Adaptive design objects", "Stage sizes of a single-arm design."),
     "Prior": ("Adaptive design objects", "Beta prior with positive integer parameters."),
@@ -98,13 +100,17 @@ OBJECT_CLASSES = {
         "Evidence and inspection",
         "Exact one-sided p-value, critical value and decision.",
     ),
+    "IntervalDetails": (
+        "Evidence and inspection",
+        "Estimate and exact confidence interval endpoints.",
+    ),
     "PolicyDetails": (
         "Evidence and inspection",
         "Calculated error, power and expected sample size of a two-stage policy.",
     ),
     "Diagnostic": ("Evidence and inspection", "A diagnostic code, severity and message."),
 }
-CLAIM_TYPES = {"TypeIClaim", "ResultClaim", "FamilywiseClaim", "PlanningClaim"}
+CLAIM_TYPES = {"TypeIClaim", "ResultClaim", "FamilywiseClaim", "PlanningClaim", "IntervalClaim"}
 
 
 def catalogue() -> dict:

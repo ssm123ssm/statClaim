@@ -6,7 +6,9 @@ from statproof.design import Design, inspect_design
 from statproof.family import FisherFamily, inspect_family
 from statproof.fisher import FisherResult, fisher_exact
 from statproof.planning import (
+    INTERVAL_ASSUMPTIONS,
     RESULT_ASSUMPTIONS,
+    BinomialInterval,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
@@ -20,6 +22,7 @@ from statproof.verification import (
     certify_binomial_result,
     certify_design,
     certify_family,
+    certify_interval,
     certify_planning,
     certify_policy,
     certify_result,
@@ -488,4 +491,28 @@ def run_binomial_result(
         return report
     return _certified(
         report, certify_binomial_result, result, project=project, output=output, timeout=timeout
+    )
+
+
+def interval_report(interval: BinomialInterval, *, verify: bool) -> dict:
+    return planning_report(
+        "interval",
+        f"Exact confidence interval at level {interval.level} for {interval.responses} "
+        f"responses out of {interval.n}"
+        + (", with coverage for every true rate." if verify else ". Calculate only."),
+        INTERVAL_ASSUMPTIONS,
+    )
+
+
+def run_interval(
+    interval: BinomialInterval, *, verify: bool, project: Path, output, timeout: float
+) -> dict:
+    """Calculate, and optionally certify, an exact confidence interval."""
+    report = interval_report(interval, verify=verify)
+    report["calculation"] = interval.evaluate()
+    report["decision"] = "interval_reported"
+    if not verify:
+        return report
+    return _certified(
+        report, certify_interval, interval, project=project, output=output, timeout=timeout
     )

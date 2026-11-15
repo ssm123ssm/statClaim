@@ -759,6 +759,142 @@ end StatProofCertificate
 {_audit(RESULT_CHECKED_THEOREMS, input_sha256)}"""
 
 
+INTERVAL_KIND = "statproof_binomial_interval_certificate"
+INTERVAL_CHECKED_THEOREMS = ["checked_coverage", "checked_interval"]
+INTERVAL_GRID = 10_000
+
+
+@dataclass(frozen=True)
+class BinomialInterval:
+    """Exact (Clopper-Pearson) interval, with endpoints rounded outward to a grid."""
+
+    n: int
+    responses: int
+    level: Fraction
+
+    def __post_init__(self) -> None:
+        if type(self.n) is not int or not 1 <= self.n <= MAX_ONE_ARM:
+            raise ValueError(f"n must be an integer between 1 and {MAX_ONE_ARM}.")
+        if type(self.responses) is not int or not 0 <= self.responses <= self.n:
+            raise ValueError("responses must be an integer between 0 and n.")
+        if not isinstance(self.level, Fraction) or not 0 < self.level < 1:
+            raise ValueError("The confidence level must lie strictly between 0 and 1.")
+
+    @property
+    def tail_level(self) -> Fraction:
+        return (1 - self.level) / 2
+
+    def _upper_tail(self, grid: int) -> Fraction:
+        rate = Fraction(grid, INTERVAL_GRID)
+        return Fraction(sum(_weights(self.n, rate)[self.responses :]), rate.denominator**self.n)
+
+    @property
+    def lower(self) -> Fraction:
+        """Largest grid rate whose upper tail at the observed count is at most the tail level."""
+        if self.responses == 0:
+            return Fraction(0)
+        low, high = 0, INTERVAL_GRID  # the tail is 0 at rate 0 and 1 at rate 1
+        while high - low > 1:
+            middle = (low + high) // 2
+            if self._upper_tail(middle) <= self.tail_level:
+                low = middle
+            else:
+                high = middle
+        return Fraction(low, INTERVAL_GRID)
+
+    @property
+    def upper(self) -> Fraction:
+        """Smallest grid rate whose lower tail at the observed count is at most the tail level."""
+        if self.responses == self.n:
+            return Fraction(1)
+        mirrored = BinomialInterval(self.n, self.n - self.responses, self.level)
+        return 1 - mirrored.lower
+
+    def evaluate(self) -> dict:
+        return {
+            "n": self.n,
+            "responses": self.responses,
+            "level": fraction_record(self.level),
+            "estimate": fraction_record(Fraction(self.responses, self.n)),
+            "lower": fraction_record(self.lower),
+            "upper": fraction_record(self.upper),
+            "method": "clopper_pearson_outward_rounded",
+        }
+
+
+def interval_payload(interval: BinomialInterval) -> dict:
+    return {
+        "schema_version": 1,
+        "scope": "interval",
+        "design": {"module": "one_arm_binomial", "n": interval.n},
+        "level": str(interval.level),
+        "result": {
+            "responses": interval.responses,
+            "lower": str(interval.lower),
+            "upper": str(interval.upper),
+        },
+    }
+
+
+def parse_interval_payload(payload: dict) -> BinomialInterval:
+    level = Fraction(payload["level"])
+    interval = BinomialInterval(payload["design"]["n"], payload["result"]["responses"], level)
+    if payload != interval_payload(interval):
+        raise ValueError("Bound interval inputs are inconsistent.")
+    return interval
+
+
+def interval_claims(interval: BinomialInterval) -> list[str]:
+    return [
+        f"For every true response rate, the exact confidence set for {interval.n} participants "
+        f"contains that rate with probability at least {interval.level}.",
+        f"For {interval.responses} responses, that confidence set lies within "
+        f"[{float(interval.lower):.4f}, {float(interval.upper):.4f}].",
+    ]
+
+
+INTERVAL_ASSUMPTIONS = [
+    "Responses are independent with one common response rate.",
+    "The sample size and confidence level were fixed before outcomes were observed.",
+    "The supplied count describes the declared study.",
+]
+
+
+def render_interval_proof(interval: BinomialInterval, input_sha256: str) -> str:
+    n, x = interval.n, interval.responses
+    an, ad = interval.tail_level.as_integer_ratio()
+    (ln, ld), (un, ud) = interval.lower.as_integer_ratio(), interval.upper.as_integer_ratio()
+    lower = "(Or.inl rfl)" if ln == 0 else "(Or.inr (by decide +kernel))"
+    upper = "(Or.inl rfl)" if un == ud else "(Or.inr (by decide +kernel))"
+    level = f"((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))"
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical interval SHA-256: {input_sha256}
+-- Coverage is a general theorem; the endpoints are confirmed by the kernel.
+set_option maxRecDepth 8192
+set_option maxHeartbeats 2000000
+
+namespace StatProofCertificate
+open StatProof StatProof.Modules
+
+theorem checked_coverage (p : unitInterval) :
+    1 - 2 * {level} ≤
+      (ProbabilityTheory.binomial {n} p).real
+        {{count | p ∈ BinomialInterval.confidenceSet {n} {level} count}} :=
+  BinomialInterval.coverage {n} _ (by positivity) p
+
+theorem checked_interval (p : unitInterval)
+    (member : p ∈ BinomialInterval.confidenceSet {n} {level} {x}) :
+    ratPoint {ln} {ld} (by decide) (by decide) ≤ p ∧
+      p ≤ ratPoint {un} {ud} (by decide) (by decide) :=
+  BinomialInterval.interval_contains {n} {x} {an} {ad} (by decide) {ln} {ld} (by decide)
+    (by decide) {un} {ud} (by decide) (by decide) {lower} {upper} p member
+
+end StatProofCertificate
+{_audit(INTERVAL_CHECKED_THEOREMS, input_sha256)}"""
+
+
 def policy_payload(plan: "TwoStagePlan | OneSamplePlan") -> dict:
     if isinstance(plan, OneSamplePlan):
         payload = {

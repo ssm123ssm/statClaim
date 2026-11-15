@@ -101,6 +101,18 @@ let verification = verify(binomial_result(data))
 Lean confirms the exact p-value, the critical value and the decision. See
 `examples/one_sample_result.stat`.
 
+For an estimate with an exact confidence interval:
+
+```stat
+let interval = confidence_interval(model=study, count=14, level=19/20)
+let verification = verify(interval)
+```
+
+This gives 0.2387 to 0.5789. The interval is the exact (Clopper–Pearson) one
+with endpoints rounded outward to four decimals. The certificate states that
+the procedure covers the true rate with probability at least the level, for
+every true rate. See `examples/confidence_interval.stat`.
+
 ## Plan an adaptive design
 
 The same target applies to a complete two-stage policy:

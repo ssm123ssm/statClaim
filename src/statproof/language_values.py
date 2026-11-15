@@ -108,6 +108,10 @@ class OneSampleResultDetails(PlanningDetails):
     """Calculated p-value and decision for an observed one-sample count."""
 
 
+class IntervalDetails(PlanningDetails):
+    """Calculated exact confidence interval for a response rate."""
+
+
 class PolicyDetails(PlanningDetails):
     """Calculated operating characteristics of a complete two-stage policy."""
 

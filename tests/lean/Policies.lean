@@ -92,4 +92,9 @@ example : ¬ FisherPower.HintsValid 2 2 1 20 [0, 0, 6, 0, 0] [0, 0, 0, 0, 0] := 
 example : OneSampleBinomial.SmallerFail 10 35 1 5 1 20 1 20 2 5 4 5 := by decide +kernel
 example : OneSampleBinomial.criticalValue 35 1 5 1 20 = 12 := by decide +kernel
 
+/-- A too-narrow interval fails the endpoint check: at rate 3/10 the upper
+tail for 14 of 35 is above 1/40. -/
+example : ¬ (OneSampleBinomial.tailNumerator 35 3 10 14 * 40 ≤ 1 * 10 ^ 35) := by
+  decide +kernel
+
 end StatProof.Tests.Minimality

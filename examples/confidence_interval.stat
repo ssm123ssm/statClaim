@@ -1,0 +1,11 @@
+# Estimate a response rate with an exact 95% confidence interval.
+use tests.binomial
+
+let study = one_arm_binomial(n=35)
+
+# Fourteen of 35 participants responded.
+let interval = confidence_interval(model=study, count=14, level=19/20)
+let calculation = calculate(interval)
+let lower = calculation.calculation.lower
+let upper = calculation.calculation.upper
+let verification = verify(interval)

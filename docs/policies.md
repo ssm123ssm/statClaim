@@ -60,6 +60,13 @@ smaller rate.
 Both composite-null results rest on `StatProof/BinomialMonotone.lean`: the
 probability of an upper set of counts does not decrease as the rate increases.
 
+## Confidence intervals
+
+`StatProof/Modules/BinomialInterval.lean` defines the exact confidence set for
+a binomial proportion and proves its coverage for every true rate (`coverage`).
+`interval_contains` places the set for one observed count inside an interval
+with rational endpoints, using two kernel checks.
+
 ## Fisher power
 
 `StatProof/Modules/FisherPower.lean` gives the exact power of the fixed Fisher

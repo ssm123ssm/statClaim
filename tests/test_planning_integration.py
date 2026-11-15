@@ -21,7 +21,14 @@ pytestmark = [
 def runs(tmp_path_factory):
     directory = tmp_path_factory.mktemp("planning")
     reports = {}
-    for name in ("planning", "two_stage", "two_stage_posterior", "one_sample", "one_sample_result"):
+    for name in (
+        "planning",
+        "two_stage",
+        "two_stage_posterior",
+        "one_sample",
+        "one_sample_result",
+        "confidence_interval",
+    ):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
             Source(path.read_text(), str(path)), project=ROOT, output=directory / name
@@ -61,6 +68,21 @@ def test_one_sample_result_certificate_replays_and_resists_tampering(runs, tmp_p
     shutil.copytree(source, bundle)
     inputs = json.loads((bundle / "inputs.json").read_text())
     inputs["result"]["p_value"] = "1/1000"
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT)
+
+
+def test_interval_certificate_replays_and_rejects_a_narrower_interval(runs, tmp_path):
+    evidence = runs["confidence_interval"]["values"]["verification"]["evidence"]
+    source = Path(evidence["certificate"]["directory"])
+    assert recheck_certificate(source, project=ROOT)["kind"] == (
+        "statproof_binomial_interval_certificate"
+    )
+    bundle = tmp_path / "narrow"
+    shutil.copytree(source, bundle)
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    inputs["result"]["lower"] = "3/10"
     (bundle / "inputs.json").write_text(json.dumps(inputs))
     with pytest.raises(VerificationError):
         recheck_certificate(bundle, project=ROOT)

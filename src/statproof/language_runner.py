@@ -3,6 +3,7 @@
 import json
 import math
 import tempfile
+from fractions import Fraction
 from pathlib import Path
 
 from statproof.language import (
@@ -28,6 +29,7 @@ from statproof.language_values import (
 )
 from statproof.report import (
     run_binomial_result,
+    run_interval,
     run_one_sample_search,
     run_policy_plan,
     run_power_plan,
@@ -69,6 +71,14 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             (candidates.min_per_arm, candidates.max_per_arm),
             minimal=subject.minimal,
             **options,
+        )
+    if request.claim.kind == "interval":
+        return run_interval(
+            subject.lower(),
+            verify=request.operation == "verify",
+            project=project,
+            output=output,
+            timeout=timeout,
         )
     if request.claim.kind == "result" and isinstance(subject, OneSampleObservationIR):
         return run_binomial_result(
@@ -371,6 +381,15 @@ def render_report(report: dict, source: Source) -> str:
             lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
         elif request["status"] == "calculated" and request["claim"] in ("meets", "sample_size"):
             lines.extend(_planning_lines(details))
+        elif request["status"] == "calculated" and request["claim"] == "interval":
+            calculation = details["calculation"]
+            lines.append(
+                f"  {calculation['responses']} responses out of {calculation['n']}; "
+                f"estimate ~ {float(Fraction(calculation['estimate']['fraction'])):.4f}; "
+                f"interval = [{calculation['lower']['decimal_approximation']}, "
+                f"{calculation['upper']['decimal_approximation']}] at level "
+                f"{calculation['level']['fraction']}; no formal certificate issued."
+            )
         elif request["status"] == "calculated" and "responses" in details["calculation"]:
             calculation = details["calculation"]
             lines.append(

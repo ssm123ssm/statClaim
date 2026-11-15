@@ -31,6 +31,7 @@ from statproof.planning import (
     MAX_ONE_ARM,
     MAX_PER_ARM,
     MAX_STAGE,
+    BinomialInterval,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
@@ -38,7 +39,7 @@ from statproof.planning import (
     TwoStageRule,
 )
 
-LANGUAGE_VERSION = "0.6.0"
+LANGUAGE_VERSION = "0.7.0"
 
 
 class PlannableIR:
@@ -209,6 +210,16 @@ class OneSampleObservationIR:
 
 
 @dataclass(frozen=True)
+class IntervalIR:
+    model: OneArmModelIR
+    responses: int
+    level: Fraction
+
+    def lower(self) -> BinomialInterval:
+        return BinomialInterval(self.model.n, self.responses, self.level)
+
+
+@dataclass(frozen=True)
 class FeasibilityIR:
     """One analysis assessed against one target."""
 
@@ -266,7 +277,7 @@ class SizingIR:
 
 @dataclass(frozen=True)
 class ClaimIR:
-    kind: Choice["typeI", "familywise", "result", "meets", "sample_size"]
+    kind: Choice["typeI", "familywise", "result", "meets", "sample_size", "interval"]
     subject: object
     name: str
 
@@ -459,6 +470,8 @@ def normalize(value: object) -> object:
             }
         case OneSampleObservationIR(analysis=analysis, responses=responses):
             return {"analysis": normalize(analysis), "responses": responses}
+        case IntervalIR(model=model, responses=responses, level=level):
+            return {"model": normalize(model), "responses": responses, "level": str(level)}
         case OneArmCandidatesIR(analysis=analysis, min_n=low, max_n=high):
             return {"analysis": normalize(analysis), "min_n": low, "max_n": high}
         case FeasibilityIR(analysis=analysis, target=target):
@@ -617,10 +630,10 @@ def _constructor(
 
 def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     claim = arguments["claim"]
-    if claim.value.kind not in ("result", "meets", "sample_size"):
+    if claim.value.kind not in ("result", "meets", "sample_size", "interval"):
         fail(
             "type",
-            "Only result(observation) and planning claims are numerical calculations. "
+            "Only results, intervals and planning claims are numerical calculations. "
             "Use verify(claim) for design guarantees.",
             claim.span,
         )
@@ -725,6 +738,19 @@ def _responses(arguments: dict[str, LocatedValue], span: Span) -> OneSampleObser
     if not 0 <= count.value <= analysis.model.n:
         fail("domain", f"count must be between 0 and {analysis.model.n}.", count.span)
     return OneSampleObservationIR(analysis, count.value)
+
+
+def _interval(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    model, count, level = arguments["model"], arguments["count"], arguments["level"]
+    if not 0 <= count.value <= model.value.n:
+        fail("domain", f"count must be between 0 and {model.value.n}.", count.span)
+    if not 0 < level.value < 1:
+        fail("domain", "level must lie strictly between 0 and 1.", level.span)
+    return ClaimIR(
+        "interval",
+        IntervalIR(model.value, count.value, level.value),
+        model.name or "<expression>",
+    )
 
 
 def _one_arm_candidates(arguments: dict[str, LocatedValue], span: Span) -> OneArmCandidatesIR:
@@ -1069,6 +1095,15 @@ MODULES = {
                     documentation="One-sided exact binomial test. Null: response rate <= "
                     "null_rate. Rejects at the smallest response count whose upper tail "
                     "probability at null_rate is at most alpha.",
+                ),
+                _constructor(
+                    "confidence_interval",
+                    (("model", OneArmModelIR), ("count", "integer"), ("level", "number")),
+                    "IntervalClaim",
+                    _interval,
+                    documentation="Exact (Clopper-Pearson) confidence interval for the response "
+                    "rate. Endpoints are rounded outward to four decimals, so coverage is at "
+                    "least the stated level for every true rate.",
                 ),
                 _constructor(
                     "responses",

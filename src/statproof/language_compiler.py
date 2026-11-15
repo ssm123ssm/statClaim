@@ -10,6 +10,7 @@ from statproof.language import (
     AnalysisIR,
     FamilyIR,
     FeasibilityIR,
+    IntervalIR,
     ObservationIR,
     OneSampleObservationIR,
     ProgramIR,
@@ -76,7 +77,7 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 )
             )
         return tuple(diagnostics)
-    if isinstance(subject, OneSampleObservationIR):
+    if isinstance(subject, (OneSampleObservationIR, IntervalIR)):
         return ()
     if isinstance(subject, FamilyIR):
         family = subject.lower()

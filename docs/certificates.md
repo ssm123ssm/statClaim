@@ -11,7 +11,8 @@ trusted application boundary. See the [file-language guide](stat-language.md).
 Planning claims issue `statproof_planning_certificate` (a fixed design's Type I
 bound and its power at one point) and `statproof_policy_certificate` (a complete
 single-arm design). `statproof_binomial_result_certificate` covers an observed
-one-sample result. All replay with `check-certificate`.
+one-sample result, and `statproof_binomial_interval_certificate` an exact
+confidence interval. All replay with `check-certificate`.
 
 Design and family workflows need no observations. Fisher's alpha is configurable
 as an exact string in the optional `[analysis]` table; it defaults to `1/20`.

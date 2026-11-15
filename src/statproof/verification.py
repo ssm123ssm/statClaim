@@ -18,15 +18,22 @@ from statproof.design import Design
 from statproof.family import FAMILY_ASSUMPTIONS, Endpoint, FisherFamily
 from statproof.fisher import TEST_ID, TEST_VERSION, FisherResult, parse_alpha
 from statproof.planning import (
+    INTERVAL_ASSUMPTIONS,
+    INTERVAL_CHECKED_THEOREMS,
+    INTERVAL_KIND,
     PLANNING_ASSUMPTIONS,
     PLANNING_KIND,
     POLICY_KIND,
     RESULT_ASSUMPTIONS,
     RESULT_CHECKED_THEOREMS,
     RESULT_KIND,
+    BinomialInterval,
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
+    interval_claims,
+    interval_payload,
+    parse_interval_payload,
     parse_planning_payload,
     parse_policy_payload,
     parse_result_payload,
@@ -37,6 +44,7 @@ from statproof.planning import (
     policy_claims,
     policy_payload,
     policy_theorems,
+    render_interval_proof,
     render_planning_proof,
     render_policy_proof,
     render_result_proof,
@@ -126,6 +134,14 @@ def _profile(kind: str, payload: dict) -> dict:
         assumptions, theorems = RESULT_ASSUMPTIONS, RESULT_CHECKED_THEOREMS
         scope = "This observed count and the declared test; not other data or analyses."
         general_theorem = "StatProof.Modules.OneSampleBinomial.typeI_of_check"
+    elif kind == INTERVAL_KIND:
+        claims = interval_claims(parse_interval_payload(payload))
+        assumptions, theorems = INTERVAL_ASSUMPTIONS, INTERVAL_CHECKED_THEOREMS
+        scope = (
+            "Coverage of the exact confidence set for this sample size, and the reported "
+            "interval for this observed count."
+        )
+        general_theorem = "StatProof.Modules.BinomialInterval.coverage"
     else:
         raise VerificationError("integrity", "Unsupported certificate kind.")
     if kind in ("statproof_per_result_certificate", "statproof_design_certificate"):
@@ -269,6 +285,8 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_planning_proof(parse_planning_payload(payload), input_id)
     if kind == POLICY_KIND:
         return render_policy_proof(parse_policy_payload(payload), input_id)
+    if kind == INTERVAL_KIND:
+        return render_interval_proof(parse_interval_payload(payload), input_id)
     if kind == RESULT_KIND:
         return render_result_proof(parse_result_payload(payload), input_id)
     raise VerificationError("integrity", "Unsupported certificate kind.")
@@ -535,6 +553,15 @@ def certify_binomial_result(
         project=project,
         output=output,
         timeout=timeout,
+    )
+
+
+def certify_interval(
+    interval: BinomialInterval, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify an exact confidence interval and the coverage of its procedure."""
+    return _certify_payload(
+        interval_payload(interval), INTERVAL_KIND, project=project, output=output, timeout=timeout
     )
 
 

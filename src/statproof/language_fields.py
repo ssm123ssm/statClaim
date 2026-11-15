@@ -17,6 +17,7 @@ from statproof.language import (
     FeasibilityIR,
     FieldIR,
     HypothesisIR,
+    IntervalIR,
     LocatedValue,
     ModelIR,
     ObservationIR,
@@ -45,6 +46,7 @@ from statproof.language_values import (
     CalculationResult,
     CertificateReference,
     Evidence,
+    IntervalDetails,
     OneSampleDetails,
     OneSampleResultDetails,
     PlanningDetails,
@@ -136,6 +138,20 @@ SCHEMAS = {
         "reject_null": FieldSpec(bool),
         "test": FieldSpec(str),
     },
+    IntervalIR: {
+        "model": FieldSpec(OneArmModelIR),
+        "responses": FieldSpec(int),
+        "level": FieldSpec(Fraction),
+    },
+    IntervalDetails: {
+        "n": FieldSpec(int),
+        "responses": FieldSpec(int),
+        "level": FieldSpec(Fraction),
+        "estimate": FieldSpec(Fraction),
+        "lower": FieldSpec(Fraction, description="Lower endpoint, rounded down."),
+        "upper": FieldSpec(Fraction, description="Upper endpoint, rounded up."),
+        "method": FieldSpec(str),
+    },
     OneArmCandidatesIR: {
         "analysis": FieldSpec(OneSampleAnalysisIR),
         "min_n": FieldSpec(int),
@@ -218,6 +234,8 @@ for kind in (CalculationResultIR, CalculationResult):
 
 def details_kind(claim: ClaimIR) -> type:
     """The calculation record published for this claim's kind."""
+    if isinstance(claim.subject, IntervalIR):
+        return IntervalDetails
     if isinstance(claim.subject, OneSampleObservationIR):
         return OneSampleResultDetails
     if claim.kind not in ("meets", "sample_size"):

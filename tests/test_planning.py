@@ -14,12 +14,15 @@ from statproof.language_compiler import compile_source
 from statproof.language_runner import check_source
 from statproof.language_syntax import Source
 from statproof.planning import (
+    BinomialInterval,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
     TwoStageRule,
     fisher_rejection_probability,
+    interval_payload,
+    parse_interval_payload,
     parse_planning_payload,
     parse_policy_payload,
     parse_result_payload,
@@ -384,5 +387,39 @@ def test_one_sample_result_matches_direct_tail(tmp_path):
         "use tests.binomial\n"
         "let a = binomial_test(model=one_arm_binomial(n=5), null_rate=1/5, alpha=1/20)\n"
         "let d = responses(analysis=a, count=6)\n"
+    )
+    assert "domain" in [d.code for d in invalid.diagnostics]
+
+
+def test_interval_endpoints_bracket_the_exact_limits(tmp_path):
+    level, tail = Fraction(19, 20), Fraction(1, 40)
+    step = Fraction(1, 10_000)
+    for n, x in ((35, 14), (20, 1), (12, 11)):
+        interval = BinomialInterval(n, x, level)
+        upper_tail = lambda rate: sum(binomial(n, k, rate) for k in range(x, n + 1))  # noqa: E731,B023
+        lower_tail = lambda rate: sum(binomial(n, k, rate) for k in range(x + 1))  # noqa: E731,B023
+        # Rejected at the endpoint, not rejected one grid step inside it.
+        assert upper_tail(interval.lower) <= tail < upper_tail(interval.lower + step)
+        assert lower_tail(interval.upper) <= tail < lower_tail(interval.upper - step)
+    assert (BinomialInterval(35, 14, level).lower, BinomialInterval(35, 14, level).upper) == (
+        Fraction(2387, 10_000),
+        Fraction(5789, 10_000),
+    )
+    assert BinomialInterval(20, 0, level).lower == 0
+    assert BinomialInterval(20, 20, level).upper == 1
+    payload = interval_payload(BinomialInterval(35, 14, level))
+    assert parse_interval_payload(payload) == BinomialInterval(35, 14, level)
+    payload["result"]["upper"] = "1/2"
+    with pytest.raises(ValueError):
+        parse_interval_payload(payload)
+    text = (ROOT / "examples/confidence_interval.stat").read_text().split("let verification")[0]
+    values = run(text, tmp_path)["values"]
+    assert (Fraction(values["lower"]), Fraction(values["upper"])) == (
+        Fraction(2387, 10_000),
+        Fraction(5789, 10_000),
+    )
+    invalid = compiled(
+        "use tests.binomial\n"
+        "let c = confidence_interval(model=one_arm_binomial(n=5), count=2, level=1)\n"
     )
     assert "domain" in [d.code for d in invalid.diagnostics]

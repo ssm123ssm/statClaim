@@ -8,6 +8,7 @@ from statproof.language import (
     ClaimIR,
     FamilyIR,
     FeasibilityIR,
+    IntervalIR,
     LocatedValue,
     ObservationIR,
     OneSampleObservationIR,
@@ -23,7 +24,7 @@ from statproof.planning import (
     composite_null,
     policy_assumptions,
 )
-from statproof.report import planning_report
+from statproof.report import interval_report, planning_report
 
 
 def _scope(sizing) -> str:
@@ -81,6 +82,8 @@ def inspect_request(request: RequestIR) -> dict:
     subject = request.claim.subject
     if request.claim.kind in ("meets", "sample_size"):
         return inspect_planning(request)
+    if isinstance(subject, IntervalIR):
+        return interval_report(subject.lower(), verify=request.operation == "verify")
     if isinstance(subject, OneSampleObservationIR):
         result = subject.lower()
         return planning_report(
