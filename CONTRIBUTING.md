@@ -5,6 +5,11 @@ and clear examples. Small documentation fixes are welcome. For a new method,
 open an issue describing the model, null, assumptions and intended guarantee
 before building it. See [adding modules](docs/adding-modules.md).
 
+Priority areas include [sample-size/power planning and Bayesian adaptive
+designs](docs/study-planning.md). Help define planning support alongside new
+methods, with explicit assumptions and a clear distinction between proof,
+numerical bounds and simulation results.
+
 ## Develop
 
 Use Codespaces from the README, or install uv, elan and Node.js 22+:

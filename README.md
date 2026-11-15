@@ -1,15 +1,45 @@
 # StatProof
 
-A statistical language that checks whether a study, hypothesis and analysis fit
-together, then uses Lean to verify supported mathematical claims.
+**Check that a statistical guarantee applies to your study.**
+
+StatProof helps researchers make study assumptions explicit, catch incompatible
+analyses, and obtain machine-checked evidence for supported statistical claims.
 
 [![Check](https://github.com/ssm123ssm/statProof/actions/workflows/check.yml/badge.svg)](https://github.com/ssm123ssm/statProof/actions/workflows/check.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/ssm123ssm/statProof)
 
-**0.1 developer preview.** The supported Fisher subset has automated proof,
-replay and editor tests. The language and APIs may change. This is a research
-tool; a checked theorem establishes the stated mathematical claim under its
-assumptions, not the quality of a real study.
+## Why StatProof?
+
+A correctly computed p-value does not, by itself, establish that a method answers
+your intended question or that its error guarantee applies to your study design.
+Those connections still need justification.
+
+For example, a study may compare two proportions while its null specifies a
+nonzero difference between them. A Fisher analysis can use the same kind of data,
+but its current StatProof guarantee supports an equality null. The study and the
+analysis can each be well formed while the requested combination is incompatible.
+
+StatProof connects the study, hypothesis, analysis and claim so it can:
+
+- Explain supported incompatibilities while you edit, before running an analysis.
+- Check applicable mathematical guarantees using Lean's proof checker.
+- Reuse checked guarantees, with required assumptions and replayable evidence attached.
+
+### Alongside R and Python
+
+Keep using R or Python for data preparation, modelling and visualization.
+StatProof adds an explicit specification of the study and the guarantee you want
+to establish. Its small `.stat` notation gives the checker precise objects to
+reason about: models, hypotheses, analyses, claims and evidence.
+
+Today, you write that specification separately. The preview does not inspect or
+certify existing R or Python scripts. The aim is to make statistical justification
+easier to inspect and reuse within a research workflow.
+
+## A small example
+
+Declare a fixed-sample study, choose the equality null, and request a Type I error
+guarantee at a significance level of `1/20`:
 
 ```stat
 use models.two_arm_binomial
@@ -26,10 +56,30 @@ let status = verification.status
 let evidence = verification.evidence
 ```
 
-While editing, the language server checks types, hypothesis compatibility and
-proof requirements. **Verify Current File** explicitly runs calculations and
-Lean. For example, replacing the null with a nonzero difference in proportions
-produces guidance before execution.
+Change the null to `proportion_difference(model=study, value=1/10)` and the editor
+explains why the current Fisher contract cannot support it. The guidance preserves
+your statistical question: changing the null to satisfy a method would change
+what you are asking.
+
+While editing, StatProof checks types, hypothesis compatibility and proof
+requirements. **Verify Current File** explicitly runs the requested operations
+and Lean checks. `verification.evidence` is present only after successful
+verification; a valid specification alone is not a proof.
+
+**0.1 developer preview.** Current proof support covers the specified fixed-sample
+Fisher setting and two-endpoint Bonferroni composition. The language and APIs may
+change. A checked theorem establishes its stated claim under its assumptions;
+whether a real study satisfies those assumptions still needs scientific judgment.
+See [scope and trust](docs/scope.md).
+
+## Where we are going
+
+Study planning is a core goal: specify the effect or precision that matters,
+then obtain a sample-size recommendation with explicit assumptions and supporting
+claims. We aim to introduce planning support alongside new tests and designs.
+Bayesian analyses and adaptive sampling are equally central, including checks
+that priors, decision rules and stopping policies fit together. These features
+are planned; see the [roadmap](ROADMAP.md) and [planning proposal](docs/study-planning.md).
 
 ## Try it
 

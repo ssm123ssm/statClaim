@@ -17,6 +17,11 @@ Start with an issue containing a small `.stat` example and the desired claim.
    exact calculations, real Lean checks, certificate replay/tampering and LSP
    diagnostics. Add UI tests when result/evidence behavior changes.
 7. Add a small example and update scope docs. Run the contributor checks.
+8. For new tests and designs, propose sample-size and operating-characteristic
+   support alongside the analysis where possible. State the planning inputs,
+   target, applicable claims and evidence method; record unsupported planning
+   explicitly. This is the [planning roadmap](study-planning.md), not an existing
+   plugin API. Bayesian modules should also specify priors and decision criteria.
 
 Keep registry metadata, runtime behavior and formal statements aligned.
 A maintainer reviews mathematical meaning and assumptions before merging.

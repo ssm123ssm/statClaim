@@ -8,4 +8,5 @@ Start with the [quickstart](quickstart.md), [catalogue](catalogue.md),
 - [Core object model](core-object-model.md), [Lean objects](lean-objects.md)
 - [Exact Fisher test](exact-test-spec.md), [formal proof](formal-proof.md)
 - [Multiple testing](multiple-testing.md), [certificates](certificates.md)
+- [Study planning and Bayesian designs](study-planning.md): proposed capabilities
 - [Development](development.md), [adding modules](adding-modules.md)
