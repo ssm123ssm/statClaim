@@ -14,10 +14,16 @@ A correctly computed p-value does not, by itself, establish that a method answer
 your intended question or that its error guarantee applies to your study design.
 Those connections still need justification.
 
-For example, a study may compare two proportions while its null specifies a
-nonzero difference between them. A Fisher analysis can use the same kind of data,
-but its current StatProof guarantee supports an equality null. The study and the
-analysis can each be well formed while the requested combination is incompatible.
+For example, a study might test ten outcomes and declare a finding if any has
+`p < 0.05`. Every test can be calculated correctly, yet testing each outcome at
+the 5% level does not by itself establish a 5% false-positive bound for the study
+as a whole.
+
+A test's 5% false-positive guarantee may also assume a fixed sample size and a
+single planned analysis. If a researcher repeatedly checks the data and
+stops when a result becomes significant, that guarantee does not automatically
+apply to the whole procedure. The calculations can be correct while the study's
+error-control claim still needs justification.
 
 StatProof connects the study, hypothesis, analysis and claim so it can:
 
