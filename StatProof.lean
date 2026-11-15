@@ -11,3 +11,7 @@ public import StatProof.Modules.TwoArmBinomial
 public import StatProof.Modules.Fisher
 public import StatProof.Modules.Bonferroni
 public import StatProof.Modules.FisherFamily
+public import StatProof.ProductBinomial
+public import StatProof.Core.Policy
+public import StatProof.Modules.TwoStageBinomial
+public import StatProof.Modules.FisherPower

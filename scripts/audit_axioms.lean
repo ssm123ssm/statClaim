@@ -28,7 +28,18 @@ run_cmd do
     ``StatProof.Modules.Bonferroni.strong_control,
     ``StatProof.Modules.FisherFamily.marginal_bound,
     ``StatProof.Modules.FisherFamily.marginal_bounds,
-    ``StatProof.Modules.FisherFamily.strong_control]
+    ``StatProof.Modules.FisherFamily.strong_control,
+    ``StatProof.productBinomial_real_eq_sum,
+    ``StatProof.productBinomial_real_ratPoint,
+    ``StatProof.Core.Policy.law_real_apply,
+    ``StatProof.Core.TypeIGuarantee.toPolicy,
+    ``StatProof.Modules.TwoStageBinomial.rejection_probability,
+    ``StatProof.Modules.TwoStageBinomial.typeI_of_check,
+    ``StatProof.Modules.TwoStageBinomial.power_of_check,
+    ``StatProof.Modules.FisherPower.checkedReject_iff,
+    ``StatProof.Modules.FisherPower.rejection_probability,
+    ``StatProof.Modules.FisherPower.power_of_check,
+    ``StatProof.Modules.FisherPower.typeI_statement]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

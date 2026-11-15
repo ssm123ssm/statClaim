@@ -5,6 +5,9 @@ consistent way to plan a study, understand its expected performance and retain
 the justification with the design. Bayesian and adaptive designs are core
 targets, reflecting StatProof's original motivation.
 
+Start with the [proposed Fisher planning example](proposals/planning-example.md)
+for concrete syntax, numerical reference values and expected results.
+
 ## One planning workflow
 
 1. Declare the model, question, analysis and complete sampling/decision policy.

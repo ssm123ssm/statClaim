@@ -31,6 +31,7 @@ lean-check:
 	lake env lean tests/lean/FisherExamples.lean
 	lake env lean tests/lean/CoreObjects.lean
 	lake env lean tests/lean/Composition.lean
+	lake env lean tests/lean/Policies.lean
 	lake env lean examples/FisherObjects.lean
 	lake env lean examples/DesignGuarantee.lean
 	lake env lean examples/ConfigurableAlpha.lean
