@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "statclaim"
 version = "0.1.0"
-description = "Exact Fisher testing and a statistical verification library backed by Lean"
+description = "Check that a statistical guarantee applies to your study: typed claims with proved, conditional or cited evidence"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

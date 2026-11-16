@@ -354,3 +354,16 @@ def test_statuses_never_overstate_their_evidence():
     VerificationResult(1, claim, "snapshot", "conditional", conditional)
     with pytest.raises(ValueError, match="checked by Lean"):
         VerificationResult(1, claim, "snapshot", "verified", conditional)
+
+
+def test_a_lean_claim_without_a_checkout_explains_what_still_works(tmp_path):
+    text = (ROOT / "tests/fixtures/fisher.stat").read_text()
+    report = check_source(Source(text, "fisher.stat"), project=tmp_path, output=tmp_path / "run")
+    assert report["status"] == "unresolved_obligation" and not report["backend_invoked"]
+    assert "Cited claims, compile, explain and report need no Lean" in json.dumps(report)
+
+
+def test_cited_claims_run_outside_a_checkout(tmp_path):
+    text = (ROOT / "examples/t_test.stat").read_text()
+    report = check_source(Source(text, "t.stat"), project=tmp_path, output=tmp_path / "run")
+    assert report["status"] == "cited"

@@ -18,7 +18,9 @@ from statclaim.verification import VerificationError, recheck_certificate
 
 
 def doctor() -> int:
+    """Report what this installation can do. Lean is needed only for proofs."""
     print(f"StatClaim {__version__}; Python {sys.version.split()[0]}")
+    print("Ready without Lean: compile, explain, report, impact, and cited claims.")
     healthy = True
     for executable, arguments in (("uv", ["--version"]), ("lake", ["env", "lean", "--version"])):
         if not shutil.which(executable):
@@ -35,6 +37,11 @@ def doctor() -> int:
             continue
         print((result.stdout + result.stderr).strip())
         healthy = healthy and result.returncode == 0
+    if not healthy:
+        print(
+            "Proved and conditional claims need Lean: clone the repository and run "
+            "'make setup'. See docs/quickstart.md."
+        )
     print("Environment check only; no statistical theorem was checked in this command.")
     return 0 if healthy else 1
 

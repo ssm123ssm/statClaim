@@ -481,7 +481,12 @@ def _source_hashes(project: Path) -> dict[str, str]:
     required = ["lean-toolchain", "lakefile.toml", "lake-manifest.json", "StatClaim.lean"]
     paths = [project / name for name in required]
     if not all(path.is_file() for path in paths) or not (project / "StatClaim").is_dir():
-        raise VerificationError("project", "Select the StatClaim project root with --project.")
+        raise VerificationError(
+            "project",
+            "This claim needs the Lean backend, which lives in a StatClaim checkout. Run "
+            "the command there or pass --project. Cited claims, compile, explain and "
+            "report need no Lean.",
+        )
     paths += sorted((project / "StatClaim").rglob("*.lean"))
     hashes = {str(path.relative_to(project)): digest(path.read_bytes()) for path in paths}
     for path in sorted(Path(__file__).parent.glob("*.py")):

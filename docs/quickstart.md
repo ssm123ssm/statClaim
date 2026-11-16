@@ -24,6 +24,23 @@ Other files in `playground/`:
 | `two_stage.stat`, `two_stage_posterior.stat` | Designs with an interim stop |
 | `two_stage_search.stat` | Finding an optimal or minimax two-stage design |
 | `two_stage_result.stat` | Analysing the data from a two-stage study |
+| `t_test.stat` | A continuous outcome with a cited t-test |
+| `mixed_endpoints.stat` | A proved and a cited test under one error bound |
+
+## Without Lean
+
+Checking contracts, explanations, reports and cited claims needs only Python
+3.12 or newer. Install the package from a checkout and work in any folder:
+
+```sh
+pip install /path/to/statClaim
+statclaim check my_study.stat
+statclaim explain my_study.stat
+```
+
+Proved and conditional claims need Lean; use Codespaces or the local setup
+below. `statclaim doctor` reports what your installation can do. The package is
+not yet published on PyPI.
 
 ## Local VS Code
 
