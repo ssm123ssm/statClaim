@@ -73,3 +73,13 @@ test('a cited guarantee is never presented as checked evidence', () => {
   assert.ok(tree.includes('Method: Pooled t-test (version 1)'));
   assert.ok(!tree.includes('Checked evidence'));
 });
+
+test('conditional evidence is labelled as a checked combination of assumed members', () => {
+  const conditional = { ...evidence, grade: 'conditional' };
+  const conditionalState = { ...state, report: { source: { sha256: 'source' }, requests: [
+    { request_id: 1, operation: 'verify', status: 'conditional', value: { status: 'conditional', claim, evidence: conditional } }] } };
+  const tree = labels(buildClaimsTree(inspection, conditionalState, live));
+  assert.ok(tree.includes('verify #1: conditional'));
+  assert.ok(tree.includes('Conditional evidence — combination checked, members assumed'));
+  assert.ok(!tree.includes('Checked evidence'));
+});

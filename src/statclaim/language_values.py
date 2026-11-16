@@ -200,6 +200,11 @@ class Evidence:
         }
 
 
+# The one evidence grade each successful status may carry. A status never
+# overstates its evidence: only a full Lean proof is called verified.
+STATUS_GRADES = {"verified": "proved", "conditional": "conditional", "cited": "cited"}
+
+
 @dataclass(frozen=True)
 class VerificationResult:
     request_id: int
@@ -210,11 +215,9 @@ class VerificationResult:
     diagnostics: tuple[Diagnostic, ...] = ()
 
     def __post_init__(self):
-        if (self.status in ("verified", "cited")) != (self.evidence is not None):
+        if (self.status in STATUS_GRADES) != (self.evidence is not None):
             raise ValueError("Only a successful verification result carries checked evidence.")
-        if self.evidence is not None and (self.evidence.grade in ("proved", "conditional")) != (
-            self.status == "verified"
-        ):
+        if self.evidence is not None and STATUS_GRADES[self.status] != self.evidence.grade:
             raise ValueError("A verified result needs evidence checked by Lean.")
         if self.evidence is not None and self.evidence.claim != self.claim:
             raise ValueError("Evidence must establish the verification result's claim.")

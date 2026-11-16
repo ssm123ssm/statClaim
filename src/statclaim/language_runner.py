@@ -10,6 +10,7 @@ from statclaim.language import (
     LANGUAGE_VERSION,
     AnalysisIR,
     CitedAnalysisIR,
+    ComposedFamilyIR,
     FamilyIR,
     FeasibilityIR,
     ObservationIR,
@@ -33,6 +34,7 @@ from statclaim.language_values import (
 from statclaim.methods.core import GRADES, SCOPES
 from statclaim.report import (
     run_binomial_result,
+    run_composition,
     run_interval,
     run_margin,
     run_margin_search,
@@ -141,6 +143,14 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             output=output,
             timeout=timeout,
         )
+    if isinstance(subject, ComposedFamilyIR):
+        return run_composition(
+            inspect_request(request),
+            subject.lower(),
+            project=project,
+            output=output,
+            timeout=timeout,
+        )
     if request.claim.kind == "familywise" and isinstance(subject, FamilyIR):
         return verify_family(subject.lower(), project=project, output=output, timeout=timeout)
     margin = subject.analysis if isinstance(subject, ObservationIR) else subject
@@ -189,13 +199,16 @@ def _result_value(
             diagnostics,
         )
     evidence = None
-    if status == "verified":
+    if status in ("verified", "conditional"):
         evidence = Evidence(
             request.claim,
             details["certificate"],
             tuple(details["established_properties"]),
             tuple(details["required_assumptions"]),
             details["evidence_grade"],
+            tuple(details.get("references", ())),
+            None,
+            tuple(details.get("assumptions", ())),
         )
     if status == "cited":
         evidence = Evidence(
@@ -347,6 +360,8 @@ def check_source(
         if "unresolved_obligation" in statuses
         else "cited"
         if "cited" in statuses
+        else "conditional"
+        if "conditional" in statuses
         else "verified"
         if "verified" in statuses
         else "calculated"
@@ -468,6 +483,9 @@ def render_report(report: dict, source: Source) -> str:
                 lines.append(f"  {claim}")
             lines.append("  Assumptions:")
             lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
+            if details.get("references"):
+                lines.append("  References:")
+                lines.extend(f"    {reference}" for reference in details["references"])
             lines.append(f"  Certificate: {details['certificate']['directory']}")
         elif request["status"] == "cited":
             evidence = request["value"]["evidence"]

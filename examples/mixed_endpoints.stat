@@ -1,0 +1,27 @@
+# A binary and a continuous endpoint under one familywise error bound.
+use models.two_arm_binomial
+use models.two_arm_continuous
+use sampling
+use tests.fisher
+use tests.t
+use multiplicity.bonferroni
+
+# Primary endpoint: response, yes or no. Its test is proved in Lean.
+let responders = two_arm_binomial(n_control=120, n_treatment=120)
+let response = fisher(
+    design=fixed(model=responders),
+    null=equal_proportions(model=responders),
+    alpha=1/40,
+)
+
+# Secondary endpoint: change in a symptom score. Its test is cited.
+let scores = two_arm_continuous(n_control=120, n_treatment=120)
+let symptoms = t_test(
+    design=fixed(model=scores),
+    null=equal_means(model=scores),
+    alpha=1/40,
+)
+
+let endpoints = bonferroni(analyses=[response, symptoms], alpha=1/20)
+let family = verify(familywise(endpoints))
+let primary = verify(typeI(response))

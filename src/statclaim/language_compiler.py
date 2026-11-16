@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from statclaim.language import (
     AnalysisIR,
     CitedAnalysisIR,
+    ComposedFamilyIR,
     DifferenceIntervalIR,
     FamilyIR,
     FeasibilityIR,
@@ -99,6 +100,33 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 "obligation",
             ),
         )
+    if isinstance(subject, ComposedFamilyIR):
+        allocated = sum((analysis.alpha for _, analysis in subject.analyses), start=0)
+        if allocated > subject.alpha:
+            diagnostics.append(
+                Diagnostic(
+                    "allocation",
+                    f"{name}: allocated alpha {allocated} exceeds the requested family bound "
+                    f"{subject.alpha}. No Bonferroni bound follows from this allocation; "
+                    "this does not prove excessive actual error.",
+                    _origin(program, subject, request.span, "alpha"),
+                    "obligation",
+                )
+            )
+        seen: set[int] = set()
+        for _, analysis in subject.analyses:
+            if analysis.plan.stopping != "fixed" and id(analysis.plan) not in seen:
+                seen.add(id(analysis.plan))
+                diagnostics.append(
+                    Diagnostic(
+                        "sampling_scope",
+                        f"{name}: a member uses data-dependent stopping, which its own "
+                        "guarantee does not cover. This is not evidence of inflated error.",
+                        _origin(program, analysis.plan, request.span),
+                        "obligation",
+                    )
+                )
+        return tuple(diagnostics)
     if isinstance(subject, FamilyIR):
         family = subject.lower()
         if family.allocated_alpha > family.alpha:

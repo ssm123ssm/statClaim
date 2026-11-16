@@ -253,3 +253,104 @@ def test_explanation_shows_the_guarantee_and_its_source(capsys):
     text = capsys.readouterr().out
     assert "Guarantee, given the assumptions" in text and "not proved in Lean" in text
     assert "Independent check of this derivation: passed." in text
+
+
+MIXED = (ROOT / "examples/mixed_endpoints.stat").read_text()
+TWO_MEANS = (
+    EQUAL
+    + "let first = t_test(design=plan, null=null, alpha=1/40)\n"
+    + "let second = welch_test(design=plan, null=null, alpha=1/40)\n"
+    + "use multiplicity.bonferroni\n"
+)
+
+
+def family_derivation(text, name="endpoints"):
+    compilation = compile_source(Source(text))
+    assert not [d for d in compilation.diagnostics if d.severity == "error"]
+    return next(d for d in compilation.derivations if d.name == name).to_dict()
+
+
+def test_a_family_with_a_cited_member_is_a_conditional_composition():
+    record = family_derivation(MIXED)
+    assert check_derivation(record) == []
+    guarantee = record["guarantee"]
+    assert guarantee["grade"] == "conditional" and guarantee["quantity"] == "familywise_error"
+    assert guarantee["bound"] == "1/20" and guarantee["scope"] == "finite_sample"
+    assert [m["grade"] for m in guarantee["members"]] == ["proved", "cited"]
+    assert guarantee["given"] == [
+        "prespecified_family",
+        "member_guarantee:response",
+        "member_guarantee:symptoms",
+    ]
+    assert "members' own error bounds" in record["not_established"]
+
+
+def test_a_family_is_only_as_exact_as_its_least_exact_member():
+    text = TWO_MEANS + "let endpoints = bonferroni(analyses=[first, second], alpha=1/20)\n"
+    record = family_derivation(text)
+    assert check_derivation(record) == []
+    assert record["guarantee"]["scope"] == "asymptotic"
+    assert "No bound is claimed at the declared sample sizes" in record["guarantee"]["sentence"]
+    claim = compile_source(Source(text + "verify familywise(endpoints)\n")).program.requests[0]
+    assert claim.claim.scope == "asymptotic"
+
+
+def test_overallocated_or_adaptive_members_withhold_the_family_guarantee():
+    over = family_derivation(
+        TWO_MEANS + "let endpoints = bonferroni(analyses=[first, second], alpha=1/25)\n"
+    )
+    assert check_derivation(over) == [] and over["guarantee"] is None
+    assert [item["code"] for item in over["obligations"]] == ["allocation"]
+    text = (TWO_MEANS + "let endpoints = bonferroni([first, second], alpha=1/20)\n").replace(
+        "fixed(model=study)", "adaptive(model=study)"
+    )
+    adaptive = family_derivation(text)
+    assert check_derivation(adaptive) == [] and adaptive["guarantee"] is None
+    assert codes(text + "verify familywise(endpoints)\n") == ["sampling_scope"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda d: d["guarantee"].update(grade="proved"),
+        lambda d: d["guarantee"].update(bound="1/10"),
+        lambda d: d["guarantee"]["members"][1].update(grade="proved"),
+        lambda d: d["guarantee"]["members"][1].update(level="1/100"),
+        lambda d: d["guarantee"]["given"].pop(),
+        lambda d: d["subject"].update(alpha="1/100"),
+        lambda d: d["subject"]["analyses"][1]["analysis"].update(alpha="1/2"),
+        lambda d: d["subject"]["analyses"].pop(),
+        lambda d: d["assumptions"].pop(1),
+        lambda d: d["steps"].pop(8),
+        lambda d: d.update(not_established=""),
+    ],
+)
+def test_checker_rejects_an_altered_family_guarantee(change):
+    record = family_derivation(MIXED)
+    change(record)
+    assert check_derivation(record)
+
+
+def test_family_argument_rules_stay_simple_and_explained():
+    head = TWO_MEANS + "let endpoints = bonferroni(analyses=[first, second], alpha=1/20"
+    assert codes(head + ")\n") == []
+    # No joint law exists to declare for cited members.
+    assert codes(head + ', joint_law="binomial_marginals")\n') == ["sampling_contract"]
+    assert codes(TWO_MEANS + "let endpoints = bonferroni(analyses=[first, first], alpha=1/20)\n")
+    # A Fisher-only family may now leave joint_law out and stays fully proved.
+    fisher = (ROOT / "examples/three_outcomes.stat").read_text()
+    short = fisher.replace('    joint_law="binomial_marginals",\n', "")
+    assert short != fisher
+    compilation = compile_source(Source(short))
+    assert compilation.status == "elaborated"
+    assert compilation.program.requests[0].claim.subject.joint_law == "binomial_marginals"
+
+
+def test_statuses_never_overstate_their_evidence():
+    claim = compile_source(Source(MIXED)).program.requests[0].claim
+    conditional = Evidence(claim, {"certificate_id": "x"}, (), (), "conditional")
+    assert conditional.machine_checked == "composition"
+    assert conditional.sources == ("lean_proof", "literature")
+    VerificationResult(1, claim, "snapshot", "conditional", conditional)
+    with pytest.raises(ValueError, match="checked by Lean"):
+        VerificationResult(1, claim, "snapshot", "verified", conditional)

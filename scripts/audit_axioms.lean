@@ -70,7 +70,9 @@ run_cmd do
     ``StatClaim.Modules.DifferenceTest.thresholdNumerator_eq,
     ``StatClaim.Modules.DifferenceTest.cell_exists,
     ``StatClaim.Modules.DifferenceTest.typeI_of_cells,
-    ``StatClaim.Modules.DifferenceTest.power_of_check]
+    ``StatClaim.Modules.DifferenceTest.power_of_check,
+    ``StatClaim.Modules.Composition.familywise_le,
+    ``StatClaim.Modules.Composition.familywise_le_of_levels]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

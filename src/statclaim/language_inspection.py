@@ -1,5 +1,6 @@
 """Pure claim descriptions and inspection data for reports and editor views."""
 
+from statclaim.composition import composition_assumptions
 from statclaim.design import inspect_design
 from statclaim.family import inspect_family
 from statclaim.language import (
@@ -7,6 +8,7 @@ from statclaim.language import (
     CalculationResultIR,
     CitedAnalysisIR,
     ClaimIR,
+    ComposedFamilyIR,
     DifferenceIntervalIR,
     FamilyIR,
     FeasibilityIR,
@@ -22,6 +24,7 @@ from statclaim.language import (
     normalize,
 )
 from statclaim.language_compiler import Compilation, requirements
+from statclaim.methods.assumptions import PRESPECIFIED_FAMILY
 from statclaim.planning import (
     RESULT_ASSUMPTIONS,
     TwoStagePlan,
@@ -136,12 +139,40 @@ def cited_report(analysis: CitedAnalysisIR) -> dict:
         "cited", analysis.guarantee.sentence, [item.text for item in method.assumptions]
     )
     report["method"] = method.to_dict()
-    # A design assumption is stated by the file itself; the rest cannot be.
-    report["assumptions"] = [
-        {**item.to_dict(), "status": "declared" if item.kind == "design" else "assumed"}
-        for item in method.assumptions
-    ]
+    report["assumptions"] = [_marked(item) for item in method.assumptions]
     report["references"] = list(method.references)
+    return report
+
+
+def _marked(assumption) -> dict:
+    """A design assumption is stated by the file itself; the rest cannot be."""
+    status = "declared" if assumption.kind == "design" else "assumed"
+    return {**assumption.to_dict(), "status": status}
+
+
+def composed_report(family: ComposedFamilyIR) -> dict:
+    """Describe a family whose members' bounds are assumed. Nothing is checked yet."""
+    composition = family.lower()
+    report = planning_report(
+        "composition", composition.guarantee.sentence, composition_assumptions(composition)
+    )
+    report["members"] = [item.to_dict() for item in composition.components]
+    assumptions, references = {PRESPECIFIED_FAMILY.id: _marked(PRESPECIFIED_FAMILY)}, []
+    for name, analysis in family.analyses:
+        # The member's own bound is the hypothesis the combination rests on.
+        assumptions[f"member_guarantee:{name}"] = {
+            "id": f"member_guarantee:{name}",
+            "kind": "member",
+            "text": next(c.sentence for c in composition.components if c.name == name),
+            "status": "assumed",
+        }
+        if isinstance(analysis, CitedAnalysisIR):
+            for item in analysis.method.assumptions:
+                entry = assumptions.setdefault(item.id, {**_marked(item), "members": []})
+                entry["members"].append(name)
+            references += [r for r in analysis.method.references if r not in references]
+    report["assumptions"] = list(assumptions.values())
+    report["references"] = references
     return report
 
 
@@ -168,6 +199,8 @@ def inspect_request(request: RequestIR) -> dict:
         )
     if isinstance(subject, CitedAnalysisIR):
         return cited_report(subject)
+    if isinstance(subject, ComposedFamilyIR):
+        return composed_report(subject)
     if isinstance(subject, FamilyIR):
         return inspect_family(subject.lower())
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject

@@ -34,8 +34,9 @@ MODULE_CLASSES = {
     ),
     "multiplicity.bonferroni": (
         "Multiplicity and composition",
-        "Bonferroni for two or more Fisher endpoints with an explicit joint-law contract. "
-        "Dependence between endpoints is unrestricted.",
+        "Bonferroni for two to twenty endpoints; dependence between them is unrestricted. "
+        "A family of two-sided Fisher analyses is proved outright. A family with cited "
+        "tests is conditional: Lean checks the combination and the members are assumed.",
     ),
     "planning": (
         "Study planning",
@@ -84,6 +85,10 @@ OBJECT_CLASSES = {
     ),
     "Observation": ("Core statistical objects", "Observed counts tied to an analysis."),
     "Family": ("Core statistical objects", "Analyses, family alpha and declared joint law."),
+    "ComposedFamily": (
+        "Core statistical objects",
+        "A family with cited members: the combination is proved, the members are assumed.",
+    ),
     "Rates": ("Planning objects", "Planning point for two arms; an input, not a fact."),
     "Rate": ("Planning objects", "Planning point for a single response rate."),
     "PowerTarget": ("Planning objects", "Required power at a point and a Type I bound."),

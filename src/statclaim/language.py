@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Literal as Choice
 
+from statclaim.composition import Component, Composition
 from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statclaim.fisher import validate_alpha
@@ -202,8 +203,50 @@ class CitedAnalysisIR(LevelTestIR):
         return self.method.guarantee(self.alpha, self.hypothesis.statement)
 
 
+class FamilyLikeIR:
+    """Several analyses under one familywise error bound."""
+
+
 @dataclass(frozen=True)
-class FamilyIR:
+class ComposedFamilyIR(FamilyLikeIR):
+    """A family whose members' bounds are assumed and whose combination is proved.
+
+    Members may be Fisher analyses, cited analyses or a mix.
+    """
+
+    analyses: tuple[tuple[str, LevelTestIR], ...]
+    alpha: Fraction
+
+    def lower(self) -> Composition:
+        return Composition(
+            self.alpha,
+            tuple(_component(name, analysis) for name, analysis in self.analyses),
+        )
+
+
+def _component(name: str, analysis: LevelTestIR) -> Component:
+    if isinstance(analysis, CitedAnalysisIR):
+        method = analysis.method
+        return Component(
+            name,
+            analysis.alpha,
+            method.scope,
+            "cited",
+            f"{method.module}/{method.key} version {method.version}",
+            analysis.hypothesis.statement,
+        )
+    return Component(
+        name,
+        analysis.alpha,
+        "finite_sample",
+        "proved",
+        "tests.fisher/fisher",
+        analysis.hypothesis.statement,
+    )
+
+
+@dataclass(frozen=True)
+class FamilyIR(FamilyLikeIR):
     analyses: tuple[tuple[str, AnalysisIR], ...]
     alpha: Fraction
     joint_law: str
@@ -441,6 +484,8 @@ class ClaimIR:
                 subject.hypothesis.statement,
                 "finite_sample",
             )
+        if self.kind == "familywise" and isinstance(subject, ComposedFamilyIR):
+            return subject.lower().guarantee
         if self.kind == "familywise":
             return Guarantee(
                 "familywise_error",
@@ -511,6 +556,7 @@ class ValueType:
                 PlanIR: "StudyDesign",
                 PlannableIR: "Analysis",
                 LevelTestIR: "Analysis",
+                FamilyLikeIR: "Family",
                 StudyModelIR: "Model",
                 CandidateSpaceIR: "Candidates",
                 PlanningPointIR: "PlanningPoint",
@@ -616,6 +662,15 @@ def normalize(value: object) -> object:
             if alternative != "two_sided":
                 result["alternative"] = alternative
             return result
+        case ComposedFamilyIR(analyses=analyses, alpha=alpha):
+            return {
+                "method": "bonferroni",
+                "composition": "conditional",
+                "alpha": str(alpha),
+                "analyses": [
+                    {"name": name, "analysis": normalize(analysis)} for name, analysis in analyses
+                ],
+            }
         case FamilyIR(analyses=analyses, alpha=alpha, joint_law=law):
             return {
                 "method": "bonferroni",
@@ -726,6 +781,8 @@ def normalize(value: object) -> object:
 class Parameter:
     name: str
     kind: str | type
+    # An optional argument may be left out; its builder then receives None.
+    optional: bool = False
 
 
 @dataclass(frozen=True)
@@ -739,7 +796,8 @@ class Constructor:
 
     @property
     def signature(self) -> str:
-        return f"{self.name}({', '.join(p.name for p in self.parameters)}) -> {self.result}"
+        names = ", ".join(f"[{p.name}]" if p.optional else p.name for p in self.parameters)
+        return f"{self.name}({names}) -> {self.result}"
 
 
 @dataclass(frozen=True)
@@ -827,7 +885,7 @@ def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> Analysis
     return AnalysisIR(plan, null.value, alpha.value, "margin")
 
 
-def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyIR:
+def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyLikeIR:
     items = arguments["analyses"].value
     if not 2 <= len(items) <= MAX_ENDPOINTS:
         fail(
@@ -837,12 +895,17 @@ def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyIR:
         )
     analyses = []
     for item in items:
-        if not isinstance(item.value, AnalysisIR) or item.name is None:
-            fail("type", "Each family member must be a named Fisher analysis.", item.span)
-        if item.value.alternative != "two_sided":
+        if not isinstance(item.value, (AnalysisIR, CitedAnalysisIR)) or item.name is None:
+            fail(
+                "type",
+                "Each family member must be a named Fisher analysis or cited test.",
+                item.span,
+            )
+        if isinstance(item.value, AnalysisIR) and item.value.alternative != "two_sided":
             fail(
                 "unsupported_member",
-                "Bonferroni families currently combine two-sided Fisher analyses only.",
+                "Of the exact tests, Bonferroni families currently take two-sided Fisher "
+                "analyses only.",
                 item.span,
             )
         analyses.append((item.name, item.value))
@@ -862,14 +925,24 @@ def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyIR:
             arguments["analyses"].span,
         )
     law = arguments["joint_law"]
-    if law.value != "binomial_marginals":
+    if any(isinstance(analysis, CitedAnalysisIR) for _, analysis in analyses):
+        # The union bound needs no joint law, so there is nothing to declare.
+        if law.value is not None:
+            fail(
+                "sampling_contract",
+                "Leave joint_law out for a family with cited tests. The combination holds "
+                "for any dependence between members.",
+                law.span,
+            )
+        return ComposedFamilyIR(tuple(analyses), arguments["alpha"].value)
+    if law.value not in (None, "binomial_marginals"):
         fail(
             "sampling_contract",
             'The supported joint contract is "binomial_marginals"; '
             "dependence between outcomes is unrestricted.",
             law.span,
         )
-    return FamilyIR(tuple(analyses), arguments["alpha"].value, law.value)
+    return FamilyIR(tuple(analyses), arguments["alpha"].value, "binomial_marginals")
 
 
 def _observe(arguments: dict[str, LocatedValue], span: Span) -> ObservationIR:
@@ -1405,13 +1478,18 @@ MODULES = {
             (
                 _constructor(
                     "bonferroni",
-                    (("analyses", "list"), ("alpha", "level"), ("joint_law", "string")),
+                    (("analyses", "list"), ("alpha", "level"), ("joint_law", "string", True)),
                     "Family",
                     _family,
+                    documentation="Bonferroni: the members' levels may sum to at most alpha. "
+                    "Members may be Fisher analyses, cited tests or a mix; dependence between "
+                    "them is unrestricted. A family of two-sided Fisher analyses is proved "
+                    "outright. Any other family is conditional: Lean checks the combination "
+                    "and each member's own bound is assumed.",
                 ),
                 _constructor(
                     "familywise",
-                    (("family", FamilyIR),),
+                    (("family", FamilyLikeIR),),
                     "FamilywiseClaim",
                     _claim("familywise", "family"),
                 ),
@@ -1801,6 +1879,9 @@ class Elaborator:
                             argument.span,
                         )
                     fields[key] = _typed(self.evaluate(argument.value), parameter.kind, key)
+                for parameter in constructor.parameters:
+                    if parameter.optional and parameter.name not in fields:
+                        fields[parameter.name] = LocatedValue(None, span)
                 missing = [p.name for p in constructor.parameters if p.name not in fields]
                 if missing:
                     fail(

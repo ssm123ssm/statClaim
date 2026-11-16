@@ -14,6 +14,7 @@ from statclaim.language import (
     CandidateSpaceIR,
     CitedAnalysisIR,
     ClaimIR,
+    ComposedFamilyIR,
     ContinuousModelIR,
     DifferenceIntervalIR,
     FamilyIR,
@@ -101,6 +102,7 @@ SCHEMAS = {
         "null": FieldSpec(HypothesisIR, attribute="hypothesis"),
         "alpha": FieldSpec(Fraction, description="Exact declared significance level."),
     },
+    ComposedFamilyIR: {"analyses": FieldSpec("list"), "alpha": FieldSpec(Fraction)},
     FamilyIR: {
         "analyses": FieldSpec("list"),
         "alpha": FieldSpec(Fraction),
@@ -392,7 +394,7 @@ def read_field(value: object, name: str, span: Span) -> object:
         if value.calculation is None:
             return None
         return details_kind(value.claim)(value.calculation)
-    if isinstance(value, FamilyIR) and name == "analyses":
+    if isinstance(value, (FamilyIR, ComposedFamilyIR)) and name == "analyses":
         return tuple(LocatedValue(analysis, span, label) for label, analysis in value.analyses)
     return getattr(value, spec.attribute or name)
 

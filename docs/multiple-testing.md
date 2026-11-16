@@ -123,3 +123,25 @@ must be reissued after this upgrade because replay requires matching sources.
 The [standalone file-language prototype](stat-language.md) now expresses the same
 composition in `examples/two_outcomes.stat`, in parallel with Lean. The LSP
 provides completion, diagnostics and claim inspection; a REPL remains future work.
+
+## Families with cited tests
+
+`bonferroni` also takes [cited tests](cited-methods.md), alone or mixed with
+two-sided Fisher analyses. `joint_law` is optional and is left out here:
+
+```stat
+let endpoints = bonferroni(analyses=[response, symptoms], alpha=1/20)
+let family = verify(familywise(endpoints))
+```
+
+The result has status `conditional`. Lean checks that the levels sum to at most
+the family level and applies `StatClaim.Modules.Composition.familywise_le_of_levels`,
+a union bound whose hypothesis is each member's own error bound. Those bounds
+are listed as assumptions, each marked as cited or as provable in Lean.
+
+The theorem allows each member's bound a slack, and the family bound then holds
+up to the sum of the slacks. So a family with a large-sample member has a
+large-sample guarantee: a family is only as exact as its least exact member.
+
+The certificate kind is `statclaim_composition_certificate`, with status
+`combination_verified_members_assumed`. See `examples/mixed_endpoints.stat`.

@@ -24,6 +24,9 @@ What is supported:
   Beta-posterior rules. Type I error and power are checked for the whole design,
   and the decision for observed counts is checked against the declared rule.
 
+- **Mixed families.** Bonferroni over two-sided Fisher analyses and cited tests.
+  Lean checks that the levels fit the budget and that the union bound gives the
+  family bound. Each member's own bound is a hypothesis of that theorem.
 - **Two means, cited.** Pooled-variance and Welch t-tests, two-sided or
   one-sided with a margin. The contract is checked; the guarantee is cited from
   the literature and not proved. See [cited methods](cited-methods.md).
@@ -52,7 +55,7 @@ Every piece of evidence states how its guarantee was established:
 | Grade | Meaning |
 | --- | --- |
 | `proved` | Proved in Lean. |
-| `conditional` | Proved in Lean, given cited guarantees for the component tests. |
+| `conditional` | The combination is proved in Lean; each member's own guarantee is assumed. |
 | `cited` | Taken from the literature; not machine-checked. |
 | `simulated` | Estimated by simulation; not a proof. |
 
@@ -66,10 +69,14 @@ declared sample size, or `asymptotic` for a large-sample approximation. The two
 are never shown as the same thing.
 
 The exact modules are `proved` and `finite_sample`. The t-tests are `cited`;
-Welch's is also `asymptotic`. No module uses `conditional` or `simulated` yet.
-Read them with `evidence.grade` and `claim.scope`. Only `proved` and
-`conditional` evidence can give a `verified` status; cited evidence gives the
-status `cited` and has no certificate.
+Welch's is also `asymptotic`. A Bonferroni family with a cited member is
+`conditional`. No module uses `simulated` yet. Read them with `evidence.grade`
+and `claim.scope`.
+
+Each grade has its own result status, so a status never overstates its evidence:
+`proved` gives `verified`, `conditional` gives `conditional`, and `cited` gives
+`cited`. A file reports the weakest status among its claims. Cited evidence has
+no certificate; a conditional certificate states that the members are assumed.
 
 Certificates record source/toolchain hashes and can be replayed. Trust includes
 the Lean kernel and declared axioms, the pinned dependencies, and the translation

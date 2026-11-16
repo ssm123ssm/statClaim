@@ -89,11 +89,13 @@ verification; a valid specification alone is not a proof.
 
 Some common tests are supported with a **cited** guarantee instead: StatClaim
 checks that your null and sampling plan fit the test, then lists the published
-guarantee and its assumptions. These are never reported as verified.
+guarantee and its assumptions. These are never reported as verified. Each result
+is `verified`, `conditional` or `cited`, and a file reports its weakest status.
 
 | You want to | Use | Guarantee |
 | --- | --- | --- |
 | Compare two means | `tests.t` | Cited: pooled t-test (exact under normality) or Welch (large-sample) |
+| Combine proved and cited tests | `multiplicity.bonferroni` | Conditional: Lean checks the combination, the members are assumed |
 
 See [cited methods](docs/cited-methods.md) and [evidence grades](docs/scope.md#evidence-grades).
 
@@ -141,7 +143,7 @@ uv run --locked statclaim catalogue
 
 See [quickstart](docs/quickstart.md) for VS Code and result inspection.
 
-Then work through the [tutorial](docs/tutorial.html): twelve lessons, from a first
+Then work through the [tutorial](docs/tutorial.html): thirteen lessons, from a first
 checked claim to planning and analysing a study. Open the file in a browser;
 the lesson files are in `examples/tutorial/`.
 

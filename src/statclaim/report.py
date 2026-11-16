@@ -27,6 +27,7 @@ from statclaim.verification import (
     DESIGN_ASSUMPTIONS,
     VerificationError,
     certify_binomial_result,
+    certify_composition,
     certify_design,
     certify_difference,
     certify_family,
@@ -276,6 +277,20 @@ def planning_report(scope: str, target_property: str, assumptions: list[str]) ->
         "calculation": None,
         "decision": None,
     }
+
+
+def run_composition(report: dict, composition, *, project: Path, output, timeout: float) -> dict:
+    """Have Lean check how the member levels combine. The members stay assumed."""
+    report = _certified(
+        report, certify_composition, composition, project=project, output=output, timeout=timeout
+    )
+    if report["status"] == "verified":
+        report.update(status="conditional", evidence_grade="conditional")
+        report["limitations"] = [
+            "Each member's own error bound is assumed, not checked, in this certificate.",
+            "Real-world sampling assumptions are explicitly assumed.",
+        ]
+    return report
 
 
 def _approx(record: dict) -> str:

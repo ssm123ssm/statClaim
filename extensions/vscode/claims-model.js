@@ -5,7 +5,7 @@ const group = (label, children, extra = {}) => ({ label, children, ...extra });
 // Mirrors GRADES and SCOPES in methods/core.py.
 const GRADES = {
   proved: 'proved in Lean',
-  conditional: 'proved in Lean, conditional on cited component guarantees',
+  conditional: "combination proved in Lean; the members' own guarantees are assumed",
   cited: 'cited from the literature; not machine-checked',
   simulated: 'estimated by simulation; not a proof'
 };
@@ -24,9 +24,11 @@ function evidenceNodes(value, historical = false) {
       group('References', evidence.references.map(text => leaf(text)))
     ])];
   }
-  if (value?.status !== 'verified' || !evidence) return [leaf('No checked evidence')];
+  if (!['verified', 'conditional'].includes(value?.status) || !evidence) return [leaf('No checked evidence')];
   const certificate = evidence.certificate;
-  return [group(historical ? 'Historical evidence — previous snapshot only' : 'Checked evidence', [
+  const title = value.status === 'conditional'
+    ? 'Conditional evidence — combination checked, members assumed' : 'Checked evidence';
+  return [group(historical ? 'Historical evidence — previous snapshot only' : title, [
     leaf(`Evidence grade: ${GRADES[evidence.grade] || 'unknown'}`),
     leaf(`Certificate: ${certificate.certificate_id}`, { certificate: certificate.file }),
     leaf(`Certificate SHA-256: ${certificate.sha256}`),

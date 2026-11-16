@@ -26,6 +26,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: MeanHypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
+| ComposedFamily | A family with cited members: the combination is proved, the members are assumed. | `analyses: list`, `alpha: exact number` |
 | OneArmModel | One arm with a fixed sample size. | `n: integer` |
 | OneSampleAnalysis | One-sided exact binomial test with its null rate and alpha. | `model: OneArmModel`, `null_rate: exact number`, `alpha: exact number` |
 | OneSampleObservation | Observed responses for a one-sample test. | `analysis: OneSampleAnalysis`, `responses: integer` |
@@ -137,9 +138,9 @@ Exact test of p_treatment - p_control <= margin, for non-inferiority (negative m
 
 ### `multiplicity.bonferroni` — Multiplicity and composition
 
-Bonferroni for two or more Fisher endpoints with an explicit joint-law contract. Dependence between endpoints is unrestricted.
+Bonferroni for two to twenty endpoints; dependence between them is unrestricted. A family of two-sided Fisher analyses is proved outright. A family with cited tests is conditional: Lean checks the combination and the members are assumed.
 
-- `bonferroni(analyses, alpha, joint_law) -> Family`
+- `bonferroni(analyses, alpha, [joint_law]) -> Family`
 - `familywise(family) -> FamilywiseClaim`
 
 ### `planning` — Study planning

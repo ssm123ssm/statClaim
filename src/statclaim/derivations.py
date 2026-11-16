@@ -18,6 +18,7 @@ from statclaim.language import (
     CandidatesIR,
     CitedAnalysisIR,
     ClaimIR,
+    ComposedFamilyIR,
     FamilyIR,
     FeasibilityIR,
     OneArmCandidatesIR,
@@ -27,6 +28,7 @@ from statclaim.language import (
     TwoStageAnalysisIR,
     normalize,
 )
+from statclaim.methods.assumptions import PRESPECIFIED_FAMILY
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
 
 
@@ -85,6 +87,11 @@ RULES = {
     "joint-law": Rule(
         "The declared joint law is one the composition rule supports.",
         '{subject}: the joint law "{joint_law}" is supported.',
+    ),
+    "composed-family-contract": Rule(
+        "Every member satisfies its own contract, and the distinct-members and family-size "
+        "rules hold.",
+        "{subject}: its members can be combined under one familywise bound.",
     ),
     "family-contract": Rule(
         "Every member satisfies its analysis contract, and the distinct-members, "
@@ -197,6 +204,10 @@ CITED_NOT_ESTABLISHED = (
     "The guarantee below is cited from the literature and holds only under the listed "
     "assumptions. It is not proved here or in Lean."
 )
+COMPOSED_NOT_ESTABLISHED = (
+    "The familywise bound below follows from the members' own error bounds, which are "
+    "assumed here. Lean checks the combination when you verify the familywise claim."
+)
 NOT_ESTABLISHED = (
     "No statistical guarantee is established here. Error rates and power are separate "
     "claims, checked by verify(...)."
@@ -261,7 +272,11 @@ class Derivation:
             "steps": [step.to_dict() for step in self.steps],
             "assumptions": list(self.assumptions),
             "obligations": [obligation.to_dict() for obligation in self.obligations],
-            "not_established": CITED_NOT_ESTABLISHED if self.guarantee else NOT_ESTABLISHED,
+            "not_established": NOT_ESTABLISHED
+            if not self.guarantee
+            else COMPOSED_NOT_ESTABLISHED
+            if self.guarantee["grade"] == "conditional"
+            else CITED_NOT_ESTABLISHED,
             "subject": self.subject,
         }
 
@@ -349,8 +364,7 @@ def cited_guarantee(analysis: CitedAnalysisIR) -> dict:
     }
 
 
-def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:
-    builder = _Builder()
+def _cited_steps(builder: _Builder, name: str, analysis: CitedAnalysisIR) -> int:
     plan, null, method = analysis.plan, analysis.hypothesis, analysis.method
     used = (
         builder.apply(
@@ -377,7 +391,12 @@ def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:
             },
         ),
     )
-    final = builder.apply("cited-contract", {"subject": name}, used)
+    return builder.apply("cited-contract", {"subject": name}, used)
+
+
+def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:
+    builder, method = _Builder(), analysis.method
+    final = _cited_steps(builder, name, analysis)
     _sampling(builder, name, analysis)
     return Derivation(
         name,
@@ -389,6 +408,63 @@ def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:
         normalize(analysis),
         # An open obligation means the guarantee does not apply yet.
         None if builder.obligations else cited_guarantee(analysis),
+    )
+
+
+def composed_assumptions(family: ComposedFamilyIR) -> tuple[str, ...]:
+    """The family's own assumption, each member's bound, then the cited members' assumptions."""
+    composition = family.lower()
+    texts = [PRESPECIFIED_FAMILY.text, *(item.sentence for item in composition.components)]
+    cited: list[str] = []
+    for _, analysis in family.analyses:
+        if isinstance(analysis, CitedAnalysisIR):
+            cited += [item.text for item in analysis.method.assumptions if item.text not in cited]
+    return (*texts, *cited)
+
+
+def composed_guarantee(family: ComposedFamilyIR) -> dict:
+    composition = family.lower()
+    return {
+        **composition.guarantee.to_dict(),
+        "sentence": composition.guarantee.sentence,
+        "grade": "conditional",
+        "members": [item.to_dict() for item in composition.components],
+        "given": [PRESPECIFIED_FAMILY.id, *(f"member_guarantee:{n}" for n, _ in family.analyses)],
+    }
+
+
+def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
+    builder = _Builder()
+    members = [
+        _cited_steps(builder, member, analysis)
+        if isinstance(analysis, CitedAnalysisIR)
+        else _analysis_steps(builder, member, analysis)
+        for member, analysis in family.analyses
+    ]
+    names = [member for member, _ in family.analyses]
+    used = (
+        *members,
+        builder.apply("distinct-members", {"subject": name, "members": names}),
+        builder.apply("family-size", {"subject": name, "count": len(names)}),
+    )
+    final = builder.apply("composed-family-contract", {"subject": name, "members": names}, used)
+    allocated = sum((analysis.alpha for _, analysis in family.analyses), Fraction())
+    builder.settle(
+        "allocation",
+        {"subject": name, "allocated": str(allocated), "alpha": str(family.alpha)},
+        allocated <= family.alpha,
+    )
+    for member, analysis in family.analyses:
+        _sampling(builder, member, analysis)
+    return Derivation(
+        name,
+        "multiplicity.bonferroni/bonferroni",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        composed_assumptions(family),
+        tuple(builder.obligations),
+        normalize(family),
+        None if builder.obligations else composed_guarantee(family),
     )
 
 
@@ -570,6 +646,8 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
             derivations.append(derive_analysis(binding.name, value))
         elif isinstance(value, CitedAnalysisIR):
             derivations.append(derive_cited(binding.name, value))
+        elif isinstance(value, ComposedFamilyIR):
+            derivations.append(derive_composed(binding.name, value))
         elif isinstance(value, FamilyIR):
             derivations.append(derive_family(binding.name, value))
         elif isinstance(value, OneSampleAnalysisIR):

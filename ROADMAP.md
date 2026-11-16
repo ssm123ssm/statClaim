@@ -23,6 +23,8 @@
 - Checked decisions for observed two-stage data.
 - Evidence grades and guarantee scope on every claim.
 - Cited t-tests for two means: the contract is checked, the guarantee is cited.
+- Structured guarantees, named assumptions and versions for methods and rules.
+- Bonferroni over proved and cited tests, with the combination proved in Lean.
 
 ## Direction
 
@@ -34,8 +36,8 @@ and for rules that combine tests. Each claim shows its
 
 ## Next
 
-1. Contracts for ANCOVA and the log-rank test; cited tests in Bonferroni
-   families and group-sequential alpha spending, with the combination proved in Lean.
+1. Contracts for ANCOVA and the log-rank test; group-sequential alpha spending
+   with the combination proved in Lean.
 2. One-sided analyses in Bonferroni families.
 3. A narrower exact interval for a difference of two proportions.
 4. Larger sample sizes and p-values for the test with a margin.

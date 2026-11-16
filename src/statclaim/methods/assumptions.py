@@ -27,3 +27,8 @@ FINITE_VARIANCE = Assumption(
     "distribution",
     "Outcomes in each arm are identically distributed with finite, positive variance.",
 )
+PRESPECIFIED_FAMILY = Assumption(
+    "prespecified_family",
+    "design",
+    "The set of analyses and their levels are chosen before outcomes are observed.",
+)

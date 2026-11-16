@@ -31,7 +31,7 @@ class Grade:
 GRADES = {
     "proved": Grade("proved in Lean", ("lean_proof",), "guarantee"),
     "conditional": Grade(
-        "proved in Lean, conditional on cited component guarantees",
+        "combination proved in Lean; the members' own guarantees are assumed",
         ("lean_proof", "literature"),
         "composition",
     ),
@@ -47,6 +47,7 @@ ASSUMPTION_KINDS = {
     "design": "About the study plan. Compared with the declared design where possible.",
     "sampling": "About how observations arise. Not checkable from a declaration.",
     "distribution": "About the outcome's distribution. Not checkable from a declaration.",
+    "member": "A member test's own error bound, relied on when tests are combined.",
 }
 
 

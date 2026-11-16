@@ -14,6 +14,17 @@ from fractions import Fraction
 from pathlib import Path
 
 from statclaim import __version__
+from statclaim.composition import (
+    COMPOSITION_KIND,
+    COMPOSITION_THEOREMS,
+    GENERAL_THEOREM,
+    Composition,
+    composition_assumptions,
+    composition_claims,
+    composition_payload,
+    parse_composition_payload,
+    render_composition_proof,
+)
 from statclaim.design import Design
 from statclaim.family import FAMILY_ASSUMPTIONS, Endpoint, FisherFamily
 from statclaim.fisher import TEST_VERSION, FisherResult, parse_alpha, test_id
@@ -169,6 +180,15 @@ def _profile(kind: str, payload: dict) -> dict:
             "no observed results are certified."
         )
         general_theorem = "StatClaim.Modules.FisherFamilyN.strong_control"
+    elif kind == COMPOSITION_KIND:
+        composition = parse_composition_payload(payload)
+        claims = composition_claims(composition)
+        assumptions, theorems = composition_assumptions(composition), COMPOSITION_THEOREMS
+        scope = (
+            "How the declared member levels combine. The members' own error bounds are "
+            "hypotheses of the theorem and are not certified here."
+        )
+        general_theorem = GENERAL_THEOREM
     elif kind == PLANNING_KIND:
         plan = parse_planning_payload(payload)
         claims = planning_claims(plan)
@@ -236,7 +256,10 @@ def _profile(kind: str, payload: dict) -> dict:
     return {
         "schema_version": 1,
         "kind": kind,
-        "status": "verified_under_assumptions",
+        # A composition certificate checks the combination only, and says so.
+        "status": "combination_verified_members_assumed"
+        if kind == COMPOSITION_KIND
+        else "verified_under_assumptions",
         "claims": list(claims),
         "assumptions": list(assumptions),
         "trusted_components": list(TRUSTED_COMPONENTS),
@@ -364,6 +387,8 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_design_proof(design, input_id)
     if kind == "statclaim_family_certificate":
         return render_family_proof(_parse_family_payload(payload), input_id)
+    if kind == COMPOSITION_KIND:
+        return render_composition_proof(parse_composition_payload(payload), input_id)
     if kind == PLANNING_KIND:
         return render_planning_proof(parse_planning_payload(payload), input_id)
     if kind == POLICY_KIND:
@@ -616,6 +641,19 @@ def certify_family(
     )
 
 
+def certify_composition(
+    composition: Composition, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify how member levels combine; the members' bounds stay hypotheses."""
+    return _certify_payload(
+        composition_payload(composition),
+        COMPOSITION_KIND,
+        project=project,
+        output=output,
+        timeout=timeout,
+    )
+
+
 def certify_planning(
     plan: PowerPlan, *, project: Path, output: Path | None = None, timeout: float = 120
 ) -> tuple[dict, Path]:
@@ -816,6 +854,8 @@ def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict
         "certificate_id": identity,
         "backend_invoked": True,
         "kind": certificate["kind"],
+        # What the replayed certificate establishes; a composition leaves members assumed.
+        "certificate_status": profile["status"],
         "claims": profile["claims"],
         "certificate_directory": str(bundle),
     }

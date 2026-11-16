@@ -17,6 +17,7 @@ from fractions import Fraction
 from statclaim.derivations import (
     ANALYSIS_ASSUMPTIONS,
     CITED_NOT_ESTABLISHED,
+    COMPOSED_NOT_ESTABLISHED,
     CONTRACT_IDS,
     FAMILY_ASSUMPTIONS,
     NOT_ESTABLISHED,
@@ -26,6 +27,7 @@ from statclaim.derivations import (
     TWO_STAGE_ASSUMPTIONS,
 )
 from statclaim.methods import METHODS
+from statclaim.methods.assumptions import PRESPECIFIED_FAMILY
 from statclaim.methods.core import Guarantee
 
 SUPPORTED_NULLS = {
@@ -348,6 +350,114 @@ def _cited_expected(name: str, subject: dict, contract: str):
     return steps, [fixed], tuple(item.text for item in method.assumptions), guarantee
 
 
+MEMBER_GRADES = {
+    "proved": "provable in Lean; verify the member's own Type I claim",
+    "cited": "cited from the literature; not machine-checked",
+}
+
+
+def _composed_expected(name: str, subject: dict, contract: str):
+    """A family combining assumed member bounds: steps, obligations, assumptions, guarantee."""
+    if contract != "multiplicity.bonferroni/bonferroni" or subject.get("method") != "bonferroni":
+        raise ValueError("the contract does not match the declaration")
+    members = [(item["name"], item["analysis"]) for item in subject["analyses"]]
+    names = [member for member, _ in members]
+    steps, finals, sampling, components = [], [], [], []
+    assumptions = [PRESPECIFIED_FAMILY.text]
+    cited_texts: list[str] = []
+    exact = True
+    for member, analysis in members:
+        start = len(steps)
+        if analysis["test"] in METHODS:
+            method = METHODS[analysis["test"]]
+            block, fixed, texts, _ = _cited_expected(
+                member, analysis, f"{method.module}/{method.key}"
+            )
+            steps += [(r, f, h, tuple(start + u for u in uses)) for r, f, h, uses in block]
+            sampling += fixed
+            cited_texts += [text for text in texts if text not in cited_texts]
+            null, grade, scope = _mean_statement(analysis["null"]), "cited", method.scope
+            basis = f"{method.module}/{method.key} version {method.version}"
+        elif analysis["test"] == "fisher" and "alternative" not in analysis:
+            for rule, facts, holds in _analysis_expectations(member, analysis):
+                steps.append((rule, facts, holds, ()))
+            steps.append(
+                ("analysis-contract", {"subject": member}, True, tuple(range(start, start + 3)))
+            )
+            sampling.append(_sampling_expectation(member, analysis))
+            null, grade, scope = _statement(analysis["null"]), "proved", "finite_sample"
+            basis = "tests.fisher/fisher"
+        else:
+            raise ValueError("a member's analysis cannot join a family")
+        finals.append(len(steps) - 1)
+        exact = exact and scope == "finite_sample"
+        components.append(
+            {
+                "name": member,
+                "level": analysis["alpha"],
+                "scope": scope,
+                "grade": grade,
+                "basis": basis,
+                "null": null,
+            }
+        )
+        bound = Guarantee(
+            "type_I_error", "at_most", Fraction(analysis["alpha"]), null, "finite_sample"
+        )
+        assumptions.append(f"{member}: {bound.sentence} ({MEMBER_GRADES[grade]})")
+    if not any(component["grade"] == "cited" for component in components):
+        raise ValueError("a family without cited members is not a conditional composition")
+    low, high = FAMILY_LIMITS
+    base = len(steps)
+    distinct = len(set(names)) == len(names)
+    steps += [
+        ("distinct-members", {"subject": name, "members": names}, distinct, ()),
+        ("family-size", {"subject": name, "count": len(names)}, low <= len(names) <= high, ()),
+        (
+            "composed-family-contract",
+            {"subject": name, "members": names},
+            True,
+            (*finals, base, base + 1),
+        ),
+    ]
+    allocated = sum((Fraction(analysis["alpha"]) for _, analysis in members), Fraction())
+    allocation = (
+        "allocation",
+        {"subject": name, "allocated": str(allocated), "alpha": subject["alpha"]},
+        allocated <= Fraction(subject["alpha"]),
+    )
+    obligations = [allocation, *sampling]
+    guarantee = None
+    if all(holds for _, _, holds in obligations):
+        statement = Guarantee(
+            "familywise_error",
+            "at_most",
+            Fraction(subject["alpha"]),
+            "any subset of the member nulls is true",
+            "finite_sample" if exact else "asymptotic",
+        )
+        guarantee = {
+            **statement.to_dict(),
+            "sentence": statement.sentence,
+            "grade": "conditional",
+            "members": components,
+            "given": [PRESPECIFIED_FAMILY.id, *(f"member_guarantee:{n}" for n in names)],
+        }
+    return steps, obligations, (*assumptions, *cited_texts), guarantee
+
+
+def _carried(derivation: dict):
+    """What a contract that carries a guarantee implies; None for any other contract."""
+    subject = derivation.get("subject")
+    if not isinstance(subject, dict):
+        return None
+    if subject.get("test") in METHODS:
+        return _cited_expected(derivation["name"], subject, derivation["contract"])
+    if subject.get("composition") == "conditional":
+        return _composed_expected(derivation["name"], subject, derivation["contract"])
+    return None
+
+
 def _sampling_expectation(name: str, analysis: dict) -> tuple[str, dict, bool]:
     stopping = analysis["design"]["stopping"]
     return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
@@ -359,8 +469,9 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     A required step is (rule, facts, holds, rules or step groups it must use).
     """
     name, subject, contract = derivation["name"], derivation["subject"], derivation["contract"]
-    if subject.get("test") in METHODS:
-        return _cited_expected(name, subject, contract)[:3]
+    carried = _carried(derivation)
+    if carried is not None:
+        return carried[:3]
     if contract in CONTRACT_IDS.values():
         if subject["test"] != "fisher" or contract != CONTRACT_IDS.get(
             subject.get("alternative", "two_sided")
@@ -430,20 +541,19 @@ def check_derivation(derivation: dict) -> list[str]:
     try:
         # A guarantee may be carried only by a contract that supplies one, and then
         # only the guarantee the declaration implies.
-        guarantee = None
-        if isinstance(derivation.get("subject"), dict) and (
-            derivation["subject"].get("test") in METHODS
-        ):
-            guarantee = _cited_expected(
-                derivation["name"], derivation["subject"], derivation["contract"]
-            )[3]
+        carried = _carried(derivation)
+        guarantee = carried[3] if carried else None
         if derivation.get("guarantee") != guarantee:
             problems.append("The recorded guarantee is not the one the declaration implies.")
         scope = "conditional_guarantee" if guarantee else "compatibility"
         if derivation.get("scope") != scope:
             problems.append("The derivation's scope does not match what it establishes.")
         if derivation.get("not_established") != (
-            CITED_NOT_ESTABLISHED if guarantee else NOT_ESTABLISHED
+            NOT_ESTABLISHED
+            if not guarantee
+            else COMPOSED_NOT_ESTABLISHED
+            if guarantee["grade"] == "conditional"
+            else CITED_NOT_ESTABLISHED
         ):
             problems.append("The statement of what is not established is missing or altered.")
         required, obligation_rules, assumptions = _expected(derivation)

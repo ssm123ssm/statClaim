@@ -1,0 +1,25 @@
+# Lesson 13: one error bound over a proved test and a cited test.
+use models.two_arm_binomial
+use models.two_arm_continuous
+use sampling
+use tests.fisher
+use tests.t
+use multiplicity.bonferroni
+
+let responders = two_arm_binomial(n_control=120, n_treatment=120)
+let response = fisher(
+    design=fixed(model=responders),
+    null=equal_proportions(model=responders),
+    alpha=1/40,
+)
+
+let scores = two_arm_continuous(n_control=120, n_treatment=120)
+let symptoms = t_test(
+    design=fixed(model=scores),
+    null=equal_means(model=scores),
+    alpha=1/40,
+)
+
+let endpoints = bonferroni(analyses=[response, symptoms], alpha=1/20)
+let family = verify(familywise(endpoints))
+let primary = verify(typeI(response))

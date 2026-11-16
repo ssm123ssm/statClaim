@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Twelve short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Thirteen short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -923,6 +923,80 @@ treatment is better. A negative value is a non-inferiority margin, in the outcom
     <div class="task"><h4>Try it</h4><p>Change <code>fixed</code> to <code>adaptive</code>: the claim becomes unresolved, as in lesson 3. Then give <code>t_test</code> the null <code>mean_difference_at_most(model=study, value=0)</code> and read the guidance.</p></div>
   </div>
 </section>
+<section class="lesson" id="mixed">
+  <p class="eyebrow">Lesson 13</p>
+  <h2>Proved and cited tests under one error bound</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>A trial often has a yes-or-no endpoint and a measured one. We put a proved Fisher test and a cited t-test in one family, and see exactly which part of the familywise guarantee a machine checked.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/13_mixed_endpoints.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 13: one error bound over a proved test and a cited test.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> tests.t
+<span class="k">use</span> multiplicity.bonferroni
+
+<span class="k">let</span> responders = <span class="f">two_arm_binomial</span>(n_control=120, n_treatment=120)
+<span class="k">let</span> response = <span class="f">fisher</span>(
+    design=<span class="f">fixed</span>(model=responders),
+    null=<span class="f">equal_proportions</span>(model=responders),
+    alpha=1/40,
+)
+
+<span class="k">let</span> scores = <span class="f">two_arm_continuous</span>(n_control=120, n_treatment=120)
+<span class="k">let</span> symptoms = <span class="f">t_test</span>(
+    design=<span class="f">fixed</span>(model=scores),
+    null=<span class="f">equal_means</span>(model=scores),
+    alpha=1/40,
+)
+
+<span class="k">let</span> endpoints = <span class="f">bonferroni</span>(analyses=[response, symptoms], alpha=1/20)
+<span class="k">let</span> family = <span class="f">verify</span>(<span class="f">familywise</span>(endpoints))
+<span class="k">let</span> primary = <span class="f">verify</span>(<span class="f">typeI</span>(response))</code></pre></div></figure>
+<p>Each endpoint has its own model, because the outcomes are different kinds of data.
+<code>bonferroni</code> is the same constructor as in lesson 5. With a cited member there
+is no <code>joint_law</code> to state: the combination holds for any dependence between
+the endpoints.</p>
+<div class="scroll output"><pre><code><span class="warn">conditional</span> [family]: familywise(endpoints)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: finite-sample bound
+  The member levels sum to 1/20, which does not exceed the familywise bound 1/20.
+  If each member rejects its own true null with probability at most its level, the
+  probability of rejecting any true member null is at most 1/20, for every configuration
+  of true and false nulls and any dependence between members.
+  Not checked here: the members' own error bounds, listed as assumptions.
+  Assumptions:
+    The set of analyses and their levels are chosen before outcomes are observed.
+    response: Null rejection probability is at most 1/40 whenever p_treatment = p_control. (provable in Lean; verify the member's own Type I claim)
+    symptoms: Null rejection probability is at most 1/40 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)
+<span class="ok">verified</span> [primary]: typeI(response)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+Program status: conditional</code></pre></div>
+<p>There are now three statuses for a result that went through, and they are not
+interchangeable:</p>
+<div class="scroll"><table>
+  <thead><tr><th>Status</th><th>What a machine checked</th><th>What you rely on</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pill ok">verified</span></td><td>The guarantee itself, in Lean</td><td>The model's assumptions</td></tr>
+    <tr><td><span class="pill warn">conditional</span></td><td>How the parts combine, in Lean</td><td>Each member's own guarantee</td></tr>
+    <tr><td><span class="pill calc">cited</span></td><td>That your study fits the method</td><td>The published result and its assumptions</td></tr>
+  </tbody>
+</table></div>
+<p>The family is <em>conditional</em>. Lean proved that the two levels fit the budget and
+that the union bound then gives 1/20. It took each member's own 1/40 as given. For
+<code>response</code> that is not a leap: the last line verifies it. For
+<code>symptoms</code> it rests on the t-test's cited guarantee and its assumptions, such
+as normal outcomes.</p>
+<p>The file's status is the weakest one in it, so one cited or conditional claim is
+never hidden behind verified ones.</p>
+<div class="note"><strong>Large-sample members.</strong> Swap <code>t_test</code> for
+<code>welch_test</code> and the family's guarantee becomes a large-sample approximation
+too. A family is only as exact as its least exact member.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Proved and cited tests can share one familywise bound.</li><li><em>Conditional</em> means the combination was proved and the members were assumed.</li><li>A file reports its weakest status.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Raise one member's <code>alpha</code> to <code>1/20</code>: the family is overallocated and stays unresolved. Then run <code>statclaim explain</code> on the file and find the guarantee the family's contract carries.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -934,7 +1008,7 @@ treatment is better. A negative value is a non-inferiority margin, in the outcom
       <tr><td>Show a treatment is not worse by a margin</td><td><code>tests.difference</code></td><td><code>difference_test</code> with <code>typeI</code>, <code>result</code></td><td>8</td></tr>
       <tr><td>Estimate a difference</td><td><code>estimation</code></td><td><code>difference_interval</code></td><td>8</td></tr>
       <tr><td>Compare two means</td><td><code>models.two_arm_continuous</code>, <code>sampling</code>, <code>tests.t</code></td><td><code>t_test</code>, <code>welch_test</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
-      <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5</td></tr>
+      <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>
       <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>10, 11</td></tr>
@@ -948,7 +1022,7 @@ treatment is better. A negative value is a non-inferiority margin, in the outcom
     <li>Write the file before the data arrive. The assumptions all say "fixed before
     outcomes were observed".</li>
     <li>Read the assumptions under every verified or cited claim. They are yours to defend.</li>
-    <li>Check the grade. <em>Verified</em> was proved; <em>cited</em> rests on the literature.</li>
+    <li>Check the status. <em>Verified</em> was proved, <em>conditional</em> assumes its members, <em>cited</em> rests on the literature.</li>
     <li>Treat <em>unresolved</em> as a to-do, not a verdict.</li>
     <li>Report verified numbers; explore with calculated ones.</li>
   </ul>
