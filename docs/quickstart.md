@@ -25,6 +25,7 @@ Other files in `playground/`:
 | `two_stage_search.stat` | Finding an optimal or minimax two-stage design |
 | `two_stage_result.stat` | Analysing the data from a two-stage study |
 | `t_test.stat` | A continuous outcome with a cited t-test |
+| `log_rank.stat` | A time-to-event outcome with the cited log-rank test |
 | `mixed_endpoints.stat` | A proved and a cited test under one error bound |
 
 ## Without Lean

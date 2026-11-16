@@ -1,0 +1,13 @@
+# A time-to-event endpoint. The log-rank guarantee is cited and large-sample.
+use models.two_arm_survival
+use sampling
+use tests.survival
+
+let study = two_arm_survival(n_control=200, n_treatment=200)
+let plan = fixed(model=study)
+let null = equal_survival(model=study)
+
+let analysis = log_rank(design=plan, null=null, alpha=1/20)
+let checked = verify(typeI(analysis))
+let scope = checked.claim.scope
+let assumptions = checked.evidence.required_assumptions

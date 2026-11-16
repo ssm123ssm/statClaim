@@ -14,10 +14,8 @@ from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statclaim.fisher import validate_alpha
 from statclaim.language_contracts import (
-    EQUAL_MEANS_CONTRACT,
     FISHER_CONTRACT,
     MARGIN_CONTRACT,
-    MEAN_DIFFERENCE_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
     HypothesisContract,
 )
@@ -35,7 +33,7 @@ from statclaim.language_syntax import (
     Statement,
     parse,
 )
-from statclaim.methods import METHOD_MODULES
+from statclaim.methods import METHOD_MODULES, NULL_FORMS, OUTCOMES, methods_for
 from statclaim.methods.core import CitedMethod, Guarantee
 from statclaim.planning import (
     CRITERIA,
@@ -86,24 +84,25 @@ class ModelIR(StudyModelIR):
 
 
 @dataclass(frozen=True)
-class ContinuousModelIR(StudyModelIR):
-    """Two arms with a continuous outcome; no distribution is fixed by the model."""
+class OutcomeModelIR(StudyModelIR):
+    """Two arms with an outcome of a registered kind; no distribution is fixed."""
 
+    outcome: str
     n_control: int
     n_treatment: int
 
 
 @dataclass(frozen=True)
-class MeanHypothesisIR:
-    model: ContinuousModelIR
-    predicate: Choice["equal_means", "mean_difference_at_most"] = "equal_means"
+class OutcomeNullIR:
+    """A null hypothesis in one of the forms registered for the model's outcome."""
+
+    model: OutcomeModelIR
+    predicate: str
     value: Fraction = Fraction(0)
 
     @property
     def statement(self) -> str:
-        if self.predicate == "equal_means":
-            return "mean_treatment = mean_control"
-        return f"mean_treatment - mean_control <= {self.value}"
+        return NULL_FORMS[self.predicate][1].state(self.value)
 
 
 @dataclass(frozen=True)
@@ -194,7 +193,7 @@ class CitedAnalysisIR(LevelTestIR):
     """An analysis whose guarantee is cited from the literature, not proved in Lean."""
 
     plan: PlanIR
-    hypothesis: MeanHypothesisIR
+    hypothesis: OutcomeNullIR
     alpha: Fraction
     method: CitedMethod
 
@@ -631,11 +630,11 @@ def normalize(value: object) -> object:
             return str(value)
         case ModelIR(n_control=nc, n_treatment=nt):
             return {"module": "two_arm_binomial", "n_control": nc, "n_treatment": nt}
-        case ContinuousModelIR(n_control=nc, n_treatment=nt):
-            return {"module": "two_arm_continuous", "n_control": nc, "n_treatment": nt}
-        case MeanHypothesisIR(model=model, predicate=predicate, value=bound):
+        case OutcomeModelIR(outcome=outcome, n_control=nc, n_treatment=nt):
+            return {"module": OUTCOMES[outcome].constructor, "n_control": nc, "n_treatment": nt}
+        case OutcomeNullIR(model=model, predicate=predicate, value=bound):
             result = {"predicate": predicate, "model": normalize(model)}
-            if predicate != "equal_means":
+            if NULL_FORMS[predicate][1].takes_value:
                 result["value"] = str(bound)
             return result
         case CitedAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, method=method):
@@ -817,17 +816,45 @@ def _model(arguments: dict[str, LocatedValue], span: Span) -> ModelIR:
     return ModelIR(arguments["n_control"].value, arguments["n_treatment"].value)
 
 
-def _continuous_model(arguments: dict[str, LocatedValue], span: Span) -> ContinuousModelIR:
-    for name, argument in arguments.items():
-        if argument.value <= 0:
-            fail("domain", f"{name} must be a positive integer.", argument.span)
-    return ContinuousModelIR(arguments["n_control"].value, arguments["n_treatment"].value)
+def _outcome_model(outcome) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> OutcomeModelIR:
+        for name, argument in arguments.items():
+            if argument.value <= 0:
+                fail("domain", f"{name} must be a positive integer.", argument.span)
+        return OutcomeModelIR(
+            outcome.key, arguments["n_control"].value, arguments["n_treatment"].value
+        )
+
+    return build
+
+
+def _outcome_null(outcome, form) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> OutcomeNullIR:
+        model = arguments["model"]
+        if model.value.outcome != outcome.key:
+            fail(
+                "type",
+                f"{form.key} is a null for a {outcome.key} outcome; this model's outcome is "
+                f"{model.value.outcome}.",
+                model.span,
+            )
+        value = arguments["value"].value if form.takes_value else Fraction(0)
+        return OutcomeNullIR(model.value, form.key, value)
+
+    return build
 
 
 def _cited_test(method: CitedMethod) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> CitedAnalysisIR:
         design, alpha = arguments["design"], arguments["alpha"]
         model = design.value.model
+        if getattr(model, "outcome", None) != method.outcome:
+            fail(
+                "type",
+                f"{method.key} is a test for a {method.outcome} outcome; this design's "
+                "model is of another kind.",
+                design.span,
+            )
         if (
             min(model.n_control, model.n_treatment) < method.min_per_arm
             or model.n_control + model.n_treatment < method.min_total
@@ -1309,61 +1336,59 @@ TYPE_I = _constructor(
 )
 
 
-# The null forms a cited method may name, each with its contract.
-MEAN_CONTRACTS = {
-    "equal_means": EQUAL_MEANS_CONTRACT,
-    "mean_difference_at_most": MEAN_DIFFERENCE_CONTRACT,
-}
+def _cited_contract(method: CitedMethod) -> HypothesisContract:
+    """Built from the registry, so the guidance always lists the current alternatives."""
+    form = NULL_FORMS[method.null][1]
+    others = "; ".join(f"{other.key} takes {other.null}" for other in methods_for(method.outcome))
+    return HypothesisContract(
+        (method.null,),
+        form.statement.format(value="value"),
+        f"{method.title} supports the null {method.null}. Keep your null if it states your "
+        f"question, and choose the test that supports it. For this outcome: {others}.",
+        version=method.version,
+    )
 
 
 def _cited_constructor(method: CitedMethod) -> Constructor:
-    contract = MEAN_CONTRACTS[method.null]
+    contract = _cited_contract(method)
     return _constructor(
         method.key,
-        (("design", PlanIR), ("null", MeanHypothesisIR), ("alpha", "level")),
+        (("design", PlanIR), ("null", OutcomeNullIR), ("alpha", "level")),
         "CitedAnalysis",
         _cited_test(method),
         hypothesis_contract=contract,
         documentation=f"{method.title}. Its guarantee is cited from the literature and is "
-        f"not checked by Lean. {contract.guidance}",
+        f"not checked by Lean. Null: {contract.expected}.",
     )
+
+
+def _outcome_module(outcome) -> "Module":
+    nulls = tuple(
+        _constructor(
+            form.key,
+            (("model", OutcomeModelIR), *((("value", "number"),) if form.takes_value else ())),
+            "OutcomeNull",
+            _outcome_null(outcome, form),
+            documentation=form.documentation,
+        )
+        for form in outcome.nulls
+    )
+    model = _constructor(
+        outcome.constructor,
+        (("n_control", "integer"), ("n_treatment", "integer")),
+        "OutcomeModel",
+        _outcome_model(outcome),
+        documentation=f"{outcome.documentation} The model fixes no distribution; each test "
+        "states the one it assumes.",
+    )
+    return Module(outcome.module, (model, *nulls, TYPE_I))
 
 
 # Extending this registry adds vocabulary and typed builders; parsing is unchanged.
 MODULES = {
     module.name: module
     for module in (
-        Module(
-            "models.two_arm_continuous",
-            (
-                _constructor(
-                    "two_arm_continuous",
-                    (("n_control", "integer"), ("n_treatment", "integer")),
-                    "ContinuousModel",
-                    _continuous_model,
-                    documentation="Two arms with a continuous outcome. The model fixes no "
-                    "distribution; each test states the distribution it assumes.",
-                ),
-                _constructor(
-                    "equal_means",
-                    (("model", ContinuousModelIR),),
-                    "MeanHypothesis",
-                    lambda args, span: MeanHypothesisIR(args["model"].value),
-                    documentation="Null: mean_treatment = mean_control.",
-                ),
-                _constructor(
-                    "mean_difference_at_most",
-                    (("model", ContinuousModelIR), ("value", "number")),
-                    "MeanHypothesis",
-                    lambda args, span: MeanHypothesisIR(
-                        args["model"].value, "mean_difference_at_most", args["value"].value
-                    ),
-                    documentation="Null: mean_treatment - mean_control <= value, in the "
-                    "outcome's units. A negative value is a non-inferiority margin.",
-                ),
-                TYPE_I,
-            ),
-        ),
+        *(_outcome_module(outcome) for outcome in OUTCOMES.values()),
         *(
             Module(group.name, tuple(_cited_constructor(method) for method in group.methods))
             for group in METHOD_MODULES

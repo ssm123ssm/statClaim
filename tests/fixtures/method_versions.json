@@ -1,18 +1,22 @@
 {
   "t_test": {
     "version": 1,
-    "sha256": "e1f6c17d642ffcd1fe0988f663081a5ef58f7913539715728b83d90d4cd393d2"
+    "sha256": "953430850b769115bb07b5bb8e7a82e50b9d65465fedfa4973f076fa10947983"
   },
   "t_test_one_sided": {
     "version": 1,
-    "sha256": "df5d2e2f2ac4cdc5f65e62b2e3a353cec645a93a96fb40bc9376bae7966f9edd"
+    "sha256": "217d415771b9b1dfb1c3306a2048f5bede81668e6a66fd22db1d483a18d37429"
   },
   "welch_test": {
     "version": 1,
-    "sha256": "35c4ef9effb84ac1fd050b81605a1ecbe4e6083572dedad541e4fe633603132b"
+    "sha256": "042e1931df347d59d37eab64f8acf4b6703749a0a3f230e8530d1dfedc091d67"
   },
   "welch_test_one_sided": {
     "version": 1,
-    "sha256": "156f521cb00a0be925f94c91951258230ec0552cfb09d1cc7ee3f5cc8ca898e7"
+    "sha256": "309fa51e50bff494c86a9c595ffa843ac9b6d353701045e185062f4864a3dc6d"
+  },
+  "log_rank": {
+    "version": 1,
+    "sha256": "c06006473148cdcd83b631932b3a5f6bbda8e0f206bc4e6a2a7a88fa791fffbd"
   }
 }

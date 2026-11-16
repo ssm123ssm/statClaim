@@ -367,3 +367,51 @@ def test_cited_claims_run_outside_a_checkout(tmp_path):
     text = (ROOT / "examples/t_test.stat").read_text()
     report = check_source(Source(text, "t.stat"), project=tmp_path, output=tmp_path / "run")
     assert report["status"] == "cited"
+
+
+SURVIVAL = (
+    "use models.two_arm_survival\nuse sampling\nuse tests.survival\n"
+    "let study = two_arm_survival(n_control=200, n_treatment=200)\n"
+    "let plan = fixed(model=study)\nlet null = equal_survival(model=study)\n"
+)
+
+
+def test_a_new_outcome_and_its_test_are_registry_entries_only(tmp_path):
+    text = SURVIVAL + "let analysis = log_rank(design=plan, null=null, alpha=1/20)\n"
+    assert check_derivation(cited_derivation(text)) == []
+    report = run(text + "let checked = verify(typeI(analysis))\n", tmp_path)
+    evidence = report["values"]["checked"]["evidence"]
+    assert report["status"] == "cited" and evidence["scope"] == "asymptotic"
+    assert evidence["guarantee"]["limit"] == "the number of events grows"
+    assert "independent_censoring" in [item["id"] for item in evidence["assumptions"]]
+    # Proportional hazards is a power assumption, not an error-rate one.
+    assert not any("proportional" in item["text"].lower() for item in evidence["assumptions"])
+
+
+def test_outcomes_do_not_mix():
+    both = SURVIVAL + "use models.two_arm_continuous\nuse tests.t\n"
+    # A null for one outcome cannot be stated about another outcome's model.
+    assert codes(both + "let wrong = equal_means(model=study)\n") == ["type"]
+    # A test for one outcome cannot be run on another outcome's design.
+    assert codes(
+        both
+        + "let scores = two_arm_continuous(n_control=200, n_treatment=200)\n"
+        + "let a = t_test(design=plan, null=equal_means(model=scores), alpha=1/20)\n"
+    ) == ["model_mismatch"]
+    assert codes(
+        both
+        + "let scores = two_arm_continuous(n_control=200, n_treatment=200)\n"
+        + "let a = log_rank(design=fixed(model=scores), null=null, alpha=1/20)\n"
+    ) == ["model_mismatch"]
+
+
+def test_contract_guidance_lists_the_tests_for_the_outcome():
+    compilation = compile_source(
+        Source(
+            FIXED
+            + "let null = mean_difference_at_most(model=study, value=0)\n"
+            + "let a = t_test(design=plan, null=null, alpha=1/20)\n"
+        )
+    )
+    message = compilation.diagnostics[0].message
+    assert "t_test_one_sided takes mean_difference_at_most" in message

@@ -27,6 +27,8 @@ What is supported:
 - **Mixed families.** Bonferroni over two-sided Fisher analyses and cited tests.
   Lean checks that the levels fit the budget and that the union bound gives the
   family bound. Each member's own bound is a hypothesis of that theorem.
+- **Two survival curves, cited.** The two-sided log-rank test, with a
+  large-sample guarantee in the number of events.
 - **Two means, cited.** Pooled-variance and Welch t-tests, two-sided or
   one-sided with a margin. The contract is checked; the guarantee is cited from
   the literature and not proved. See [cited methods](cited-methods.md).

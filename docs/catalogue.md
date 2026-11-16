@@ -21,9 +21,9 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | StudyDesign | Model with a stopping rule. | `model: Model`, `stopping: string` |
 | Hypothesis | A null restriction, not an assertion of truth. | `model: Model`, `predicate: string`, `value: exact number`, `statement: string` |
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
-| ContinuousModel | Two arms with a continuous outcome. | `n_control: integer`, `n_treatment: integer` |
-| MeanHypothesis | A null restriction on the arm means. | `model: ContinuousModel`, `predicate: string`, `value: exact number`, `statement: string` |
-| CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: MeanHypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
+| OutcomeModel | Two arms with a continuous, survival or other registered outcome. | `outcome: string`, `n_control: integer`, `n_treatment: integer` |
+| OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
+| CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: OutcomeNull`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
 | ComposedFamily | A family with cited members: the combination is proved, the members are assumed. | `analyses: list`, `alpha: exact number` |
@@ -81,11 +81,19 @@ Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `Pla
 
 ### `models.two_arm_continuous` — Models and hypotheses
 
-Two arms with a continuous outcome; equal-means and mean-difference nulls. The model fixes no distribution.
+Two arms with a continuous outcome; equal-means and mean-difference nulls. Fixes no distribution.
 
-- `two_arm_continuous(n_control, n_treatment) -> ContinuousModel`
-- `equal_means(model) -> MeanHypothesis`
-- `mean_difference_at_most(model, value) -> MeanHypothesis`
+- `two_arm_continuous(n_control, n_treatment) -> OutcomeModel`
+- `equal_means(model) -> OutcomeNull`
+- `mean_difference_at_most(model, value) -> OutcomeNull`
+- `typeI(analysis) -> TypeIClaim`
+
+### `models.two_arm_survival` — Models and hypotheses
+
+Two arms with a time-to-event outcome, possibly censored; equal-survival null. Fixes no distribution.
+
+- `two_arm_survival(n_control, n_treatment) -> OutcomeModel`
+- `equal_survival(model) -> OutcomeNull`
 - `typeI(analysis) -> TypeIClaim`
 
 ### `tests.t` — Cited analyses
@@ -100,6 +108,13 @@ Pooled-variance and Welch t-tests for two means. The compiler checks the null an
   Required null: mean_treatment = mean_control; same model required.
 - `welch_test_one_sided(design, null, alpha) -> CitedAnalysis`
   Required null: mean_treatment - mean_control <= value; same model required.
+
+### `tests.survival` — Cited analyses
+
+The log-rank test for two survival curves. The compiler checks the null and the sampling plan against the test's contract. The Type I guarantee is cited from the literature and is a large-sample approximation in the number of events. Proportional hazards is not needed for the error rate; it matters for power.
+
+- `log_rank(design, null, alpha) -> CitedAnalysis`
+  Required null: survival_treatment = survival_control at every time; same model required.
 
 ### `models.two_arm_binomial` — Models and hypotheses
 

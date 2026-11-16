@@ -2,14 +2,9 @@
 
 from statclaim.language import MODULES, OPERATIONS, ValueType
 from statclaim.language_fields import SCHEMAS
-from statclaim.methods import METHOD_MODULES
+from statclaim.methods import METHOD_MODULES, OUTCOMES
 
 MODULE_CLASSES = {
-    "models.two_arm_continuous": (
-        "Models and hypotheses",
-        "Two arms with a continuous outcome; equal-means and mean-difference nulls. "
-        "The model fixes no distribution.",
-    ),
     "models.two_arm_binomial": (
         "Models and hypotheses",
         "Two independent binomial arms; equality, difference and inequality nulls; "
@@ -68,6 +63,12 @@ MODULE_CLASSES = {
 }
 # Cited method modules describe themselves; adding one needs no edit here.
 MODULE_CLASSES.update({group.name: ("Cited analyses", group.summary) for group in METHOD_MODULES})
+MODULE_CLASSES.update(
+    {
+        outcome.module: ("Models and hypotheses", f"{outcome.summary} Fixes no distribution.")
+        for outcome in OUTCOMES.values()
+    }
+)
 OBJECT_CLASSES = {
     "Guarantee": (
         "Claims and results",
@@ -77,8 +78,11 @@ OBJECT_CLASSES = {
     "StudyDesign": ("Core statistical objects", "Model with a stopping rule."),
     "Hypothesis": ("Core statistical objects", "A null restriction, not an assertion of truth."),
     "Analysis": ("Core statistical objects", "Design, compatible null and exact alpha."),
-    "ContinuousModel": ("Core statistical objects", "Two arms with a continuous outcome."),
-    "MeanHypothesis": ("Core statistical objects", "A null restriction on the arm means."),
+    "OutcomeModel": (
+        "Core statistical objects",
+        "Two arms with a continuous, survival or other registered outcome.",
+    ),
+    "OutcomeNull": ("Core statistical objects", "A null restriction for such a model."),
     "CitedAnalysis": (
         "Core statistical objects",
         "Design, null and alpha for a test whose guarantee is cited, not proved.",

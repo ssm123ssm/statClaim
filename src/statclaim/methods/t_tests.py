@@ -27,6 +27,7 @@ LEHMANN_ROMANO = (
 
 # Exact under normality with a common variance.
 _POOLED = dict(
+    outcome="continuous",
     module="tests.t",
     version=1,
     scope="finite_sample",
@@ -37,6 +38,7 @@ _POOLED = dict(
 )
 # Needs no normality or common variance, but its level is only approximate.
 _WELCH = dict(
+    outcome="continuous",
     module="tests.t",
     version=1,
     scope="asymptotic",

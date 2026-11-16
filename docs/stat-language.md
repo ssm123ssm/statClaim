@@ -9,6 +9,7 @@ interface; the Lean and TOML interfaces remain supported.
 | --- | --- |
 | `models.two_arm_binomial`, `sampling`, `tests.fisher` | Two-arm studies and Fisher's exact test (this guide) |
 | `models.two_arm_continuous`, `tests.t` | Two means with cited t-tests ([cited methods](cited-methods.md)) |
+| `models.two_arm_survival`, `tests.survival` | Two survival curves with the cited log-rank test |
 | `tests.difference` | Exact test with a margin, such as non-inferiority ([planning](planning.md)) |
 | `multiplicity.bonferroni` | Several endpoints ([multiple testing](multiple-testing.md)) |
 | `planning` | Power targets and sample-size searches ([planning](planning.md)) |

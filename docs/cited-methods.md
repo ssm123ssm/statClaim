@@ -54,8 +54,14 @@ let scope = checked.claim.scope                  # finite_sample or asymptotic
 | `t_test_one_sided` | `mean_difference_at_most` | Level at most alpha | Normal outcomes, equal variances |
 | `welch_test` | `equal_means` | Large-sample approximation | Finite variances |
 | `welch_test_one_sided` | `mean_difference_at_most` | Large-sample approximation | Finite variances |
+| `log_rank` | `equal_survival` | Large-sample approximation, in the number of events | Independent censoring |
 
-All assume independent observations, fixed arm sizes and one analysis.
+The t-tests are in `tests.t`, for `models.two_arm_continuous`. The log-rank test
+is in `tests.survival`, for `models.two_arm_survival`; see `examples/log_rank.stat`.
+Proportional hazards is not among its assumptions: the error rate does not need
+it, though power does.
+
+All assume independent observations, a plan fixed in advance and one analysis.
 `claim.guarantee` is `finite_sample` for the pooled tests and `asymptotic` for
 Welch. A file with any cited claim has overall status `cited`.
 
@@ -81,9 +87,14 @@ To add a test over an existing model and null:
    `uv run python scripts/update_catalogue.py`.
 4. Add an example, and a test for a null the method must reject.
 
-The constructor, editor support, catalogue entry and report follow from the
-entry. A method over a new kind of outcome also needs a model and nulls in
-`language.py`; open an issue first.
+The constructor, its contract and guidance, editor support, catalogue entry,
+derivation and report all follow from the entry.
+
+A new kind of endpoint is also data. Add an `Outcome` with its null forms to
+`methods/outcomes.py`, as `SURVIVAL` does. Its model and null constructors then
+exist in `.stat` files. `survival.py` is the complete example. Outcomes that
+need more than two arm sizes to describe, such as covariates, are not covered
+yet; open an issue first.
 
 Each entry is trusted, not proved, so it needs a published source and statistical
 review. After a reviewed change to an entry, raise its `version`. A test fails

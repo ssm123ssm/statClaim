@@ -76,6 +76,8 @@ class Guarantee:
     bound: Fraction
     null: str
     scope: str  # a key of SCOPES
+    # For a large-sample guarantee: what has to grow for it to become exact.
+    limit: str = "the sample sizes grow"
 
     def __post_init__(self):
         if self.relation not in ("equals", "at_most") or self.scope not in SCOPES:
@@ -93,7 +95,7 @@ class Guarantee:
             return f"{name} {relation} {self.bound} whenever {self.null}."
         relation = "approaches" if self.relation == "equals" else "is at most"
         return (
-            f"{name} {relation} {self.bound} in the limit as the sample sizes grow, "
+            f"{name} {relation} {self.bound} in the limit as {self.limit}, "
             f"whenever {self.null}. No bound is claimed at the declared sample sizes."
         )
 
@@ -104,7 +106,36 @@ class Guarantee:
             "bound": str(self.bound),
             "null": self.null,
             "scope": self.scope,
+            **({"limit": self.limit} if self.scope == "asymptotic" else {}),
         }
+
+
+@dataclass(frozen=True)
+class NullForm:
+    """One form a null hypothesis can take for an outcome, such as equal means."""
+
+    key: str  # the constructor's name in .stat files
+    statement: str  # may contain {value} when the null takes a number
+    documentation: str
+    takes_value: bool = False
+
+    def state(self, value: Fraction) -> str:
+        return self.statement.format(value=value)
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """A kind of two-arm outcome, with the nulls that can be stated about it.
+
+    The model fixes no distribution; each method states the one it assumes.
+    """
+
+    key: str  # "continuous", "survival"
+    module: str  # the module a file loads with `use`
+    constructor: str  # the model's constructor name
+    summary: str  # one line for the catalogue
+    documentation: str
+    nulls: tuple[NullForm, ...]
 
 
 @dataclass(frozen=True)
@@ -119,16 +150,19 @@ class CitedMethod:
     module: str  # the module a file loads with `use`
     title: str
     version: int
-    null: str  # the one hypothesis form the test supports
+    outcome: str  # the Outcome this test applies to
+    null: str  # the one null form of that outcome the test supports
     relation: str  # how the error rate relates to alpha: "equals" or "at_most"
     scope: str
     assumptions: tuple[Assumption, ...]
     references: tuple[str, ...]
     min_per_arm: int
     min_total: int
+    # For a large-sample guarantee: what has to grow for it to become exact.
+    limit: str = "the sample sizes grow"
 
     def guarantee(self, alpha: Fraction, null: str) -> Guarantee:
-        return Guarantee("type_I_error", self.relation, alpha, null, self.scope)
+        return Guarantee("type_I_error", self.relation, alpha, null, self.scope, self.limit)
 
     def to_dict(self) -> dict:
         return {"key": self.key, "version": self.version, "title": self.title}

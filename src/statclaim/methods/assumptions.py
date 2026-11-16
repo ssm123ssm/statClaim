@@ -32,3 +32,14 @@ PRESPECIFIED_FAMILY = Assumption(
     "design",
     "The set of analyses and their levels are chosen before outcomes are observed.",
 )
+INDEPENDENT_CENSORING = Assumption(
+    "independent_censoring",
+    "sampling",
+    "Within each arm, censoring is independent of the time to the event.",
+)
+PRESPECIFIED_ANALYSIS_TIME = Assumption(
+    "prespecified_analysis_time",
+    "design",
+    "When to analyse is fixed in advance, by calendar time or by a number of events, and "
+    "does not depend on the observed difference between arms.",
+)

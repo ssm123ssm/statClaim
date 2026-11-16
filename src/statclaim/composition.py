@@ -24,6 +24,8 @@ MEMBER_GRADES = {
 }
 PRESPECIFIED = PRESPECIFIED_FAMILY.text
 MAX_MEMBERS = 20
+# What has to grow for a family with large-sample members to reach its bound.
+FAMILY_LIMIT = "each member's sample size or number of events grows"
 
 
 @dataclass(frozen=True)
@@ -91,6 +93,7 @@ class Composition:
             self.alpha,
             "any subset of the member nulls is true",
             self.scope,
+            FAMILY_LIMIT,
         )
 
 

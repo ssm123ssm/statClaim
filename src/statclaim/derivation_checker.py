@@ -26,7 +26,7 @@ from statclaim.derivations import (
     RULES,
     TWO_STAGE_ASSUMPTIONS,
 )
-from statclaim.methods import METHODS
+from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
 from statclaim.methods.assumptions import PRESPECIFIED_FAMILY
 from statclaim.methods.core import Guarantee
 
@@ -281,10 +281,10 @@ def _analysis_expectations(name: str, analysis: dict) -> list[tuple[str, dict, b
     ]
 
 
-def _mean_statement(null: dict) -> str:
-    if null["predicate"] == "equal_means":
-        return "mean_treatment = mean_control"
-    return f"mean_treatment - mean_control <= {null['value']}"
+def _null_statement(null: dict) -> str:
+    """The statement of a registered null form, from the registry's data."""
+    form = NULL_FORMS[null["predicate"]][1]
+    return form.state(Fraction(null["value"]) if form.takes_value else Fraction(0))
 
 
 def _cited_expected(name: str, subject: dict, contract: str):
@@ -297,8 +297,9 @@ def _cited_expected(name: str, subject: dict, contract: str):
         raise ValueError("the contract does not match the declaration")
     design, null = subject["design"], subject["null"]
     sizes, alpha = _sizes(design["model"]), Fraction(subject["alpha"])
+    expected_model = OUTCOMES[method.outcome].constructor
     continuous = all(
-        model["module"] == "two_arm_continuous" for model in (design["model"], null["model"])
+        model["module"] == expected_model for model in (design["model"], null["model"])
     )
     enough = min(sizes.values()) >= method.min_per_arm and sum(sizes.values()) >= method.min_total
     steps = [
@@ -313,7 +314,7 @@ def _cited_expected(name: str, subject: dict, contract: str):
             {
                 "subject": name,
                 "predicate": null["predicate"],
-                "statement": _mean_statement(null),
+                "statement": _null_statement(null),
                 "supported": [method.null],
             },
             null["predicate"] == method.null,
@@ -337,7 +338,12 @@ def _cited_expected(name: str, subject: dict, contract: str):
     guarantee = None
     if fixed[2]:
         statement = Guarantee(
-            "type_I_error", method.relation, alpha, _mean_statement(null), method.scope
+            "type_I_error",
+            method.relation,
+            alpha,
+            _null_statement(null),
+            method.scope,
+            method.limit,
         )
         guarantee = {
             **statement.to_dict(),
@@ -376,7 +382,7 @@ def _composed_expected(name: str, subject: dict, contract: str):
             steps += [(r, f, h, tuple(start + u for u in uses)) for r, f, h, uses in block]
             sampling += fixed
             cited_texts += [text for text in texts if text not in cited_texts]
-            null, grade, scope = _mean_statement(analysis["null"]), "cited", method.scope
+            null, grade, scope = _null_statement(analysis["null"]), "cited", method.scope
             basis = f"{method.module}/{method.key} version {method.version}"
         elif analysis["test"] == "fisher" and "alternative" not in analysis:
             for rule, facts, holds in _analysis_expectations(member, analysis):
@@ -435,6 +441,7 @@ def _composed_expected(name: str, subject: dict, contract: str):
             Fraction(subject["alpha"]),
             "any subset of the member nulls is true",
             "finite_sample" if exact else "asymptotic",
+            "each member's sample size or number of events grows",
         )
         guarantee = {
             **statement.to_dict(),

@@ -95,6 +95,7 @@ is `verified`, `conditional` or `cited`, and a file reports its weakest status.
 | You want to | Use | Guarantee |
 | --- | --- | --- |
 | Compare two means | `tests.t` | Cited: pooled t-test (exact under normality) or Welch (large-sample) |
+| Compare two survival curves | `tests.survival` | Cited: log-rank test (large-sample) |
 | Combine proved and cited tests | `multiplicity.bonferroni` | Conditional: Lean checks the combination, the members are assumed |
 
 See [cited methods](docs/cited-methods.md) and [evidence grades](docs/scope.md#evidence-grades).

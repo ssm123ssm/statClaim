@@ -25,6 +25,7 @@
 - Cited t-tests for two means: the contract is checked, the guarantee is cited.
 - Structured guarantees, named assumptions and versions for methods and rules.
 - Bonferroni over proved and cited tests, with the combination proved in Lean.
+- Outcomes and null forms as registry data; a cited log-rank test for survival.
 
 ## Direction
 
@@ -36,8 +37,8 @@ and for rules that combine tests. Each claim shows its
 
 ## Next
 
-1. Contracts for ANCOVA and the log-rank test; group-sequential alpha spending
-   with the combination proved in Lean.
+1. A contract for ANCOVA; group-sequential alpha spending with the combination
+   proved in Lean.
 2. One-sided analyses in Bonferroni families.
 3. A narrower exact interval for a difference of two proportions.
 4. Larger sample sizes and p-values for the test with a margin.

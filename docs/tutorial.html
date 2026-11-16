@@ -913,6 +913,11 @@ variances are yours to defend.</p>
 approximation</em> gets closer as the study grows, and promises nothing exact at 60 per
 arm. StatClaim never words the two alike. A file with any cited claim ends with
 <code>Program status: cited</code>.</p>
+<div class="note"><strong>Time to an event.</strong> The same pattern covers survival
+data: <code>two_arm_survival</code>, <code>equal_survival</code> and
+<code>log_rank</code>, from <code>models.two_arm_survival</code> and
+<code>tests.survival</code>. Its guarantee is a large-sample approximation in the number
+of events. See <code>examples/log_rank.stat</code>.</div>
 <div class="note"><strong>Asking a one-sided question.</strong> Use
 <code>t_test_one_sided</code> or <code>welch_test_one_sided</code> with
 <code>mean_difference_at_most(model=study, value=...)</code>. Zero asks whether the
@@ -1008,6 +1013,7 @@ too. A family is only as exact as its least exact member.</div>
       <tr><td>Show a treatment is not worse by a margin</td><td><code>tests.difference</code></td><td><code>difference_test</code> with <code>typeI</code>, <code>result</code></td><td>8</td></tr>
       <tr><td>Estimate a difference</td><td><code>estimation</code></td><td><code>difference_interval</code></td><td>8</td></tr>
       <tr><td>Compare two means</td><td><code>models.two_arm_continuous</code>, <code>sampling</code>, <code>tests.t</code></td><td><code>t_test</code>, <code>welch_test</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
+      <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>
