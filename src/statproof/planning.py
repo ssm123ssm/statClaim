@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cache, lru_cache
-from math import comb
+from math import comb, isqrt
 from typing import Literal
 
 from statproof.design import Design
@@ -1178,6 +1178,182 @@ theorem checked_typeI :
 
 end StatProofCertificate
 {_audit(stage_result_theorems(result), input_sha256)}"""
+
+
+DIFFERENCE_KIND = "statproof_difference_interval_certificate"
+DIFFERENCE_CHECKED_THEOREMS = ["checked_coverage", "checked_interval"]
+
+
+@dataclass(frozen=True)
+class DifferenceInterval:
+    """Interval for p_treatment - p_control from two exact one-arm intervals.
+
+    Each arm gets an exact interval at a level whose square is at least the
+    requested level. Because the arms are independent, both intervals hold
+    together with at least the requested probability. The result is valid for
+    every pair of true rates, and wider than intervals built for the difference
+    directly.
+    """
+
+    n_control: int
+    n_treatment: int
+    control_successes: int
+    treatment_successes: int
+    level: Fraction
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.level, Fraction) or not 0 < self.level < 1:
+            raise ValueError("The confidence level must lie strictly between 0 and 1.")
+        if self.arm_level >= 1:
+            raise ValueError("The confidence level is too close to 1 for this method.")
+        for arm in (self.control, self.treatment):
+            assert arm.level == self.arm_level  # constructing each arm validates its counts
+
+    @property
+    def arm_level(self) -> Fraction:
+        """Smallest four-decimal level whose square is at least the requested level."""
+        target = self.level * INTERVAL_GRID**2
+        root = isqrt(target.numerator // target.denominator)
+        while Fraction(root * root) < target:
+            root += 1
+        return Fraction(root, INTERVAL_GRID)
+
+    @property
+    def control(self) -> BinomialInterval:
+        return BinomialInterval(self.n_control, self.control_successes, self.arm_level)
+
+    @property
+    def treatment(self) -> BinomialInterval:
+        return BinomialInterval(self.n_treatment, self.treatment_successes, self.arm_level)
+
+    @property
+    def lower(self) -> Fraction:
+        return self.treatment.lower - self.control.upper
+
+    @property
+    def upper(self) -> Fraction:
+        return self.treatment.upper - self.control.lower
+
+    def evaluate(self) -> dict:
+        estimate = Fraction(self.treatment_successes, self.n_treatment) - Fraction(
+            self.control_successes, self.n_control
+        )
+        return {
+            "n_control": self.n_control,
+            "n_treatment": self.n_treatment,
+            "control_successes": self.control_successes,
+            "treatment_successes": self.treatment_successes,
+            "level": fraction_record(self.level),
+            "arm_level": fraction_record(self.arm_level),
+            "estimate": fraction_record(estimate),
+            "lower": fraction_record(self.lower),
+            "upper": fraction_record(self.upper),
+            "method": "two_exact_intervals_independent_arms",
+        }
+
+
+def difference_payload(interval: DifferenceInterval) -> dict:
+    return {
+        "schema_version": 1,
+        "scope": "interval",
+        "design": {
+            "module": "two_arm_binomial",
+            "n_control": interval.n_control,
+            "n_treatment": interval.n_treatment,
+        },
+        "level": str(interval.level),
+        "result": {
+            "control_successes": interval.control_successes,
+            "treatment_successes": interval.treatment_successes,
+            "lower": str(interval.lower),
+            "upper": str(interval.upper),
+        },
+    }
+
+
+def parse_difference_payload(payload: dict) -> DifferenceInterval:
+    interval = DifferenceInterval(
+        payload["design"]["n_control"],
+        payload["design"]["n_treatment"],
+        payload["result"]["control_successes"],
+        payload["result"]["treatment_successes"],
+        Fraction(payload["level"]),
+    )
+    if payload != difference_payload(interval):
+        raise ValueError("Bound interval inputs are inconsistent.")
+    return interval
+
+
+def difference_claims(interval: DifferenceInterval) -> list[str]:
+    return [
+        "For every pair of true success rates, the exact confidence sets of the two arms "
+        f"both contain their rates with probability at least {interval.level}.",
+        f"For {interval.control_successes} of {interval.n_control} control and "
+        f"{interval.treatment_successes} of {interval.n_treatment} treatment successes, "
+        "whenever both sets contain their rates the difference p_treatment - p_control lies "
+        f"within [{float(interval.lower):.4f}, {float(interval.upper):.4f}].",
+    ]
+
+
+DIFFERENCE_ASSUMPTIONS = [
+    "The two samples are independent, each with one common success probability.",
+    "The arm sizes and the confidence level were fixed before outcomes were observed.",
+    "The supplied counts describe the declared study.",
+]
+
+
+def render_difference_proof(interval: DifferenceInterval, input_sha256: str) -> str:
+    n, m = interval.n_control, interval.n_treatment
+    x, y = interval.control_successes, interval.treatment_successes
+    an, ad = interval.control.tail_level.as_integer_ratio()
+    ln, ld = interval.level.as_integer_ratio()
+    tail = f"((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))"
+    ends, checks = [], []
+    for arm in (interval.control, interval.treatment):
+        (lower_n, lower_d), (upper_n, upper_d) = (
+            arm.lower.as_integer_ratio(),
+            arm.upper.as_integer_ratio(),
+        )
+        ends.append((lower_n, lower_d, upper_n, upper_d))
+        checks.append("(Or.inl rfl)" if lower_n == 0 else "(Or.inr (by decide +kernel))")
+        checks.append("(Or.inl rfl)" if upper_n == upper_d else "(Or.inr (by decide +kernel))")
+    (cln, cld, cun, cud), (tln, tld, tun, tud) = ends
+    endpoints = " ".join(
+        f"{num} {den} (by decide) (by decide)"
+        for num, den in ((cln, cld), (cun, cud), (tln, tld), (tun, tud))
+    )
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical interval SHA-256: {input_sha256}
+-- Coverage is a general theorem; the endpoints are confirmed by the kernel.
+set_option maxRecDepth 8192
+set_option maxHeartbeats 2000000
+
+namespace StatProofCertificate
+open StatProof StatProof.Modules
+
+theorem checked_coverage (pc pt : unitInterval) :
+    ((({ln} : ℕ) : ℝ) / (({ld} : ℕ) : ℝ)) ≤ (productBinomial {n} {m} pc pt).real
+      ({{x | pc ∈ BinomialInterval.confidenceSet {n} {tail} x}} ×ˢ
+        {{y | pt ∈ BinomialInterval.confidenceSet {m} {tail} y}}) := by
+  have joint := BinomialInterval.joint_coverage {n} {m} {tail} (by positivity) (by norm_num)
+    pc pt
+  exact le_trans (by norm_num) joint
+
+theorem checked_interval (pc pt : unitInterval)
+    (control : pc ∈ BinomialInterval.confidenceSet {n} {tail} {x})
+    (treatment : pt ∈ BinomialInterval.confidenceSet {m} {tail} {y}) :
+    (({tln} : ℕ) : ℝ) / (({tld} : ℕ) : ℝ) - (({cun} : ℕ) : ℝ) / (({cud} : ℕ) : ℝ) ≤
+        (pt : ℝ) - (pc : ℝ) ∧
+      (pt : ℝ) - (pc : ℝ) ≤
+        (({tun} : ℕ) : ℝ) / (({tud} : ℕ) : ℝ) - (({cln} : ℕ) : ℝ) / (({cld} : ℕ) : ℝ) :=
+  BinomialInterval.difference_contains {n} {m} {x} {y} {an} {ad} (by decide)
+    {endpoints}
+    {" ".join(checks)} pc pt control treatment
+
+end StatProofCertificate
+{_audit(DIFFERENCE_CHECKED_THEOREMS, input_sha256)}"""
 
 
 def policy_payload(plan: "TwoStagePlan | OneSamplePlan") -> dict:

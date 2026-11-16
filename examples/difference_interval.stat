@@ -1,0 +1,17 @@
+# Estimate the difference between two success rates with a confidence interval.
+use models.two_arm_binomial
+use estimation
+
+let study = two_arm_binomial(n_control=50, n_treatment=50)
+
+# 12 of 50 controls and 24 of 50 treated participants responded.
+let interval = difference_interval(
+    model=study,
+    control_successes=12,
+    treatment_successes=24,
+    level=19/20,
+)
+let calculation = calculate(interval)
+let lower = calculation.calculation.lower
+let upper = calculation.calculation.upper
+let verification = verify(interval)

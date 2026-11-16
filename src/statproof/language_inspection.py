@@ -6,6 +6,7 @@ from statproof.language import (
     AnalysisIR,
     CalculationResultIR,
     ClaimIR,
+    DifferenceIntervalIR,
     FamilyIR,
     FeasibilityIR,
     IntervalIR,
@@ -111,7 +112,7 @@ def inspect_request(request: RequestIR) -> dict:
     subject = request.claim.subject
     if request.claim.kind in ("meets", "sample_size"):
         return inspect_planning(request)
-    if isinstance(subject, IntervalIR):
+    if isinstance(subject, (IntervalIR, DifferenceIntervalIR)):
         return interval_report(subject.lower(), verify=request.operation == "verify")
     if isinstance(subject, TwoStageObservationIR):
         return stage_result_report(subject.lower(), verify=request.operation == "verify")

@@ -18,6 +18,9 @@ from statproof.design import Design
 from statproof.family import FAMILY_ASSUMPTIONS, Endpoint, FisherFamily
 from statproof.fisher import TEST_ID, TEST_VERSION, FisherResult, parse_alpha
 from statproof.planning import (
+    DIFFERENCE_ASSUMPTIONS,
+    DIFFERENCE_CHECKED_THEOREMS,
+    DIFFERENCE_KIND,
     INTERVAL_ASSUMPTIONS,
     INTERVAL_CHECKED_THEOREMS,
     INTERVAL_KIND,
@@ -29,12 +32,16 @@ from statproof.planning import (
     RESULT_KIND,
     STAGE_RESULT_KIND,
     BinomialInterval,
+    DifferenceInterval,
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
     TwoStageResult,
+    difference_claims,
+    difference_payload,
     interval_claims,
     interval_payload,
+    parse_difference_payload,
     parse_interval_payload,
     parse_planning_payload,
     parse_policy_payload,
@@ -47,6 +54,7 @@ from statproof.planning import (
     policy_claims,
     policy_payload,
     policy_theorems,
+    render_difference_proof,
     render_interval_proof,
     render_planning_proof,
     render_policy_proof,
@@ -148,6 +156,14 @@ def _profile(kind: str, payload: dict) -> dict:
         theorems = stage_result_theorems(staged)
         scope = "These observed counts and the declared two-stage design; not other data."
         general_theorem = "StatProof.Modules.TwoStageBinomial.typeI_atMost_of_check"
+    elif kind == DIFFERENCE_KIND:
+        claims = difference_claims(parse_difference_payload(payload))
+        assumptions, theorems = DIFFERENCE_ASSUMPTIONS, DIFFERENCE_CHECKED_THEOREMS
+        scope = (
+            "Joint coverage of the two arms' exact confidence sets, and the reported "
+            "interval for the difference at these observed counts."
+        )
+        general_theorem = "StatProof.Modules.BinomialInterval.joint_coverage"
     elif kind == INTERVAL_KIND:
         claims = interval_claims(parse_interval_payload(payload))
         assumptions, theorems = INTERVAL_ASSUMPTIONS, INTERVAL_CHECKED_THEOREMS
@@ -301,6 +317,8 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_policy_proof(parse_policy_payload(payload), input_id)
     if kind == STAGE_RESULT_KIND:
         return render_stage_result_proof(parse_stage_result_payload(payload), input_id)
+    if kind == DIFFERENCE_KIND:
+        return render_difference_proof(parse_difference_payload(payload), input_id)
     if kind == INTERVAL_KIND:
         return render_interval_proof(parse_interval_payload(payload), input_id)
     if kind == RESULT_KIND:
@@ -579,6 +597,23 @@ def certify_stage_result(
     return _certify_payload(
         stage_result_payload(result),
         STAGE_RESULT_KIND,
+        project=project,
+        output=output,
+        timeout=timeout,
+    )
+
+
+def certify_difference(
+    interval: DifferenceInterval,
+    *,
+    project: Path,
+    output: Path | None = None,
+    timeout: float = 120,
+) -> tuple[dict, Path]:
+    """Certify an interval for a difference of two proportions."""
+    return _certify_payload(
+        difference_payload(interval),
+        DIFFERENCE_KIND,
         project=project,
         output=output,
         timeout=timeout,

@@ -178,3 +178,47 @@ theorem interval_contains (n x aNum aDen : ℕ) (aDen_pos : 0 < aDen)
         (ratio_le_of_check _ _ _ _ (Nat.pow_pos upper_pos) aDen_pos check)))
 
 end StatProof.Modules.BinomialInterval
+
+namespace StatProof.Modules.BinomialInterval
+
+open MeasureTheory ProbabilityTheory
+
+/-- Two independent arms: both exact confidence sets contain their true rates
+with probability at least `(1 - 2a)^2`. -/
+theorem joint_coverage (n m : ℕ) (a : ℝ) (nonnegative : 0 ≤ a) (small : 2 * a ≤ 1)
+    (pc pt : unitInterval) :
+    (1 - 2 * a) ^ 2 ≤ (productBinomial n m pc pt).real
+      ({x | pc ∈ confidenceSet n a x} ×ˢ {y | pt ∈ confidenceSet m a y}) := by
+  rw [productBinomial, measureReal_prod_prod, pow_two]
+  exact mul_le_mul (coverage n a nonnegative pc) (coverage m a nonnegative pt)
+    (by linarith) measureReal_nonneg
+
+/-- When each arm's confidence set lies inside its interval, the difference of
+the rates lies between the differences of the endpoints. -/
+theorem difference_contains (n m x y aNum aDen : ℕ) (aDen_pos : 0 < aDen)
+    (cLNum cLDen : ℕ) (cL_le : cLNum ≤ cLDen) (cL_pos : 0 < cLDen)
+    (cUNum cUDen : ℕ) (cU_le : cUNum ≤ cUDen) (cU_pos : 0 < cUDen)
+    (tLNum tLDen : ℕ) (tL_le : tLNum ≤ tLDen) (tL_pos : 0 < tLDen)
+    (tUNum tUDen : ℕ) (tU_le : tUNum ≤ tUDen) (tU_pos : 0 < tUDen)
+    (cLower : cLNum = 0 ∨
+      OneSampleBinomial.tailNumerator n cLNum cLDen x * aDen ≤ aNum * cLDen ^ n)
+    (cUpper : cUNum = cUDen ∨ lowerNumerator n cUNum cUDen x * aDen ≤ aNum * cUDen ^ n)
+    (tLower : tLNum = 0 ∨
+      OneSampleBinomial.tailNumerator m tLNum tLDen y * aDen ≤ aNum * tLDen ^ m)
+    (tUpper : tUNum = tUDen ∨ lowerNumerator m tUNum tUDen y * aDen ≤ aNum * tUDen ^ m)
+    (pc pt : unitInterval)
+    (control : pc ∈ confidenceSet n ((aNum : ℝ) / aDen) x)
+    (treatment : pt ∈ confidenceSet m ((aNum : ℝ) / aDen) y) :
+    (tLNum : ℝ) / tLDen - (cUNum : ℝ) / cUDen ≤ (pt : ℝ) - (pc : ℝ) ∧
+      (pt : ℝ) - (pc : ℝ) ≤ (tUNum : ℝ) / tUDen - (cLNum : ℝ) / cLDen := by
+  have c := interval_contains n x aNum aDen aDen_pos cLNum cLDen cL_le cL_pos
+    cUNum cUDen cU_le cU_pos cLower cUpper pc control
+  have t := interval_contains m y aNum aDen aDen_pos tLNum tLDen tL_le tL_pos
+    tUNum tUDen tU_le tU_pos tLower tUpper pt treatment
+  have c1 : (cLNum : ℝ) / cLDen ≤ (pc : ℝ) := Subtype.coe_le_coe.mpr c.1
+  have c2 : (pc : ℝ) ≤ (cUNum : ℝ) / cUDen := Subtype.coe_le_coe.mpr c.2
+  have t1 : (tLNum : ℝ) / tLDen ≤ (pt : ℝ) := Subtype.coe_le_coe.mpr t.1
+  have t2 : (pt : ℝ) ≤ (tUNum : ℝ) / tUDen := Subtype.coe_le_coe.mpr t.2
+  constructor <;> linarith
+
+end StatProof.Modules.BinomialInterval

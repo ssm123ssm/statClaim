@@ -31,6 +31,11 @@ MODULE_CLASSES = {
         "Targets also apply to one-sample tests and two-stage designs. "
         "A size can be certified as sufficient or as the smallest in the declared range.",
     ),
+    "estimation": (
+        "Analyses and claims",
+        "Confidence interval for a difference of two proportions, from an exact interval "
+        "per arm. Valid for every pair of rates; conservative.",
+    ),
     "tests.binomial": (
         "Analyses and claims",
         "One-sided exact binomial test for a single arm. Type I error is checked for every "
@@ -68,6 +73,10 @@ OBJECT_CLASSES = {
     "OneSampleObservation": (
         "Core statistical objects",
         "Observed responses for a one-sample test.",
+    ),
+    "DifferenceInterval": (
+        "Core statistical objects",
+        "Observed two-arm counts and a confidence level.",
     ),
     "Interval": ("Core statistical objects", "Observed count and confidence level."),
     "OneArmCandidates": ("Planning objects", "Sample sizes searched for a one-sample test."),
@@ -109,6 +118,10 @@ OBJECT_CLASSES = {
     "OneSampleResultDetails": (
         "Evidence and inspection",
         "Exact one-sided p-value, critical value and decision.",
+    ),
+    "DifferenceDetails": (
+        "Evidence and inspection",
+        "Estimate and interval for a difference of two proportions.",
     ),
     "IntervalDetails": (
         "Evidence and inspection",

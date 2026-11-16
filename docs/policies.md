@@ -67,6 +67,10 @@ a binomial proportion and proves its coverage for every true rate (`coverage`).
 `interval_contains` places the set for one observed count inside an interval
 with rational endpoints, using two kernel checks.
 
+For two independent arms, `joint_coverage` bounds the probability that both
+arms' sets contain their rates, and `difference_contains` turns the two
+intervals into one for the difference.
+
 ## Fisher power
 
 `StatProof/Modules/FisherPower.lean` gives the exact power of the fixed Fisher

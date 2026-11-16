@@ -35,6 +35,7 @@ from statproof.planning import (
     MAX_SEARCH_TOTAL,
     MAX_STAGE,
     BinomialInterval,
+    DifferenceInterval,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
@@ -242,6 +243,23 @@ class TwoStageObservationIR:
 
 
 @dataclass(frozen=True)
+class DifferenceIntervalIR:
+    model: ModelIR
+    control_successes: int
+    treatment_successes: int
+    level: Fraction
+
+    def lower(self) -> DifferenceInterval:
+        return DifferenceInterval(
+            self.model.n_control,
+            self.model.n_treatment,
+            self.control_successes,
+            self.treatment_successes,
+            self.level,
+        )
+
+
+@dataclass(frozen=True)
 class FeasibilityIR:
     """One analysis assessed against one target."""
 
@@ -381,6 +399,7 @@ class ValueType:
                 TwoStageObservationIR: "TwoStageObservation",
                 OneSampleAnalysisIR: "OneSampleAnalysis",
                 OneArmModelIR: "OneArmModel",
+                DifferenceIntervalIR: "DifferenceInterval",
                 OneSampleObservationIR: "OneSampleObservation",
                 OneArmCandidatesIR: "OneArmCandidates",
             }.get(self.kind, self.kind.__name__.removesuffix("IR"))
@@ -519,6 +538,15 @@ def normalize(value: object) -> object:
             }
         case OneSampleObservationIR(analysis=analysis, responses=responses):
             return {"analysis": normalize(analysis), "responses": responses}
+        case DifferenceIntervalIR(
+            model=model, control_successes=control, treatment_successes=treatment, level=level
+        ):
+            return {
+                "model": normalize(model),
+                "control_successes": control,
+                "treatment_successes": treatment,
+                "level": str(level),
+            }
         case IntervalIR(model=model, responses=responses, level=level):
             return {"model": normalize(model), "responses": responses, "level": str(level)}
         case TwoStageCandidatesIR(null_rate=rate, max_total=total, criterion=criterion):
@@ -812,6 +840,29 @@ def _interval(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         IntervalIR(model.value, count.value, level.value),
         model.name or "<expression>",
     )
+
+
+def _difference_interval(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    model, level = arguments["model"], arguments["level"]
+    for name, size in (
+        ("control_successes", model.value.n_control),
+        ("treatment_successes", model.value.n_treatment),
+    ):
+        if not 0 <= arguments[name].value <= size:
+            fail("domain", f"{name} must be between 0 and {size}.", arguments[name].span)
+    if not 0 < level.value < 1:
+        fail("domain", "level must lie strictly between 0 and 1.", level.span)
+    interval = DifferenceIntervalIR(
+        model.value,
+        arguments["control_successes"].value,
+        arguments["treatment_successes"].value,
+        level.value,
+    )
+    try:
+        interval.lower()
+    except ValueError as error:
+        fail("domain", str(error), level.span)
+    return ClaimIR("interval", interval, model.name or "<expression>")
 
 
 def _one_arm_candidates(arguments: dict[str, LocatedValue], span: Span) -> OneArmCandidatesIR:
@@ -1247,6 +1298,26 @@ MODULES = {
                     _two_stage_test,
                     documentation="The complete policy: stages, interim stop, final decision "
                     "and the null response rate it tests.",
+                ),
+            ),
+        ),
+        Module(
+            "estimation",
+            (
+                _constructor(
+                    "difference_interval",
+                    (
+                        ("model", ModelIR),
+                        ("control_successes", "integer"),
+                        ("treatment_successes", "integer"),
+                        ("level", "number"),
+                    ),
+                    "IntervalClaim",
+                    _difference_interval,
+                    documentation="Confidence interval for p_treatment - p_control, built "
+                    "from an exact interval for each arm. It is valid for every pair of true "
+                    "rates and is wider than intervals built for the difference directly, so "
+                    "it can include zero when a test rejects.",
                 ),
             ),
         ),

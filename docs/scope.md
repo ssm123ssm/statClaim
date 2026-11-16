@@ -12,6 +12,9 @@ What is supported:
 - **One arm.** The one-sided exact binomial test, for planning and for an
   observed count, and exact confidence intervals with coverage for every true
   rate.
+- **Difference of two proportions.** A confidence interval built from an exact
+  interval per arm. It has checked coverage for every pair of rates and is
+  conservative.
 - **Two stages.** A single-arm design with an interim stop, using count or
   Beta-posterior rules. Type I error and power are checked for the whole design,
   and the decision for observed counts is checked against the declared rule.

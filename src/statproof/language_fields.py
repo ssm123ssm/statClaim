@@ -13,6 +13,7 @@ from statproof.language import (
     CandidatesIR,
     CandidateSpaceIR,
     ClaimIR,
+    DifferenceIntervalIR,
     FamilyIR,
     FeasibilityIR,
     FieldIR,
@@ -47,6 +48,7 @@ from statproof.language_values import (
     CalculationDetails,
     CalculationResult,
     CertificateReference,
+    DifferenceDetails,
     Evidence,
     IntervalDetails,
     OneSampleDetails,
@@ -141,6 +143,20 @@ SCHEMAS = {
         "alpha": FieldSpec(Fraction),
         "reject_null": FieldSpec(bool),
         "test": FieldSpec(str),
+    },
+    DifferenceIntervalIR: {
+        "model": FieldSpec(ModelIR),
+        "control_successes": FieldSpec(int),
+        "treatment_successes": FieldSpec(int),
+        "level": FieldSpec(Fraction),
+    },
+    DifferenceDetails: {
+        "level": FieldSpec(Fraction),
+        "arm_level": FieldSpec(Fraction, description="Level used for each arm's interval."),
+        "estimate": FieldSpec(Fraction),
+        "lower": FieldSpec(Fraction),
+        "upper": FieldSpec(Fraction),
+        "method": FieldSpec(str),
     },
     IntervalIR: {
         "model": FieldSpec(OneArmModelIR),
@@ -265,6 +281,8 @@ def details_kind(claim: ClaimIR) -> type:
     """The calculation record published for this claim's kind."""
     if isinstance(claim.subject, TwoStageObservationIR):
         return StageResultDetails
+    if isinstance(claim.subject, DifferenceIntervalIR):
+        return DifferenceDetails
     if isinstance(claim.subject, IntervalIR):
         return IntervalDetails
     if isinstance(claim.subject, OneSampleObservationIR):

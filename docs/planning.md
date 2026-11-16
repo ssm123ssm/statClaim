@@ -117,6 +117,23 @@ with endpoints rounded outward to four decimals. The certificate states that
 the procedure covers the true rate with probability at least the level, for
 every true rate. See `examples/confidence_interval.stat`.
 
+## Estimate a difference between two arms
+
+```stat
+use models.two_arm_binomial
+use estimation
+
+let study = two_arm_binomial(n_control=50, n_treatment=50)
+let interval = difference_interval(model=study, control_successes=12,
+    treatment_successes=24, level=19/20)
+let verification = verify(interval)
+```
+
+This gives -0.0825 to 0.5254 for the difference in success rates. The interval
+combines an exact interval for each arm, so it is valid for every pair of true
+rates. It is wider than intervals designed for the difference, and it can
+include zero when a test rejects. See `examples/difference_interval.stat`.
+
 ## Plan an adaptive design
 
 The same target applies to a complete two-stage policy:

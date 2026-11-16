@@ -6,9 +6,11 @@ from statproof.design import Design, inspect_design
 from statproof.family import FisherFamily, inspect_family
 from statproof.fisher import FisherResult, fisher_exact
 from statproof.planning import (
+    DIFFERENCE_ASSUMPTIONS,
     INTERVAL_ASSUMPTIONS,
     RESULT_ASSUMPTIONS,
     BinomialInterval,
+    DifferenceInterval,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
@@ -24,6 +26,7 @@ from statproof.verification import (
     VerificationError,
     certify_binomial_result,
     certify_design,
+    certify_difference,
     certify_family,
     certify_interval,
     certify_planning,
@@ -499,7 +502,16 @@ def run_binomial_result(
     )
 
 
-def interval_report(interval: BinomialInterval, *, verify: bool) -> dict:
+def interval_report(interval: "BinomialInterval | DifferenceInterval", *, verify: bool) -> dict:
+    if isinstance(interval, DifferenceInterval):
+        return planning_report(
+            "interval",
+            f"Interval at level {interval.level} for p_treatment - p_control, from "
+            f"{interval.control_successes} of {interval.n_control} control and "
+            f"{interval.treatment_successes} of {interval.n_treatment} treatment successes"
+            + (", with joint coverage for every pair of rates." if verify else ". Calculate only."),
+            DIFFERENCE_ASSUMPTIONS,
+        )
     return planning_report(
         "interval",
         f"Exact confidence interval at level {interval.level} for {interval.responses} "
@@ -510,7 +522,12 @@ def interval_report(interval: BinomialInterval, *, verify: bool) -> dict:
 
 
 def run_interval(
-    interval: BinomialInterval, *, verify: bool, project: Path, output, timeout: float
+    interval: "BinomialInterval | DifferenceInterval",
+    *,
+    verify: bool,
+    project: Path,
+    output,
+    timeout: float,
 ) -> dict:
     """Calculate, and optionally certify, an exact confidence interval."""
     report = interval_report(interval, verify=verify)
@@ -518,9 +535,8 @@ def run_interval(
     report["decision"] = "interval_reported"
     if not verify:
         return report
-    return _certified(
-        report, certify_interval, interval, project=project, output=output, timeout=timeout
-    )
+    certify = certify_difference if isinstance(interval, DifferenceInterval) else certify_interval
+    return _certified(report, certify, interval, project=project, output=output, timeout=timeout)
 
 
 def run_two_stage_search(

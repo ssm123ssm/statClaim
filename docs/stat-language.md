@@ -11,6 +11,7 @@ interface; the Lean and TOML interfaces remain supported.
 | `multiplicity.bonferroni` | Several endpoints ([multiple testing](multiple-testing.md)) |
 | `planning` | Power targets and sample-size searches ([planning](planning.md)) |
 | `tests.binomial` | One-sample exact test and confidence interval ([planning](planning.md)) |
+| `estimation` | Confidence interval for a difference of two proportions ([planning](planning.md)) |
 | `designs.two_stage` | Two-stage designs with an interim stop ([planning](planning.md)) |
 
 The [catalogue](catalogue.md) lists every constructor and field.

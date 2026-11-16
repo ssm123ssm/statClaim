@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from statproof.language import (
     AnalysisIR,
+    DifferenceIntervalIR,
     FamilyIR,
     FeasibilityIR,
     IntervalIR,
@@ -80,7 +81,9 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 )
             )
         return tuple(diagnostics)
-    if isinstance(subject, (OneSampleObservationIR, TwoStageObservationIR, IntervalIR)):
+    if isinstance(
+        subject, (OneSampleObservationIR, TwoStageObservationIR, IntervalIR, DifferenceIntervalIR)
+    ):
         return ()
     if isinstance(subject, FamilyIR):
         family = subject.lower()

@@ -31,6 +31,7 @@ def runs(tmp_path_factory):
         "unequal_allocation",
         "two_stage_search",
         "two_stage_result",
+        "difference_interval",
     ):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
@@ -116,6 +117,22 @@ def test_two_stage_result_certificate_replays_and_resists_tampering(runs, tmp_pa
     shutil.copytree(source, bundle)
     inputs = json.loads((bundle / "inputs.json").read_text())
     inputs["result"]["typeI_bound"] = "1/100"
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT)
+
+
+def test_difference_interval_certificate_replays_and_rejects_a_narrower_interval(runs, tmp_path):
+    report = runs["difference_interval"]
+    assert report["status"] == "verified", report["diagnostics"]
+    source = Path(report["values"]["verification"]["evidence"]["certificate"]["directory"])
+    assert recheck_certificate(source, project=ROOT)["kind"] == (
+        "statproof_difference_interval_certificate"
+    )
+    bundle = tmp_path / "narrow"
+    shutil.copytree(source, bundle)
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    inputs["result"]["lower"] = "1/20"
     (bundle / "inputs.json").write_text(json.dumps(inputs))
     with pytest.raises(VerificationError):
         recheck_certificate(bundle, project=ROOT)

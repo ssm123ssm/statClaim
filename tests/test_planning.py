@@ -15,14 +15,17 @@ from statproof.language_runner import check_source
 from statproof.language_syntax import Source
 from statproof.planning import (
     BinomialInterval,
+    DifferenceInterval,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
     TwoStageResult,
     TwoStageRule,
+    difference_payload,
     fisher_rejection_probability,
     interval_payload,
+    parse_difference_payload,
     parse_interval_payload,
     parse_planning_payload,
     parse_policy_payload,
@@ -539,3 +542,32 @@ def test_help_lists_stat_commands_and_keeps_legacy_ones_working(capsys):
     assert "explain" in listed and "verify-design" in listed.split("older TOML")[1]
     assert "Certify the design" not in listed
     assert main(["inspect", str(ROOT / "examples/fixed_sample.toml")]) == 1
+
+
+def test_difference_interval_combines_two_exact_arm_intervals(tmp_path):
+    level = Fraction(19, 20)
+    interval = DifferenceInterval(50, 50, 12, 24, level)
+    # The per-arm level is the smallest four-decimal value whose square reaches the level.
+    assert interval.arm_level**2 >= level > (interval.arm_level - Fraction(1, 10_000)) ** 2
+    control = BinomialInterval(50, 12, interval.arm_level)
+    treatment = BinomialInterval(50, 24, interval.arm_level)
+    assert interval.lower == treatment.lower - control.upper
+    assert interval.upper == treatment.upper - control.lower
+    assert interval.lower < Fraction(24, 50) - Fraction(12, 50) < interval.upper
+    assert DifferenceInterval(20, 30, 0, 30, level).upper == 1
+    assert DifferenceInterval(40, 40, 40, 0, level).lower == -1
+    payload = difference_payload(interval)
+    assert parse_difference_payload(payload) == interval
+    payload["result"]["lower"] = "0"
+    with pytest.raises(ValueError):
+        parse_difference_payload(payload)
+    with pytest.raises(ValueError):
+        DifferenceInterval(50, 50, 51, 0, level)
+    with pytest.raises(ValueError):
+        DifferenceInterval(50, 50, 12, 24, Fraction(99999, 100000))
+    text = (ROOT / "examples/difference_interval.stat").read_text().split("let verification")[0]
+    values = run(text, tmp_path)["values"]
+    assert (Fraction(values["lower"]), Fraction(values["upper"])) == (
+        interval.lower,
+        interval.upper,
+    )

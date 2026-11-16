@@ -414,8 +414,14 @@ def render_report(report: dict, source: Source) -> str:
         elif request["status"] == "calculated" and request["claim"] == "interval":
             calculation = details["calculation"]
             lines.append(
-                f"  {calculation['responses']} responses out of {calculation['n']}; "
-                f"estimate ~ {float(Fraction(calculation['estimate']['fraction'])):.4f}; "
+                (
+                    f"  {calculation['responses']} responses out of {calculation['n']}; "
+                    if "responses" in calculation
+                    else f"  control {calculation['control_successes']} of "
+                    f"{calculation['n_control']}, treatment "
+                    f"{calculation['treatment_successes']} of {calculation['n_treatment']}; "
+                )
+                + f"estimate ~ {float(Fraction(calculation['estimate']['fraction'])):.4f}; "
                 f"interval = [{calculation['lower']['decimal_approximation']}, "
                 f"{calculation['upper']['decimal_approximation']}] at level "
                 f"{calculation['level']['fraction']}; no formal certificate issued."
