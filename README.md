@@ -128,6 +128,14 @@ and adaptive designs. See the [roadmap](ROADMAP.md).
 
 ## Try it
 
+For cited claims, contract explanations and reports, Python is enough:
+
+```sh
+pip install statclaim
+```
+
+Proved and conditional claims need Lean, which the options below set up.
+
 Open Codespaces above, wait for setup, then open `playground/welcome.stat`.
 The other files in `playground/` show planning, single-arm and two-stage studies.
 Use **StatClaim: Show Claims** and **StatClaim: Verify Current File** in the
