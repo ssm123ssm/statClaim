@@ -11,8 +11,13 @@ trusted application boundary. See the [file-language guide](stat-language.md).
 Planning claims issue `statproof_planning_certificate` (a fixed design's Type I
 bound and its power at one point) and `statproof_policy_certificate` (a complete
 single-arm design). `statproof_binomial_result_certificate` covers an observed
-one-sample result, and `statproof_binomial_interval_certificate` an exact
+one-sample result, `statproof_two_stage_result_certificate` the decision of a
+two-stage design, and `statproof_binomial_interval_certificate` an exact
 confidence interval. All replay with `check-certificate`.
+
+The TOML commands below (`verify-design`, `verify-family`, `verify-result` and
+their `inspect` counterparts) predate the file language. They still work but are
+no longer listed in `statproof --help`; prefer `.stat` files.
 
 Design and family workflows need no observations. Fisher's alpha is configurable
 as an exact string in the optional `[analysis]` table; it defaults to `1/20`.

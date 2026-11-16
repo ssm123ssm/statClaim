@@ -13,7 +13,8 @@ What is supported:
   observed count, and exact confidence intervals with coverage for every true
   rate.
 - **Two stages.** A single-arm design with an interim stop, using count or
-  Beta-posterior rules. Type I error and power are checked for the whole design.
+  Beta-posterior rules. Type I error and power are checked for the whole design,
+  and the decision for observed counts is checked against the declared rule.
 
 Error bounds for single-arm designs cover every rate at or below the null rate.
 Power is always at one declared planning point. The posterior rule's closed
@@ -37,5 +38,17 @@ the Lean kernel and declared axioms, the pinned dependencies, and the translatio
 from statistical intent to the formal statement. CI audits Lean sources and
 axioms and tests modified certificates. Read the statement and assumptions;
 passing tests alone cannot establish that a new method models the intended study.
+
+## Related work
+
+- [StatWhy](https://arxiv.org/abs/2405.17492) verifies annotated hypothesis-testing
+  programs with Why3 and automated provers. It checks that test routines are used
+  within their contracts, and trusts the routines themselves.
+- [DeclareDesign](https://declaredesign.org/) declares research designs and
+  diagnoses properties such as power and bias by simulation, without deductive
+  guarantees.
+
+StatProof differs in checking the guarantees themselves in Lean, for exact
+finite designs. See the [project background](background.md).
 
 See [formal proof](formal-proof.md) and [certificates](certificates.md).

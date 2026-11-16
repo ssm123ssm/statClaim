@@ -37,6 +37,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Object | Meaning | Public fields |
 | --- | --- | --- |
 | TwoStageModel | Stage sizes of a single-arm design. | `n_stage1: integer`, `n_stage2: integer` |
+| TwoStageObservation | Observed counts, with stage two only if the study continued. | `analysis: TwoStageAnalysis`, `stage1_responses: integer`, `stage2_responses: Option[integer]` |
 | Prior | Beta prior with positive integer parameters. | `a: integer`, `b: integer` |
 | Rule | Interim continuation and final decision rule. | `kind: string` |
 | TwoStageAnalysis | Complete policy: stages, rule and the null response rate. | `design: TwoStageModel`, `rule: Rule`, `null_rate: exact number` |
@@ -60,6 +61,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | OneSampleDetails | Calculated critical value, error and power of a one-sample test. | `n: Option[integer]`, `critical_value: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | OneSampleResultDetails | Exact one-sided p-value, critical value and decision. | `n: integer`, `responses: integer`, `critical_value: integer`, `p_value: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | IntervalDetails | Estimate and exact confidence interval endpoints. | `n: integer`, `responses: integer`, `level: exact number`, `estimate: exact number`, `lower: exact number`, `upper: exact number`, `method: string` |
+| StageResultDetails | Decision and error bound for observed two-stage counts. | `n_stage1: integer`, `n_stage2: integer`, `stage1_responses: integer`, `stage2_responses: Option[integer]`, `continued: boolean`, `reject_null: boolean`, `typeI_bound: exact number` |
 | PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: Option[integer]`, `n_stage2: Option[integer]`, `continue_above: Option[integer]`, `reject_above: Option[integer]`, `maximum_sample_size: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `expected_sample_size_null: Option[exact number]`, `expected_sample_size_alternative: Option[exact number]`, `early_stop_probability_null: Option[exact number]`, `criterion: Option[string]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
@@ -118,12 +120,15 @@ Exact power at a planning point, target checks and a bounded sample-size search 
 
 ### `designs.two_stage` — Adaptive designs
 
-Single-arm two-stage binomial policy with an interim stop, using count thresholds or Beta-posterior thresholds. Type I error and power are checked for the complete policy; the error bound covers every rate at or below the null rate. Designs can be proposed or found by an optimal or minimax search.
+Single-arm two-stage binomial policy with an interim stop, using count thresholds or Beta-posterior thresholds. Type I error and power are checked for the complete policy; the error bound covers every rate at or below the null rate. Designs can be proposed or found by an optimal or minimax search. Observed counts give a checked decision.
 
 - `two_stage_binomial(n_stage1, n_stage2) -> TwoStageModel`
 - `threshold_rule(continue_above, reject_above) -> Rule`
 - `beta_prior(a, b) -> Prior`
 - `posterior_rule(prior, reference, continue_at_least, success_at_least) -> Rule`
+- `stopped_at_interim(analysis, stage1_responses) -> TwoStageObservation`
+- `completed_stages(analysis, stage1_responses, stage2_responses) -> TwoStageObservation`
+- `two_stage_result(observation) -> ResultClaim`
 - `two_stage_designs(null_rate, max_total, criterion) -> TwoStageCandidates`
 - `two_stage_test(design, rule, null_rate) -> TwoStageAnalysis`
 

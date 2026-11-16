@@ -650,6 +650,20 @@ whole procedure, interim look included.</p>
 <p>Compare with lesson 8. The fixed design needed 35 participants. This one needs up to
 43, but if the treatment does not work it stops after 13 about three times in four, for
 an average of 21.</p>
+<h3>After the study</h3>
+<p>Enter the counts as they happened. Here 5 of 13 responded in stage one, so the study
+continued, and 9 of 30 responded in stage two:</p>
+<div class="scroll snippet"><pre><code><span class="k">let</span> data = <span class="f">completed_stages</span>(analysis=proposed, stage1_responses=5, stage2_responses=9)
+<span class="k">let</span> outcome = <span class="f">verify</span>(<span class="f">two_stage_result</span>(data))</code></pre></div>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [outcome]: result(data)
+  With 5 responses in stage one the declared rule continues, and with 14 responses
+  in total it rejects the null.
+  The complete design rejects with probability at most 0.0496 for every response
+  rate at or below 1/5.</code></pre></div>
+<p>If the study had stopped, you would write
+<code>stopped_at_interim(analysis=proposed, stage1_responses=3)</code>. Counts that
+contradict the rule are rejected: you cannot report stage-two data for a study the rule
+would have stopped.</p>
 <h3>Finding a design</h3>
 <p>You do not have to guess the numbers. Describe the search and use
 <code>sample_size</code>:</p>

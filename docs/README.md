@@ -16,3 +16,4 @@ Start with the [quickstart](quickstart.md), [catalogue](catalogue.md),
 - [Planning a study](planning.md): power, sample size and two-stage designs
 - [Planning and Bayesian roadmap](study-planning.md): proposed further capabilities
 - [Development](development.md), [adding modules](adding-modules.md)
+- [Background](background.md): the original concept note and related work

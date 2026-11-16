@@ -21,6 +21,7 @@ Other files in `playground/`:
 | `three_outcomes.stat` | Several endpoints with Bonferroni |
 | `two_stage.stat`, `two_stage_posterior.stat` | Designs with an interim stop |
 | `two_stage_search.stat` | Finding an optimal or minimax two-stage design |
+| `two_stage_result.stat` | Analysing the data from a two-stage study |
 
 ## Local VS Code
 

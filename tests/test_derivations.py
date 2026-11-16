@@ -259,3 +259,61 @@ def test_cli_explain_report_and_impact(tmp_path, capsys):
     assert main(["impact", str(source), str(other), "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
     assert {item["name"] for item in result["declarations"]} == {"analysis"}
+
+
+def named(path: str, name: str) -> dict:
+    (entry,) = explain(compiled((ROOT / path).read_text()), name)
+    assert entry["checked"], entry["problems"]
+    return entry["derivation"]
+
+
+def test_one_sample_and_two_stage_contracts_have_derivations():
+    one = named("examples/one_sample.stat", "analysis")
+    assert one["contract"] == "tests.binomial/binomial_test"
+    assert [s["rule"] for s in one["steps"]][-1] == "one-sample-contract"
+    two = named("examples/two_stage_posterior.stat", "analysis")
+    assert two["contract"] == "designs.two_stage/two_stage_test"
+    assert two["steps"][2]["facts"]["rule"]["kind"] == "posterior"
+    for record, change in (
+        (one, lambda d: d["subject"].update(null_rate="1")),
+        (one, lambda d: d["subject"]["model"].update(n=0)),
+        (two, lambda d: d["subject"]["rule"].update(prior_a=0)),
+        (two, lambda d: d["subject"]["design"].update(n_stage2=500)),
+        (two, lambda d: d.update(contract="tests.binomial/binomial_test")),
+    ):
+        altered = copy.deepcopy(record)
+        change(altered)
+        assert check_derivation(altered)
+
+
+def test_planning_claims_rest_on_their_analysis_and_record_obligations():
+    sizing = named("examples/planning.stat", "sizing")
+    rules = [step["rule"] for step in sizing["steps"]]
+    assert rules[:4] == ["same-model", "supported-null", "level-range", "analysis-contract"]
+    assert "search-range" in rules and "error-budget" in rules
+    assert sizing["steps"][rules.index("planning-contract")]["uses"] == [3, 4, 5, 6, 7]
+    assert (
+        "planning input" in sizing["assumptions"][-1]
+        or "input for planning" in (sizing["assumptions"][-1])
+    )
+    searched = named("examples/two_stage_search.stat", "sizing")
+    assert [s["rule"] for s in searched["steps"]][0] == "planning-point"
+    strict = BASE.replace("let verification = verify(typeI(analysis))\n", "") + (
+        "use planning\n"
+        "let target = power_target(at=binomial_rates(p_control=1/10, p_treatment=2/5), "
+        "minimum=4/5, maximum_typeI=1/100)\n"
+        "let claim = meets(analysis=analysis, target=target)\n"
+    )
+    record = derivation(strict, "claim")
+    assert [o["code"] for o in record["obligations"]] == ["typeI_target_not_established"]
+    assert check_derivation(record) == []
+    for change in (
+        lambda d: d["subject"]["subject"]["target"]["at"].update(p_treatment="1/10"),
+        lambda d: d["subject"]["subject"]["target"].update(minimum_power="0"),
+        lambda d: d["subject"]["subject"]["target"].update(maximum_typeI="1/20"),
+        lambda d: d["subject"]["subject"]["analysis"]["null"]["model"].update(n_control=7),
+        lambda d: d["obligations"].clear(),
+    ):
+        altered = copy.deepcopy(record)
+        change(altered)
+        assert check_derivation(altered)

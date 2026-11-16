@@ -83,6 +83,16 @@ unsaved edits with the file as last saved.
 
 ## Coverage
 
-Derivations exist for the Fisher analysis contract and the Bonferroni family
-contract. Planning targets, one-sample tests and two-stage designs validate
-their inputs but do not yet record derivations.
+Derivations are recorded for named declarations of these kinds:
+
+| Declaration | What its derivation shows |
+| --- | --- |
+| `fisher(...)` | The null, design and level fit; whether sampling is fixed. |
+| `bonferroni(...)` | Each member fits, members are distinct, the allocation is within budget. |
+| `binomial_test(...)` | The sample size, null rate and level are valid. |
+| `two_stage_test(...)` | The stages, the decision rule and the null rate form a complete design. |
+| `meets(...)`, `sample_size(...)`, `smallest_sample_size(...)` | The analysis fits, the planning point lies outside the null, and the target and search range are valid. |
+
+An analysis written inline inside a planning claim is covered by that claim's
+derivation. Models, designs, nulls and observations have no contract of their
+own; their inputs are validated when they are declared.

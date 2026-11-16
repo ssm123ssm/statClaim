@@ -19,6 +19,7 @@ from statproof.planning import (
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
+    TwoStageResult,
     TwoStageRule,
     fisher_rejection_probability,
     interval_payload,
@@ -26,6 +27,7 @@ from statproof.planning import (
     parse_planning_payload,
     parse_policy_payload,
     parse_result_payload,
+    parse_stage_result_payload,
     planning_payload,
     policy_payload,
     render_planning_proof,
@@ -33,6 +35,7 @@ from statproof.planning import (
     search_equal_arms,
     search_one_sample,
     search_two_stage,
+    stage_result_payload,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -483,3 +486,56 @@ def test_two_stage_search_reproduces_published_simon_designs(tmp_path):
         "let s = smallest_sample_size(candidates=c, target=t)\n"
     )
     assert "unsupported_claim" in [d.code for d in unsupported.diagnostics]
+
+
+def test_two_stage_results_follow_the_declared_rule(tmp_path):
+    rule, null = TwoStageRule("threshold", 3, 12), Fraction(1, 5)
+    assert TwoStageResult(13, 30, rule, null, 3, None).decision == "stopped_for_futility"
+    assert TwoStageResult(13, 30, rule, null, 5, 9).decision == "reject_null"
+    assert TwoStageResult(13, 30, rule, null, 5, 7).decision == "do_not_reject_null"
+    for first, second in ((3, 5), (5, None), (14, None), (5, 31)):
+        with pytest.raises(ValueError):
+            TwoStageResult(13, 30, rule, null, first, second)
+    result = TwoStageResult(13, 30, rule, null, 5, 9)
+    exact = simon().rejection_probability(null)
+    assert exact <= result.error_bound < exact + Fraction(1, 10_000)
+    payload = stage_result_payload(result)
+    assert parse_stage_result_payload(payload) == result
+    payload["result"]["decision"] = "do_not_reject_null"
+    with pytest.raises(ValueError):
+        parse_stage_result_payload(payload)
+    text = (ROOT / "examples/two_stage_result.stat").read_text().split("let verification")[0]
+    assert run(text, tmp_path)["values"]["decision"] == "reject_null"
+    header = text.split("let data")[0]
+    mismatch = compiled(
+        header + "let data = stopped_at_interim(analysis=analysis, stage1_responses=5)\n"
+    )
+    assert "rule_mismatch" in [d.code for d in mismatch.diagnostics]
+    stopped = compiled(
+        header + "let data = stopped_at_interim(analysis=analysis, stage1_responses=3)\n"
+        "let outcome = calculate(two_stage_result(data))\n"
+    )
+    assert stopped.status == "elaborated"
+
+
+def test_one_declaration_cannot_stand_for_two_outcomes():
+    text = (ROOT / "examples/two_outcomes.stat").read_text()
+    aliased = text.replace(
+        "let secondary_outcome = fisher(design=plan, null=null, alpha=1/40)",
+        "let secondary_outcome = primary_outcome",
+    )
+    assert aliased != text
+    compilation = compiled(aliased)
+    assert "duplicate_analysis" in [d.code for d in compilation.diagnostics]
+    assert compiled(text).status == "elaborated"
+
+
+def test_help_lists_stat_commands_and_keeps_legacy_ones_working(capsys):
+    from statproof.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    listed = capsys.readouterr().out
+    assert "explain" in listed and "verify-design" in listed.split("older TOML")[1]
+    assert "Certify the design" not in listed
+    assert main(["inspect", str(ROOT / "examples/fixed_sample.toml")]) == 1

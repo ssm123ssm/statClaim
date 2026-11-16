@@ -1,6 +1,10 @@
-# A formal checker for statistical designs
+# Background: the original project concept
 
-Project concept • 14 November 2026 • Updated project direction
+This is the concept note the project started from, kept for context. It is not
+current documentation: the first milestone it proposes has shipped, and the
+[roadmap](../ROADMAP.md) and [scope](scope.md) describe the present state.
+
+Project concept • 14 November 2026
 
 ## Goal
 Build an open-source, modular system in which researchers describe a statistical model or study design using familiar statistical concepts. The system checks explicit constraints and compatibility requirements and reports which statistical guarantees have been established under which assumptions.

@@ -27,16 +27,19 @@ from statproof.planning import (
     RESULT_ASSUMPTIONS,
     RESULT_CHECKED_THEOREMS,
     RESULT_KIND,
+    STAGE_RESULT_KIND,
     BinomialInterval,
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
+    TwoStageResult,
     interval_claims,
     interval_payload,
     parse_interval_payload,
     parse_planning_payload,
     parse_policy_payload,
     parse_result_payload,
+    parse_stage_result_payload,
     planning_claims,
     planning_payload,
     planning_theorems,
@@ -48,7 +51,12 @@ from statproof.planning import (
     render_planning_proof,
     render_policy_proof,
     render_result_proof,
+    render_stage_result_proof,
     result_claims,
+    stage_result_assumptions,
+    stage_result_claims,
+    stage_result_payload,
+    stage_result_theorems,
 )
 from statproof.planning import result_payload as binomial_result_payload
 from statproof.proof import (
@@ -134,6 +142,12 @@ def _profile(kind: str, payload: dict) -> dict:
         assumptions, theorems = RESULT_ASSUMPTIONS, RESULT_CHECKED_THEOREMS
         scope = "This observed count and the declared test; not other data or analyses."
         general_theorem = "StatProof.Modules.OneSampleBinomial.typeI_of_check"
+    elif kind == STAGE_RESULT_KIND:
+        staged = parse_stage_result_payload(payload)
+        claims, assumptions = stage_result_claims(staged), stage_result_assumptions(staged)
+        theorems = stage_result_theorems(staged)
+        scope = "These observed counts and the declared two-stage design; not other data."
+        general_theorem = "StatProof.Modules.TwoStageBinomial.typeI_atMost_of_check"
     elif kind == INTERVAL_KIND:
         claims = interval_claims(parse_interval_payload(payload))
         assumptions, theorems = INTERVAL_ASSUMPTIONS, INTERVAL_CHECKED_THEOREMS
@@ -285,6 +299,8 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_planning_proof(parse_planning_payload(payload), input_id)
     if kind == POLICY_KIND:
         return render_policy_proof(parse_policy_payload(payload), input_id)
+    if kind == STAGE_RESULT_KIND:
+        return render_stage_result_proof(parse_stage_result_payload(payload), input_id)
     if kind == INTERVAL_KIND:
         return render_interval_proof(parse_interval_payload(payload), input_id)
     if kind == RESULT_KIND:
@@ -550,6 +566,19 @@ def certify_binomial_result(
     return _certify_payload(
         binomial_result_payload(result),
         RESULT_KIND,
+        project=project,
+        output=output,
+        timeout=timeout,
+    )
+
+
+def certify_stage_result(
+    result: TwoStageResult, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify the decision a two-stage design reaches for observed counts."""
+    return _certify_payload(
+        stage_result_payload(result),
+        STAGE_RESULT_KIND,
         project=project,
         output=output,
         timeout=timeout,

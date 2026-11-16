@@ -1,0 +1,15 @@
+# Analyse a two-stage study once the data are in.
+use designs.two_stage
+
+let stages = two_stage_binomial(n_stage1=13, n_stage2=30)
+let rule = threshold_rule(continue_above=3, reject_above=12)
+let analysis = two_stage_test(design=stages, rule=rule, null_rate=1/5)
+
+# Five of 13 responded in stage one, so the study continued; nine of 30 in stage two.
+let data = completed_stages(analysis=analysis, stage1_responses=5, stage2_responses=9)
+let calculation = calculate(two_stage_result(data))
+let decision = calculation.decision
+let verification = verify(two_stage_result(data))
+
+# Had only three responded in stage one, the study would have stopped:
+#   let data = stopped_at_interim(analysis=analysis, stage1_responses=3)

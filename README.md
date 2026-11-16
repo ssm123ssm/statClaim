@@ -82,7 +82,7 @@ verification; a valid specification alone is not a proof.
 | Estimate one proportion | `tests.binomial` | Coverage of the exact confidence interval |
 | Test several endpoints | `multiplicity.bonferroni` | Familywise error, 2 to 20 endpoints |
 | Choose a sample size | `planning` | Power, and the smallest size in a range |
-| Stop early for futility | `designs.two_stage` | Type I error and power of the whole design |
+| Stop early for futility | `designs.two_stage` | Type I error and power of the whole design, and the decision for observed data |
 | Find a two-stage design | `designs.two_stage` | The selected optimal or minimax design |
 
 This is a 0.1 developer preview; the language and APIs may change. A checked

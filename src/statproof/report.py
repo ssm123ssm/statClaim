@@ -13,9 +13,11 @@ from statproof.planning import (
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
+    TwoStageResult,
     search_equal_arms,
     search_one_sample,
     search_two_stage,
+    stage_result_assumptions,
 )
 from statproof.verification import (
     DESIGN_ASSUMPTIONS,
@@ -27,6 +29,7 @@ from statproof.verification import (
     certify_planning,
     certify_policy,
     certify_result,
+    certify_stage_result,
     digest,
 )
 
@@ -565,3 +568,29 @@ def run_two_stage_search(
         **search,
     }
     return report
+
+
+def stage_result_report(result: TwoStageResult, *, verify: bool) -> dict:
+    counts = f"{result.first} responses in stage one"
+    if result.second is not None:
+        counts += f" and {result.second} in stage two"
+    return planning_report(
+        "result",
+        f"Decision of the declared two-stage design for {counts}"
+        + (", with the design's error bound." if verify else ". Calculate only."),
+        stage_result_assumptions(result),
+    )
+
+
+def run_stage_result(
+    result: TwoStageResult, *, verify: bool, project: Path, output, timeout: float
+) -> dict:
+    """Calculate, and optionally certify, the decision for observed two-stage counts."""
+    report = stage_result_report(result, verify=verify)
+    report["calculation"] = result.evaluate()
+    report["decision"] = result.decision
+    if not verify:
+        return report
+    return _certified(
+        report, certify_stage_result, result, project=project, output=output, timeout=timeout
+    )

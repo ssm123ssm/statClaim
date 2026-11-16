@@ -37,6 +37,7 @@ from statproof.language import (
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
     TwoStageModelIR,
+    TwoStageObservationIR,
     ValueType,
     VerificationResultIR,
     fail,
@@ -52,6 +53,7 @@ from statproof.language_values import (
     OneSampleResultDetails,
     PlanningDetails,
     PolicyDetails,
+    StageResultDetails,
     VerificationResult,
 )
 
@@ -192,6 +194,20 @@ SCHEMAS = {
         "candidates_evaluated": FieldSpec(int, optional=True),
         "minimum_sample_size_claim": FieldSpec(str, optional=True),
     },
+    TwoStageObservationIR: {
+        "analysis": FieldSpec(TwoStageAnalysisIR),
+        "stage1_responses": FieldSpec(int),
+        "stage2_responses": FieldSpec(int, optional=True),
+    },
+    StageResultDetails: {
+        "n_stage1": FieldSpec(int),
+        "n_stage2": FieldSpec(int),
+        "stage1_responses": FieldSpec(int),
+        "stage2_responses": FieldSpec(int, optional=True),
+        "continued": FieldSpec(bool),
+        "reject_null": FieldSpec(bool),
+        "typeI_bound": FieldSpec(Fraction, description="Checked bound on the design's error."),
+    },
     TwoStageCandidatesIR: {
         "null_rate": FieldSpec(Fraction),
         "max_total": FieldSpec(int),
@@ -247,6 +263,8 @@ for kind in (CalculationResultIR, CalculationResult):
 
 def details_kind(claim: ClaimIR) -> type:
     """The calculation record published for this claim's kind."""
+    if isinstance(claim.subject, TwoStageObservationIR):
+        return StageResultDetails
     if isinstance(claim.subject, IntervalIR):
         return IntervalDetails
     if isinstance(claim.subject, OneSampleObservationIR):

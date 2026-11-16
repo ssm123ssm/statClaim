@@ -18,12 +18,201 @@ from statproof.derivations import (
     ANALYSIS_ASSUMPTIONS,
     FAMILY_ASSUMPTIONS,
     NOT_ESTABLISHED,
+    ONE_SAMPLE_ASSUMPTIONS,
+    PLANNING_POINT_ASSUMPTION,
     RULES,
+    TWO_STAGE_ASSUMPTIONS,
 )
 
 SUPPORTED_NULLS = {"tests.fisher/fisher": ["equal_proportions"]}
 SUPPORTED_JOINT_LAWS = ["binomial_marginals"]
 FAMILY_LIMITS = (2, 20)
+ONE_ARM_LIMIT, PER_ARM_LIMIT, STAGE_LIMIT, SEARCH_LIMIT, RATIO_LIMIT = 1000, 500, 200, 120, 10
+CRITERIA = ["optimal", "minimax"]
+
+
+def _whole(value, minimum: int) -> bool:
+    return type(value) is int and value >= minimum
+
+
+def _probability(text: str) -> bool:
+    return 0 <= Fraction(text) <= 1
+
+
+def _one_sample_expectations(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
+    n, rate = analysis["model"]["n"], analysis["null_rate"]
+    return [
+        ("sample-size-range", {"subject": name, "n": n}, _whole(n, 1) and n <= ONE_ARM_LIMIT),
+        ("null-rate-interior", {"subject": name, "rate": rate}, 0 < Fraction(rate) < 1),
+        (
+            "level-range",
+            {"subject": name, "alpha": analysis["alpha"]},
+            _probability(analysis["alpha"]),
+        ),
+    ]
+
+
+def _rule_well_formed(rule: dict) -> bool:
+    if rule["kind"] == "threshold":
+        return _whole(rule["continue_above"], 0) and _whole(rule["reject_above"], 0)
+    if rule["kind"] == "posterior":
+        return (
+            _whole(rule["prior_a"], 1)
+            and _whole(rule["prior_b"], 1)
+            and 0 < Fraction(rule["reference"]) < 1
+            and _probability(rule["continue_at_least"])
+            and _probability(rule["success_at_least"])
+        )
+    return False
+
+
+def _two_stage_expectations(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
+    first, second = analysis["design"]["n_stage1"], analysis["design"]["n_stage2"]
+    sizes_ok = all(_whole(size, 1) and size <= STAGE_LIMIT for size in (first, second))
+    return [
+        ("stage-sizes", {"subject": name, "n_stage1": first, "n_stage2": second}, sizes_ok),
+        (
+            "null-rate",
+            {"subject": name, "rate": analysis["null_rate"]},
+            _probability(analysis["null_rate"]),
+        ),
+        (
+            "decision-rule",
+            {"subject": name, "rule": analysis["rule"]},
+            _rule_well_formed(analysis["rule"]),
+        ),
+    ]
+
+
+def _search_valid(search: dict) -> bool:
+    if "max_per_arm" in search:
+        ratio = (
+            1 if search["allocation"] == "equal_arms" else int(search["allocation"].split(":")[1])
+        )
+        low, high = search["min_per_arm"], search["max_per_arm"]
+        return (
+            _whole(low, 1)
+            and _whole(high, low)
+            and 1 <= ratio <= RATIO_LIMIT
+            and high * ratio <= PER_ARM_LIMIT
+        )
+    if "max_n" in search:
+        return (
+            _whole(search["min_n"], 1)
+            and _whole(search["max_n"], search["min_n"])
+            and (search["max_n"] <= ONE_ARM_LIMIT)
+        )
+    return (
+        _whole(search["max_total"], 2)
+        and search["max_total"] <= SEARCH_LIMIT
+        and search["criterion"] in CRITERIA
+        and 0 < Fraction(search["null_rate"]) < 1
+    )
+
+
+# The contract rule and assumptions for each kind of analysis, keyed by its test.
+BLOCKS = {
+    "fisher": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
+    "binomial_exact_one_sided": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
+    "two_stage": ("two-stage-contract", TWO_STAGE_ASSUMPTIONS),
+}
+
+
+def _premises(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
+    if analysis["test"] == "fisher":
+        return _analysis_expectations(name, analysis)
+    if analysis["test"] == "binomial_exact_one_sided":
+        return _one_sample_expectations(name, analysis)
+    if analysis["test"] == "two_stage":
+        return _two_stage_expectations(name, analysis)
+    raise ValueError(f"unknown analysis {analysis['test']!r}")
+
+
+def _block(name: str, analysis: dict, start: int = 0) -> list[tuple]:
+    """The premises of an analysis followed by its contract rule."""
+    steps = [(rule, facts, holds, ()) for rule, facts, holds in _premises(name, analysis)]
+    uses = tuple(range(start, start + len(steps)))
+    steps.append((BLOCKS[analysis["test"]][0], {"subject": name}, True, uses))
+    return steps
+
+
+def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ...]]:
+    name, claim = derivation["name"], derivation["subject"]
+    if derivation["contract"] != f"planning/{claim['kind']}":
+        raise ValueError("the contract does not match the claim")
+    subject = claim["subject"]
+    search = subject.get("candidates")
+    if (search is not None) != (claim["kind"] == "sample_size"):
+        raise ValueError("a search accompanies exactly the sample_size claim")
+    analysis = subject["analysis"] if search is None else search.get("analysis")
+    target, inner = subject["target"], f"{name}.analysis"
+    steps, used = [], []
+    if analysis is not None:
+        steps = _block(inner, analysis)
+        used.append(len(steps) - 1)
+        assumptions = BLOCKS[analysis["test"]][1]
+    else:
+        assumptions = TWO_STAGE_ASSUMPTIONS
+    two_arm = analysis is not None and analysis["test"] == "fisher"
+    point = target["at"]
+    kind = "two_arm" if two_arm else "single_arm"
+    steps.append(
+        (
+            "planning-point",
+            {"subject": name, "analysis": kind, "point": point},
+            ("p_control" in point and "p_treatment" in point) == two_arm
+            and ("response_rate" in point) != two_arm,
+            (),
+        )
+    )
+    used.append(len(steps) - 1)
+    if "p_control" in point:
+        facts = {
+            "subject": name,
+            "p_control": point["p_control"],
+            "p_treatment": point["p_treatment"],
+            "null": "p_treatment = p_control",
+        }
+        outside = Fraction(point["p_control"]) != Fraction(point["p_treatment"])
+    else:
+        null_rate = search["null_rate"] if analysis is None else analysis["null_rate"]
+        facts = {
+            "subject": name,
+            "rate": point["response_rate"],
+            "null_rate": null_rate,
+            "null": f"response rate <= {null_rate}",
+        }
+        outside = Fraction(point["response_rate"]) > Fraction(null_rate)
+    steps.append(("alternative", facts, outside, ()))
+    used.append(len(steps) - 1)
+    minimum, maximum = target["minimum_power"], target["maximum_typeI"]
+    steps.append(
+        (
+            "target-range",
+            {"subject": name, "minimum": minimum, "maximum_typeI": maximum},
+            0 < Fraction(minimum) <= 1 and _probability(maximum),
+            (),
+        )
+    )
+    used.append(len(steps) - 1)
+    if search is not None:
+        bounds = {key: value for key, value in search.items() if key != "analysis"}
+        steps.append(
+            ("search-range", {"subject": name, "search": bounds}, _search_valid(bounds), ())
+        )
+        used.append(len(steps) - 1)
+    steps.append(("planning-contract", {"subject": name}, True, tuple(used)))
+    obligations = []
+    if two_arm:
+        obligations.append(
+            (
+                "error-budget",
+                {"subject": name, "alpha": analysis["alpha"], "maximum_typeI": maximum},
+                Fraction(analysis["alpha"]) <= Fraction(maximum),
+            )
+        )
+        obligations.append(_sampling_expectation(inner, analysis))
+    return steps, obligations, (*assumptions, PLANNING_POINT_ASSUMPTION)
 
 
 def _sizes(model: dict) -> dict:
@@ -78,10 +267,16 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     """
     name, subject, contract = derivation["name"], derivation["subject"], derivation["contract"]
     if contract == "tests.fisher/fisher":
-        premises = _analysis_expectations(name, subject)
-        steps = [(rule, facts, holds, ()) for rule, facts, holds in premises]
-        steps.append(("analysis-contract", {"subject": name}, True, tuple(range(3))))
-        return steps, [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+        if subject["test"] != "fisher":
+            raise ValueError("the contract does not match the declaration")
+        return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+    if contract in ("tests.binomial/binomial_test", "designs.two_stage/two_stage_test"):
+        expected = "binomial_exact_one_sided" if "binomial" in contract else "two_stage"
+        if subject["test"] != expected:
+            raise ValueError("the contract does not match the declaration")
+        return _block(name, subject), [], BLOCKS[expected][1]
+    if contract in ("planning/meets", "planning/sample_size"):
+        return _planning_expected(derivation)
     if contract == "multiplicity.bonferroni/bonferroni":
         members = [(item["name"], item["analysis"]) for item in subject["analyses"]]
         names = [member for member, _ in members]

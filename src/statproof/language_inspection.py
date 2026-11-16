@@ -15,6 +15,7 @@ from statproof.language import (
     RequestIR,
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
+    TwoStageObservationIR,
     VerificationResultIR,
     normalize,
 )
@@ -27,7 +28,7 @@ from statproof.planning import (
     composite_null,
     policy_assumptions,
 )
-from statproof.report import interval_report, planning_report
+from statproof.report import interval_report, planning_report, stage_result_report
 
 
 def _allocation(candidates) -> str:
@@ -112,6 +113,8 @@ def inspect_request(request: RequestIR) -> dict:
         return inspect_planning(request)
     if isinstance(subject, IntervalIR):
         return interval_report(subject.lower(), verify=request.operation == "verify")
+    if isinstance(subject, TwoStageObservationIR):
+        return stage_result_report(subject.lower(), verify=request.operation == "verify")
     if isinstance(subject, OneSampleObservationIR):
         result = subject.lower()
         return planning_report(

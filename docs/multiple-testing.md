@@ -27,7 +27,9 @@ stopping = "fixed"
 alpha = "1/40"
 ```
 
-Names must be distinct. Arm sizes may differ between analyses. Levels are exact
+Names must be distinct. In the file language a member's name labels its outcome,
+so each outcome needs its own analysis declaration; listing one declaration under
+two names is rejected. Arm sizes may differ between analyses. Levels are exact
 strings in `[0,1]`; `"0.025"` and `"1/40"` normalize to the same rational value.
 Unequal allocations are supported provided their sum does not exceed family alpha.
 Both analyses and the allocation must be specified before observing results.

@@ -39,10 +39,11 @@ from statproof.planning import (
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
+    TwoStageResult,
     TwoStageRule,
 )
 
-LANGUAGE_VERSION = "0.7.0"
+LANGUAGE_VERSION = "0.8.0"
 
 
 class PlannableIR:
@@ -223,6 +224,24 @@ class IntervalIR:
 
 
 @dataclass(frozen=True)
+class TwoStageObservationIR:
+    analysis: TwoStageAnalysisIR
+    stage1_responses: int
+    stage2_responses: int | None
+
+    def lower(self) -> TwoStageResult:
+        analysis = self.analysis
+        return TwoStageResult(
+            analysis.design.n_stage1,
+            analysis.design.n_stage2,
+            analysis.rule.rule,
+            analysis.null_rate,
+            self.stage1_responses,
+            self.stage2_responses,
+        )
+
+
+@dataclass(frozen=True)
 class FeasibilityIR:
     """One analysis assessed against one target."""
 
@@ -359,6 +378,7 @@ class ValueType:
                 PlanningPointIR: "PlanningPoint",
                 TwoStageAnalysisIR: "TwoStageAnalysis",
                 TwoStageCandidatesIR: "TwoStageCandidates",
+                TwoStageObservationIR: "TwoStageObservation",
                 OneSampleAnalysisIR: "OneSampleAnalysis",
                 OneArmModelIR: "OneArmModel",
                 OneSampleObservationIR: "OneSampleObservation",
@@ -489,6 +509,14 @@ def normalize(value: object) -> object:
                 "null_rate": str(rate),
                 "alpha": str(alpha),
             }
+        case TwoStageObservationIR(
+            analysis=analysis, stage1_responses=first, stage2_responses=second
+        ):
+            return {
+                "analysis": normalize(analysis),
+                "stage1_responses": first,
+                "stage2_responses": second,
+            }
         case OneSampleObservationIR(analysis=analysis, responses=responses):
             return {"analysis": normalize(analysis), "responses": responses}
         case IntervalIR(model=model, responses=responses, level=level):
@@ -604,6 +632,15 @@ def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyIR:
         fail(
             "duplicate_analysis",
             "Family members must have distinct names.",
+            arguments["analyses"].span,
+        )
+    # A member's name is its outcome's label. Two names for one declaration would
+    # count a single outcome twice while reporting two.
+    if len({id(analysis) for _, analysis in analyses}) != len(analyses):
+        fail(
+            "duplicate_analysis",
+            "Two family members are the same declaration under different names. "
+            "Declare a separate analysis for each outcome; its name labels the outcome.",
             arguments["analyses"].span,
         )
     law = arguments["joint_law"]
@@ -885,6 +922,29 @@ def _two_stage_candidates(arguments: dict[str, LocatedValue], span: Span) -> Two
     return TwoStageCandidatesIR(rate.value, total.value, criterion.value)
 
 
+def _stage_data(completed: bool) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> TwoStageObservationIR:
+        analysis, first = arguments["analysis"].value, arguments["stage1_responses"]
+        second = arguments["stage2_responses"] if completed else None
+        for argument, size in (
+            (first, analysis.design.n_stage1),
+            (second, analysis.design.n_stage2),
+        ):
+            if argument is not None and not 0 <= argument.value <= size:
+                fail("domain", f"Responses must be between 0 and {size}.", argument.span)
+        observation = TwoStageObservationIR(
+            analysis, first.value, second.value if completed else None
+        )
+        try:
+            observation.lower()
+        except ValueError as error:
+            # The data must be what the declared rule would have produced.
+            fail("rule_mismatch", str(error), first.span)
+        return observation
+
+    return build
+
+
 def _two_stage_test(arguments: dict[str, LocatedValue], span: Span) -> TwoStageAnalysisIR:
     return TwoStageAnalysisIR(
         arguments["design"].value,
@@ -1141,6 +1201,34 @@ MODULES = {
                     documentation="Continue, and finally declare success, when the posterior "
                     "probability that the response rate exceeds reference reaches the given "
                     "level. A posterior threshold does not by itself bound Type I error.",
+                ),
+                _constructor(
+                    "stopped_at_interim",
+                    (("analysis", TwoStageAnalysisIR), ("stage1_responses", "integer")),
+                    "TwoStageObservation",
+                    _stage_data(False),
+                    documentation="Observed data when the interim rule stopped the study. "
+                    "Rejected if the declared rule would have continued.",
+                ),
+                _constructor(
+                    "completed_stages",
+                    (
+                        ("analysis", TwoStageAnalysisIR),
+                        ("stage1_responses", "integer"),
+                        ("stage2_responses", "integer"),
+                    ),
+                    "TwoStageObservation",
+                    _stage_data(True),
+                    documentation="Observed data from both stages. Rejected if the declared "
+                    "rule would have stopped after stage one.",
+                ),
+                _constructor(
+                    "two_stage_result",
+                    (("observation", TwoStageObservationIR),),
+                    "ResultClaim",
+                    _claim("result", "observation"),
+                    documentation="Claim about the decision the declared design reaches for "
+                    "the observed counts, with the design's error bound.",
                 ),
                 _constructor(
                     "two_stage_designs",

@@ -40,29 +40,32 @@ def doctor() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description="Check, explain and verify statistical study files (.stat).",
+        epilog="Commands for the older TOML design files remain available and are not "
+        "listed: inspect, test, verify-design, verify, inspect-family, verify-family. "
+        "See docs/certificates.md.",
+    )
     parser.add_argument("--version", action="version", version=__version__)
-    commands = parser.add_subparsers(dest="command", required=True)
+    # Legacy TOML commands are registered without help text, which keeps them
+    # working while leaving them out of the command list.
+    commands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
     commands.add_parser("doctor", help="Check Python, uv, and the local Lean toolchain")
     commands.add_parser("lsp", help="Start the stdio language server (no proof execution)")
-    inspect = commands.add_parser("inspect", help="Read a design and list unresolved obligations")
+    inspect = commands.add_parser("inspect")
     inspect.add_argument("design", type=Path)
-    test = commands.add_parser("test", help="Compute Fisher's test at the declared exact alpha")
+    test = commands.add_parser("test")
     test.add_argument("design", type=Path)
     test.add_argument("--control-successes", type=int, required=True)
     test.add_argument("--treatment-successes", type=int, required=True)
-    design_check = commands.add_parser(
-        "verify-design", help="Certify the design's Type I error guarantee before supplying data"
-    )
+    design_check = commands.add_parser("verify-design")
     design_check.add_argument("design", type=Path)
     design_check.add_argument("--project", type=Path, default=Path.cwd())
     design_check.add_argument(
         "--output", type=Path, help="New certificate directory (must not exist)"
     )
     design_check.add_argument("--timeout", type=float, default=120)
-    verify = commands.add_parser(
-        "verify", aliases=["verify-result"], help="Certify a computed result for observed counts"
-    )
+    verify = commands.add_parser("verify", aliases=["verify-result"])
     verify.add_argument("design", type=Path)
     verify.add_argument("--control-successes", type=int, required=True)
     verify.add_argument("--treatment-successes", type=int, required=True)
@@ -77,11 +80,9 @@ def main(argv: list[str] | None = None) -> int:
     recheck.add_argument("bundle", type=Path)
     recheck.add_argument("--project", type=Path, default=Path.cwd())
     recheck.add_argument("--timeout", type=float, default=120)
-    family_inspect = commands.add_parser("inspect-family", help="Inspect a family of analyses")
+    family_inspect = commands.add_parser("inspect-family")
     family_inspect.add_argument("family", type=Path)
-    family_check = commands.add_parser(
-        "verify-family", help="Certify strong familywise error control"
-    )
+    family_check = commands.add_parser("verify-family")
     family_check.add_argument("family", type=Path)
     family_check.add_argument("--project", type=Path, default=Path.cwd())
     family_check.add_argument(

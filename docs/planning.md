@@ -148,6 +148,18 @@ reject with more than 12. Lean certifies the selected design's error and
 power. The ranking among designs is a calculation and is not certified.
 See `examples/two_stage_search.stat`.
 
+After the study, enter the counts. Use `completed_stages` if the study continued
+and `stopped_at_interim` if it stopped:
+
+```stat
+let data = completed_stages(analysis=analysis, stage1_responses=5, stage2_responses=9)
+let verification = verify(two_stage_result(data))
+```
+
+Lean confirms the decision the declared rule reaches and the design's error
+bound. Counts that contradict the rule, such as stage-two data when the rule
+would have stopped, are rejected. See `examples/two_stage_result.stat`.
+
 `calculate` also reports expected sample size and the early-stopping
 probability. `posterior_rule` replaces count thresholds with posterior
 probabilities under a `beta_prior`; see `examples/two_stage_posterior.stat`.

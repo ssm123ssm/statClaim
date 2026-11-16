@@ -13,8 +13,21 @@ from dataclasses import dataclass
 from fractions import Fraction
 
 from statproof.family import MAX_ENDPOINTS
-from statproof.language import AnalysisIR, FamilyIR, ProgramIR, normalize
+from statproof.language import (
+    AnalysisIR,
+    CandidatesIR,
+    ClaimIR,
+    FamilyIR,
+    FeasibilityIR,
+    OneArmCandidatesIR,
+    OneSampleAnalysisIR,
+    ProgramIR,
+    RatesIR,
+    TwoStageAnalysisIR,
+    normalize,
+)
 from statproof.language_contracts import FISHER_CONTRACT
+from statproof.planning import MAX_ONE_ARM, MAX_STAGE
 
 
 @dataclass(frozen=True)
@@ -63,6 +76,64 @@ RULES = {
         "family-size and joint-law rules hold.",
         "{subject}: the analyses can be composed as one family.",
     ),
+    "sample-size-range": Rule(
+        f"The sample size is between 1 and {MAX_ONE_ARM}.",
+        "{subject}: the sample size {n} is supported.",
+    ),
+    "null-rate-interior": Rule(
+        "The null rate lies strictly between 0 and 1.",
+        "{subject}: the null rate {rate} leaves room for both larger and smaller rates.",
+    ),
+    "one-sample-contract": Rule(
+        "The sample-size-range, null-rate-interior and level-range rules hold for this test.",
+        "{subject}: the model, the null rate and the level fit this test.",
+    ),
+    "stage-sizes": Rule(
+        f"Each stage has between 1 and {MAX_STAGE} participants.",
+        "{subject}: the stage sizes {n_stage1} and {n_stage2} are supported.",
+    ),
+    "null-rate": Rule(
+        "The null rate is a probability.",
+        "{subject}: the null rate {rate} is a probability.",
+    ),
+    "decision-rule": Rule(
+        "The interim and final rules are well formed: counts are whole numbers, prior "
+        "parameters are positive whole numbers, and probabilities lie in range.",
+        "{subject}: the interim and final rules are well formed.",
+    ),
+    "two-stage-contract": Rule(
+        "The stage-sizes, null-rate and decision-rule rules hold for this design.",
+        "{subject}: the stages, the rule and the null rate form a complete design.",
+    ),
+    "planning-point": Rule(
+        "The planning point has one rate per arm of the analysis.",
+        "{subject}: the planning point belongs to the analysis's parameters.",
+    ),
+    "alternative": Rule(
+        "The planning point lies outside the analysis's null.",
+        "{subject}: the planning point lies outside the null ({null}).",
+    ),
+    "target-range": Rule(
+        "The required power is in (0, 1] and the error bound is in [0, 1].",
+        "{subject}: the power {minimum} and error bound {maximum_typeI} are valid targets.",
+    ),
+    "search-range": Rule(
+        "The search bounds are ordered and within the supported sizes.",
+        "{subject}: the search range is valid.",
+    ),
+    "planning-contract": Rule(
+        "The analysis satisfies its own contract where it has one, and the planning-point, "
+        "alternative, target-range and, for a search, search-range rules hold.",
+        "{subject}: the target can be assessed for this analysis.",
+    ),
+    "error-budget": Rule(
+        "The analysis's level is at most the requested error bound.",
+        "{subject}: the level {alpha} is within the requested error bound {maximum_typeI}.",
+        obligation="{subject}: the level {alpha} exceeds the requested error bound "
+        "{maximum_typeI}. The error theorem bounds error by the level only. This is not "
+        "evidence that the actual error exceeds the request.",
+        code="typeI_target_not_established",
+    ),
     "fixed-sampling": Rule(
         "The sample sizes are fixed before outcomes are observed.",
         "{subject}: sampling is fixed, as the fixed-sample error theorem requires.",
@@ -90,6 +161,16 @@ FAMILY_ASSUMPTIONS = (
     "Each outcome follows its own two-arm model; dependence between outcomes is unrestricted.",
     "The set of analyses and their levels are chosen before outcomes are observed.",
 )
+ONE_SAMPLE_ASSUMPTIONS = (
+    "Responses are independent with one common response rate.",
+    "The sample size, null rate and level are fixed before outcomes are observed.",
+)
+TWO_STAGE_ASSUMPTIONS = (
+    "Responses are independent with one common response rate in both stages.",
+    "Stage sizes and the interim and final rules are fixed before outcomes are observed "
+    "and are followed exactly.",
+)
+PLANNING_POINT_ASSUMPTION = "The planning point is an input for planning, not an established fact."
 NOT_ESTABLISHED = (
     "No statistical guarantee is established here. Error rates and power are separate "
     "claims, checked by verify(...)."
@@ -255,6 +336,137 @@ def derive_family(name: str, family: FamilyIR) -> Derivation:
     )
 
 
+def _one_sample_steps(builder: _Builder, name: str, analysis: OneSampleAnalysisIR) -> int:
+    used = (
+        builder.apply("sample-size-range", {"subject": name, "n": analysis.model.n}),
+        builder.apply("null-rate-interior", {"subject": name, "rate": str(analysis.null_rate)}),
+        builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
+    )
+    return builder.apply("one-sample-contract", {"subject": name}, used)
+
+
+def _two_stage_steps(builder: _Builder, name: str, analysis: TwoStageAnalysisIR) -> int:
+    design = analysis.design
+    used = (
+        builder.apply(
+            "stage-sizes",
+            {"subject": name, "n_stage1": design.n_stage1, "n_stage2": design.n_stage2},
+        ),
+        builder.apply("null-rate", {"subject": name, "rate": str(analysis.null_rate)}),
+        builder.apply("decision-rule", {"subject": name, "rule": analysis.rule.rule.to_dict()}),
+    )
+    return builder.apply("two-stage-contract", {"subject": name}, used)
+
+
+def derive_one_sample(name: str, analysis: OneSampleAnalysisIR) -> Derivation:
+    builder = _Builder()
+    final = _one_sample_steps(builder, name, analysis)
+    return Derivation(
+        name,
+        "tests.binomial/binomial_test",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        ONE_SAMPLE_ASSUMPTIONS,
+        (),
+        normalize(analysis),
+    )
+
+
+def derive_two_stage(name: str, analysis: TwoStageAnalysisIR) -> Derivation:
+    builder = _Builder()
+    final = _two_stage_steps(builder, name, analysis)
+    return Derivation(
+        name,
+        "designs.two_stage/two_stage_test",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        TWO_STAGE_ASSUMPTIONS,
+        (),
+        normalize(analysis),
+    )
+
+
+def derive_planning(name: str, claim: ClaimIR) -> Derivation:
+    """A planning claim: its analysis fits, and the target can be assessed for it."""
+    subject = claim.subject
+    search = None if isinstance(subject, FeasibilityIR) else subject.candidates
+    analysis = subject.analysis if search is None else None
+    if isinstance(search, (CandidatesIR, OneArmCandidatesIR)):
+        analysis = search.analysis
+    target, inner = subject.target, f"{name}.analysis"
+    builder = _Builder()
+    used: list[int] = []
+    if isinstance(analysis, AnalysisIR):
+        used.append(_analysis_steps(builder, inner, analysis))
+        assumptions = ANALYSIS_ASSUMPTIONS
+    elif isinstance(analysis, OneSampleAnalysisIR):
+        used.append(_one_sample_steps(builder, inner, analysis))
+        assumptions = ONE_SAMPLE_ASSUMPTIONS
+    elif isinstance(analysis, TwoStageAnalysisIR):
+        used.append(_two_stage_steps(builder, inner, analysis))
+        assumptions = TWO_STAGE_ASSUMPTIONS
+    else:
+        assumptions = TWO_STAGE_ASSUMPTIONS
+    two_arm = isinstance(analysis, AnalysisIR)
+    point = normalize(target.at)
+    used.append(
+        builder.apply(
+            "planning-point",
+            {"subject": name, "analysis": "two_arm" if two_arm else "single_arm", "point": point},
+        )
+    )
+    if isinstance(target.at, RatesIR):
+        facts = {
+            "subject": name,
+            "p_control": str(target.at.p_control),
+            "p_treatment": str(target.at.p_treatment),
+            "null": "p_treatment = p_control",
+        }
+    else:
+        null_rate = search.null_rate if analysis is None else analysis.null_rate
+        facts = {
+            "subject": name,
+            "rate": str(target.at.value),
+            "null_rate": str(null_rate),
+            "null": f"response rate <= {null_rate}",
+        }
+    used.append(builder.apply("alternative", facts))
+    used.append(
+        builder.apply(
+            "target-range",
+            {
+                "subject": name,
+                "minimum": str(target.minimum),
+                "maximum_typeI": str(target.maximum_typeI),
+            },
+        )
+    )
+    if search is not None:
+        bounds = {key: value for key, value in normalize(search).items() if key != "analysis"}
+        used.append(builder.apply("search-range", {"subject": name, "search": bounds}))
+    final = builder.apply("planning-contract", {"subject": name}, tuple(used))
+    if two_arm:
+        builder.settle(
+            "error-budget",
+            {
+                "subject": name,
+                "alpha": str(analysis.alpha),
+                "maximum_typeI": str(target.maximum_typeI),
+            },
+            analysis.alpha <= target.maximum_typeI,
+        )
+        _sampling(builder, inner, analysis)
+    return Derivation(
+        name,
+        f"planning/{claim.kind}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        (*assumptions, PLANNING_POINT_ASSUMPTION),
+        tuple(builder.obligations),
+        normalize(claim),
+    )
+
+
 def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
     """Derivations for every named declaration that passed a contract.
 
@@ -263,8 +475,15 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
     """
     derivations = []
     for binding in program.bindings:
-        if isinstance(binding.value, AnalysisIR):
-            derivations.append(derive_analysis(binding.name, binding.value))
-        elif isinstance(binding.value, FamilyIR):
-            derivations.append(derive_family(binding.name, binding.value))
+        value = binding.value
+        if isinstance(value, AnalysisIR):
+            derivations.append(derive_analysis(binding.name, value))
+        elif isinstance(value, FamilyIR):
+            derivations.append(derive_family(binding.name, value))
+        elif isinstance(value, OneSampleAnalysisIR):
+            derivations.append(derive_one_sample(binding.name, value))
+        elif isinstance(value, TwoStageAnalysisIR):
+            derivations.append(derive_two_stage(binding.name, value))
+        elif isinstance(value, ClaimIR) and value.kind in ("meets", "sample_size"):
+            derivations.append(derive_planning(binding.name, value))
     return tuple(derivations)

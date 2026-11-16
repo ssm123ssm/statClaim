@@ -16,6 +16,7 @@ from statproof.language import (
     OneSampleObservationIR,
     RequestIR,
     TwoStageCandidatesIR,
+    TwoStageObservationIR,
 )
 from statproof.language_compiler import compile_source
 from statproof.language_inspection import inspect_planning, inspect_request
@@ -35,6 +36,7 @@ from statproof.report import (
     run_policy_plan,
     run_power_plan,
     run_sample_size,
+    run_stage_result,
     run_two_stage_search,
     test_design,
     verify_design,
@@ -86,6 +88,14 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         )
     if request.claim.kind == "interval":
         return run_interval(
+            subject.lower(),
+            verify=request.operation == "verify",
+            project=project,
+            output=output,
+            timeout=timeout,
+        )
+    if request.claim.kind == "result" and isinstance(subject, TwoStageObservationIR):
+        return run_stage_result(
             subject.lower(),
             verify=request.operation == "verify",
             project=project,
@@ -409,6 +419,18 @@ def render_report(report: dict, source: Source) -> str:
                 f"interval = [{calculation['lower']['decimal_approximation']}, "
                 f"{calculation['upper']['decimal_approximation']}] at level "
                 f"{calculation['level']['fraction']}; no formal certificate issued."
+            )
+        elif request["status"] == "calculated" and "stage1_responses" in details["calculation"]:
+            calculation = details["calculation"]
+            second = calculation["stage2_responses"]
+            lines.append(
+                f"  stage one: {calculation['stage1_responses']} of {calculation['n_stage1']}; "
+                + (
+                    "stopped at the interim look; "
+                    if second is None
+                    else f"stage two: {second} of {calculation['n_stage2']}; "
+                )
+                + f"decision = {details['decision']}; no formal certificate issued."
             )
         elif request["status"] == "calculated" and "responses" in details["calculation"]:
             calculation = details["calculation"]

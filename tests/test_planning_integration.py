@@ -30,6 +30,7 @@ def runs(tmp_path_factory):
         "confidence_interval",
         "unequal_allocation",
         "two_stage_search",
+        "two_stage_result",
     ):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
@@ -102,6 +103,22 @@ def test_searched_two_stage_design_is_verified(runs):
     assert report["status"] == "verified", report["diagnostics"]
     claims = report["values"]["verification"]["evidence"]["established_properties"]
     assert "stages 13 and 30" in claims[0]
+
+
+def test_two_stage_result_certificate_replays_and_resists_tampering(runs, tmp_path):
+    report = runs["two_stage_result"]
+    assert report["status"] == "verified", report["diagnostics"]
+    source = Path(report["values"]["verification"]["evidence"]["certificate"]["directory"])
+    assert recheck_certificate(source, project=ROOT)["kind"] == (
+        "statproof_two_stage_result_certificate"
+    )
+    bundle = tmp_path / "tampered"
+    shutil.copytree(source, bundle)
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    inputs["result"]["typeI_bound"] = "1/100"
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT)
 
 
 def test_ten_endpoint_family_is_verified(tmp_path):

@@ -990,6 +990,196 @@ end StatProofCertificate
 {_audit(INTERVAL_CHECKED_THEOREMS, input_sha256)}"""
 
 
+STAGE_RESULT_KIND = "statproof_two_stage_result_certificate"
+
+
+@dataclass(frozen=True)
+class TwoStageResult:
+    """Observed counts from a two-stage design: stage two exists only if it continued."""
+
+    n_first: int
+    n_second: int
+    rule: TwoStageRule
+    null_rate: Fraction
+    first: int
+    second: int | None
+
+    def __post_init__(self) -> None:
+        if type(self.first) is not int or not 0 <= self.first <= self.n_first:
+            raise ValueError("Stage-one responses must be between 0 and the stage size.")
+        if self.continued != (self.second is not None):
+            raise ValueError(
+                "The interim rule continues with these stage-one responses, so stage-two "
+                "responses are required."
+                if self.continued
+                else "The interim rule stops with these stage-one responses, so there are no "
+                "stage-two responses."
+            )
+        if self.second is not None and (
+            type(self.second) is not int or not 0 <= self.second <= self.n_second
+        ):
+            raise ValueError("Stage-two responses must be between 0 and the stage size.")
+
+    @property
+    def design(self) -> TwoStagePlan:
+        return TwoStagePlan(
+            self.n_first,
+            self.n_second,
+            self.rule,
+            self.null_rate,
+            Fraction(1),
+            Fraction(0),
+            Fraction(1),
+        )
+
+    @property
+    def continued(self) -> bool:
+        return self.design.continues(self.first)
+
+    @property
+    def decision(self) -> str:
+        if self.second is None:
+            return "stopped_for_futility"
+        rejected = self.design.rejects(self.first, self.second)
+        return "reject_null" if rejected else "do_not_reject_null"
+
+    @property
+    def error_bound(self) -> Fraction:
+        """The design's exact error at the null rate, rounded up to four decimals."""
+        size = self.design.rejection_probability(self.null_rate) * 10_000
+        return Fraction(-(-size.numerator // size.denominator), 10_000)
+
+    def evaluate(self) -> dict:
+        return {
+            "n_stage1": self.n_first,
+            "n_stage2": self.n_second,
+            "stage1_responses": self.first,
+            "stage2_responses": self.second,
+            "continued": self.continued,
+            "reject_null": self.decision == "reject_null",
+            "typeI_bound": fraction_record(self.error_bound),
+        }
+
+
+def stage_result_payload(result: TwoStageResult) -> dict:
+    return {
+        "schema_version": 1,
+        "scope": "result",
+        "design": {
+            "module": "two_stage_binomial",
+            "module_version": "0.1.0",
+            "n_stage1": result.n_first,
+            "n_stage2": result.n_second,
+            "rule": result.rule.to_dict(),
+        },
+        "analysis": {"null_rate": str(result.null_rate)},
+        "result": {
+            "stage1_responses": result.first,
+            "stage2_responses": result.second,
+            "decision": result.decision,
+            "typeI_bound": str(result.error_bound),
+        },
+    }
+
+
+def parse_stage_result_payload(payload: dict) -> TwoStageResult:
+    design = payload["design"]
+    result = TwoStageResult(
+        design["n_stage1"],
+        design["n_stage2"],
+        TwoStageRule.from_dict(design["rule"]),
+        parse_alpha(payload["analysis"]["null_rate"]),
+        payload["result"]["stage1_responses"],
+        payload["result"]["stage2_responses"],
+    )
+    if payload != stage_result_payload(result):
+        raise ValueError("Bound result inputs are inconsistent.")
+    return result
+
+
+def stage_result_theorems(result: TwoStageResult) -> list[str]:
+    names = ["checked_interim", "checked_typeI"]
+    return names if result.second is None else ["checked_interim", "checked_decision", names[1]]
+
+
+def stage_result_claims(result: TwoStageResult) -> list[str]:
+    if result.second is None:
+        outcome = (
+            f"With {result.first} responses out of {result.n_first} in stage one, the declared "
+            "interim rule stops the study. The null is not rejected."
+        )
+    else:
+        total = result.first + result.second
+        verdict = "rejects" if result.decision == "reject_null" else "does not reject"
+        outcome = (
+            f"With {result.first} responses in stage one the declared rule continues, and with "
+            f"{total} responses in total it {verdict} the null."
+        )
+    return [
+        outcome,
+        f"The complete design rejects with probability at most {float(result.error_bound):.4f} "
+        f"for every response rate at or below {result.null_rate}.",
+    ]
+
+
+def stage_result_assumptions(result: TwoStageResult) -> list[str]:
+    assumptions = [
+        "Responses are independent with one common response rate in both stages.",
+        "Stage sizes and the interim and final rules were fixed before outcomes were observed "
+        "and were followed exactly.",
+        "The supplied counts describe the declared study.",
+    ]
+    if result.rule.kind == "posterior":
+        assumptions.append(
+            "The posterior rule is the binomial-sum form of the Beta tail probability for "
+            "integer prior parameters; its identity with the Beta integral is standard and "
+            "is not proved in Lean."
+        )
+    return assumptions
+
+
+def render_stage_result_proof(result: TwoStageResult, input_sha256: str) -> str:
+    design = _lean_design(result.design)
+    monotone = design.replace("Design ", "Design_monotone ", 1)
+    a, d = result.null_rate.as_integer_ratio()
+    bn, bd = result.error_bound.as_integer_ratio()
+    decision = ""
+    if result.second is not None:
+        rejected = "true" if result.decision == "reject_null" else "false"
+        decision = f"""
+theorem checked_decision :
+    declaredDesign.rejects {result.first} {result.second} = {rejected} := by decide +kernel
+"""
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical result SHA-256: {input_sha256}
+-- The decision is recomputed in the kernel from the declared rule.
+set_option maxRecDepth 8192
+set_option maxHeartbeats 2000000
+
+namespace StatProofCertificate
+open StatProof StatProof.Modules
+
+def declaredDesign : TwoStageBinomial.Design :=
+  {design}
+noncomputable def nullRate : unitInterval := ratPoint {a} {d} (by decide) (by decide)
+
+theorem checked_interim :
+    declaredDesign.continues {result.first} = {"true" if result.continued else "false"} := by
+  decide +kernel
+{decision}
+theorem checked_typeI :
+    ((TwoStageBinomial.analysisAtMost declaredDesign nullRate).typeIClaim
+      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
+  TwoStageBinomial.typeI_atMost_of_check declaredDesign
+    ({monotone}) {a} {d} (by decide) (by decide)
+    {bn} {bd} (by decide) (by decide +kernel)
+
+end StatProofCertificate
+{_audit(stage_result_theorems(result), input_sha256)}"""
+
+
 def policy_payload(plan: "TwoStagePlan | OneSamplePlan") -> dict:
     if isinstance(plan, OneSamplePlan):
         payload = {
