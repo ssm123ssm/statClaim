@@ -11,8 +11,13 @@ shown unless you ask.
 
 Each rule and contract has a version, recorded in the derivation.
 
-A derivation is about compatibility only. It does not prove an error rate or
-power. Those are claims, established by `verify(...)` and Lean.
+A derivation is about compatibility. It does not prove an error rate or power.
+Those are claims, established by `verify(...)` and Lean.
+
+One exception is marked clearly. The contract of a [cited method](cited-methods.md)
+carries the published guarantee it gives you, the assumptions it needs and its
+references. The checker confirms this is the guarantee the declaration implies,
+not that the guarantee is true. An open obligation withholds it.
 
 ## Ask why a contract passed
 

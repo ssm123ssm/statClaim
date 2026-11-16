@@ -16,6 +16,7 @@ from fractions import Fraction
 
 from statclaim.derivations import (
     ANALYSIS_ASSUMPTIONS,
+    CITED_NOT_ESTABLISHED,
     CONTRACT_IDS,
     FAMILY_ASSUMPTIONS,
     NOT_ESTABLISHED,
@@ -24,6 +25,8 @@ from statclaim.derivations import (
     RULES,
     TWO_STAGE_ASSUMPTIONS,
 )
+from statclaim.methods import METHODS
+from statclaim.methods.core import Guarantee
 
 SUPPORTED_NULLS = {
     "two_sided": ["equal_proportions"],
@@ -276,6 +279,75 @@ def _analysis_expectations(name: str, analysis: dict) -> list[tuple[str, dict, b
     ]
 
 
+def _mean_statement(null: dict) -> str:
+    if null["predicate"] == "equal_means":
+        return "mean_treatment = mean_control"
+    return f"mean_treatment - mean_control <= {null['value']}"
+
+
+def _cited_expected(name: str, subject: dict, contract: str):
+    """Steps, obligations, assumptions and guarantee for a cited method's contract.
+
+    The method registry is data, like the rules. The premises are re-evaluated here.
+    """
+    method = METHODS.get(subject["test"])
+    if method is None or contract != f"{method.module}/{method.key}":
+        raise ValueError("the contract does not match the declaration")
+    design, null = subject["design"], subject["null"]
+    sizes, alpha = _sizes(design["model"]), Fraction(subject["alpha"])
+    continuous = all(
+        model["module"] == "two_arm_continuous" for model in (design["model"], null["model"])
+    )
+    enough = min(sizes.values()) >= method.min_per_arm and sum(sizes.values()) >= method.min_total
+    steps = [
+        (
+            "same-model",
+            {"subject": name, "design_model": sizes, "null_model": _sizes(null["model"])},
+            continuous and sizes == _sizes(null["model"]),
+            (),
+        ),
+        (
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": null["predicate"],
+                "statement": _mean_statement(null),
+                "supported": [method.null],
+            },
+            null["predicate"] == method.null,
+            (),
+        ),
+        ("level-interior", {"subject": name, "alpha": subject["alpha"]}, 0 < alpha < 1, ()),
+        (
+            "enough-data",
+            {
+                "subject": name,
+                **sizes,
+                "min_per_arm": method.min_per_arm,
+                "min_total": method.min_total,
+            },
+            enough,
+            (),
+        ),
+        ("cited-contract", {"subject": name}, True, (0, 1, 2, 3)),
+    ]
+    fixed = _sampling_expectation(name, subject)
+    guarantee = None
+    if fixed[2]:
+        statement = Guarantee(
+            "type_I_error", method.relation, alpha, _mean_statement(null), method.scope
+        )
+        guarantee = {
+            **statement.to_dict(),
+            "sentence": statement.sentence,
+            "grade": "cited",
+            "method": method.to_dict(),
+            "given": [item.id for item in method.assumptions],
+            "references": list(method.references),
+        }
+    return steps, [fixed], tuple(item.text for item in method.assumptions), guarantee
+
+
 def _sampling_expectation(name: str, analysis: dict) -> tuple[str, dict, bool]:
     stopping = analysis["design"]["stopping"]
     return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
@@ -287,6 +359,8 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     A required step is (rule, facts, holds, rules or step groups it must use).
     """
     name, subject, contract = derivation["name"], derivation["subject"], derivation["contract"]
+    if subject.get("test") in METHODS:
+        return _cited_expected(name, subject, contract)[:3]
     if contract in CONTRACT_IDS.values():
         if subject["test"] != "fisher" or contract != CONTRACT_IDS.get(
             subject.get("alternative", "two_sided")
@@ -354,9 +428,23 @@ def check_derivation(derivation: dict) -> list[str]:
     """Return the problems found; an empty list means the derivation is valid."""
     problems: list[str] = []
     try:
-        if derivation.get("scope") != "compatibility":
-            problems.append("A derivation must be scoped to compatibility.")
-        if derivation.get("not_established") != NOT_ESTABLISHED:
+        # A guarantee may be carried only by a contract that supplies one, and then
+        # only the guarantee the declaration implies.
+        guarantee = None
+        if isinstance(derivation.get("subject"), dict) and (
+            derivation["subject"].get("test") in METHODS
+        ):
+            guarantee = _cited_expected(
+                derivation["name"], derivation["subject"], derivation["contract"]
+            )[3]
+        if derivation.get("guarantee") != guarantee:
+            problems.append("The recorded guarantee is not the one the declaration implies.")
+        scope = "conditional_guarantee" if guarantee else "compatibility"
+        if derivation.get("scope") != scope:
+            problems.append("The derivation's scope does not match what it establishes.")
+        if derivation.get("not_established") != (
+            CITED_NOT_ESTABLISHED if guarantee else NOT_ESTABLISHED
+        ):
             problems.append("The statement of what is not established is missing or altered.")
         required, obligation_rules, assumptions = _expected(derivation)
         steps = derivation["steps"]

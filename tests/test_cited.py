@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from statclaim.cli import main
+from statclaim.derivation_checker import check_derivation
 from statclaim.language_compiler import compile_source
 from statclaim.language_runner import check_source, render_report
 from statclaim.language_syntax import Source
@@ -185,3 +186,70 @@ def test_data_dependent_stopping_leaves_the_cited_claim_unresolved(tmp_path):
 def test_example_runs_from_the_cli_without_lean(capsys):
     assert main(["check", str(ROOT / "examples/t_test.stat"), "--project", str(ROOT)]) == 0
     assert "Program status: cited" in capsys.readouterr().out
+
+
+def cited_derivation(text=None):
+    text = text or EQUAL + "let analysis = t_test(design=plan, null=null, alpha=1/20)\n"
+    compilation = compile_source(Source(text))
+    return next(d for d in compilation.derivations if d.name == "analysis").to_dict()
+
+
+def test_cited_contract_derivation_carries_a_checked_conditional_guarantee():
+    record = cited_derivation()
+    assert check_derivation(record) == []
+    assert record["scope"] == "conditional_guarantee"
+    guarantee = record["guarantee"]
+    assert guarantee["grade"] == "cited" and guarantee["bound"] == "1/20"
+    assert guarantee["given"] == [item.id for item in METHODS["t_test"].assumptions]
+    assert "not proved" in record["not_established"]
+
+
+def test_open_obligation_withholds_the_guarantee():
+    record = cited_derivation(
+        HEAD
+        + "let plan = adaptive(model=study)\nlet null = equal_means(model=study)\n"
+        + "let analysis = t_test(design=plan, null=null, alpha=1/20)\n"
+    )
+    assert check_derivation(record) == []
+    assert record["guarantee"] is None and record["scope"] == "compatibility"
+    assert [item["code"] for item in record["obligations"]] == ["sampling_scope"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda d: d["guarantee"].update(bound="1/100"),
+        lambda d: d["guarantee"].update(grade="proved"),
+        lambda d: d["guarantee"].update(scope="finite_sample", relation="at_most"),
+        lambda d: d["guarantee"]["method"].update(version=2),
+        lambda d: d["guarantee"]["given"].pop(),
+        lambda d: d.update(guarantee=None),
+        lambda d: d.update(scope="compatibility"),
+        lambda d: d["subject"].update(test="welch_test"),
+        lambda d: d["subject"]["design"].update(stopping="data_dependent"),
+        lambda d: d["subject"]["design"]["model"].update(n_control=1, n_treatment=1),
+        lambda d: d["steps"][2].update(rule_version=2),
+    ],
+)
+def test_checker_rejects_an_altered_cited_guarantee(change):
+    record = cited_derivation()
+    change(record)
+    assert check_derivation(record)
+
+
+def test_fisher_derivation_cannot_borrow_a_guarantee():
+    text = (ROOT / "tests/fixtures/fisher.stat").read_text()
+    record = next(
+        d for d in compile_source(Source(text)).derivations if d.name == "analysis"
+    ).to_dict()
+    assert check_derivation(record) == [] and record["guarantee"] is None
+    record["guarantee"] = cited_derivation()["guarantee"]
+    assert check_derivation(record)
+
+
+def test_explanation_shows_the_guarantee_and_its_source(capsys):
+    path = str(ROOT / "examples/tutorial/12_continuous_outcome.stat")
+    assert main(["explain", path]) == 0
+    text = capsys.readouterr().out
+    assert "Guarantee, given the assumptions" in text and "not proved in Lean" in text
+    assert "Independent check of this derivation: passed." in text

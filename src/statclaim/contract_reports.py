@@ -66,6 +66,20 @@ def explanation_markdown(entry: dict) -> str:
         lines.append(f"   - Rule: {step['premise']}")
         if facts and not step["uses"]:
             lines.append(f"   - Facts: {facts}")
+    guarantee = derivation.get("guarantee")
+    if guarantee:
+        method = guarantee["method"]
+        lines += [
+            "",
+            "### Guarantee, given the assumptions",
+            "",
+            guarantee["sentence"],
+            "",
+            f"Cited from {method['title']} (`{method['key']}`, version {method['version']}); "
+            "not proved in Lean.",
+            "",
+        ]
+        lines += [f"- {reference}" for reference in guarantee["references"]]
     lines += ["", "### Assumptions you must meet in the real study", ""]
     lines += [f"- {assumption}" for assumption in derivation["assumptions"]]
     lines += ["", "### Unresolved obligations", ""]

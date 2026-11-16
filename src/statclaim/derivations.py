@@ -16,6 +16,7 @@ from statclaim.family import MAX_ENDPOINTS
 from statclaim.language import (
     AnalysisIR,
     CandidatesIR,
+    CitedAnalysisIR,
     ClaimIR,
     FamilyIR,
     FeasibilityIR,
@@ -55,6 +56,19 @@ RULES = {
     "level-range": Rule(
         "The level is a number between 0 and 1.",
         "{subject}: the level {alpha} is a probability.",
+    ),
+    "level-interior": Rule(
+        "The level is strictly between 0 and 1.",
+        "{subject}: the level {alpha} lies strictly between 0 and 1.",
+    ),
+    "enough-data": Rule(
+        "Each arm and the whole study are large enough for the method to estimate variance.",
+        "{subject}: arm sizes ({n_control}, {n_treatment}) meet the method's minimum of "
+        "{min_per_arm} per arm and {min_total} in total.",
+    ),
+    "cited-contract": Rule(
+        "The same-model, supported-null, level-interior and enough-data rules hold.",
+        "{subject}: the design, the null and the level fit this cited method.",
     ),
     "analysis-contract": Rule(
         "The same-model, supported-null and level-range rules hold for this analysis.",
@@ -179,6 +193,10 @@ TWO_STAGE_ASSUMPTIONS = (
     "and are followed exactly.",
 )
 PLANNING_POINT_ASSUMPTION = "The planning point is an input for planning, not an established fact."
+CITED_NOT_ESTABLISHED = (
+    "The guarantee below is cited from the literature and holds only under the listed "
+    "assumptions. It is not proved here or in Lean."
+)
 NOT_ESTABLISHED = (
     "No statistical guarantee is established here. Error rates and power are separate "
     "claims, checked by verify(...)."
@@ -230,17 +248,20 @@ class Derivation:
     assumptions: tuple[str, ...]
     obligations: tuple[Obligation, ...]
     subject: dict
+    # Set when the contract carries a guarantee that holds given the assumptions.
+    guarantee: dict | None = None
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "contract": self.contract,
-            "scope": "compatibility",
+            "scope": "conditional_guarantee" if self.guarantee else "compatibility",
+            "guarantee": self.guarantee,
             "conclusion": self.conclusion,
             "steps": [step.to_dict() for step in self.steps],
             "assumptions": list(self.assumptions),
             "obligations": [obligation.to_dict() for obligation in self.obligations],
-            "not_established": NOT_ESTABLISHED,
+            "not_established": CITED_NOT_ESTABLISHED if self.guarantee else NOT_ESTABLISHED,
             "subject": self.subject,
         }
 
@@ -312,6 +333,62 @@ def derive_analysis(name: str, analysis: AnalysisIR) -> Derivation:
         ANALYSIS_ASSUMPTIONS,
         tuple(builder.obligations),
         normalize(analysis),
+    )
+
+
+def cited_guarantee(analysis: CitedAnalysisIR) -> dict:
+    """The guarantee a satisfied cited contract carries, with what it rests on."""
+    method = analysis.method
+    return {
+        **analysis.guarantee.to_dict(),
+        "sentence": analysis.guarantee.sentence,
+        "grade": "cited",
+        "method": method.to_dict(),
+        "given": [item.id for item in method.assumptions],
+        "references": list(method.references),
+    }
+
+
+def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:
+    builder = _Builder()
+    plan, null, method = analysis.plan, analysis.hypothesis, analysis.method
+    used = (
+        builder.apply(
+            "same-model",
+            {"subject": name, "design_model": _sizes(plan.model), "null_model": _sizes(null.model)},
+        ),
+        builder.apply(
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": null.predicate,
+                "statement": null.statement,
+                "supported": [method.null],
+            },
+        ),
+        builder.apply("level-interior", {"subject": name, "alpha": str(analysis.alpha)}),
+        builder.apply(
+            "enough-data",
+            {
+                "subject": name,
+                **_sizes(plan.model),
+                "min_per_arm": method.min_per_arm,
+                "min_total": method.min_total,
+            },
+        ),
+    )
+    final = builder.apply("cited-contract", {"subject": name}, used)
+    _sampling(builder, name, analysis)
+    return Derivation(
+        name,
+        f"{method.module}/{method.key}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        tuple(item.text for item in method.assumptions),
+        tuple(builder.obligations),
+        normalize(analysis),
+        # An open obligation means the guarantee does not apply yet.
+        None if builder.obligations else cited_guarantee(analysis),
     )
 
 
@@ -491,6 +568,8 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
         value = binding.value
         if isinstance(value, AnalysisIR):
             derivations.append(derive_analysis(binding.name, value))
+        elif isinstance(value, CitedAnalysisIR):
+            derivations.append(derive_cited(binding.name, value))
         elif isinstance(value, FamilyIR):
             derivations.append(derive_family(binding.name, value))
         elif isinstance(value, OneSampleAnalysisIR):
