@@ -14,7 +14,8 @@ single-arm design). `statproof_binomial_result_certificate` covers an observed
 one-sample result, `statproof_two_stage_result_certificate` the decision of a
 two-stage design, and `statproof_binomial_interval_certificate` an exact
 confidence interval. `statproof_difference_interval_certificate` covers an
-interval for a difference of two proportions. All replay with `check-certificate`.
+interval for a difference of two proportions, and
+`statproof_margin_test_certificate` an exact test with a margin. All replay with `check-certificate`.
 
 The TOML commands below (`verify-design`, `verify-family`, `verify-result` and
 their `inspect` counterparts) predate the file language. They still work but are

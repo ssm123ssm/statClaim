@@ -6,6 +6,7 @@ the formal definitions. Power at a planning point is not a guarantee at other
 alternatives, and a sufficient sample size is not claimed to be the smallest.
 """
 
+import math
 import re
 from dataclasses import dataclass
 from fractions import Fraction
@@ -1314,6 +1315,459 @@ theorem checked_typeI :
 
 end StatProofCertificate
 {_audit(stage_result_theorems(result), input_sha256)}"""
+
+
+MARGIN_KIND = "statproof_margin_test_certificate"
+MAX_MARGIN_ARM = 120
+MARGIN_GRID = 1000
+MARGIN_CHUNK = 32
+
+
+def _float_mass(n: int, p: float) -> list[float]:
+    return [comb(n, k) * p**k * (1 - p) ** (n - k) for k in range(n + 1)]
+
+
+def _margin_rejection_float(nc: int, nt: int, thresholds, pc: float, pt: float) -> float:
+    control, treatment = _float_mass(nc, pc), _float_mass(nt, pt)
+    tail = [0.0] * (nt + 2)
+    for y in range(nt, -1, -1):
+        tail[y] = tail[y + 1] + treatment[y]
+    return sum(control[x] * tail[thresholds[x]] for x in range(nc + 1))
+
+
+def margin_rejection_probability(
+    nc: int, nt: int, thresholds, p_control: Fraction, p_treatment: Fraction
+) -> Fraction:
+    """Exact probability that the threshold test rejects at these rates."""
+    control, treatment = _weights(nc, p_control), _weights(nt, p_treatment)
+    tail = [0] * (nt + 2)
+    for y in range(nt, -1, -1):
+        tail[y] = tail[y + 1] + treatment[y]
+    numerator = sum(control[x] * tail[thresholds[x]] for x in range(nc + 1))
+    return Fraction(numerator, p_control.denominator**nc * p_treatment.denominator**nt)
+
+
+def margin_grid(margin: Fraction) -> tuple[int, int]:
+    """Grid for the control rate, and the margin as a whole number of grid steps."""
+    grid = margin.denominator * -(-MARGIN_GRID // margin.denominator)
+    return grid, int(margin * grid)
+
+
+def margin_cells_valid(nc, nt, thresholds, margin: Fraction, alpha: Fraction, cells) -> bool:
+    """Exact check that each cell's worst corner has rejection probability at most alpha."""
+    grid, shift = margin_grid(margin)
+    lows = (max(0, -shift), *cells[:-1])
+    return (
+        bool(cells)
+        and cells[-1] == grid
+        and all(
+            low < high
+            and margin_rejection_probability(
+                nc, nt, thresholds, Fraction(low, grid), Fraction(min(grid, high + shift), grid)
+            )
+            <= alpha
+            for low, high in zip(lows, cells, strict=True)
+        )
+    )
+
+
+@lru_cache(maxsize=64)
+def margin_design(
+    nc: int, nt: int, margin: Fraction, alpha: Fraction
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """Thresholds and cell boundaries for the exact test of p_t - p_c <= margin.
+
+    Tables are ordered by the score statistic for the margin. That ordering only
+    proposes the test; the test is the resulting threshold list. With x control successes the
+    test rejects at thresholds[x] or more treatment successes (nt + 1 means never).
+    Thresholds never decrease in x. The cut-off is the most liberal one whose
+    error bound can be established cell by cell: in each cell of control rates,
+    one evaluation at the worst corner bounds the error. Cells are proposed in
+    floating point and confirmed in exact arithmetic. Lean checks them again.
+    """
+    grid, shift = margin_grid(margin)
+    start, level = max(0, -shift), float(alpha) * (1 - 1e-9)
+
+    def score(x: int, y: int) -> float:
+        """Score statistic for the margin, with rates estimated under the null boundary."""
+        observed_t, observed_c, delta, theta = y / nt, x / nc, float(margin), nc / nt
+        difference = observed_t - observed_c - delta
+        a = 1 + theta
+        b = -(1 + theta + observed_t + theta * observed_c + delta * (theta + 2))
+        c = delta * delta + delta * (2 * observed_t + theta + 1) + observed_t + theta * observed_c
+        d = -observed_t * delta * (1 + delta)
+        v = b**3 / (27 * a**3) - b * c / (6 * a * a) + d / (2 * a)
+        radicand = b * b / (9 * a * a) - c / (3 * a)
+        variance = 0.0
+        if radicand > 0:
+            u = math.copysign(math.sqrt(radicand), v) if v else math.sqrt(radicand)
+            w = (math.pi + math.acos(max(-1.0, min(1.0, v / u**3)))) / 3
+            rate_t = min(1.0, max(0.0, 2 * u * math.cos(w) - b / (3 * a)))
+            rate_c = min(1.0, max(0.0, rate_t - delta))
+            variance = rate_t * (1 - rate_t) / nt + rate_c * (1 - rate_c) / nc
+        if variance <= 1e-12:
+            return math.copysign(math.inf, difference) if difference else 0.0
+        return difference / math.sqrt(variance)
+
+    scores = [[score(x, y) for y in range(nt + 1)] for x in range(nc + 1)]
+    levels = sorted({value for row in scores for value in row})
+
+    def thresholds_for(cutoff: float) -> tuple[int, ...]:
+        thresholds, floor = [], 0
+        for row in scores:
+            first = next((y for y, value in enumerate(row) if value >= cutoff), nt + 1)
+            floor = max(floor, first)
+            thresholds.append(floor)
+        return tuple(thresholds)
+
+    def cells_for(thresholds) -> tuple[int, ...] | None:
+        def bound(low: int, high: int) -> float:
+            return _margin_rejection_float(
+                nc, nt, thresholds, low / grid, min(grid, high + shift) / grid
+            )
+
+        boundaries, low = [], start
+        while low < grid:
+            if bound(low, low + 1) > level:
+                return None
+            high, step = low + 1, 1
+            while high + step <= grid and bound(low, high + step) <= level:
+                high, step = high + step, step * 2
+            while step >= 1:
+                if high + step <= grid and bound(low, high + step) <= level:
+                    high += step
+                step //= 2
+            boundaries.append(high)
+            low = high
+        return tuple(boundaries)
+
+    low_index, high_index = 0, len(levels)  # beyond the last level nothing is rejected
+    while low_index < high_index:
+        middle = (low_index + high_index) // 2
+        if cells_for(thresholds_for(levels[middle])) is not None:
+            high_index = middle
+        else:
+            low_index = middle + 1
+    never = tuple([nt + 1] * (nc + 1))
+    for index in range(low_index, len(levels) + 1):
+        thresholds = thresholds_for(levels[index]) if index < len(levels) else never
+        cells = cells_for(thresholds)
+        # A floating-point borderline fails the exact check; the next cut-off is stricter.
+        if cells is not None and margin_cells_valid(nc, nt, thresholds, margin, alpha, cells):
+            return thresholds, cells
+    raise ValueError("No valid threshold test was found.")
+
+
+@dataclass(frozen=True)
+class MarginTest:
+    """Exact test of p_treatment - p_control <= margin, with optional target or data."""
+
+    n_control: int
+    n_treatment: int
+    margin: Fraction
+    alpha: Fraction
+    p_control: Fraction | None = None
+    p_treatment: Fraction | None = None
+    minimum_power: Fraction | None = None
+    maximum_typeI: Fraction | None = None
+    observed: tuple[int, int] | None = None
+    # The test itself: with x control successes, reject at thresholds[x] or more
+    # treatment successes. Derived from the design when not supplied.
+    thresholds: tuple[int, ...] | None = None
+    cells: tuple[int, ...] | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("n_control", "n_treatment"):
+            size = getattr(self, name)
+            if type(size) is not int or not 1 <= size <= MAX_MARGIN_ARM:
+                raise ValueError(f"{name} must be an integer between 1 and {MAX_MARGIN_ARM}.")
+        if not isinstance(self.margin, Fraction) or not -1 < self.margin < 1:
+            raise ValueError("The margin must lie strictly between -1 and 1.")
+        _probability(self.alpha, "alpha")
+        if self.alpha == 0:
+            raise ValueError("alpha must be positive.")
+        target = (self.p_control, self.p_treatment, self.minimum_power, self.maximum_typeI)
+        if any(value is None for value in target) != all(value is None for value in target):
+            raise ValueError("A planning target needs both rates and both bounds.")
+        if self.has_target:
+            for name in ("p_control", "p_treatment", "minimum_power", "maximum_typeI"):
+                _probability(getattr(self, name), name)
+            if self.p_treatment - self.p_control <= self.margin:
+                raise ValueError("The planning point must lie outside the null.")
+        if self.observed is not None:
+            x, y = self.observed
+            if not (type(x) is int and type(y) is int):
+                raise ValueError("Observed counts must be integers.")
+            if not (0 <= x <= self.n_control and 0 <= y <= self.n_treatment):
+                raise ValueError("Observed counts must lie within the arm sizes.")
+        if (self.thresholds is None) != (self.cells is None):
+            raise ValueError("Thresholds and cells are supplied together.")
+        if self.thresholds is None:
+            thresholds, cells = margin_design(
+                self.n_control, self.n_treatment, self.margin, self.alpha
+            )
+            object.__setattr__(self, "thresholds", thresholds)
+            object.__setattr__(self, "cells", cells)
+            return
+        thresholds, cells = tuple(self.thresholds), tuple(self.cells)
+        object.__setattr__(self, "thresholds", thresholds)
+        object.__setattr__(self, "cells", cells)
+        well_formed = (
+            len(thresholds) == self.n_control + 1
+            and all(type(t) is int and 0 <= t <= self.n_treatment + 1 for t in thresholds)
+            and all(a <= b for a, b in zip(thresholds, thresholds[1:], strict=False))
+            and all(type(c) is int for c in cells)
+        )
+        if not well_formed or not margin_cells_valid(
+            self.n_control, self.n_treatment, thresholds, self.margin, self.alpha, cells
+        ):
+            raise ValueError("The supplied thresholds and cells do not establish the bound.")
+
+    @property
+    def has_target(self) -> bool:
+        return self.p_control is not None
+
+    @property
+    def power(self) -> Fraction:
+        return margin_rejection_probability(
+            self.n_control, self.n_treatment, self.thresholds, self.p_control, self.p_treatment
+        )
+
+    @property
+    def reject_null(self) -> bool:
+        x, y = self.observed
+        return y >= self.thresholds[x]
+
+    def evaluate(self) -> dict:
+        values = {
+            "n_control": self.n_control,
+            "n_treatment": self.n_treatment,
+            "margin": fraction_record(self.margin),
+            "thresholds": list(self.thresholds),
+            "typeI_bound": fraction_record(self.alpha),
+            "cells": len(self.cells),
+        }
+        if self.has_target:
+            power = self.power
+            values.update(
+                total_sample_size=self.n_control + self.n_treatment,
+                power=fraction_record(power),
+                minimum_power=fraction_record(self.minimum_power),
+                power_target_met=power >= self.minimum_power,
+                maximum_typeI=fraction_record(self.maximum_typeI),
+                typeI_target_met=self.alpha <= self.maximum_typeI,
+            )
+        if self.observed is not None:
+            x, y = self.observed
+            values.update(
+                control_successes=x,
+                treatment_successes=y,
+                observed_difference=fraction_record(
+                    Fraction(y, self.n_treatment) - Fraction(x, self.n_control)
+                ),
+                needed_treatment_successes=self.thresholds[x],
+                reject_null=self.reject_null,
+            )
+        return values
+
+
+def margin_payload(test: MarginTest) -> dict:
+    payload = {
+        "schema_version": 1,
+        "scope": "margin_test",
+        "design": {
+            "module": "two_arm_binomial",
+            "n_control": test.n_control,
+            "n_treatment": test.n_treatment,
+            "stopping": "fixed",
+        },
+        "analysis": {
+            "test": "difference_exact_one_sided",
+            "test_version": "0.1.0",
+            "margin": str(test.margin),
+            "alpha": str(test.alpha),
+            "thresholds": list(test.thresholds),
+            "cells": list(test.cells),
+        },
+    }
+    if test.has_target:
+        payload["target"] = {
+            "p_control": str(test.p_control),
+            "p_treatment": str(test.p_treatment),
+            "minimum_power": str(test.minimum_power),
+            "maximum_typeI": str(test.maximum_typeI),
+        }
+    if test.observed is not None:
+        payload["result"] = {
+            "control_successes": test.observed[0],
+            "treatment_successes": test.observed[1],
+            "reject_null": test.reject_null,
+        }
+    return payload
+
+
+def parse_margin_payload(payload: dict) -> MarginTest:
+    design, analysis = payload["design"], payload["analysis"]
+    target, result = payload.get("target"), payload.get("result")
+    test = MarginTest(
+        design["n_control"],
+        design["n_treatment"],
+        Fraction(analysis["margin"]),
+        parse_alpha(analysis["alpha"]),
+        *(
+            (
+                parse_alpha(target[name])
+                for name in ("p_control", "p_treatment", "minimum_power", "maximum_typeI")
+            )
+            if target
+            else (None, None, None, None)
+        ),
+        (result["control_successes"], result["treatment_successes"]) if result else None,
+        tuple(analysis["thresholds"]),
+        tuple(analysis["cells"]),
+    )
+    if payload != margin_payload(test):
+        raise ValueError("Bound margin-test inputs are inconsistent.")
+    return test
+
+
+def margin_theorems(test: MarginTest) -> list[str]:
+    names = ["checked_sizes", "checked_typeI"]
+    if test.has_target:
+        names.append("checked_power")
+    if test.observed is not None:
+        names.append("checked_decision")
+    return names
+
+
+def _margin_text(margin: Fraction) -> str:
+    return f"p_treatment - p_control <= {margin}"
+
+
+def margin_claims(test: MarginTest) -> list[str]:
+    bound = test.maximum_typeI if test.has_target else test.alpha
+    claims = [
+        f"The exact difference test with arm sizes ({test.n_control}, {test.n_treatment}) and "
+        f"the listed rejection thresholds has Type I error at most {bound} whenever "
+        f"{_margin_text(test.margin)}.",
+    ]
+    if test.has_target:
+        claims.append(
+            f"Its power is at least {test.minimum_power} at p_control = {test.p_control}, "
+            f"p_treatment = {test.p_treatment}."
+        )
+    if test.observed is not None:
+        verdict = "rejects" if test.reject_null else "does not reject"
+        claims.append(
+            f"For {test.observed[0]} of {test.n_control} control and {test.observed[1]} of "
+            f"{test.n_treatment} treatment successes, the test {verdict} the null: with that "
+            f"many control successes it needs at least {test.thresholds[test.observed[0]]} "
+            "treatment successes."
+        )
+    return claims
+
+
+def margin_assumptions(test: MarginTest) -> list[str]:
+    assumptions = [
+        "The samples follow two independent binomial distributions.",
+        "Positive arm sizes, the margin and the rejection thresholds were fixed before "
+        "outcomes were observed.",
+        f"The error bound is under the null {_margin_text(test.margin)}.",
+    ]
+    if test.has_target:
+        assumptions.append(
+            "Power is evaluated at the declared planning point only; "
+            "the point is a planning input, not an established fact."
+        )
+    if test.observed is not None:
+        assumptions.append("The supplied counts describe the declared sampling procedure.")
+    return assumptions
+
+
+def render_margin_proof(test: MarginTest, input_sha256: str) -> str:
+    nc, nt = test.n_control, test.n_treatment
+    grid, shift = margin_grid(test.margin)
+    boundaries = test.cells
+    sp, sn = max(shift, 0), max(-shift, 0)
+    an, ad = test.alpha.as_integer_ratio()
+    design = "declaredSizes thresholds"
+    # Cells are checked in chunks, each its own theorem, then joined.
+    check = f"(DifferenceTest.cellCheck {nc} {nt} thresholds {grid} {sp} {sn} {an} {ad})"
+    chunks = [boundaries[i : i + MARGIN_CHUNK] for i in range(0, len(boundaries), MARGIN_CHUNK)]
+    starts = [sn, *(chunk[-1] for chunk in chunks[:-1])]
+    chunk_text = "\n".join(
+        f"def cells{index} : List ℕ := {_lean_list(chunk)}\n"
+        f"theorem checked_chunk{index} :\n"
+        f"    DifferenceTest.cellsOk {check} {start} cells{index} = true := by\n"
+        "  decide +kernel"
+        for index, (start, chunk) in enumerate(zip(starts, chunks, strict=True))
+    )
+    chunk_text += "\ndef cells : List ℕ := " + " ++ ".join(
+        f"cells{index}" for index in range(len(chunks))
+    )
+    joined = f"checked_chunk{len(chunks) - 1}"
+    for index in range(len(chunks) - 2, -1, -1):
+        joined = (
+            f"(DifferenceTest.cellsOk_append _ cells{index} {starts[index]} "
+            f"{starts[index + 1]} _ (by decide) checked_chunk{index} {joined})"
+        )
+    margin = f"(((({sp} : ℕ) : ℚ) - (({sn} : ℕ) : ℚ)) / (({grid} : ℕ) : ℚ))"
+    sections = ""
+    bound_n, bound_d = an, ad
+    if test.has_target:
+        bound_n, bound_d = test.maximum_typeI.as_integer_ratio()
+        bn, bd = test.minimum_power.as_integer_ratio()
+        (a, d), (b, e) = test.p_control.as_integer_ratio(), test.p_treatment.as_integer_ratio()
+        point = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
+        sections += f"""
+theorem checked_power :
+    (declaredAnalysis.powerClaim
+      (fun parameter => parameter = FisherPower.ratePoint {point})
+      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
+  DifferenceTest.power_of_check {design} _ {point}
+    {bn} {bd} (by decide) (by decide +kernel)
+"""
+    if test.observed is not None:
+        x, y = test.observed
+        verdict = "true" if test.reject_null else "false"
+        sections += f"""
+theorem checked_decision :
+    DifferenceTest.rejects {nt} thresholds {x} {y} = {verdict} := by
+  decide
+"""
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical input SHA-256: {input_sha256}
+-- The error bound is checked cell by cell; the cells cover every control rate.
+set_option maxRecDepth 100000
+set_option maxHeartbeats 20000000
+
+namespace StatProofCertificate
+open StatProof StatProof.Modules
+
+def declaredSizes : FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩
+def thresholds : List ℕ := {_lean_list(test.thresholds)}
+noncomputable def declaredAnalysis :=
+  DifferenceTest.analysis {design} {margin}
+{chunk_text}
+
+theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
+    0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+
+theorem checked_cells :
+    (declaredAnalysis.typeIClaim ((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))).statement :=
+  DifferenceTest.typeI_of_cells {design} (by decide) {grid} (by decide) {sp} {sn} (by decide)
+    {an} {ad} (by decide) cells (by decide) {joined} (by decide)
+
+theorem checked_typeI :
+    (declaredAnalysis.typeIClaim ((({bound_n} : ℕ) : ℝ) / (({bound_d} : ℕ) : ℝ))).statement := by
+  intro parameter null
+  refine le_trans (checked_cells parameter null) ?_
+  norm_num
+{sections}
+end StatProofCertificate
+{_audit(margin_theorems(test), input_sha256)}"""
 
 
 DIFFERENCE_KIND = "statproof_difference_interval_certificate"

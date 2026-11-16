@@ -84,3 +84,12 @@ ONE_SIDED_FISHER_CONTRACT = HypothesisContract(
     "equal_proportions with fisher(...) for a two-sided question.",
     required_value=0,
 )
+
+MARGIN_CONTRACT = HypothesisContract(
+    ("proportion_difference_at_most",),
+    "p_treatment - p_control <= margin, for a margin strictly between -1 and 1",
+    "The exact difference test rejects when the treatment's observed success proportion "
+    "exceeds the control's by enough. Its null is "
+    "proportion_difference_at_most(model=..., value=margin). A negative margin is a "
+    "non-inferiority question; zero is superiority.",
+)

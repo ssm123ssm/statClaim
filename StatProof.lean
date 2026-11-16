@@ -20,3 +20,4 @@ public import StatProof.Modules.OneSampleBinomial
 public import StatProof.Modules.FisherFamilyN
 public import StatProof.Modules.BinomialInterval
 public import StatProof.Modules.FisherOneSided
+public import StatProof.Modules.DifferenceTest

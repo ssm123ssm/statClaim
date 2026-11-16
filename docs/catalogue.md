@@ -62,6 +62,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | OneSampleDetails | Calculated critical value, error and power of a one-sample test. | `n: Option[integer]`, `critical_value: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | OneSampleResultDetails | Exact one-sided p-value, critical value and decision. | `n: integer`, `responses: integer`, `critical_value: integer`, `p_value: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | DifferenceDetails | Estimate and interval for a difference of two proportions. | `level: exact number`, `arm_level: exact number`, `estimate: exact number`, `lower: exact number`, `upper: exact number`, `method: string` |
+| MarginDetails | Thresholds, power and decision of an exact difference test. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `margin: Option[exact number]`, `thresholds: Option[list]`, `needed_treatment_successes: Option[integer]`, `typeI_bound: Option[exact number]`, `cells: Option[integer]`, `power: Option[exact number]`, `power_target_met: Option[boolean]`, `typeI_target_met: Option[boolean]`, `control_successes: Option[integer]`, `treatment_successes: Option[integer]`, `observed_difference: Option[exact number]`, `reject_null: Option[boolean]`, `candidates_evaluated: Option[integer]` |
 | IntervalDetails | Estimate and exact confidence interval endpoints. | `n: integer`, `responses: integer`, `level: exact number`, `estimate: exact number`, `lower: exact number`, `upper: exact number`, `method: string` |
 | StageResultDetails | Decision and error bound for observed two-stage counts. | `n_stage1: integer`, `n_stage2: integer`, `stage1_responses: integer`, `stage2_responses: Option[integer]`, `continued: boolean`, `reject_null: boolean`, `typeI_bound: exact number` |
 | PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: Option[integer]`, `n_stage2: Option[integer]`, `continue_above: Option[integer]`, `reject_above: Option[integer]`, `maximum_sample_size: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `expected_sample_size_null: Option[exact number]`, `expected_sample_size_alternative: Option[exact number]`, `early_stop_probability_null: Option[exact number]`, `criterion: Option[string]`, `candidates_evaluated: Option[integer]` |
@@ -75,12 +76,15 @@ Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `Pla
 
 ### `models.two_arm_binomial` — Models and hypotheses
 
-Two independent binomial arms; equality, difference and inequality null descriptions. Only equality has a current Fisher proof adapter.
+Two independent binomial arms; equality, difference and inequality nulls; observations and the Type I and result claims shared by two-arm analyses.
 
 - `two_arm_binomial(n_control, n_treatment) -> Model`
 - `equal_proportions(model) -> Hypothesis`
 - `proportion_difference(model, value) -> Hypothesis`
 - `proportion_difference_at_most(model, value) -> Hypothesis`
+- `observe(analysis, control_successes, treatment_successes) -> Observation`
+- `typeI(analysis) -> TypeIClaim`
+- `result(observation) -> ResultClaim`
 
 ### `sampling` — Study designs
 
@@ -97,9 +101,13 @@ Two-sided Fisher analysis for the equality null and one-sided analysis for "trea
   Required null: p_treatment = p_control (equal arm success probabilities); same model required.
 - `fisher_one_sided(design, null, alpha) -> Analysis`
   Required null: p_treatment - p_control <= 0 (the treatment is no better than the control); same model required.
-- `observe(analysis, control_successes, treatment_successes) -> Observation`
-- `typeI(analysis) -> TypeIClaim`
-- `result(observation) -> ResultClaim`
+
+### `tests.difference` — Analyses and claims
+
+Exact test of p_treatment - p_control <= margin, for non-inferiority (negative margin) or superiority (zero). Its error bound covers the whole null. Up to 120 participants per arm.
+
+- `difference_test(design, null, alpha) -> Analysis`
+  Required null: p_treatment - p_control <= margin, for a margin strictly between -1 and 1; same model required.
 
 ### `multiplicity.bonferroni` — Multiplicity and composition
 

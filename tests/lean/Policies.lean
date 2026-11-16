@@ -110,4 +110,12 @@ example : ¬ (OneSampleBinomial.tailNumerator 35 3 10 14 * 40 ≤ 1 * 10 ^ 35) :
 has a one-sided p-value at or below 1/20. -/
 example : ¬ FisherOneSided.HintsValid 2 2 1 20 [0, 0, 1, 1, 2] := by decide +kernel
 
+/-- A cell whose corner exceeds the bound fails its check: with one participant
+per arm and "reject on a treatment success", the error at control rate 0 and
+treatment rate 1/2 is 1/2, above 1/40. -/
+example : DifferenceTest.cellCheck 1 1 [1, 1] 2 0 0 1 40 0 1 = false := by decide +kernel
+
+/-- Thresholds must not decrease as control successes increase. -/
+example : ¬ DifferenceTest.Increasing 2 2 [2, 1, 3] := by decide
+
 end StatProof.Tests.Minimality

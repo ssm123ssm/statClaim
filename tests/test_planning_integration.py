@@ -33,6 +33,7 @@ def runs(tmp_path_factory):
         "two_stage_result",
         "difference_interval",
         "one_sided",
+        "non_inferiority",
     ):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
@@ -156,6 +157,20 @@ def test_one_sided_certificates_replay_and_resist_tampering(runs, tmp_path):
     shutil.copytree(source, bundle)
     inputs = json.loads((bundle / "inputs.json").read_text())
     inputs["result"]["p_value"]["numerator"] += 1
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT)
+
+
+def test_margin_certificates_replay_and_resist_tampering(runs, tmp_path):
+    report = runs["non_inferiority"]
+    assert report["status"] == "verified", report["diagnostics"]
+    source = Path(report["values"]["outcome"]["evidence"]["certificate"]["directory"])
+    assert recheck_certificate(source, project=ROOT)["kind"] == "statproof_margin_test_certificate"
+    bundle = tmp_path / "tampered"
+    shutil.copytree(source, bundle)
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    inputs["analysis"]["thresholds"] = [max(0, t - 4) for t in inputs["analysis"]["thresholds"]]
     (bundle / "inputs.json").write_text(json.dumps(inputs))
     with pytest.raises(VerificationError):
         recheck_certificate(bundle, project=ROOT)

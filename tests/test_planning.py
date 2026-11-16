@@ -16,6 +16,7 @@ from statproof.language_syntax import Source
 from statproof.planning import (
     BinomialInterval,
     DifferenceInterval,
+    MarginTest,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
@@ -25,14 +26,18 @@ from statproof.planning import (
     difference_payload,
     fisher_rejection_probability,
     interval_payload,
+    margin_payload,
+    margin_rejection_probability,
     parse_difference_payload,
     parse_interval_payload,
+    parse_margin_payload,
     parse_planning_payload,
     parse_policy_payload,
     parse_result_payload,
     parse_stage_result_payload,
     planning_payload,
     policy_payload,
+    render_margin_proof,
     render_planning_proof,
     result_payload,
     search_equal_arms,
@@ -649,3 +654,91 @@ def test_one_sided_language_contract_and_planning(tmp_path):
         'joint_law="binomial_marginals")\n'
     )
     assert "unsupported_member" in [d.code for d in mixed.diagnostics]
+
+
+MARGIN = (
+    HEADER.replace("n_control=20, n_treatment=20", "n_control=30, n_treatment=30")
+    .replace("use tests.fisher", "use tests.difference")
+    .replace(
+        "let null = equal_proportions(model=study)",
+        "let null = proportion_difference_at_most(model=study, value=-1/10)",
+    )
+    + "let analysis = difference_test(design=fixed(model=study), null=null, alpha=1/40)\n"
+)
+
+
+def test_margin_test_error_is_bounded_over_the_null():
+    margin, level = Fraction(-1, 10), Fraction(1, 40)
+    test = MarginTest(30, 30, margin, level)
+    thresholds = test.thresholds
+    assert len(thresholds) == 31
+    assert all(a <= b for a, b in zip(thresholds, thresholds[1:], strict=False))
+    # Direct enumeration at boundary points and inside the null.
+    for control in (Fraction(1, 10), Fraction(3, 10), Fraction(1, 2), Fraction(9, 10), Fraction(1)):
+        for gap in (margin, margin - Fraction(1, 20)):
+            treatment = control + gap
+            direct = sum(
+                binomial(30, x, control) * binomial(30, y, treatment)
+                for x, y in product(range(31), range(31))
+                if y >= thresholds[x]
+            )
+            assert margin_rejection_probability(30, 30, thresholds, control, treatment) == direct
+            assert direct <= level
+    # The cells cover the control range and each bounds the error exactly.
+    assert test.cells[-1] == 1000 and list(test.cells) == sorted(set(test.cells))
+
+
+def test_margin_payload_carries_the_test_and_rejects_changes():
+    test = MarginTest(
+        30, 30, Fraction(-1, 10), Fraction(1, 40),
+        Fraction(4, 5), Fraction(4, 5), Fraction(1, 10), Fraction(1, 40), (24, 26),
+    )  # fmt: skip
+    payload = margin_payload(test)
+    assert parse_margin_payload(payload) == test
+    proof = render_margin_proof(test, "0" * 64)
+    assert "typeI_of_cells" in proof and "checked_decision" in proof and "checked_power" in proof
+    # A more liberal threshold list no longer satisfies the cell bounds.
+    liberal = [max(0, t - 3) for t in payload["analysis"]["thresholds"]]
+    altered = {**payload, "analysis": {**payload["analysis"], "thresholds": liberal}}
+    with pytest.raises(ValueError):
+        parse_margin_payload(altered)
+    decreasing = list(payload["analysis"]["thresholds"])
+    decreasing[5], decreasing[6] = decreasing[6] + 1, decreasing[5]
+    with pytest.raises(ValueError):
+        parse_margin_payload(
+            {**payload, "analysis": {**payload["analysis"], "thresholds": decreasing}}
+        )
+    with pytest.raises(ValueError):
+        MarginTest(30, 30, Fraction(-1, 10), Fraction(1, 40), Fraction(1, 2), Fraction(2, 5),
+                   Fraction(1, 2), Fraction(1, 40))  # fmt: skip
+
+
+def test_margin_language(tmp_path):
+    assert compiled(MARGIN).status == "elaborated"
+    for text, code in (
+        (MARGIN.replace("value=-1/10", "value=-1"), "domain"),
+        (MARGIN.replace("proportion_difference_at_most(model=study, value=-1/10)",
+                        "equal_proportions(model=study)"), "hypothesis_mismatch"),
+        (MARGIN.replace("n_control=30", "n_control=300"), "domain"),
+        (MARGIN + "let c = meets(analysis=analysis, target=power_target(at=binomial_rates("
+         "p_control=1/2, p_treatment=2/5), minimum=1/2, maximum_typeI=1/40))\n",
+         "alternative_in_null"),
+        (MARGIN + "let t = power_target(at=binomial_rates(p_control=4/5, p_treatment=4/5), "
+         "minimum=1/2, maximum_typeI=1/40)\nlet s = smallest_sample_size(candidates="
+         "equal_arm_sizes(analysis=analysis, min_per_arm=20, max_per_arm=40), target=t)\n",
+         "unsupported_claim"),
+    ):  # fmt: skip
+        assert code in [d.code for d in compiled(text).diagnostics]
+    values = run(
+        MARGIN
+        + "let data = observe(analysis=analysis, control_successes=24, treatment_successes=29)\n"
+        "let outcome = calculate(result(data))\nlet decision = outcome.decision\n"
+        "let target = power_target(at=binomial_rates(p_control=4/5, p_treatment=9/10), "
+        "minimum=1/2, maximum_typeI=1/40)\n"
+        "let found = calculate(sample_size(candidates=equal_arm_sizes(analysis=analysis, "
+        "min_per_arm=20, max_per_arm=60), target=target))\n"
+        "let size = found.calculation.n_control\n",
+        tmp_path,
+    )["values"]
+    assert values["decision"] in ("reject_null", "do_not_reject_null")
+    assert 20 <= values["size"] <= 60

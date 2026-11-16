@@ -1,6 +1,6 @@
 # The statistical file-language prototype
 
-Language version `0.9.0` provides a small declaration grammar over the existing
+Language version `0.10.0` provides a small declaration grammar over the existing
 statistical objects and Lean backend. Claims, verification results, and calculation
 results are first-class values. The statistical language is the researcher-facing
 interface; the Lean and TOML interfaces remain supported.
@@ -8,6 +8,7 @@ interface; the Lean and TOML interfaces remain supported.
 | Module | Provides |
 | --- | --- |
 | `models.two_arm_binomial`, `sampling`, `tests.fisher` | Two-arm studies and Fisher's exact test (this guide) |
+| `tests.difference` | Exact test with a margin, such as non-inferiority ([planning](planning.md)) |
 | `multiplicity.bonferroni` | Several endpoints ([multiple testing](multiple-testing.md)) |
 | `planning` | Power targets and sample-size searches ([planning](planning.md)) |
 | `tests.binomial` | One-sample exact test and confidence interval ([planning](planning.md)) |

@@ -5,6 +5,7 @@
 - Typed study, null, analysis, claim and result objects.
 - Fisher equality-null contracts, exact calculations and Lean certificates.
 - One-sided Fisher test with an error bound over "treatment no better than control".
+- Exact test with a margin (non-inferiority), up to 120 participants per arm.
 - Bonferroni composition of two to twenty endpoints under declared joint laws.
 - VS Code diagnostics and Claims view, Codespaces and contributor checks.
 - Classified catalogue and documented scope.
@@ -25,7 +26,7 @@
 
 1. One-sided analyses in Bonferroni families.
 2. A narrower exact interval for a difference of two proportions.
-3. An analysis for a nonzero difference null, with its own theorem.
+3. Larger sample sizes and p-values for the test with a margin.
 4. Assurance and precision targets for planning.
 5. More adaptive designs: several interim looks, efficacy stopping, allocation.
 6. A formalized Beta posterior, so posterior rules need no stated closed form.

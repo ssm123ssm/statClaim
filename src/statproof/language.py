@@ -14,6 +14,7 @@ from statproof.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statproof.fisher import validate_alpha
 from statproof.language_contracts import (
     FISHER_CONTRACT,
+    MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
     HypothesisContract,
 )
@@ -33,6 +34,7 @@ from statproof.language_syntax import (
 )
 from statproof.planning import (
     CRITERIA,
+    MAX_MARGIN_ARM,
     MAX_ONE_ARM,
     MAX_PER_ARM,
     MAX_RATIO,
@@ -40,6 +42,7 @@ from statproof.planning import (
     MAX_STAGE,
     BinomialInterval,
     DifferenceInterval,
+    MarginTest,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
@@ -48,7 +51,7 @@ from statproof.planning import (
     TwoStageRule,
 )
 
-LANGUAGE_VERSION = "0.9.0"
+LANGUAGE_VERSION = "0.10.0"
 
 
 class PlannableIR:
@@ -112,15 +115,35 @@ class AnalysisIR(PlannableIR):
 
     @property
     def contract(self) -> HypothesisContract:
-        return FISHER_CONTRACT if self.alternative == "two_sided" else ONE_SIDED_FISHER_CONTRACT
+        return {
+            "two_sided": FISHER_CONTRACT,
+            "greater": ONE_SIDED_FISHER_CONTRACT,
+            "margin": MARGIN_CONTRACT,
+        }[self.alternative]
 
     def __post_init__(self):
         if not self.contract.accepts(self.plan, self.hypothesis):
             raise ValueError(
                 "A Fisher analysis requires its design's equal-proportions null."
                 if self.alternative == "two_sided"
-                else "A one-sided Fisher analysis requires the null p_treatment - p_control <= 0."
+                else "This analysis requires a null of the form p_treatment - p_control <= value."
             )
+
+    def margin_test(self, target=None, observed=None, sizes=None) -> MarginTest:
+        """The exact difference test, optionally with a planning target or observed counts."""
+        model = self.plan.model
+        n_control, n_treatment = sizes or (model.n_control, model.n_treatment)
+        rates = (None, None, None, None)
+        if target is not None:
+            rates = (
+                target.at.p_control,
+                target.at.p_treatment,
+                target.minimum,
+                target.maximum_typeI,
+            )
+        return MarginTest(
+            n_control, n_treatment, self.hypothesis.value, self.alpha, *rates, observed
+        )
 
     def lower(self) -> Design:
         return Design(
@@ -283,8 +306,10 @@ class FeasibilityIR:
     analysis: PlannableIR
     target: PowerTargetIR
 
-    def lower(self) -> PowerPlan | TwoStagePlan | OneSamplePlan:
+    def lower(self) -> PowerPlan | TwoStagePlan | OneSamplePlan | MarginTest:
         target = self.target
+        if isinstance(self.analysis, AnalysisIR) and self.analysis.alternative == "margin":
+            return self.analysis.margin_test(target)
         if isinstance(self.analysis, OneSampleAnalysisIR):
             return self.analysis.plan(target)
         if isinstance(self.analysis, TwoStageAnalysisIR):
@@ -666,6 +691,22 @@ def _difference(predicate: str) -> Callable:
     return build
 
 
+def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> AnalysisIR:
+    plan, null, alpha = arguments["design"].value, arguments["null"], arguments["alpha"]
+    if not -1 < null.value.value < 1:
+        fail("domain", "The margin must lie strictly between -1 and 1.", null.span)
+    if alpha.value == 0:
+        fail("domain", "alpha must be positive for this test.", alpha.span)
+    if max(plan.model.n_control, plan.model.n_treatment) > MAX_MARGIN_ARM:
+        fail(
+            "domain",
+            f"The exact difference test currently supports up to {MAX_MARGIN_ARM} per arm; "
+            "larger designs take too long to verify.",
+            arguments["design"].span,
+        )
+    return AnalysisIR(plan, null.value, alpha.value, "margin")
+
+
 def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyIR:
     items = arguments["analyses"].value
     if not 2 <= len(items) <= MAX_ENDPOINTS:
@@ -806,7 +847,11 @@ def _check_point(analysis: PlannableIR, target: LocatedValue) -> None:
                 "Declare the target at binomial_rates(p_control=..., p_treatment=...).",
                 target.span,
             )
-        if analysis.alternative == "greater":
+        if analysis.alternative == "margin":
+            margin = analysis.hypothesis.value
+            null = f"p_treatment - p_control <= {margin}"
+            outside = point.p_treatment - point.p_control > margin
+        elif analysis.alternative == "greater":
             null, outside = "p_treatment <= p_control", point.p_treatment > point.p_control
         else:
             null, outside = "p_treatment = p_control", point.p_control != point.p_treatment
@@ -835,8 +880,9 @@ def _candidates(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
         fail("domain", "min_per_arm must be a positive integer.", low.span)
     if high.value < low.value:
         fail("domain", "max_per_arm must be at least min_per_arm.", high.span)
-    if high.value > MAX_PER_ARM:
-        fail("domain", f"max_per_arm is currently limited to {MAX_PER_ARM}.", high.span)
+    limit = MAX_MARGIN_ARM if arguments["analysis"].value.alternative == "margin" else MAX_PER_ARM
+    if high.value > limit:
+        fail("domain", f"max_per_arm is currently limited to {limit} for this analysis.", high.span)
     return CandidatesIR(arguments["analysis"].value, low.value, high.value)
 
 
@@ -917,10 +963,11 @@ def _allocated(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
         fail("domain", "min_control must be a positive integer.", low.span)
     if high.value < low.value:
         fail("domain", "max_control must be at least min_control.", high.span)
-    if high.value * ratio.value > MAX_PER_ARM:
+    limit = MAX_MARGIN_ARM if arguments["analysis"].value.alternative == "margin" else MAX_PER_ARM
+    if high.value * ratio.value > limit:
         fail(
             "domain",
-            f"The larger arm is currently limited to {MAX_PER_ARM} participants.",
+            f"The larger arm is currently limited to {limit} participants for this analysis.",
             high.span,
         )
     return CandidatesIR(arguments["analysis"].value, low.value, high.value, ratio.value)
@@ -929,6 +976,18 @@ def _allocated(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
 def _sizing(minimal: bool) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         candidates = arguments["candidates"]
+        if (
+            minimal
+            and isinstance(candidates.value, CandidatesIR)
+            and candidates.value.analysis.alternative == "margin"
+        ):
+            fail(
+                "unsupported_claim",
+                "Each sample size has its own critical value for this test, so a "
+                "smallest-size claim is not supported. Use sample_size(...) to certify a "
+                "sufficient design.",
+                candidates.span,
+            )
         if minimal and isinstance(candidates.value, TwoStageCandidatesIR):
             fail(
                 "unsupported_claim",
@@ -1090,6 +1149,25 @@ MODULES = {
                     "null, including when value=0; it is not the equality null supported by "
                     "the current two-sided Fisher analysis.",
                 ),
+                _constructor(
+                    "observe",
+                    (
+                        ("analysis", AnalysisIR),
+                        ("control_successes", "integer"),
+                        ("treatment_successes", "integer"),
+                    ),
+                    "Observation",
+                    _observe,
+                ),
+                _constructor(
+                    "typeI", (("analysis", AnalysisIR),), "TypeIClaim", _claim("typeI", "analysis")
+                ),
+                _constructor(
+                    "result",
+                    (("observation", ObservationIR),),
+                    "ResultClaim",
+                    _claim("result", "observation"),
+                ),
             ),
         ),
         Module(
@@ -1128,24 +1206,18 @@ MODULES = {
                     hypothesis_contract=ONE_SIDED_FISHER_CONTRACT,
                     documentation=ONE_SIDED_FISHER_CONTRACT.guidance,
                 ),
+            ),
+        ),
+        Module(
+            "tests.difference",
+            (
                 _constructor(
-                    "observe",
-                    (
-                        ("analysis", AnalysisIR),
-                        ("control_successes", "integer"),
-                        ("treatment_successes", "integer"),
-                    ),
-                    "Observation",
-                    _observe,
-                ),
-                _constructor(
-                    "typeI", (("analysis", AnalysisIR),), "TypeIClaim", _claim("typeI", "analysis")
-                ),
-                _constructor(
-                    "result",
-                    (("observation", ObservationIR),),
-                    "ResultClaim",
-                    _claim("result", "observation"),
+                    "difference_test",
+                    (("design", PlanIR), ("null", HypothesisIR), ("alpha", "level")),
+                    "Analysis",
+                    _difference_test,
+                    hypothesis_contract=MARGIN_CONTRACT,
+                    documentation=MARGIN_CONTRACT.guidance,
                 ),
             ),
         ),

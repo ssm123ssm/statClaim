@@ -6,6 +6,9 @@ What is supported:
   null, and the two-sided Fisher test in exact rational arithmetic.
 - **Two arms, one-sided.** The one-sided Fisher test of "treatment no better than
   control". Its error bound covers every such pair of rates.
+- **Two arms with a margin.** An exact test of "treatment exceeds control by at
+  most a margin", for non-inferiority or superiority, with an error bound over
+  the whole null. Up to 120 participants per arm.
 - **Several endpoints.** Bonferroni composition of two to twenty Fisher
   endpoints, with any allocation that sums to at most the family level.
 - **Planning.** Exact Fisher power at one declared point and a bounded
@@ -25,8 +28,8 @@ Error bounds for single-arm designs cover every rate at or below the null rate.
 Power is always at one declared planning point. The posterior rule's closed
 form is a definition; its identity with the Beta integral is not proved in Lean.
 
-Nulls with a nonzero margin can be described; the Fisher analyses reject them
-with guidance. Declaring a Fisher analysis `adaptive` leaves its Type I error
+The Fisher analyses reject nulls they do not support, with guidance; an
+equality null with a nonzero difference has no supporting analysis yet. Declaring a Fisher analysis `adaptive` leaves its Type I error
 obligation unresolved; use a complete two-stage design instead.
 
 The design theorem concerns repeated-sampling Type I error. A result certificate

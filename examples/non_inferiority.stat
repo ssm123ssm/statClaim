@@ -1,0 +1,27 @@
+# A non-inferiority trial: the new treatment may be at most 10 points worse.
+use models.two_arm_binomial
+use sampling
+use tests.difference
+use planning
+
+let study = two_arm_binomial(n_control=60, n_treatment=60)
+let design = fixed(model=study)
+
+# Null: the treatment's success rate is more than 10 points below the control's.
+let null = proportion_difference_at_most(model=study, value=-1/10)
+let analysis = difference_test(design=design, null=null, alpha=1/40)
+let guarantee = verify(typeI(analysis))
+
+# Planning: if both rates are truly 85%, how many participants give 50% power?
+let target = power_target(
+    at=binomial_rates(p_control=17/20, p_treatment=17/20),
+    minimum=1/2,
+    maximum_typeI=1/40,
+)
+let power = calculate(meets(analysis=analysis, target=target))
+let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=60, max_per_arm=120)
+let sizing = calculate(sample_size(candidates=candidates, target=target))
+
+# Analysis: 50 of 60 controls and 52 of 60 treated participants responded.
+let data = observe(analysis=analysis, control_successes=50, treatment_successes=52)
+let outcome = verify(result(data))

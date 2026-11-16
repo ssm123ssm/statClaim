@@ -24,6 +24,7 @@ from statproof.planning import (
     INTERVAL_ASSUMPTIONS,
     INTERVAL_CHECKED_THEOREMS,
     INTERVAL_KIND,
+    MARGIN_KIND,
     NULL_NAMES,
     PLANNING_ASSUMPTIONS,
     PLANNING_KIND,
@@ -34,6 +35,7 @@ from statproof.planning import (
     STAGE_RESULT_KIND,
     BinomialInterval,
     DifferenceInterval,
+    MarginTest,
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
@@ -43,8 +45,13 @@ from statproof.planning import (
     difference_payload,
     interval_claims,
     interval_payload,
+    margin_assumptions,
+    margin_claims,
+    margin_payload,
+    margin_theorems,
     parse_difference_payload,
     parse_interval_payload,
+    parse_margin_payload,
     parse_planning_payload,
     parse_policy_payload,
     parse_result_payload,
@@ -58,6 +65,7 @@ from statproof.planning import (
     policy_theorems,
     render_difference_proof,
     render_interval_proof,
+    render_margin_proof,
     render_planning_proof,
     render_policy_proof,
     render_result_proof,
@@ -190,6 +198,15 @@ def _profile(kind: str, payload: dict) -> dict:
         theorems = stage_result_theorems(staged)
         scope = "These observed counts and the declared two-stage design; not other data."
         general_theorem = "StatProof.Modules.TwoStageBinomial.typeI_atMost_of_check"
+    elif kind == MARGIN_KIND:
+        margin = parse_margin_payload(payload)
+        claims, assumptions = margin_claims(margin), margin_assumptions(margin)
+        theorems = margin_theorems(margin)
+        scope = (
+            "The declared exact difference test and its error bound over the whole null; "
+            "power at one planning point and one observed decision where stated."
+        )
+        general_theorem = "StatProof.Modules.DifferenceTest.typeI_of_cells"
     elif kind == DIFFERENCE_KIND:
         claims = difference_claims(parse_difference_payload(payload))
         assumptions, theorems = DIFFERENCE_ASSUMPTIONS, DIFFERENCE_CHECKED_THEOREMS
@@ -352,6 +369,8 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_policy_proof(parse_policy_payload(payload), input_id)
     if kind == STAGE_RESULT_KIND:
         return render_stage_result_proof(parse_stage_result_payload(payload), input_id)
+    if kind == MARGIN_KIND:
+        return render_margin_proof(parse_margin_payload(payload), input_id)
     if kind == DIFFERENCE_KIND:
         return render_difference_proof(parse_difference_payload(payload), input_id)
     if kind == INTERVAL_KIND:
@@ -654,6 +673,15 @@ def certify_difference(
         project=project,
         output=output,
         timeout=timeout,
+    )
+
+
+def certify_margin(
+    test: MarginTest, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify an exact difference test with a margin, and its target or decision if any."""
+    return _certify_payload(
+        margin_payload(test), MARGIN_KIND, project=project, output=output, timeout=timeout
     )
 
 

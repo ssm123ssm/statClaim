@@ -65,7 +65,12 @@ run_cmd do
     ``StatProof.Modules.FisherOneSided.typeI_of_hints,
     ``StatProof.Modules.FisherOneSided.power_of_check,
     ``StatProof.Modules.FisherOneSided.power_lt_of_smallerFail,
-    ``StatProof.Modules.FisherOneSided.lowerPValue_eq_of_cross_product]
+    ``StatProof.Modules.FisherOneSided.lowerPValue_eq_of_cross_product,
+    ``StatProof.productBinomial_real_le_corner,
+    ``StatProof.Modules.DifferenceTest.thresholdNumerator_eq,
+    ``StatProof.Modules.DifferenceTest.cell_exists,
+    ``StatProof.Modules.DifferenceTest.typeI_of_cells,
+    ``StatProof.Modules.DifferenceTest.power_of_check]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

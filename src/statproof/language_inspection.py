@@ -27,9 +27,15 @@ from statproof.planning import (
     TwoStagePlan,
     TwoStageRule,
     composite_null,
+    margin_assumptions,
     policy_assumptions,
 )
-from statproof.report import interval_report, planning_report, stage_result_report
+from statproof.report import (
+    interval_report,
+    margin_report,
+    planning_report,
+    stage_result_report,
+)
 
 
 def _allocation(candidates) -> str:
@@ -48,6 +54,20 @@ def inspect_planning(request: RequestIR) -> dict:
     target = subject.target
     feasibility = isinstance(subject, FeasibilityIR)
     analysis = subject.analysis if feasibility else subject.candidates.analysis
+    if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
+        if feasibility:
+            return margin_report(subject.lower(), verify=request.operation == "verify")
+        candidates = subject.candidates
+        null = f"p_treatment - p_control <= {analysis.hypothesis.value}"
+        return planning_report(
+            "margin_test",
+            f"Some {_allocation(candidates)} size from {candidates.min_per_arm} to "
+            f"{candidates.max_per_arm} controls gives the exact difference test power >= "
+            f"{target.minimum} at p_control = {target.at.p_control}, p_treatment = "
+            f"{target.at.p_treatment}, with Type I error <= {target.maximum_typeI} whenever "
+            f"{null}. Minimality is not claimed.",
+            margin_assumptions(analysis.margin_test(target)),
+        )
     if isinstance(analysis, AnalysisIR):
         point = f"p_control = {target.at.p_control}, p_treatment = {target.at.p_treatment}"
         goal = (
@@ -132,6 +152,13 @@ def inspect_request(request: RequestIR) -> dict:
     if isinstance(subject, FamilyIR):
         return inspect_family(subject.lower())
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject
+    if analysis.alternative == "margin":
+        observed = None
+        if isinstance(subject, ObservationIR):
+            observed = (subject.control_successes, subject.treatment_successes)
+        return margin_report(
+            analysis.margin_test(observed=observed), verify=request.operation == "verify"
+        )
     report = inspect_design(analysis.lower())
     if isinstance(subject, ObservationIR):
         report["verification_scope"] = "result"

@@ -120,6 +120,10 @@ class DifferenceDetails(PlanningDetails):
     """Calculated interval for a difference of two proportions."""
 
 
+class MarginDetails(PlanningDetails):
+    """Calculated critical value, power and decision of an exact difference test."""
+
+
 class PolicyDetails(PlanningDetails):
     """Calculated operating characteristics of a complete two-stage policy."""
 

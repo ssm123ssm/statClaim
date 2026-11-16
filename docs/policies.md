@@ -80,6 +80,16 @@ at most the control rate, using the fact that one more treatment success never
 turns a rejection into a non-rejection. That fact is checked for the declared
 design from kernel-validated thresholds.
 
+## Tests with a margin
+
+`StatProof/Modules/DifferenceTest.lean` handles the null
+`p_treatment - p_control ≤ margin`. A test is a list of thresholds that never
+decrease with control successes. Its rejection region is then a lower set in
+control successes and an upper set in treatment successes, so by
+`productBinomial_real_le_corner` its probability over a rectangle of rates is
+largest at one corner. `typeI_of_cells` takes a checked list of intervals of
+the control rate and concludes the bound for the whole null.
+
 ## Fisher power
 
 `StatProof/Modules/FisherPower.lean` gives the exact power of the fixed Fisher

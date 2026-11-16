@@ -87,7 +87,7 @@ Derivations are recorded for named declarations of these kinds:
 
 | Declaration | What its derivation shows |
 | --- | --- |
-| `fisher(...)` | The null, design and level fit; whether sampling is fixed. |
+| `fisher(...)`, `fisher_one_sided(...)`, `difference_test(...)` | The null, design and level fit; whether sampling is fixed. |
 | `bonferroni(...)` | Each member fits, members are distinct, the allocation is within budget. |
 | `binomial_test(...)` | The sample size, null rate and level are valid. |
 | `two_stage_test(...)` | The stages, the decision rule and the null rate form a complete design. |

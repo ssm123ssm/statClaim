@@ -51,6 +51,7 @@ from statproof.language_values import (
     DifferenceDetails,
     Evidence,
     IntervalDetails,
+    MarginDetails,
     OneSampleDetails,
     OneSampleResultDetails,
     PlanningDetails,
@@ -157,6 +158,28 @@ SCHEMAS = {
         "lower": FieldSpec(Fraction),
         "upper": FieldSpec(Fraction),
         "method": FieldSpec(str),
+    },
+    MarginDetails: {
+        "n_control": FieldSpec(int, optional=True),
+        "n_treatment": FieldSpec(int, optional=True),
+        "total_sample_size": FieldSpec(int, optional=True),
+        "margin": FieldSpec(Fraction, optional=True),
+        "thresholds": FieldSpec(
+            "list",
+            optional=True,
+            description="Treatment successes needed to reject, by control successes.",
+        ),
+        "needed_treatment_successes": FieldSpec(int, optional=True),
+        "typeI_bound": FieldSpec(Fraction, optional=True),
+        "cells": FieldSpec(int, optional=True, description="Intervals used to bound the error."),
+        "power": FieldSpec(Fraction, optional=True),
+        "power_target_met": FieldSpec(bool, optional=True),
+        "typeI_target_met": FieldSpec(bool, optional=True),
+        "control_successes": FieldSpec(int, optional=True),
+        "treatment_successes": FieldSpec(int, optional=True),
+        "observed_difference": FieldSpec(Fraction, optional=True),
+        "reject_null": FieldSpec(bool, optional=True),
+        "candidates_evaluated": FieldSpec(int, optional=True),
     },
     IntervalIR: {
         "model": FieldSpec(OneArmModelIR),
@@ -281,6 +304,15 @@ def details_kind(claim: ClaimIR) -> type:
     """The calculation record published for this claim's kind."""
     if isinstance(claim.subject, TwoStageObservationIR):
         return StageResultDetails
+    margin = claim.subject
+    if isinstance(margin, ObservationIR):
+        margin = margin.analysis
+    elif isinstance(margin, FeasibilityIR):
+        margin = margin.analysis
+    elif isinstance(margin, SizingIR):
+        margin = getattr(margin.candidates, "analysis", None)
+    if isinstance(margin, AnalysisIR) and margin.alternative == "margin":
+        return MarginDetails
     if isinstance(claim.subject, DifferenceIntervalIR):
         return DifferenceDetails
     if isinstance(claim.subject, IntervalIR):

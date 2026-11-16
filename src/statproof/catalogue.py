@@ -6,8 +6,8 @@ from statproof.language_fields import SCHEMAS
 MODULE_CLASSES = {
     "models.two_arm_binomial": (
         "Models and hypotheses",
-        "Two independent binomial arms; equality, difference and inequality null descriptions. "
-        "Only equality has a current Fisher proof adapter.",
+        "Two independent binomial arms; equality, difference and inequality nulls; "
+        "observations and the Type I and result claims shared by two-arm analyses.",
     ),
     "sampling": (
         "Study designs",
@@ -19,6 +19,12 @@ MODULE_CLASSES = {
         "Two-sided Fisher analysis for the equality null and one-sided analysis for "
         '"treatment no better than control", with Lean-backed result and Type I claims '
         "under fixed sampling.",
+    ),
+    "tests.difference": (
+        "Analyses and claims",
+        "Exact test of p_treatment - p_control <= margin, for non-inferiority (negative "
+        "margin) or superiority (zero). Its error bound covers the whole null. Up to 120 "
+        "participants per arm.",
     ),
     "multiplicity.bonferroni": (
         "Multiplicity and composition",
@@ -123,6 +129,10 @@ OBJECT_CLASSES = {
     "DifferenceDetails": (
         "Evidence and inspection",
         "Estimate and interval for a difference of two proportions.",
+    ),
+    "MarginDetails": (
+        "Evidence and inspection",
+        "Thresholds, power and decision of an exact difference test.",
     ),
     "IntervalDetails": (
         "Evidence and inspection",

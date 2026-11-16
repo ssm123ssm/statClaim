@@ -134,6 +134,35 @@ treatment no better than the control, not only for equal rates. The planning
 point must have the larger treatment rate. To test the other direction, swap
 which arm you call the treatment. See `examples/one_sided.stat`.
 
+## A non-inferiority test
+
+To show a new treatment is not worse than the control by more than a margin,
+use the exact difference test. Its null is that the treatment's success rate
+falls short by more than the margin:
+
+```stat
+use tests.difference
+
+let null = proportion_difference_at_most(model=study, value=-1/10)
+let analysis = difference_test(design=design, null=null, alpha=1/40)
+let guarantee = verify(typeI(analysis))
+```
+
+A margin of zero gives a superiority test; a positive margin asks for more
+than superiority. `typeI`, `observe`/`result`, `meets` and `sample_size` are
+available. See `examples/non_inferiority.stat`.
+
+The test is a list of thresholds: with a given number of control successes,
+it rejects at a stated number of treatment successes or more. The list is
+chosen from the usual score statistic and is part of the certificate. Lean
+checks that the error is at most alpha for every pair of rates in the null. It
+does this by cutting the range of control rates into intervals and bounding the
+error on each one.
+
+Limits: up to 120 participants per arm, where verification takes about 80
+seconds. `smallest_sample_size` is not offered, because each sample size has
+its own threshold list. Results are a decision, without a p-value.
+
 ## Estimate a difference between two arms
 
 ```stat

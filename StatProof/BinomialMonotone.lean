@@ -202,4 +202,58 @@ theorem productBinomial_real_mono_right (n m : ℕ) (p q q' : unitInterval) (h :
   · by_cases later : ∃ start, start ≤ b ∧ start ≤ m ∧ (x, start) ∈ event <;>
       simp [closure, reached, later]
 
+/-- Swapping the two arms swaps the coordinates of the event. -/
+theorem productBinomial_real_swap (n m : ℕ) (p q : unitInterval) (event : Set (ℕ × ℕ)) :
+    (productBinomial n m p q).real event =
+      (productBinomial m n q p).real {counts | (counts.2, counts.1) ∈ event} := by
+  classical
+  rw [productBinomial_real_eq_expectation, productBinomial_real_eq_expectation]
+  unfold binomialExpectation
+  simp only [Finset.mul_sum]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro y _
+  apply Finset.sum_congr rfl
+  intro x _
+  simp only [Set.mem_ofPred_eq]
+  ring
+
+/-- Raising the first arm's rate cannot lower the probability of an event whose
+sections in the first count are upper sets within the sample size. -/
+theorem productBinomial_real_mono_left (n m : ℕ) (p p' q : unitInterval) (h : p ≤ p')
+    (event : Set (ℕ × ℕ))
+    (upper : ∀ x y, x < n → (x, y) ∈ event → (x + 1, y) ∈ event) :
+    (productBinomial n m p q).real event ≤ (productBinomial n m p' q).real event := by
+  rw [productBinomial_real_swap n m p q, productBinomial_real_swap n m p' q]
+  exact productBinomial_real_mono_right m n q p p' h _ (fun y x bound member => upper x y bound member)
+
+/-- Raising the first arm's rate cannot raise the probability of an event whose
+sections in the first count are lower sets within the sample size. -/
+theorem productBinomial_real_anti_left (n m : ℕ) (p p' q : unitInterval) (h : p ≤ p')
+    (event : Set (ℕ × ℕ))
+    (lower : ∀ x y, x < n → (x + 1, y) ∈ event → (x, y) ∈ event) :
+    (productBinomial n m p' q).real event ≤ (productBinomial n m p q).real event := by
+  have complement : ∀ r : unitInterval,
+      (productBinomial n m r q).real event = 1 - (productBinomial n m r q).real eventᶜ := by
+    intro r
+    have total := measureReal_compl (μ := productBinomial n m r q) (s := event) .of_discrete
+    rw [probReal_univ] at total
+    linarith
+  rw [complement p, complement p']
+  have grows := productBinomial_real_mono_left n m p p' q h eventᶜ
+    (fun x y bound outside member => outside (lower x y bound member))
+  linarith
+
+/-- For an event that is a lower set in the first count and an upper set in the
+second, lowering the first rate and raising the second can only raise its
+probability. One evaluation therefore bounds the event over a whole rectangle
+of rates. -/
+theorem productBinomial_real_le_corner (n m : ℕ) (event : Set (ℕ × ℕ))
+    (lower : ∀ x y, x < n → (x + 1, y) ∈ event → (x, y) ∈ event)
+    (upper : ∀ x y, y < m → (x, y) ∈ event → (x, y + 1) ∈ event)
+    (a p q b : unitInterval) (left : a ≤ p) (right : q ≤ b) :
+    (productBinomial n m p q).real event ≤ (productBinomial n m a b).real event :=
+  (productBinomial_real_anti_left n m a p q left event lower).trans
+    (productBinomial_real_mono_right n m a q b right event upper)
+
 end StatProof

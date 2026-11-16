@@ -17,6 +17,7 @@ Other files in `playground/`:
 | --- | --- |
 | `planning.stat`, `unequal_allocation.stat` | Power and sample size for two arms |
 | `one_sided.stat` | A one-sided two-arm test from planning to analysis |
+| `non_inferiority.stat` | A non-inferiority test with a margin |
 | `one_sample.stat`, `one_sample_result.stat` | Planning and analysing a single-arm study |
 | `confidence_interval.stat`, `difference_interval.stat` | Confidence intervals for one proportion and for a difference |
 | `three_outcomes.stat` | Several endpoints with Bonferroni |

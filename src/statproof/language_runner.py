@@ -32,6 +32,8 @@ from statproof.language_values import (
 from statproof.report import (
     run_binomial_result,
     run_interval,
+    run_margin,
+    run_margin_search,
     run_one_sample_search,
     run_policy_plan,
     run_power_plan,
@@ -56,6 +58,22 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             "timeout": timeout,
         }
         report = inspect_planning(request)
+        analysis = (
+            subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
+        )
+        if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
+            del options["verify"]
+            verify = request.operation == "verify"
+            if isinstance(subject, FeasibilityIR):
+                return run_margin(subject.lower(), verify=verify, **options)
+            candidates = subject.candidates
+            return run_margin_search(
+                analysis.margin_test(subject.target, sizes=(1, 1)),
+                (candidates.min_per_arm, candidates.max_per_arm),
+                candidates.ratio,
+                verify=verify,
+                **options,
+            )
         if isinstance(subject, FeasibilityIR):
             run = run_power_plan if isinstance(subject.analysis, AnalysisIR) else run_policy_plan
             return run(report, subject.lower(), **options)
@@ -113,6 +131,18 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         )
     if request.claim.kind == "familywise" and isinstance(subject, FamilyIR):
         return verify_family(subject.lower(), project=project, output=output, timeout=timeout)
+    margin = subject.analysis if isinstance(subject, ObservationIR) else subject
+    if isinstance(margin, AnalysisIR) and margin.alternative == "margin":
+        observed = None
+        if isinstance(subject, ObservationIR):
+            observed = (subject.control_successes, subject.treatment_successes)
+        return run_margin(
+            margin.margin_test(observed=observed),
+            verify=request.operation == "verify",
+            project=project,
+            output=output,
+            timeout=timeout,
+        )
     if request.claim.kind == "typeI" and isinstance(subject, AnalysisIR):
         return verify_design_only(subject.lower(), project=project, output=output, timeout=timeout)
     if request.claim.kind != "result" or not isinstance(subject, ObservationIR):
@@ -426,6 +456,17 @@ def render_report(report: dict, source: Source) -> str:
                 f"interval = [{calculation['lower']['decimal_approximation']}, "
                 f"{calculation['upper']['decimal_approximation']}] at level "
                 f"{calculation['level']['fraction']}; no formal certificate issued."
+            )
+        elif (
+            request["status"] == "calculated"
+            and "needed_treatment_successes" in details["calculation"]
+        ):
+            calculation = details["calculation"]
+            lines.append(
+                "  observed difference ~ "
+                f"{calculation['observed_difference']['decimal_approximation']}; needs at least "
+                f"{calculation['needed_treatment_successes']} treatment successes; "
+                f"decision = {details['decision']}; no formal certificate issued."
             )
         elif request["status"] == "calculated" and "stage1_responses" in details["calculation"]:
             calculation = details["calculation"]

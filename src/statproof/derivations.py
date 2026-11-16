@@ -151,6 +151,12 @@ RULES = {
 }
 
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
+MARGIN_CONTRACT_ID = "tests.difference/difference_test"
+CONTRACT_IDS = {
+    "two_sided": "tests.fisher/fisher",
+    "greater": ONE_SIDED_CONTRACT,
+    "margin": MARGIN_CONTRACT_ID,
+}
 ANALYSIS_ASSUMPTIONS = (
     "The two samples are independent, each with one common success probability.",
     "The arm sizes are fixed before outcomes are observed.",
@@ -297,7 +303,7 @@ def derive_analysis(name: str, analysis: AnalysisIR) -> Derivation:
     _sampling(builder, name, analysis)
     return Derivation(
         name,
-        "tests.fisher/fisher" if analysis.alternative == "two_sided" else ONE_SIDED_CONTRACT,
+        CONTRACT_IDS[analysis.alternative],
         builder.steps[final].conclusion,
         tuple(builder.steps),
         ANALYSIS_ASSUMPTIONS,
@@ -420,9 +426,11 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
             "subject": name,
             "p_control": str(target.at.p_control),
             "p_treatment": str(target.at.p_treatment),
-            "null": "p_treatment = p_control"
-            if analysis.alternative == "two_sided"
-            else "p_treatment <= p_control",
+            "null": {
+                "two_sided": "p_treatment = p_control",
+                "greater": "p_treatment <= p_control",
+                "margin": f"p_treatment - p_control <= {analysis.hypothesis.value}",
+            }[analysis.alternative],
         }
     else:
         null_rate = search.null_rate if analysis is None else analysis.null_rate

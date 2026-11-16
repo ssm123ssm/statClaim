@@ -16,10 +16,10 @@ from fractions import Fraction
 
 from statproof.derivations import (
     ANALYSIS_ASSUMPTIONS,
+    CONTRACT_IDS,
     FAMILY_ASSUMPTIONS,
     NOT_ESTABLISHED,
     ONE_SAMPLE_ASSUMPTIONS,
-    ONE_SIDED_CONTRACT,
     PLANNING_POINT_ASSUMPTION,
     RULES,
     TWO_STAGE_ASSUMPTIONS,
@@ -29,6 +29,8 @@ SUPPORTED_NULLS = {
     "two_sided": ["equal_proportions"],
     # The one-sided test fixes the margin at zero.
     "greater": ["proportion_difference_at_most"],
+    # The difference test takes any margin strictly between -1 and 1.
+    "margin": ["proportion_difference_at_most"],
 }
 SUPPORTED_JOINT_LAWS = ["binomial_marginals"]
 FAMILY_LIMITS = (2, 20)
@@ -179,9 +181,14 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
             "null": "p_treatment = p_control",
         }
         outside = Fraction(point["p_control"]) != Fraction(point["p_treatment"])
-        if two_arm and analysis.get("alternative", "two_sided") == "greater":
+        kind = analysis.get("alternative", "two_sided") if two_arm else "two_sided"
+        gap = Fraction(point["p_treatment"]) - Fraction(point["p_control"])
+        if kind == "greater":
             facts["null"] = "p_treatment <= p_control"
-            outside = Fraction(point["p_treatment"]) > Fraction(point["p_control"])
+            outside = gap > 0
+        elif kind == "margin":
+            facts["null"] = f"p_treatment - p_control <= {analysis['null']['value']}"
+            outside = gap > Fraction(analysis["null"]["value"])
     else:
         null_rate = search["null_rate"] if analysis is None else analysis["null_rate"]
         facts = {
@@ -240,7 +247,9 @@ def _analysis_expectations(name: str, analysis: dict) -> list[tuple[str, dict, b
     alternative = analysis.get("alternative", "two_sided")
     supported = SUPPORTED_NULLS[alternative]
     null_ok = null["predicate"] in supported and (
-        alternative == "two_sided" or Fraction(null["value"]) == 0
+        alternative == "two_sided"
+        or (alternative == "greater" and Fraction(null["value"]) == 0)
+        or (alternative == "margin" and -1 < Fraction(null["value"]) < 1)
     )
     alpha = Fraction(analysis["alpha"])
     return [
@@ -278,9 +287,10 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     A required step is (rule, facts, holds, rules or step groups it must use).
     """
     name, subject, contract = derivation["name"], derivation["subject"], derivation["contract"]
-    if contract in ("tests.fisher/fisher", ONE_SIDED_CONTRACT):
-        one_sided = subject.get("alternative", "two_sided") == "greater"
-        if subject["test"] != "fisher" or one_sided != (contract == ONE_SIDED_CONTRACT):
+    if contract in CONTRACT_IDS.values():
+        if subject["test"] != "fisher" or contract != CONTRACT_IDS.get(
+            subject.get("alternative", "two_sided")
+        ):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
     if contract in ("tests.binomial/binomial_test", "designs.two_stage/two_stage_test"):

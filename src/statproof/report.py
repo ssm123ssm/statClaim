@@ -11,11 +11,13 @@ from statproof.planning import (
     RESULT_ASSUMPTIONS,
     BinomialInterval,
     DifferenceInterval,
+    MarginTest,
     OneSamplePlan,
     OneSampleResult,
     PowerPlan,
     TwoStagePlan,
     TwoStageResult,
+    margin_assumptions,
     search_equal_arms,
     search_one_sample,
     search_two_stage,
@@ -29,6 +31,7 @@ from statproof.verification import (
     certify_difference,
     certify_family,
     certify_interval,
+    certify_margin,
     certify_planning,
     certify_policy,
     certify_result,
@@ -614,3 +617,107 @@ def run_stage_result(
     return _certified(
         report, certify_stage_result, result, project=project, output=output, timeout=timeout
     )
+
+
+def margin_report(test: MarginTest, *, verify: bool) -> dict:
+    null = f"p_treatment - p_control <= {test.margin}"
+    text = (
+        f"Exact difference test with arm sizes ({test.n_control}, {test.n_treatment}): "
+        f"Type I error <= {test.maximum_typeI if test.has_target else test.alpha} whenever {null}"
+    )
+    if test.has_target:
+        text += (
+            f"; power >= {test.minimum_power} at p_control = {test.p_control}, "
+            f"p_treatment = {test.p_treatment}"
+        )
+    if test.observed is not None:
+        text += f"; decision for counts {test.observed}"
+    report = planning_report("margin_test", text + ".", margin_assumptions(test))
+    if not verify:
+        report["target_property"] += " Calculate only."
+    return report
+
+
+def run_margin(test: MarginTest, *, verify: bool, project: Path, output, timeout: float) -> dict:
+    """Assess an exact difference test; verify certifies only when every component is met."""
+    report = margin_report(test, verify=verify)
+    calculation = test.evaluate()
+    report["calculation"] = calculation
+    if test.observed is not None:
+        report["decision"] = "reject_null" if test.reject_null else "do_not_reject_null"
+    elif test.has_target:
+        met = calculation["power_target_met"] and calculation["typeI_target_met"]
+        report["decision"] = "target_met" if met else "target_not_met"
+    else:
+        report["decision"] = "design_described"
+    if not verify:
+        return report
+    if test.has_target and not calculation["typeI_target_met"]:
+        return _unmet(
+            report,
+            "typeI_target",
+            "typeI_target_not_established",
+            f"The analysis's alpha {test.alpha} exceeds the requested Type I bound "
+            f"{test.maximum_typeI}. The test is built to have error at most alpha only.",
+        )
+    if test.has_target and not calculation["power_target_met"]:
+        return _unmet(
+            report,
+            "power_target",
+            "power_target_not_met",
+            f"Calculated power, {_approx(calculation['power'])}, is below the required "
+            f"{test.minimum_power} at the planning point. No evidence is issued for the "
+            "combined planning claim.",
+        )
+    return _certified(report, certify_margin, test, project=project, output=output, timeout=timeout)
+
+
+def run_margin_search(
+    template: MarginTest,
+    bounds: tuple[int, int],
+    ratio: int,
+    *,
+    verify: bool,
+    project: Path,
+    output,
+    timeout: float,
+) -> dict:
+    """Search ascending for a sufficient size; each candidate has its own critical value."""
+    search = {"min_per_arm": bounds[0], "max_per_arm": bounds[1]}
+    for evaluated, size in enumerate(range(bounds[0], bounds[1] + 1), 1):
+        candidate = MarginTest(
+            size,
+            ratio * size,
+            template.margin,
+            template.alpha,
+            template.p_control,
+            template.p_treatment,
+            template.minimum_power,
+            template.maximum_typeI,
+        )
+        if candidate.power >= candidate.minimum_power:
+            report = run_margin(
+                candidate, verify=verify, project=project, output=output, timeout=timeout
+            )
+            report["calculation"] = {
+                **report["calculation"],
+                **search,
+                "candidates_evaluated": evaluated,
+            }
+            return report
+    report = margin_report(template, verify=verify)
+    report["calculation"] = {
+        **search,
+        "candidates_evaluated": bounds[1] - bounds[0] + 1,
+        "power_target_met": False,
+    }
+    report["decision"] = "no_feasible_candidate"
+    if verify:
+        _unmet(
+            report,
+            "search_exhausted",
+            "no_feasible_candidate",
+            f"No candidate with {bounds[0]} to {bounds[1]} controls meets the power target. "
+            "Nothing is claimed about other designs or larger samples.",
+        )
+    return report
