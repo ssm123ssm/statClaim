@@ -1,0 +1,27 @@
+# A superiority trial: is the treatment better than the control?
+# One-sided Fisher exact test at 2.5%.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use planning
+
+let study = two_arm_binomial(n_control=36, n_treatment=36)
+let design = fixed(model=study)
+
+# Null: the treatment's success rate is at most the control's.
+let null = proportion_difference_at_most(model=study, value=0)
+let analysis = fisher_one_sided(design=design, null=null, alpha=1/40)
+let guarantee = verify(typeI(analysis))
+
+# Planning: 10% versus 40%, 80% power.
+let target = power_target(
+    at=binomial_rates(p_control=1/10, p_treatment=2/5),
+    minimum=4/5,
+    maximum_typeI=1/40,
+)
+let candidates = equal_arm_sizes(analysis=analysis, min_per_arm=20, max_per_arm=60)
+let sizing = verify(smallest_sample_size(candidates=candidates, target=target))
+
+# Analysis: 4 of 36 controls and 14 of 36 treated participants responded.
+let data = observe(analysis=analysis, control_successes=4, treatment_successes=14)
+let outcome = verify(result(data))

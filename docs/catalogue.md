@@ -91,10 +91,12 @@ Fixed sampling is supported. Adaptive sampling is descriptive; its current Type 
 
 ### `tests.fisher` — Analyses and claims
 
-Two-sided Fisher calculation and Lean-backed result/Type I claims for the equality null with fixed sampling.
+Two-sided Fisher analysis for the equality null and one-sided analysis for "treatment no better than control", with Lean-backed result and Type I claims under fixed sampling.
 
 - `fisher(design, null, alpha) -> Analysis`
   Required null: p_treatment = p_control (equal arm success probabilities); same model required.
+- `fisher_one_sided(design, null, alpha) -> Analysis`
+  Required null: p_treatment - p_control <= 0 (the treatment is no better than the control); same model required.
 - `observe(analysis, control_successes, treatment_successes) -> Observation`
 - `typeI(analysis) -> TypeIClaim`
 - `result(observation) -> ResultClaim`

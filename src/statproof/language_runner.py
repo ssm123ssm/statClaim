@@ -84,6 +84,7 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             (candidates.min_per_arm, candidates.max_per_arm),
             minimal=subject.minimal,
             ratio=candidates.ratio,
+            alternative=candidates.analysis.alternative,
             **options,
         )
     if request.claim.kind == "interval":

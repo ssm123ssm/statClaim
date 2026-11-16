@@ -117,6 +117,23 @@ with endpoints rounded outward to four decimals. The certificate states that
 the procedure covers the true rate with probability at least the level, for
 every true rate. See `examples/confidence_interval.stat`.
 
+## A one-sided two-arm test
+
+To ask whether the treatment is better than the control, use the one-sided
+Fisher test. Its null is that the treatment's success rate is at most the
+control's:
+
+```stat
+let null = proportion_difference_at_most(model=study, value=0)
+let analysis = fisher_one_sided(design=design, null=null, alpha=1/40)
+```
+
+`typeI`, `observe`/`result`, `meets` and the sample-size claims work as for the
+two-sided test. The error bound holds for every pair of rates with the
+treatment no better than the control, not only for equal rates. The planning
+point must have the larger treatment rate. To test the other direction, swap
+which arm you call the treatment. See `examples/one_sided.stat`.
+
 ## Estimate a difference between two arms
 
 ```stat

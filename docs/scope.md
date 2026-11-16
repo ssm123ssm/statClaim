@@ -4,6 +4,8 @@ What is supported:
 
 - **Two arms.** Fixed samples from two independent binomial arms, an equality
   null, and the two-sided Fisher test in exact rational arithmetic.
+- **Two arms, one-sided.** The one-sided Fisher test of "treatment no better than
+  control". Its error bound covers every such pair of rates.
 - **Several endpoints.** Bonferroni composition of two to twenty Fisher
   endpoints, with any allocation that sums to at most the family level.
 - **Planning.** Exact Fisher power at one declared point and a bounded
@@ -23,8 +25,8 @@ Error bounds for single-arm designs cover every rate at or below the null rate.
 Power is always at one declared planning point. The posterior rule's closed
 form is a definition; its identity with the Beta integral is not proved in Lean.
 
-Difference and inequality nulls can be described; Fisher rejects them with
-guidance. Declaring a Fisher analysis `adaptive` leaves its Type I error
+Nulls with a nonzero margin can be described; the Fisher analyses reject them
+with guidance. Declaring a Fisher analysis `adaptive` leaves its Type I error
 obligation unresolved; use a complete two-stage design instead.
 
 The design theorem concerns repeated-sampling Type I error. A result certificate

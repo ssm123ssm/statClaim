@@ -16,8 +16,9 @@ MODULE_CLASSES = {
     ),
     "tests.fisher": (
         "Analyses and claims",
-        "Two-sided Fisher calculation and Lean-backed result/Type I claims for the "
-        "equality null with fixed sampling.",
+        "Two-sided Fisher analysis for the equality null and one-sided analysis for "
+        '"treatment no better than control", with Lean-backed result and Type I claims '
+        "under fixed sampling.",
     ),
     "multiplicity.bonferroni": (
         "Multiplicity and composition",

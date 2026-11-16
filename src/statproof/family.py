@@ -43,7 +43,10 @@ class FisherFamily:
 
     @property
     def supported(self) -> bool:
-        return all(e.design.stopping == "fixed" for e in self.endpoints)
+        return all(
+            e.design.stopping == "fixed" and e.design.alternative == "two_sided"
+            for e in self.endpoints
+        )
 
 
 def load_family(path: Path) -> FisherFamily:

@@ -7,7 +7,7 @@ mkdir -p playground
 if [[ ! -f playground/welcome.stat ]]; then
   cp examples/playground.stat playground/welcome.stat
 fi
-for example in planning unequal_allocation one_sample one_sample_result confidence_interval difference_interval three_outcomes two_stage two_stage_posterior two_stage_search two_stage_result; do
+for example in planning unequal_allocation one_sided one_sample one_sample_result confidence_interval difference_interval three_outcomes two_stage two_stage_posterior two_stage_search two_stage_result; do
   if [[ ! -f "playground/$example.stat" ]]; then
     cp "examples/$example.stat" "playground/$example.stat"
   fi

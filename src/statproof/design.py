@@ -6,7 +6,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Literal
 
-from statproof.fisher import ALPHA, TEST_ID, parse_alpha, validate_alpha
+from statproof.fisher import ALPHA, ALTERNATIVES, parse_alpha, test_id, validate_alpha
 
 
 @dataclass(frozen=True)
@@ -15,9 +15,12 @@ class Design:
     n_treatment: int
     stopping: Literal["fixed", "data_dependent"]
     alpha: Fraction = ALPHA
+    alternative: str = "two_sided"
 
     def __post_init__(self) -> None:
         validate_alpha(self.alpha)
+        if self.alternative not in ALTERNATIVES:
+            raise ValueError("alternative must be 'two_sided' or 'greater'.")
         for name in ("n_control", "n_treatment"):
             value = getattr(self, name)
             if type(value) is not int or value <= 0:
@@ -67,7 +70,7 @@ def inspect_design(design: Design) -> dict:
         "schema_version": 1,
         "module": "two_arm_binomial",
         "module_version": "0.2.0",
-        "specified_test": TEST_ID,
+        "specified_test": test_id(design.alternative),
         "verification_scope": "design",
         "formal_reference": {
             "theorem": "StatProof.Modules.Fisher.typeI_statement",
@@ -87,6 +90,9 @@ def inspect_design(design: Design) -> dict:
         },
         "target_property": (
             f"Null rejection probability <= {design.alpha} for every common p in [0, 1]"
+            if design.alternative == "two_sided"
+            else f"Null rejection probability <= {design.alpha} whenever the treatment "
+            "success probability is at most the control's"
         ),
         "analysis": {"alpha": str(design.alpha)},
         "planned_backend": "Lean 4 + Mathlib",
@@ -96,7 +102,10 @@ def inspect_design(design: Design) -> dict:
         "required_assumptions": [
             "Two independent binomial samples.",
             "Positive sample sizes fixed before observing outcomes.",
-            "The null hypothesis is equal success probabilities in the two arms.",
+            "The null hypothesis is equal success probabilities in the two arms."
+            if design.alternative == "two_sided"
+            else "The null hypothesis is that the treatment success probability is at most "
+            "the control's.",
         ],
         "outstanding_obligations": obligations,
     }

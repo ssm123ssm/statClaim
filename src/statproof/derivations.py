@@ -26,7 +26,6 @@ from statproof.language import (
     TwoStageAnalysisIR,
     normalize,
 )
-from statproof.language_contracts import FISHER_CONTRACT
 from statproof.planning import MAX_ONE_ARM, MAX_STAGE
 
 
@@ -48,7 +47,7 @@ RULES = {
         "{subject}: the null and the design describe the same study model.",
     ),
     "supported-null": Rule(
-        "The null's form is one the analysis supports.",
+        "The null's form, and its margin where the analysis fixes one, is supported.",
         "{subject}: the declared null ({statement}) is supported by this analysis.",
     ),
     "level-range": Rule(
@@ -151,6 +150,7 @@ RULES = {
     ),
 }
 
+ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 ANALYSIS_ASSUMPTIONS = (
     "The two samples are independent, each with one common success probability.",
     "The arm sizes are fixed before outcomes are observed.",
@@ -278,7 +278,7 @@ def _analysis_steps(builder: _Builder, name: str, analysis: AnalysisIR) -> int:
                 "subject": name,
                 "predicate": null.predicate,
                 "statement": null.statement,
-                "supported": list(FISHER_CONTRACT.supported_predicates),
+                "supported": list(analysis.contract.supported_predicates),
             },
         ),
         builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
@@ -297,7 +297,7 @@ def derive_analysis(name: str, analysis: AnalysisIR) -> Derivation:
     _sampling(builder, name, analysis)
     return Derivation(
         name,
-        "tests.fisher/fisher",
+        "tests.fisher/fisher" if analysis.alternative == "two_sided" else ONE_SIDED_CONTRACT,
         builder.steps[final].conclusion,
         tuple(builder.steps),
         ANALYSIS_ASSUMPTIONS,
@@ -420,7 +420,9 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
             "subject": name,
             "p_control": str(target.at.p_control),
             "p_treatment": str(target.at.p_treatment),
-            "null": "p_treatment = p_control",
+            "null": "p_treatment = p_control"
+            if analysis.alternative == "two_sided"
+            else "p_treatment <= p_control",
         }
     else:
         null_rate = search.null_rate if analysis is None else analysis.null_rate

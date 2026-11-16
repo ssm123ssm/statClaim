@@ -12,7 +12,11 @@ from typing import Literal as Choice
 from statproof.design import Design
 from statproof.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statproof.fisher import validate_alpha
-from statproof.language_contracts import FISHER_CONTRACT, HypothesisContract
+from statproof.language_contracts import (
+    FISHER_CONTRACT,
+    ONE_SIDED_FISHER_CONTRACT,
+    HypothesisContract,
+)
 from statproof.language_syntax import (
     Call,
     Diagnostic,
@@ -44,7 +48,7 @@ from statproof.planning import (
     TwoStageRule,
 )
 
-LANGUAGE_VERSION = "0.8.0"
+LANGUAGE_VERSION = "0.9.0"
 
 
 class PlannableIR:
@@ -104,14 +108,27 @@ class AnalysisIR(PlannableIR):
     plan: PlanIR
     hypothesis: HypothesisIR
     alpha: Fraction
+    alternative: str = "two_sided"
+
+    @property
+    def contract(self) -> HypothesisContract:
+        return FISHER_CONTRACT if self.alternative == "two_sided" else ONE_SIDED_FISHER_CONTRACT
 
     def __post_init__(self):
-        if not FISHER_CONTRACT.accepts(self.plan, self.hypothesis):
-            raise ValueError("A Fisher analysis requires its design's equal-proportions null.")
+        if not self.contract.accepts(self.plan, self.hypothesis):
+            raise ValueError(
+                "A Fisher analysis requires its design's equal-proportions null."
+                if self.alternative == "two_sided"
+                else "A one-sided Fisher analysis requires the null p_treatment - p_control <= 0."
+            )
 
     def lower(self) -> Design:
         return Design(
-            self.plan.model.n_control, self.plan.model.n_treatment, self.plan.stopping, self.alpha
+            self.plan.model.n_control,
+            self.plan.model.n_treatment,
+            self.plan.stopping,
+            self.alpha,
+            self.alternative,
         )
 
 
@@ -472,13 +489,16 @@ def normalize(value: object) -> object:
             if predicate != "equal_proportions":
                 result["value"] = str(bound)
             return result
-        case AnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
-            return {
+        case AnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, alternative=alternative):
+            result = {
                 "test": "fisher",
                 "design": normalize(plan),
                 "null": normalize(hypothesis),
                 "alpha": str(alpha),
             }
+            if alternative != "two_sided":
+                result["alternative"] = alternative
+            return result
         case FamilyIR(analyses=analyses, alpha=alpha, joint_law=law):
             return {
                 "method": "bonferroni",
@@ -622,9 +642,12 @@ def _model(arguments: dict[str, LocatedValue], span: Span) -> ModelIR:
     return ModelIR(arguments["n_control"].value, arguments["n_treatment"].value)
 
 
-def _fisher(arguments: dict[str, LocatedValue], span: Span) -> AnalysisIR:
-    plan, hypothesis = arguments["design"].value, arguments["null"].value
-    return AnalysisIR(plan, hypothesis, arguments["alpha"].value)
+def _fisher(alternative: str) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> AnalysisIR:
+        plan, hypothesis = arguments["design"].value, arguments["null"].value
+        return AnalysisIR(plan, hypothesis, arguments["alpha"].value, alternative)
+
+    return build
 
 
 def _difference(predicate: str) -> Callable:
@@ -655,6 +678,12 @@ def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyIR:
     for item in items:
         if not isinstance(item.value, AnalysisIR) or item.name is None:
             fail("type", "Each family member must be a named Fisher analysis.", item.span)
+        if item.value.alternative != "two_sided":
+            fail(
+                "unsupported_member",
+                "Bonferroni families currently combine two-sided Fisher analyses only.",
+                item.span,
+            )
         analyses.append((item.name, item.value))
     if len({name for name, _ in analyses}) != len(analyses):
         fail(
@@ -777,7 +806,10 @@ def _check_point(analysis: PlannableIR, target: LocatedValue) -> None:
                 "Declare the target at binomial_rates(p_control=..., p_treatment=...).",
                 target.span,
             )
-        null, outside = "p_treatment = p_control", point.p_control != point.p_treatment
+        if analysis.alternative == "greater":
+            null, outside = "p_treatment <= p_control", point.p_treatment > point.p_control
+        else:
+            null, outside = "p_treatment = p_control", point.p_control != point.p_treatment
     if not outside:
         fail(
             "alternative_in_null",
@@ -1084,9 +1116,17 @@ MODULES = {
                     "fisher",
                     (("design", PlanIR), ("null", HypothesisIR), ("alpha", "level")),
                     "Analysis",
-                    _fisher,
+                    _fisher("two_sided"),
                     hypothesis_contract=FISHER_CONTRACT,
                     documentation=FISHER_CONTRACT.guidance,
+                ),
+                _constructor(
+                    "fisher_one_sided",
+                    (("design", PlanIR), ("null", HypothesisIR), ("alpha", "level")),
+                    "Analysis",
+                    _fisher("greater"),
+                    hypothesis_contract=ONE_SIDED_FISHER_CONTRACT,
+                    documentation=ONE_SIDED_FISHER_CONTRACT.guidance,
                 ),
                 _constructor(
                     "observe",

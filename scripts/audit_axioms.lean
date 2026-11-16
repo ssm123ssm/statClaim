@@ -57,7 +57,15 @@ run_cmd do
     ``StatProof.Modules.BinomialInterval.interval_contains,
     ``StatProof.Modules.TwoStageBinomial.posteriorDesign_monotone,
     ``StatProof.Modules.BinomialInterval.joint_coverage,
-    ``StatProof.Modules.BinomialInterval.difference_contains]
+    ``StatProof.Modules.BinomialInterval.difference_contains,
+    ``StatProof.lowerTail_rejection_mass_le,
+    ``StatProof.conditionalTest_rejection_le,
+    ``StatProof.productBinomial_real_mono_right,
+    ``StatProof.Modules.FisherOneSided.boundary_le,
+    ``StatProof.Modules.FisherOneSided.typeI_of_hints,
+    ``StatProof.Modules.FisherOneSided.power_of_check,
+    ``StatProof.Modules.FisherOneSided.power_lt_of_smallerFail,
+    ``StatProof.Modules.FisherOneSided.lowerPValue_eq_of_cross_product]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

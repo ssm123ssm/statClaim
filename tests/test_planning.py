@@ -571,3 +571,81 @@ def test_difference_interval_combines_two_exact_arm_intervals(tmp_path):
         interval.lower,
         interval.upper,
     )
+
+
+ONE_SIDED = (
+    HEADER.replace(
+        "let null = equal_proportions(model=study)",
+        "let null = proportion_difference_at_most(model=study, value=0)",
+    )
+    + "let analysis = fisher_one_sided(design=fixed(model=study), null=null, alpha=1/40)\n"
+)
+
+
+def test_one_sided_test_matches_direct_tail_sums():
+    from statproof.planning import fisher_bounds, fisher_rejection_region
+
+    level = Fraction(1, 40)
+    for nc, nt in ((5, 7), (9, 9)):
+        region = fisher_rejection_region(nc, nt, level, "greater")
+        assert len(fisher_bounds(nc, nt, level)) == nc + nt + 1
+        for x, y in product(range(nc + 1), range(nt + 1)):
+            total = x + y
+            low, high = max(0, total - nt), min(nc, total)
+            tail = Fraction(
+                sum(comb(nc, k) * comb(nt, total - k) for k in range(low, x + 1)),
+                sum(comb(nc, k) * comb(nt, total - k) for k in range(low, high + 1)),
+            )
+            result = fisher_exact(
+                n_control=nc,
+                n_treatment=nt,
+                control_successes=x,
+                treatment_successes=y,
+                alpha=level,
+                alternative="greater",
+            )
+            assert result.p_value == tail
+            assert region[x][y] == result.reject_null == (tail <= level)
+        # Error at equal rates stays within the level, and falls when treatment is worse.
+        for rate in (Fraction(1, 5), Fraction(1, 2)):
+            size = fisher_rejection_probability(nc, nt, level, rate, rate, "greater")
+            worse = fisher_rejection_probability(nc, nt, level, rate, rate / 2, "greater")
+            assert worse <= size <= level
+
+
+def test_one_sided_language_contract_and_planning(tmp_path):
+    assert compiled(ONE_SIDED).status == "elaborated"
+    for change, code in (
+        (("value=0)", "value=1/10)"), "hypothesis_mismatch"),
+        (("proportion_difference_at_most(model=study, value=0)", "equal_proportions(model=study)"),
+         "hypothesis_mismatch"),
+    ):  # fmt: skip
+        assert code in [d.code for d in compiled(ONE_SIDED.replace(*change)).diagnostics]
+    wrong_direction = compiled(
+        ONE_SIDED + "let c = meets(analysis=analysis, target=power_target(at=binomial_rates("
+        "p_control=2/5, p_treatment=1/10), minimum=4/5, maximum_typeI=1/40))\n"
+    )
+    assert "alternative_in_null" in [d.code for d in wrong_direction.diagnostics]
+    plan, _ = search_equal_arms(
+        Fraction(1, 40), *RATES, Fraction(4, 5), Fraction(1, 40), 20, 60, True, 1, "greater"
+    )
+    assert plan.design.n_control == 36 and plan.design.alternative == "greater"
+    payload = planning_payload(plan)
+    assert payload["analysis"]["null"] == "treatment_at_most_control"
+    assert parse_planning_payload(payload) == plan
+    proof = render_planning_proof(plan, "0" * 64)
+    assert "FisherOneSided.typeI_of_hints" in proof and "checked_sections" in proof
+    values = run(
+        ONE_SIDED
+        + "let data = observe(analysis=analysis, control_successes=1, treatment_successes=9)\n"
+        "let outcome = calculate(result(data))\nlet decision = outcome.decision\n",
+        tmp_path,
+    )["values"]
+    assert values["decision"] == "reject_null"
+    mixed = compiled(
+        ONE_SIDED + "use multiplicity.bonferroni\n"
+        "let other = fisher_one_sided(design=fixed(model=study), null=null, alpha=1/40)\n"
+        "let f = bonferroni(analyses=[analysis, other], alpha=1/20, "
+        'joint_law="binomial_marginals")\n'
+    )
+    assert "unsupported_member" in [d.code for d in mixed.diagnostics]

@@ -154,4 +154,52 @@ theorem productBinomial_real_mono (n m : ℕ) (p q : unitInterval) (h : p ≤ q)
   · simp [ha, upper (a, y) (b, y) hab le_rfl ha]
   · by_cases hb : (b, y) ∈ event <;> simp [ha, hb]
 
+/-- Raising the second arm's rate cannot lower the probability of an event whose
+sections in the second count are upper sets within the sample size. -/
+theorem productBinomial_real_mono_right (n m : ℕ) (p q q' : unitInterval) (h : q ≤ q')
+    (event : Set (ℕ × ℕ))
+    (upper : ∀ x y, y < m → (x, y) ∈ event → (x, y + 1) ∈ event) :
+    (productBinomial n m p q).real event ≤ (productBinomial n m p q').real event := by
+  classical
+  rw [productBinomial_real_eq_expectation, productBinomial_real_eq_expectation]
+  refine binomialExpectation_le n p p.property.1 p.property.2 (fun x => ?_)
+  -- Replace each section by its upward closure, which agrees with it up to m.
+  let closure : ℕ → ℝ := fun y => if ∃ start, start ≤ y ∧ start ≤ m ∧ (x, start) ∈ event
+    then 1 else 0
+  have climb : ∀ distance start, start + distance ≤ m → (x, start) ∈ event →
+      (x, start + distance) ∈ event := by
+    intro distance
+    induction distance with
+    | zero => intro start _ member; exact member
+    | succ distance ih =>
+      intro start bound member
+      exact upper x (start + distance) (by omega) (ih start (by omega) member)
+  have agrees : ∀ value : unitInterval,
+      binomialExpectation m (value : ℝ) (fun y => if (x, y) ∈ event then 1 else 0) =
+        binomialExpectation m (value : ℝ) closure := by
+    intro value
+    unfold binomialExpectation
+    apply Finset.sum_congr rfl
+    intro y y_mem
+    have y_le : y ≤ m := Nat.lt_succ_iff.mp (Finset.mem_range.mp y_mem)
+    have same : (x, y) ∈ event ↔ ∃ start, start ≤ y ∧ start ≤ m ∧ (x, start) ∈ event := by
+      constructor
+      · intro member
+        exact ⟨y, le_rfl, y_le, member⟩
+      · rintro ⟨start, start_le, _, member⟩
+        have moved := climb (y - start) start (by omega) member
+        rwa [Nat.add_sub_cancel' start_le] at moved
+    simp only [closure, same]
+  rw [agrees q, agrees q']
+  refine binomialExpectation_mono m closure ?_ q q' q.property.1 h q'.property.2
+  intro a b ab
+  by_cases reached : ∃ start, start ≤ a ∧ start ≤ m ∧ (x, start) ∈ event
+  · obtain ⟨start, start_le, bound, member⟩ := reached
+    have further : ∃ start, start ≤ b ∧ start ≤ m ∧ (x, start) ∈ event :=
+      ⟨start, start_le.trans ab, bound, member⟩
+    simp [closure, further, show ∃ start, start ≤ a ∧ start ≤ m ∧ (x, start) ∈ event from
+      ⟨start, start_le, bound, member⟩]
+  · by_cases later : ∃ start, start ≤ b ∧ start ≤ m ∧ (x, start) ∈ event <;>
+      simp [closure, reached, later]
+
 end StatProof

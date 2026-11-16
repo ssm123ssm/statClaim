@@ -32,6 +32,7 @@ def runs(tmp_path_factory):
         "two_stage_search",
         "two_stage_result",
         "difference_interval",
+        "one_sided",
     ):
         path = ROOT / f"examples/{name}.stat"
         reports[name] = check_source(
@@ -133,6 +134,28 @@ def test_difference_interval_certificate_replays_and_rejects_a_narrower_interval
     shutil.copytree(source, bundle)
     inputs = json.loads((bundle / "inputs.json").read_text())
     inputs["result"]["lower"] = "1/20"
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT)
+
+
+def test_one_sided_certificates_replay_and_resist_tampering(runs, tmp_path):
+    report = runs["one_sided"]
+    assert report["status"] == "verified", report["diagnostics"]
+    kinds = {}
+    for name in ("guarantee", "sizing", "outcome"):
+        directory = Path(report["values"][name]["evidence"]["certificate"]["directory"])
+        kinds[name] = recheck_certificate(directory, project=ROOT)["kind"]
+    assert kinds == {
+        "guarantee": "statproof_design_certificate",
+        "sizing": "statproof_planning_certificate",
+        "outcome": "statproof_per_result_certificate",
+    }
+    source = Path(report["values"]["outcome"]["evidence"]["certificate"]["directory"])
+    bundle = tmp_path / "tampered"
+    shutil.copytree(source, bundle)
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    inputs["result"]["p_value"]["numerator"] += 1
     (bundle / "inputs.json").write_text(json.dumps(inputs))
     with pytest.raises(VerificationError):
         recheck_certificate(bundle, project=ROOT)

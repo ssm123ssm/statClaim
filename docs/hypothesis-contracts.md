@@ -1,5 +1,9 @@
 # Hypothesis compatibility contracts
 
+The one-sided analysis `fisher_one_sided` accepts
+`proportion_difference_at_most(model=..., value=0)` and no other null; see
+[planning](planning.md). The rest of this page describes the two-sided contract.
+
 Language version `0.4.0` adds structured proportion-difference hypotheses and an
 explicit hypothesis contract on the Fisher constructor. This supports the case
 where the study/model is correct but the chosen analysis does not support the

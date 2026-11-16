@@ -44,6 +44,7 @@ def test_design(design: Design, *, control_successes: int, treatment_successes: 
         control_successes=control_successes,
         treatment_successes=treatment_successes,
         alpha=design.alpha,
+        alternative=design.alternative,
     )
     return _result_report(design, result)
 
@@ -100,6 +101,7 @@ def verify_design(
         control_successes=control_successes,
         treatment_successes=treatment_successes,
         alpha=design.alpha,
+        alternative=design.alternative,
     )
     report = _result_report(design, result)
     if design.stopping != "fixed":
@@ -139,7 +141,8 @@ def verify_design_only(
     """Check a pre-data design guarantee; no numerical calculation is performed."""
     report = inspect_design(design)
     report["verification_scope"] = "design"
-    report["required_assumptions"] = list(DESIGN_ASSUMPTIONS)
+    if design.alternative == "two_sided":
+        report["required_assumptions"] = list(DESIGN_ASSUMPTIONS)
     report["formal_reference"]["theorem"] = "StatProof.Modules.Fisher.typeI_statement"
     report["formal_reference"]["application_to_this_run"] = "unresolved_design_verification"
     report["outstanding_obligations"] = [
@@ -368,6 +371,7 @@ def run_sample_size(
     *,
     minimal: bool = False,
     ratio: int = 1,
+    alternative: str = "two_sided",
     verify: bool,
     project: Path,
     output,
@@ -376,7 +380,7 @@ def run_sample_size(
     """Search ascending for a sufficient design with the given allocation ratio."""
     p_control, p_treatment, minimum, maximum = target
     plan, evaluated = search_equal_arms(
-        alpha, p_control, p_treatment, minimum, maximum, *bounds, minimal, ratio
+        alpha, p_control, p_treatment, minimum, maximum, *bounds, minimal, ratio, alternative
     )
     search = {
         "min_per_arm": bounds[0],

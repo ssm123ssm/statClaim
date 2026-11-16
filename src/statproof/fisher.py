@@ -12,6 +12,12 @@ from math import comb
 ALPHA = Fraction(1, 20)
 TEST_ID = "fisher_exact_two_sided_probability_ordered"
 TEST_VERSION = "0.2.0"
+ONE_SIDED_TEST_ID = "fisher_exact_one_sided_treatment_greater"
+ALTERNATIVES = ("two_sided", "greater")
+
+
+def test_id(alternative: str) -> str:
+    return TEST_ID if alternative == "two_sided" else ONE_SIDED_TEST_ID
 
 
 def validate_alpha(alpha: Fraction) -> None:
@@ -55,6 +61,7 @@ class FisherResult:
     support_max: int
 
     alpha: Fraction = ALPHA
+    alternative: str = "two_sided"
 
     @property
     def reject_null(self) -> bool:
@@ -63,9 +70,9 @@ class FisherResult:
 
     def to_dict(self) -> dict:
         return {
-            "test": TEST_ID,
+            "test": test_id(self.alternative),
             "test_version": TEST_VERSION,
-            "alternative": "two_sided",
+            "alternative": "two_sided" if self.alternative == "two_sided" else "treatment_greater",
             "table": {
                 "columns": ["success", "failure"],
                 "control": [self.control_successes, self.n_control - self.control_successes],
@@ -92,6 +99,7 @@ def fisher_exact(
     control_successes: int,
     treatment_successes: int,
     alpha: Fraction = ALPHA,
+    alternative: str = "two_sided",
 ) -> FisherResult:
     """Compute the exact test for positive arm sizes and integer success counts.
 
@@ -101,6 +109,8 @@ def fisher_exact(
     or invoke Lean.
     """
     validate_alpha(alpha)
+    if alternative not in ALTERNATIVES:
+        raise ValueError("alternative must be 'two_sided' or 'greater'.")
     for name, value in (("n_control", n_control), ("n_treatment", n_treatment)):
         if type(value) is not int or value <= 0:
             raise ValueError(f"{name} must be a positive integer.")
@@ -119,7 +129,13 @@ def fisher_exact(
     weight = comb(n_control, lower) * comb(n_treatment, total_successes - lower)
     extreme_weight = 0
     for successes in range(lower, upper + 1):
-        if weight <= observed_weight:
+        # Two-sided: tables no more likely than the observed one. One-sided:
+        # tables with at most as many control successes, which favour treatment.
+        if (
+            weight <= observed_weight
+            if alternative == "two_sided"
+            else (successes <= control_successes)
+        ):
             extreme_weight += weight
         if successes < upper:
             # Exact ratio of neighboring binomial-coefficient products. The
@@ -140,4 +156,5 @@ def fisher_exact(
         support_min=lower,
         support_max=upper,
         alpha=alpha,
+        alternative=alternative,
     )

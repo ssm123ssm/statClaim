@@ -19,3 +19,4 @@ public import StatProof.BinomialMonotone
 public import StatProof.Modules.OneSampleBinomial
 public import StatProof.Modules.FisherFamilyN
 public import StatProof.Modules.BinomialInterval
+public import StatProof.Modules.FisherOneSided

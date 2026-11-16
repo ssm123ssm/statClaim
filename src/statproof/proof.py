@@ -10,6 +10,7 @@ from fractions import Fraction
 from statproof.design import Design
 from statproof.family import FisherFamily
 from statproof.fisher import FisherResult, validate_alpha
+from statproof.planning import _audit, _lean_list, fisher_bounds
 
 CHECKED_THEOREMS = [
     "checked_counts",
@@ -27,6 +28,99 @@ DESIGN_CHECKED_THEOREMS = [
     "checked_design",
     "checked_typeI",
 ]
+
+ONE_SIDED_DESIGN_THEOREMS = ["checked_sizes", "checked_region", "checked_sections", "checked_typeI"]
+ONE_SIDED_RESULT_THEOREMS = [
+    "checked_counts",
+    "checked_p_value",
+    "checked_decision",
+    "checked_region",
+    "checked_sections",
+    "checked_typeI",
+]
+
+
+def _one_sided_preamble(design: Design) -> str:
+    """Declarations and the Type I theorem shared by one-sided certificates."""
+    nc, nt = design.n_control, design.n_treatment
+    an, ad = design.alpha.as_integer_ratio()
+    return f"""def declaredSizes : FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩
+def declaredLevel : SignificanceLevel :=
+  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
+noncomputable def declaredAnalysis := FisherOneSided.analysis declaredSizes declaredLevel
+def bounds : List ℕ := {_lean_list(fisher_bounds(nc, nt, design.alpha))}
+
+theorem checked_region : FisherOneSided.HintsValid declaredSizes.nControl
+    declaredSizes.nTreatment {an} {ad} bounds := by
+  decide +kernel
+
+theorem checked_sections : FisherOneSided.HintSections declaredSizes.nControl
+    declaredSizes.nTreatment bounds := by
+  decide +kernel
+
+theorem checked_typeI :
+    (declaredAnalysis.typeIClaim (declaredLevel.value : ℝ)).statement :=
+  FisherOneSided.typeI_of_hints declaredSizes declaredLevel {an} {ad} (by decide)
+    (by norm_num [declaredLevel]) bounds checked_region checked_sections"""
+
+
+def _render_one_sided_design_proof(design: Design, input_sha256: str) -> str:
+    nc, nt = design.n_control, design.n_treatment
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical design SHA-256: {input_sha256}
+-- No observed counts are supplied. The listed bounds are validated by the kernel.
+set_option maxRecDepth 100000
+set_option maxHeartbeats 20000000
+
+namespace StatProofCertificate
+open StatProof StatProof.Modules
+
+{_one_sided_preamble(design)}
+
+theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
+    0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+
+end StatProofCertificate
+{_audit(ONE_SIDED_DESIGN_THEOREMS, input_sha256)}"""
+
+
+def _render_one_sided_result_proof(design: Design, result: FisherResult, input_sha256: str) -> str:
+    nc, nt = design.n_control, design.n_treatment
+    an, ad = design.alpha.as_integer_ratio()
+    xc, xt = result.control_successes, result.treatment_successes
+    numerator, denominator = result.p_value.as_integer_ratio()
+    truth = "True" if result.reject_null else "False"
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical input SHA-256: {input_sha256}
+-- The proposed p-value is confirmed by the kernel against the formal definition.
+set_option maxRecDepth 100000
+set_option maxHeartbeats 20000000
+
+namespace StatProofCertificate
+open StatProof StatProof.Modules
+
+{_one_sided_preamble(design)}
+
+theorem checked_counts : 0 < {nc} ∧ 0 < {nt} ∧ {xc} ≤ {nc} ∧ {xt} ≤ {nt} := by decide
+
+theorem checked_p_value : FisherOneSided.lowerPValue {nc} {nt} {xc + xt} {xc} =
+    ({numerator} : ℚ) / {denominator} := by
+  apply FisherOneSided.lowerPValue_eq_of_cross_product {nc} {nt} {xc + xt} {xc}
+    {numerator} {denominator} (by decide) (by decide)
+  decide +kernel
+
+theorem checked_decision :
+    (FisherOneSided.lowerPValue {nc} {nt} {xc + xt} {xc} ≤ ({an} : ℚ) / {ad}) ↔ {truth} := by
+  rw [checked_p_value]
+  norm_num
+
+end StatProofCertificate
+{_audit(ONE_SIDED_RESULT_THEOREMS, input_sha256)}"""
+
 
 FAMILY_CHECKED_THEOREMS = [
     "checked_sizes",
@@ -105,6 +199,8 @@ def render_design_proof(design: Design, input_sha256: str) -> str:
     """Check the declared analysis and its general guarantee without observations."""
     if design.stopping != "fixed":
         raise ValueError("A fixed-sample design certificate requires stopping='fixed'.")
+    if design.alternative == "greater":
+        return _render_one_sided_design_proof(design, input_sha256)
     if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
         raise ValueError("Expected a SHA-256 input identifier.")
     nc, nt = design.n_control, design.n_treatment
@@ -180,6 +276,8 @@ def validate_result(design: Design, result: FisherResult) -> None:
     validate_alpha(result.alpha)
     if result.alpha != design.alpha:
         raise ValueError("Result alpha does not match the declared analysis.")
+    if result.alternative != design.alternative:
+        raise ValueError("Result alternative does not match the declared analysis.")
     for count, size in (
         (result.control_successes, design.n_control),
         (result.treatment_successes, design.n_treatment),
@@ -198,6 +296,8 @@ def render_proof(design: Design, result: FisherResult, input_sha256: str) -> str
     validate_result(design, result)
     if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
         raise ValueError("Expected a SHA-256 input identifier.")
+    if design.alternative == "greater":
+        return _render_one_sided_result_proof(design, result, input_sha256)
     nc, nt = design.n_control, design.n_treatment
     an, ad = design.alpha.as_integer_ratio()
     xc, xt = result.control_successes, result.treatment_successes

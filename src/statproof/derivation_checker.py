@@ -19,12 +19,17 @@ from statproof.derivations import (
     FAMILY_ASSUMPTIONS,
     NOT_ESTABLISHED,
     ONE_SAMPLE_ASSUMPTIONS,
+    ONE_SIDED_CONTRACT,
     PLANNING_POINT_ASSUMPTION,
     RULES,
     TWO_STAGE_ASSUMPTIONS,
 )
 
-SUPPORTED_NULLS = {"tests.fisher/fisher": ["equal_proportions"]}
+SUPPORTED_NULLS = {
+    "two_sided": ["equal_proportions"],
+    # The one-sided test fixes the margin at zero.
+    "greater": ["proportion_difference_at_most"],
+}
 SUPPORTED_JOINT_LAWS = ["binomial_marginals"]
 FAMILY_LIMITS = (2, 20)
 ONE_ARM_LIMIT, PER_ARM_LIMIT, STAGE_LIMIT, SEARCH_LIMIT, RATIO_LIMIT = 1000, 500, 200, 120, 10
@@ -174,6 +179,9 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
             "null": "p_treatment = p_control",
         }
         outside = Fraction(point["p_control"]) != Fraction(point["p_treatment"])
+        if two_arm and analysis.get("alternative", "two_sided") == "greater":
+            facts["null"] = "p_treatment <= p_control"
+            outside = Fraction(point["p_treatment"]) > Fraction(point["p_control"])
     else:
         null_rate = search["null_rate"] if analysis is None else analysis["null_rate"]
         facts = {
@@ -229,7 +237,11 @@ def _statement(null: dict) -> str:
 def _analysis_expectations(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
     """(rule, facts, premise holds) for the three premises of the analysis contract."""
     design, null = analysis["design"], analysis["null"]
-    supported = SUPPORTED_NULLS["tests.fisher/fisher"]
+    alternative = analysis.get("alternative", "two_sided")
+    supported = SUPPORTED_NULLS[alternative]
+    null_ok = null["predicate"] in supported and (
+        alternative == "two_sided" or Fraction(null["value"]) == 0
+    )
     alpha = Fraction(analysis["alpha"])
     return [
         (
@@ -249,7 +261,7 @@ def _analysis_expectations(name: str, analysis: dict) -> list[tuple[str, dict, b
                 "statement": _statement(null),
                 "supported": supported,
             },
-            null["predicate"] in supported,
+            null_ok,
         ),
         ("level-range", {"subject": name, "alpha": analysis["alpha"]}, 0 <= alpha <= 1),
     ]
@@ -266,8 +278,9 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     A required step is (rule, facts, holds, rules or step groups it must use).
     """
     name, subject, contract = derivation["name"], derivation["subject"], derivation["contract"]
-    if contract == "tests.fisher/fisher":
-        if subject["test"] != "fisher":
+    if contract in ("tests.fisher/fisher", ONE_SIDED_CONTRACT):
+        one_sided = subject.get("alternative", "two_sided") == "greater"
+        if subject["test"] != "fisher" or one_sided != (contract == ONE_SIDED_CONTRACT):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
     if contract in ("tests.binomial/binomial_test", "designs.two_stage/two_stage_test"):

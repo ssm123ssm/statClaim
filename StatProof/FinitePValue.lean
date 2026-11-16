@@ -53,4 +53,37 @@ theorem probabilityOrdered_rejection_mass_le {ι : Type*}
   · have empty : rejected = ∅ := Finset.not_nonempty_iff_eq_empty.mp inhabited
     simpa [empty] using alpha_nonnegative
 
+
+/-- One-sided p-value on a finite set of counts: the mass at or below the
+observed count. -/
+def lowerTailPValue (support : Finset ℕ) (mass : ℕ → ℚ) (observed : ℕ) : ℚ :=
+  ∑ outcome ∈ support.filter (fun outcome => outcome ≤ observed), mass outcome
+
+/-- Rejecting when the one-sided p-value is at most a threshold has mass at
+most that threshold. -/
+theorem lowerTail_rejection_mass_le (support : Finset ℕ) (mass : ℕ → ℚ)
+    (nonnegative : ∀ outcome ∈ support, 0 ≤ mass outcome)
+    (alpha : ℚ) (alpha_nonnegative : 0 ≤ alpha) :
+    (∑ outcome ∈ support.filter
+      (fun outcome => lowerTailPValue support mass outcome ≤ alpha), mass outcome) ≤ alpha := by
+  classical
+  let rejected := support.filter
+    (fun outcome => lowerTailPValue support mass outcome ≤ alpha)
+  change (∑ outcome ∈ rejected, mass outcome) ≤ alpha
+  by_cases inhabited : rejected.Nonempty
+  · obtain ⟨observed, observed_mem, maximal⟩ := rejected.exists_max_image id inhabited
+    have subset : rejected ⊆ support.filter (fun outcome => outcome ≤ observed) := by
+      intro outcome outcome_mem
+      exact Finset.mem_filter.mpr
+        ⟨(Finset.mem_filter.mp outcome_mem).1, maximal outcome outcome_mem⟩
+    calc
+      (∑ outcome ∈ rejected, mass outcome)
+          ≤ lowerTailPValue support mass observed := by
+        unfold lowerTailPValue
+        exact Finset.sum_le_sum_of_subset_of_nonneg subset
+          (fun outcome outcome_mem _ => nonnegative outcome (Finset.mem_filter.mp outcome_mem).1)
+      _ ≤ alpha := (Finset.mem_filter.mp observed_mem).2
+  · have empty : rejected = ∅ := Finset.not_nonempty_iff_eq_empty.mp inhabited
+    simpa [empty] using alpha_nonnegative
+
 end StatProof

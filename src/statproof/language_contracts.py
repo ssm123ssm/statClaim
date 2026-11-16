@@ -12,10 +12,14 @@ class HypothesisContract:
     guidance: str
     design_argument: str = "design"
     null_argument: str = "null"
+    # When set, the null's value must equal this; other values are a different question.
+    required_value: object = None
 
     def accepts(self, design, hypothesis) -> bool:
         return (
-            design.model == hypothesis.model and hypothesis.predicate in self.supported_predicates
+            design.model == hypothesis.model
+            and hypothesis.predicate in self.supported_predicates
+            and (self.required_value is None or hypothesis.value == self.required_value)
         )
 
     def check(self, name: str, arguments: dict) -> None:
@@ -39,7 +43,9 @@ class HypothesisContract:
             raise LanguageError(
                 Diagnostic("model_mismatch", message, argument.span, related=related)
             )
-        if null.predicate not in self.supported_predicates:
+        if null.predicate not in self.supported_predicates or (
+            self.required_value is not None and null.value != self.required_value
+        ):
             message = (
                 f"{name}: hypothesis contract mismatch.\n"
                 f"Declared null: {null.statement}.\n"
@@ -67,4 +73,14 @@ FISHER_CONTRACT = HypothesisContract(
     "Keep your declared null if it expresses the intended question and choose or implement "
     "an analysis whose contract supports it. Use equal_proportions(model=...) only if "
     "equality is the intended null; replacing the null changes the statistical question.",
+)
+
+ONE_SIDED_FISHER_CONTRACT = HypothesisContract(
+    ("proportion_difference_at_most",),
+    "p_treatment - p_control <= 0 (the treatment is no better than the control)",
+    "The one-sided Fisher analysis tests whether the treatment's success probability exceeds "
+    "the control's. Its null is proportion_difference_at_most(model=..., value=0). A nonzero "
+    "margin is a different question and needs an analysis that supports it. Use "
+    "equal_proportions with fisher(...) for a two-sided question.",
+    required_value=0,
 )

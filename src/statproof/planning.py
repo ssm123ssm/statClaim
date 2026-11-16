@@ -14,7 +14,13 @@ from math import comb, isqrt
 from typing import Literal
 
 from statproof.design import Design
-from statproof.fisher import TEST_ID, TEST_VERSION, fraction_record, parse_alpha
+from statproof.fisher import (
+    ONE_SIDED_TEST_ID,
+    TEST_VERSION,
+    fraction_record,
+    parse_alpha,
+    test_id,
+)
 
 SMALLEST = "smallest_in_range"
 PLANNING_KIND = "statproof_planning_certificate"
@@ -23,6 +29,8 @@ POLICY_KIND = "statproof_policy_certificate"
 
 def planning_theorems(plan) -> list[str]:
     names = ["checked_sizes", "checked_region", "checked_typeI", "checked_power"]
+    if plan.design.alternative == "greater":
+        names.insert(2, "checked_sections")
     return names + ["checked_smaller"] if plan.minimal else names
 
 
@@ -104,12 +112,39 @@ def fisher_cuts(
 
 
 @lru_cache(maxsize=256)
+def fisher_bounds(n_control: int, n_treatment: int, alpha: Fraction) -> tuple[int, ...]:
+    """One-sided test: at each pooled total, control counts below the bound are rejected.
+
+    Lean validates these bounds against the formal one-sided p-value.
+    """
+    an, ad = alpha.as_integer_ratio()
+    bounds = []
+    for total in range(n_control + n_treatment + 1):
+        lower, weights = _table_weights(n_control, n_treatment, total)
+        limit = an * comb(n_control + n_treatment, total)
+        cumulative, bound = 0, lower + len(weights)
+        for offset, weight in enumerate(weights):
+            cumulative += weight
+            if cumulative * ad > limit:
+                bound = lower + offset
+                break
+        bounds.append(bound)
+    return tuple(bounds)
+
+
+@lru_cache(maxsize=256)
 def fisher_rejection_region(
-    n_control: int, n_treatment: int, alpha: Fraction
+    n_control: int, n_treatment: int, alpha: Fraction, alternative: str = "two_sided"
 ) -> tuple[tuple[bool, ...], ...]:
     """Whether each table (control successes, treatment successes) is rejected."""
-    cuts, _ = fisher_cuts(n_control, n_treatment, alpha)
     region = [[False] * (n_treatment + 1) for _ in range(n_control + 1)]
+    if alternative == "greater":
+        for total, bound in enumerate(fisher_bounds(n_control, n_treatment, alpha)):
+            lower, weights = _table_weights(n_control, n_treatment, total)
+            for offset in range(len(weights)):
+                region[lower + offset][total - lower - offset] = lower + offset < bound
+        return tuple(tuple(row) for row in region)
+    cuts, _ = fisher_cuts(n_control, n_treatment, alpha)
     for total, cut in enumerate(cuts):
         lower, weights = _table_weights(n_control, n_treatment, total)
         for offset, weight in enumerate(weights):
@@ -118,10 +153,15 @@ def fisher_rejection_region(
 
 
 def fisher_rejection_probability(
-    n_control: int, n_treatment: int, alpha: Fraction, p_control: Fraction, p_treatment: Fraction
+    n_control: int,
+    n_treatment: int,
+    alpha: Fraction,
+    p_control: Fraction,
+    p_treatment: Fraction,
+    alternative: str = "two_sided",
 ) -> Fraction:
     """Exact probability that the fixed-sample Fisher test rejects at these rates."""
-    region = fisher_rejection_region(n_control, n_treatment, alpha)
+    region = fisher_rejection_region(n_control, n_treatment, alpha, alternative)
     control, treatment = _weights(n_control, p_control), _weights(n_treatment, p_treatment)
     numerator = sum(
         control[x] * sum(treatment[y] for y in range(n_treatment + 1) if region[x][y])
@@ -157,6 +197,8 @@ class PowerPlan:
             _probability(getattr(self, name), name)
         if self.p_control == self.p_treatment:
             raise ValueError("The planning point must lie outside the equal-proportions null.")
+        if self.design.alternative == "greater" and self.p_treatment < self.p_control:
+            raise ValueError("The planning point must have a larger treatment rate.")
         if (self.request == "sample_size") != (self.search is not None):
             raise ValueError("Search bounds accompany exactly the sample_size request.")
         if self.search is not None:
@@ -175,6 +217,7 @@ class PowerPlan:
             self.design.alpha,
             self.p_control,
             self.p_treatment,
+            self.design.alternative,
         )
 
     @property
@@ -207,6 +250,7 @@ def search_equal_arms(
     high: int,
     minimal: bool = False,
     ratio: int = 1,
+    alternative: str = "two_sided",
 ) -> tuple[PowerPlan | None, int]:
     """First control-arm size in ascending order meeting the power target, with
     `ratio` treated participants per control.
@@ -215,7 +259,7 @@ def search_equal_arms(
     """
     for evaluated, size in enumerate(range(low, high + 1), 1):
         plan = PowerPlan(
-            Design(size, ratio * size, "fixed", alpha),
+            Design(size, ratio * size, "fixed", alpha, alternative),
             p_control,
             p_treatment,
             minimum_power,
@@ -228,6 +272,13 @@ def search_equal_arms(
         if plan.power >= minimum_power:
             return plan, evaluated
     return None, high - low + 1
+
+
+NULL_NAMES = {"two_sided": "equal_proportions", "greater": "treatment_at_most_control"}
+
+
+def alternative_of(test: str) -> str:
+    return "greater" if test == ONE_SIDED_TEST_ID else "two_sided"
 
 
 def planning_payload(plan: PowerPlan) -> dict:
@@ -244,9 +295,9 @@ def planning_payload(plan: PowerPlan) -> dict:
             "stopping": "fixed",
         },
         "analysis": {
-            "test": TEST_ID,
+            "test": test_id(plan.design.alternative),
             "test_version": TEST_VERSION,
-            "null": "equal_proportions",
+            "null": NULL_NAMES[plan.design.alternative],
             "alpha": str(plan.design.alpha),
         },
         "target": {
@@ -273,6 +324,7 @@ def parse_planning_payload(payload: dict) -> PowerPlan:
             design["n_treatment"],
             design["stopping"],
             parse_alpha(payload["analysis"]["alpha"]),
+            alternative_of(payload["analysis"]["test"]),
         ),
         *(
             parse_alpha(target[name])
@@ -290,10 +342,15 @@ def parse_planning_payload(payload: dict) -> PowerPlan:
 
 def planning_claims(plan: PowerPlan) -> list[str]:
     sizes = f"({plan.design.n_control}, {plan.design.n_treatment})"
+    one_sided = plan.design.alternative == "greater"
     claims = [
-        f"The two-sided Fisher analysis with arm sizes {sizes} and alpha {plan.design.alpha} "
-        f"has Type I error at most {plan.maximum_typeI} under the null, for every common "
-        "success probability in [0, 1].",
+        f"The one-sided Fisher analysis with arm sizes {sizes} and alpha {plan.design.alpha} "
+        f"has Type I error at most {plan.maximum_typeI} whenever the treatment success "
+        "probability is at most the control's."
+        if one_sided
+        else f"The two-sided Fisher analysis with arm sizes {sizes} and alpha "
+        f"{plan.design.alpha} has Type I error at most {plan.maximum_typeI} under the null, "
+        "for every common success probability in [0, 1].",
         f"Its power is at least {plan.minimum_power} at p_control = {plan.p_control}, "
         f"p_treatment = {plan.p_treatment}.",
     ]
@@ -326,9 +383,88 @@ def _lean_list(values) -> str:
     return "[" + ", ".join(str(value) for value in values) + "]"
 
 
+def _render_one_sided_planning_proof(plan: PowerPlan, input_sha256: str) -> str:
+    nc, nt = plan.design.n_control, plan.design.n_treatment
+    alpha = plan.design.alpha
+    an, ad = alpha.as_integer_ratio()
+    mn, md = plan.maximum_typeI.as_integer_ratio()
+    bn, bd = plan.minimum_power.as_integer_ratio()
+    (a, d), (b, e) = plan.p_control.as_integer_ratio(), plan.p_treatment.as_integer_ratio()
+    point = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
+    smaller = ""
+    if plan.minimal:
+        low, r = plan.search[0], plan.ratio
+        hints = [fisher_bounds(n, r * n, alpha) for n in range(low, nc)]
+        smaller = f"""
+def smallerBounds : List (List ℕ) := {_lean_list(_lean_list(h) for h in hints)}
+
+theorem checked_smaller (n : ℕ) (positive : 0 < n) (lower : {low} ≤ n) (upper : n < {nc}) :
+    ((Core.Policy.fixed (TwoArmBinomial.model
+        ⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩)).law planningPoint).real
+        (FisherOneSided.analysis ⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩
+          declaredLevel).rejection <
+      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ)) :=
+  FisherOneSided.power_lt_of_smallerFail declaredLevel {an} {ad} (by decide)
+    (by norm_num [declaredLevel]) {point} {bn} {bd} (by decide) {r} (by decide) {low} {nc}
+    smallerBounds (by decide +kernel) n positive lower upper
+"""
+    return f"""import StatProof
+import Lean.Util.CollectAxioms
+
+-- Canonical planning SHA-256: {input_sha256}
+-- Power is recomputed in the kernel. The listed bounds are proposals that the
+-- kernel validates against the formal one-sided p-value; they are not trusted.
+set_option maxRecDepth 100000
+set_option maxHeartbeats 20000000
+
+namespace StatProofCertificate
+open StatProof StatProof.Modules
+
+def declaredSizes : FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩
+def declaredLevel : SignificanceLevel :=
+  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
+noncomputable def declaredAnalysis := FisherOneSided.analysis declaredSizes declaredLevel
+noncomputable def planningPoint : TwoArmBinomial.Parameters :=
+  FisherPower.ratePoint {point}
+def bounds : List ℕ := {_lean_list(fisher_bounds(nc, nt, alpha))}
+
+theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
+    0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+
+theorem checked_region : FisherOneSided.HintsValid declaredSizes.nControl
+    declaredSizes.nTreatment {an} {ad} bounds := by
+  decide +kernel
+
+theorem checked_sections : FisherOneSided.HintSections declaredSizes.nControl
+    declaredSizes.nTreatment bounds := by
+  decide +kernel
+
+theorem checked_typeI :
+    (declaredAnalysis.typeIClaim ((({mn} : ℕ) : ℝ) / (({md} : ℕ) : ℝ))).statement := by
+  intro parameter null
+  refine le_trans (FisherOneSided.typeI_of_hints declaredSizes declaredLevel {an} {ad}
+    (by decide) (by norm_num [declaredLevel]) bounds checked_region checked_sections
+    parameter null) ?_
+  norm_num [declaredLevel]
+
+theorem checked_power :
+    (declaredAnalysis.powerClaim (fun parameter => parameter = planningPoint)
+      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
+  FisherOneSided.power_of_check declaredSizes declaredLevel {an} {ad} (by decide)
+    (by norm_num [declaredLevel]) {point}
+    {bn} {bd} (by decide) (by
+      rw [FisherOneSided.rejectionNumerator_hint _ _ _ _ _ _ _ _ bounds checked_region]
+      decide +kernel)
+{smaller}
+end StatProofCertificate
+{_audit(planning_theorems(plan), input_sha256)}"""
+
+
 def render_planning_proof(plan: PowerPlan, input_sha256: str) -> str:
     if not plan.typeI_target_met or plan.design.stopping != "fixed":
         raise ValueError("The Type I target is not established by the Fisher theorem.")
+    if plan.design.alternative == "greater":
+        return _render_one_sided_planning_proof(plan, input_sha256)
     nc, nt = plan.design.n_control, plan.design.n_treatment
     alpha = plan.design.alpha
     an, ad = alpha.as_integer_ratio()

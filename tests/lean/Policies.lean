@@ -106,4 +106,8 @@ tail for 14 of 35 is above 1/40. -/
 example : ¬ (OneSampleBinomial.tailNumerator 35 3 10 14 * 40 ≤ 1 * 10 ^ 35) := by
   decide +kernel
 
+/-- Wrong one-sided bounds are rejected: at total 2 with two per arm, no table
+has a one-sided p-value at or below 1/20. -/
+example : ¬ FisherOneSided.HintsValid 2 2 1 20 [0, 0, 1, 1, 2] := by decide +kernel
+
 end StatProof.Tests.Minimality

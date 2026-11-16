@@ -16,7 +16,7 @@ from pathlib import Path
 from statproof import __version__
 from statproof.design import Design
 from statproof.family import FAMILY_ASSUMPTIONS, Endpoint, FisherFamily
-from statproof.fisher import TEST_ID, TEST_VERSION, FisherResult, parse_alpha
+from statproof.fisher import TEST_VERSION, FisherResult, parse_alpha, test_id
 from statproof.planning import (
     DIFFERENCE_ASSUMPTIONS,
     DIFFERENCE_CHECKED_THEOREMS,
@@ -24,6 +24,7 @@ from statproof.planning import (
     INTERVAL_ASSUMPTIONS,
     INTERVAL_CHECKED_THEOREMS,
     INTERVAL_KIND,
+    NULL_NAMES,
     PLANNING_ASSUMPTIONS,
     PLANNING_KIND,
     POLICY_KIND,
@@ -37,6 +38,7 @@ from statproof.planning import (
     PowerPlan,
     TwoStagePlan,
     TwoStageResult,
+    alternative_of,
     difference_claims,
     difference_payload,
     interval_claims,
@@ -71,6 +73,8 @@ from statproof.proof import (
     CHECKED_THEOREMS,
     DESIGN_CHECKED_THEOREMS,
     FAMILY_CHECKED_THEOREMS,
+    ONE_SIDED_DESIGN_THEOREMS,
+    ONE_SIDED_RESULT_THEOREMS,
     render_design_proof,
     render_family_proof,
     render_proof,
@@ -101,18 +105,48 @@ DESIGN_CLAIMS = [
     "under the null, for every common success probability in [0, 1].",
 ]
 DESIGN_ASSUMPTIONS = ASSUMPTIONS[:3]
+ONE_SIDED_NULL = "the treatment success probability is at most the control's"
+ONE_SIDED_ASSUMPTIONS = [
+    *ASSUMPTIONS[:2],
+    f"The error bound is under the null that {ONE_SIDED_NULL}.",
+    ASSUMPTIONS[3],
+]
+ONE_SIDED_DESIGN_CLAIMS = [
+    "The declared positive sample sizes are Lean checked, and the rejection bounds are "
+    "validated against the formal one-sided p-value.",
+    f"The one-sided Fisher analysis has Type I error at most 1/20 whenever {ONE_SIDED_NULL}.",
+]
+ONE_SIDED_CLAIMS = [
+    "Exact one-sided p-value equals the Lean definition for these counts.",
+    "Reported decision follows from comparing that p-value with the level.",
+    ONE_SIDED_DESIGN_CLAIMS[1],
+]
 
 
 def _profile(kind: str, payload: dict) -> dict:
     """Only these built-in scopes may select claims and generated proof obligations."""
+    one_sided = kind in (
+        "statproof_per_result_certificate",
+        "statproof_design_certificate",
+    ) and "greater" == alternative_of(
+        (payload.get("analysis") or payload.get("result") or {}).get("test", "")
+    )
     if kind == "statproof_per_result_certificate":
         claims, assumptions, theorems = CLAIMS, ASSUMPTIONS, CHECKED_THEOREMS
         scope = "This result and the specified mathematical model; not all Python executions."
         general_theorem = "StatProof.fisher_typeI_error_le_alpha"
+        if one_sided:
+            claims, assumptions = ONE_SIDED_CLAIMS, ONE_SIDED_ASSUMPTIONS
+            theorems = ONE_SIDED_RESULT_THEOREMS
+            general_theorem = "StatProof.Modules.FisherOneSided.typeI_of_hints"
     elif kind == "statproof_design_certificate":
         claims, assumptions, theorems = DESIGN_CLAIMS, DESIGN_ASSUMPTIONS, DESIGN_CHECKED_THEOREMS
         scope = "The declared analysis and mathematical model; no observed results are certified."
         general_theorem = "StatProof.Modules.Fisher.typeI_statement"
+        if one_sided:
+            claims, assumptions = ONE_SIDED_DESIGN_CLAIMS, ONE_SIDED_ASSUMPTIONS[:3]
+            theorems = ONE_SIDED_DESIGN_THEOREMS
+            general_theorem = "StatProof.Modules.FisherOneSided.typeI_of_hints"
     elif kind == "statproof_family_certificate":
         family = _parse_family_payload(payload)
         claims = [
@@ -241,9 +275,9 @@ def design_payload(design: Design) -> dict:
             "stopping": design.stopping,
         },
         "analysis": {
-            "test": TEST_ID,
+            "test": test_id(design.alternative),
             "test_version": TEST_VERSION,
-            "null": "equal_proportions",
+            "null": NULL_NAMES[design.alternative],
             "alpha": str(design.alpha),
         },
     }
@@ -305,6 +339,7 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
             declaration["n_treatment"],
             declaration["stopping"],
             parse_alpha(payload["analysis"]["alpha"]),
+            alternative_of(payload["analysis"]["test"]),
         )
         if canonical_bytes(payload) != canonical_bytes(design_payload(design)):
             raise ValueError("Bound design, analysis, or requested guarantee is inconsistent.")
@@ -334,6 +369,7 @@ def _parse_payload(payload: dict) -> tuple[Design, FisherResult]:
             declaration["n_treatment"],
             declaration["stopping"],
             _fraction_from_record(calculation["alpha"]),
+            alternative_of(calculation["test"]),
         )
         probabilities = []
         for name in ("p_value", "observed_table_probability"):
@@ -352,6 +388,7 @@ def _parse_payload(payload: dict) -> tuple[Design, FisherResult]:
             support_min=calculation["control_success_support"]["min"],
             support_max=calculation["control_success_support"]["max"],
             alpha=design.alpha,
+            alternative=design.alternative,
         )
         # Reconstruct all derived fields; reject changed decisions, table labels,
         # sizes, thresholds, approximations, versions, or additional fields.

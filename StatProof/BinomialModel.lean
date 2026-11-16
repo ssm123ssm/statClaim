@@ -214,4 +214,48 @@ theorem fisherNullRejectionProbability_le_targetAlpha (nControl nTreatment : ℕ
   fisherNullRejectionProbability_le_alpha nControl nTreatment p p_nonnegative p_le_one
     targetAlpha targetAlpha_pos.le
 
+
+/-- Any test that rejects with conditional probability at most `alpha` at every
+pooled success count rejects with probability at most `alpha` when the two arms
+share one success probability. -/
+theorem conditionalTest_rejection_le (nControl nTreatment : ℕ) (p : ℝ)
+    (p_nonnegative : 0 ≤ p) (p_le_one : p ≤ 1) (alpha : ℚ)
+    (reject : ℕ → ℕ → Prop) [∀ total k, Decidable (reject total k)]
+    (conditional : ∀ total,
+      (∑ k ∈ (hypergeometricSupport nControl nTreatment total).filter (reject total),
+        hypergeometricMass nControl nTreatment total k) ≤ alpha) :
+    (∑ counts ∈ binomialCountSupport nControl nTreatment,
+      if reject (counts.1 + counts.2) counts.1
+      then independentBinomialMass nControl nTreatment p counts else 0) ≤ (alpha : ℝ) := by
+  rw [sum_binomialCountSupport_by_total]
+  calc
+    _ ≤ ∑ total ∈ Finset.range (nControl + nTreatment + 1),
+        binomialMass (nControl + nTreatment) p total * (alpha : ℝ) := by
+      apply Finset.sum_le_sum
+      intro total total_mem
+      have feasible : total ≤ nControl + nTreatment := by
+        simpa only [Finset.mem_range, Nat.lt_succ_iff] using total_mem
+      have conditional_bound :
+          (∑ k ∈ (hypergeometricSupport nControl nTreatment total).filter (reject total),
+            (hypergeometricMass nControl nTreatment total k : ℝ)) ≤ (alpha : ℝ) := by
+        exact_mod_cast conditional total
+      calc
+        _ = binomialMass (nControl + nTreatment) p total *
+            ∑ k ∈ (hypergeometricSupport nControl nTreatment total).filter (reject total),
+              (hypergeometricMass nControl nTreatment total k : ℝ) := by
+          rw [Finset.sum_filter, Finset.mul_sum]
+          apply Finset.sum_congr rfl
+          intro k k_mem
+          have bounds := k_mem
+          simp only [hypergeometricSupport, Finset.mem_filter, Finset.mem_range] at bounds
+          have pooled : k + (total - k) = total := by omega
+          simp only [pooled, mul_ite, mul_zero]
+          split_ifs with rejected
+          · exact independentBinomialMass_factorization _ _ _ _ p feasible k_mem
+          · rfl
+        _ ≤ _ := mul_le_mul_of_nonneg_left conditional_bound
+          (binomialMass_nonnegative _ p total p_nonnegative p_le_one)
+    _ = (alpha : ℝ) := by
+      rw [← Finset.sum_mul, binomialMass_sum_one, one_mul]
+
 end StatProof

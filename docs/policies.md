@@ -71,6 +71,15 @@ For two independent arms, `joint_coverage` bounds the probability that both
 arms' sets contain their rates, and `difference_contains` turns the two
 intervals into one for the difference.
 
+## One-sided Fisher test
+
+`StatProof/Modules/FisherOneSided.lean` rejects when the one-sided conditional
+p-value is small. `boundary_le` bounds the error at equal rates for every
+sample size. `typeI_of_hints` extends it to every pair with the treatment rate
+at most the control rate, using the fact that one more treatment success never
+turns a rejection into a non-rejection. That fact is checked for the declared
+design from kernel-validated thresholds.
+
 ## Fisher power
 
 `StatProof/Modules/FisherPower.lean` gives the exact power of the fixed Fisher

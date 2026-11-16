@@ -77,7 +77,7 @@ verification; a valid specification alone is not a proof.
 
 | You want to | Use | Checked by Lean |
 | --- | --- | --- |
-| Compare two proportions | `tests.fisher` | Type I error, exact p-value and decision |
+| Compare two proportions | `tests.fisher` | Type I error, exact p-value and decision; two-sided or one-sided |
 | Test one proportion | `tests.binomial` | Type I error, exact p-value and decision |
 | Estimate one proportion | `tests.binomial` | Coverage of the exact confidence interval |
 | Estimate a difference | `estimation` | Coverage of a conservative interval |
