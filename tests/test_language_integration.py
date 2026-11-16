@@ -9,7 +9,7 @@ import pytest
 from statclaim.design import load_design
 from statclaim.family import load_family
 from statclaim.fisher import fisher_exact
-from statclaim.language_runner import check_source
+from statclaim.language_runner import check_source, render_report
 from statclaim.language_syntax import Source
 from statclaim.verification import (
     canonical_bytes,
@@ -178,6 +178,10 @@ def test_real_verification_fields_match_checked_evidence_and_exact_calculation(l
     assert values["certificate_file"] == evidence["certificate"]["file"]
     assert values["certificate_hash"] == digest(Path(values["certificate_file"]).read_bytes())
     assert values["checked_assumptions"] == evidence["required_assumptions"]
+    assert values["grade"] == evidence["grade"] == "proved"
+    assert values["guarantee"] == evidence["guarantee"] == "finite_sample"
+    text = render_report(report, Source((ROOT / "examples/fields.stat").read_text()))
+    assert "Evidence: proved in Lean; guarantee: finite-sample bound" in text
     assert (
         values["p_value"] == report["requests"][1]["report"]["calculation"]["p_value"]["fraction"]
     )

@@ -6,6 +6,7 @@ from fractions import Fraction
 from types import MappingProxyType
 
 from statclaim.language import (
+    EVIDENCE_GRADES,
     CalculationResultIR,
     ClaimIR,
     FieldIR,
@@ -156,13 +157,18 @@ class Evidence:
     certificate: Mapping
     established_properties: tuple[str, ...]
     required_assumptions: tuple[str, ...]
+    grade: str
 
     def __post_init__(self):
+        if self.grade not in EVIDENCE_GRADES:
+            raise ValueError(f"Unknown evidence grade {self.grade!r}.")
         object.__setattr__(self, "certificate", freeze(self.certificate))
 
     def to_dict(self) -> dict:
         return {
             "type": "Evidence",
+            "grade": self.grade,
+            "guarantee": self.claim.guarantee,
             "claim": normalize(self.claim),
             "certificate": thaw(self.certificate),
             "established_properties": list(self.established_properties),
@@ -182,6 +188,8 @@ class VerificationResult:
     def __post_init__(self):
         if (self.status == "verified") != (self.evidence is not None):
             raise ValueError("Only a successful verification result carries checked evidence.")
+        if self.evidence is not None and self.evidence.grade not in ("proved", "conditional"):
+            raise ValueError("A verified result needs evidence checked by Lean.")
         if self.evidence is not None and self.evidence.claim != self.claim:
             raise ValueError("Evidence must establish the verification result's claim.")
 

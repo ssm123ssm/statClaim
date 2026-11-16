@@ -2,12 +2,21 @@
 // current evidence. Compiler inspection data never supplies proof results.
 const leaf = (label, extra = {}) => ({ label, ...extra });
 const group = (label, children, extra = {}) => ({ label, children, ...extra });
+// Mirrors EVIDENCE_GRADES and GUARANTEE_SCOPES in language.py.
+const GRADES = {
+  proved: 'proved in Lean',
+  conditional: 'proved in Lean, conditional on cited component guarantees',
+  cited: 'cited from the literature; not machine-checked',
+  simulated: 'estimated by simulation; not a proof'
+};
+const SCOPES = { finite_sample: 'finite-sample bound', asymptotic: 'large-sample approximation' };
 
 function evidenceNodes(value, historical = false) {
   const evidence = value?.evidence;
   if (value?.status !== 'verified' || !evidence) return [leaf('No checked evidence')];
   const certificate = evidence.certificate;
   return [group(historical ? 'Historical evidence — previous snapshot only' : 'Checked evidence', [
+    leaf(`Evidence grade: ${GRADES[evidence.grade] || 'unknown'}`),
     leaf(`Certificate: ${certificate.certificate_id}`, { certificate: certificate.file }),
     leaf(`Certificate SHA-256: ${certificate.sha256}`),
     group('Established properties', evidence.established_properties.map(text => leaf(text))),
@@ -41,6 +50,7 @@ function buildClaimsTree(inspection, state, live) {
   }
   for (const claim of inspection.claims) {
     const children = [leaf(claim.description),
+      leaf(`Guarantee: ${SCOPES[claim.guarantee] || 'unknown'}`),
       group('Declared assumptions', claim.assumptions.map(text => leaf(text))),
       group('Known requirements', claim.requirements.length
         ? claim.requirements.map(d => leaf(`${d.code}: ${d.message}`, {

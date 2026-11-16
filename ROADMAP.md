@@ -21,16 +21,27 @@
   conservative interval for a difference of two proportions.
 - Search for optimal or minimax two-stage designs; the selected design is checked.
 - Checked decisions for observed two-stage data.
+- Evidence grades and guarantee scope on every claim.
+
+## Direction
+
+Common trial methods with continuous or large-sample guarantees will be added as
+contracts: the tool checks that the null, the multiplicity and the sampling plan
+fit the method, and lists the assumptions it cites. Lean stays for exact designs
+and for rules that combine tests. Each claim shows its
+[evidence grade](docs/scope.md#evidence-grades).
 
 ## Next
 
-1. One-sided analyses in Bonferroni families.
-2. A narrower exact interval for a difference of two proportions.
-3. Larger sample sizes and p-values for the test with a margin.
-4. Assurance and precision targets for planning.
-5. More adaptive designs: several interim looks, efficacy stopping, allocation.
-6. A formalized Beta posterior, so posterior rules need no stated closed form.
-7. A versioned extension API for community modules.
+1. Contracts for the t-test, ANCOVA and log-rank test; group-sequential alpha
+   spending with the combination proved in Lean.
+2. One-sided analyses in Bonferroni families.
+3. A narrower exact interval for a difference of two proportions.
+4. Larger sample sizes and p-values for the test with a margin.
+5. Assurance and precision targets for planning.
+6. More adaptive designs: several interim looks, efficacy stopping, allocation.
+7. A formalized Beta posterior, so posterior rules need no stated closed form.
+8. A versioned extension API for community modules.
 
 Planning principles: scientific inputs stay explicit; a sufficient sample size
 and the smallest one are separate claims; composing verified parts never

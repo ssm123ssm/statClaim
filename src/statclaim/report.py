@@ -183,6 +183,7 @@ def _verified_report(report: dict, certificate: dict, bundle: Path, *, scope: st
     report.update(
         {
             "status": "verified",
+            "evidence_grade": "proved",
             "certificate_issued": True,
             "backend_invoked": True,
             "verification_scope": scope,
@@ -299,6 +300,7 @@ def _certified(report: dict, certify, plan, *, project: Path, output, timeout: f
         return report
     report.update(
         status="verified",
+        evidence_grade="proved",
         certificate_issued=True,
         backend_invoked=True,
         established_properties=list(certificate["claims"]),

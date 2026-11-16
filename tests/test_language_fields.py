@@ -39,6 +39,8 @@ def test_static_projections_reuse_exact_typed_statistical_inputs(tmp_path):
     assert result["values"]["level"] == result["values"]["subject_level"] == "1/20"
     assert result["values"]["size"] == 100
     assert result["values"]["kind"] == "typeI"
+    scope = report("let scope = typeI(analysis).guarantee\n", tmp_path)
+    assert scope["values"]["scope"] == "finite_sample"
     assert result["requests"] == []
     program, _ = elaborate(Source(BASE + text))
     assert program.bindings[-2].dependencies == ("reused",)

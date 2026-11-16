@@ -93,8 +93,13 @@ SCHEMAS = {
         "control_successes": FieldSpec(int),
         "treatment_successes": FieldSpec(int),
     },
-    ClaimIR: {"kind": FieldSpec(str), "subject": FieldSpec(object)},
+    ClaimIR: {
+        "kind": FieldSpec(str),
+        "subject": FieldSpec(object),
+        "guarantee": FieldSpec(str, description="finite_sample or asymptotic."),
+    },
     Evidence: {
+        "grade": FieldSpec(str, description="proved, conditional, cited or simulated."),
         "claim": FieldSpec(ClaimIR),
         "certificate": FieldSpec(CertificateReference),
         "established_properties": FieldSpec("list"),

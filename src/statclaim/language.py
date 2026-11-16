@@ -51,7 +51,20 @@ from statclaim.planning import (
     TwoStageRule,
 )
 
-LANGUAGE_VERSION = "0.10.0"
+LANGUAGE_VERSION = "0.11.0"
+
+# How a guarantee was established. Only the first two involve Lean.
+EVIDENCE_GRADES = {
+    "proved": "proved in Lean",
+    "conditional": "proved in Lean, conditional on cited component guarantees",
+    "cited": "cited from the literature; not machine-checked",
+    "simulated": "estimated by simulation; not a proof",
+}
+# What kind of statement a guarantee is. An approximation is never shown as a bound.
+GUARANTEE_SCOPES = {
+    "finite_sample": "finite-sample bound",
+    "asymptotic": "large-sample approximation",
+}
 
 
 class PlannableIR:
@@ -379,6 +392,11 @@ class ClaimIR:
     kind: Choice["typeI", "familywise", "result", "meets", "sample_size", "interval"]
     subject: object
     name: str
+
+    @property
+    def guarantee(self) -> str:
+        """The scope of the claimed guarantee; every current module is exact."""
+        return "finite_sample"
 
 
 @dataclass(frozen=True)

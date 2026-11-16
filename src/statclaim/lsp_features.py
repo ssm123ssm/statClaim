@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from statclaim.language import (
+    GUARANTEE_SCOPES,
     MODULES,
     OPERATIONS,
     ClaimIR,
@@ -80,7 +81,8 @@ def claim_markdown(claim: ClaimIR) -> str:
     description = report["target_property"]
     assumptions = "\n".join(f"- {item}" for item in report["required_assumptions"])
     return (
-        f"{description}\n\nRequired assumptions:\n{assumptions}\n\n"
+        f"{description}\n\nGuarantee: {GUARANTEE_SCOPES[claim.guarantee]}.\n\n"
+        f"Required assumptions:\n{assumptions}\n\n"
         "Declaring a claim is not a proof."
     )
 

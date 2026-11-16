@@ -41,6 +41,26 @@ Independence, the sampling law and other declared assumptions must match reality
 inspect requirements without verification. `verify` creates evidence only when
 its backend succeeds. Missing or failed verification leaves evidence absent.
 
+## Evidence grades
+
+Every piece of evidence states how its guarantee was established:
+
+| Grade | Meaning |
+| --- | --- |
+| `proved` | Proved in Lean. |
+| `conditional` | Proved in Lean, given cited guarantees for the component tests. |
+| `cited` | Taken from the literature; not machine-checked. |
+| `simulated` | Estimated by simulation; not a proof. |
+
+Every claim also states its scope: `finite_sample` for a bound that holds at the
+declared sample size, or `asymptotic` for a large-sample approximation. The two
+are never shown as the same thing.
+
+All current modules are `proved` and `finite_sample`. The other grades are for
+planned methods whose guarantees Lean cannot yet prove. Read them with
+`evidence.grade` and `claim.guarantee`. Only `proved` and `conditional` evidence
+can give a `verified` status.
+
 Certificates record source/toolchain hashes and can be replayed. Trust includes
 the Lean kernel and declared axioms, the pinned dependencies, and the translation
 from statistical intent to the formal statement. CI audits Lean sources and

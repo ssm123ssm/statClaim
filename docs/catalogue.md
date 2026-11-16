@@ -47,7 +47,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Claim | Requested typeI, result, familywise or planning proposition. | `kind: string`, `subject: object` |
+| Claim | Requested typeI, result, familywise or planning proposition. | `kind: string`, `subject: object`, `guarantee: string` |
 | VerificationResult | Explicit verification outcome; optional evidence. | `request_id: integer`, `claim: Claim`, `source_sha256: string`, `status: string`, `diagnostics: list`, `evidence: Option[Evidence]` |
 | CalculationResult | Calculation outcome; no proof evidence. | `request_id: integer`, `claim: Claim`, `source_sha256: string`, `status: string`, `diagnostics: list`, `calculation: Option[CalculationDetails]`, `decision: Option[string]` |
 
@@ -55,7 +55,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Evidence | Checked properties, assumptions and certificate. | `claim: Claim`, `certificate: CertificateReference`, `established_properties: list`, `required_assumptions: list` |
+| Evidence | Checked properties, assumptions and certificate. | `grade: string`, `claim: Claim`, `certificate: CertificateReference`, `established_properties: list`, `required_assumptions: list` |
 | CertificateReference | Certificate identity, path and hash. | `certificate_id: string`, `file: string`, `directory: string`, `sha256: string` |
 | CalculationDetails | Exact p-value, alpha and test details. | `p_value: exact number`, `alpha: exact number`, `observed_table_probability: exact number`, `p_value_le_alpha: boolean`, `test: string`, `test_version: string` |
 | PlanningDetails | Calculated sizes, power and target components; not proof evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |

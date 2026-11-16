@@ -4,11 +4,11 @@ const { buildClaimsTree } = require('../claims-model');
 
 const claim = { kind: 'typeI', subject_name: 'analysis', subject: { alpha: '1/20' } };
 const inspection = { uri: 'file:///study.stat', version: 2, status: 'elaborated', diagnostics: [], claims: [{
-  names: ['validity'], kind: 'typeI', claim, description: 'Uniform Type I bound', assumptions: ['Declared model'],
+  names: ['validity'], kind: 'typeI', guarantee: 'finite_sample', claim, description: 'Uniform Type I bound', assumptions: ['Declared model'],
   requirements: [], range: { start: { line: 1, character: 0 }, end: { line: 1, character: 10 } },
   requests: [{ request_id: 1, operation: 'verify', names: ['checked'], requirements: [] }]
 }] };
-const evidence = { certificate: { certificate_id: 'certificate', file: '/certificate.json', sha256: 'hash' },
+const evidence = { grade: 'proved', certificate: { certificate_id: 'certificate', file: '/certificate.json', sha256: 'hash' },
   established_properties: ['Bound checked'], required_assumptions: ['Declared model'] };
 const request = { request_id: 1, operation: 'verify', status: 'verified', value: { status: 'verified', claim, evidence } };
 const state = { version: 2, sha256: 'source', stale: false,
@@ -28,6 +28,8 @@ test('only a matching execution snapshot exposes current evidence and checked as
   assert.ok(tree.includes('verify #1: verified'));
   assert.ok(tree.includes('Checked evidence'));
   assert.ok(tree.includes('Required assumptions — not established by this proof'));
+  assert.ok(tree.includes('Evidence grade: proved in Lean'));
+  assert.ok(tree.includes('Guarantee: finite-sample bound'));
 });
 
 for (const [index, changed] of [{ ...state, stale: true }, { ...state, version: 1 }, { ...state, sha256: 'old' },

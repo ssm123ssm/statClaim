@@ -206,6 +206,7 @@ def inspect_program(compilation: Compilation) -> list[dict]:
             {
                 "names": item["names"],
                 "kind": claim.kind,
+                "guarantee": claim.guarantee,
                 "claim": normalize(claim),
                 "source": span.to_dict(),
                 "description": description["target_property"],

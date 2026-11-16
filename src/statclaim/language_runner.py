@@ -7,6 +7,8 @@ from fractions import Fraction
 from pathlib import Path
 
 from statclaim.language import (
+    EVIDENCE_GRADES,
+    GUARANTEE_SCOPES,
     LANGUAGE_VERSION,
     AnalysisIR,
     FamilyIR,
@@ -183,6 +185,7 @@ def _result_value(
             details["certificate"],
             tuple(details["established_properties"]),
             tuple(details["required_assumptions"]),
+            details["evidence_grade"],
         )
     # Keep the established aggregate report status for CLI compatibility, but
     # distinguish backend errors from missing statistical requirements in values.
@@ -431,6 +434,11 @@ def render_report(report: dict, source: Source) -> str:
             status = request["status"]
         lines.append(f"{status}{label}: {request['claim']}({request['subject']})")
         if details["certificate_issued"]:
+            evidence = request["value"]["evidence"]
+            lines.append(
+                f"  Evidence: {EVIDENCE_GRADES[evidence['grade']]}; "
+                f"guarantee: {GUARANTEE_SCOPES[evidence['guarantee']]}"
+            )
             for claim in details["established_properties"]:
                 lines.append(f"  {claim}")
             lines.append("  Assumptions:")

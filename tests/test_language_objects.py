@@ -275,11 +275,20 @@ def test_execution_values_cannot_change_evidence_or_numeric_payloads():
     compilation = compile_source(first_class())
     claim = compilation.program.requests[0].claim
     certificate = {"certificate_id": "checked", "dependencies": ["a"]}
-    evidence = Evidence(claim, certificate, ("claim checked",), ("model assumed",))
+    evidence = Evidence(claim, certificate, ("claim checked",), ("model assumed",), "proved")
     certificate["dependencies"].append("changed")
     assert evidence.to_dict()["certificate"]["dependencies"] == ["a"]
     with pytest.raises(TypeError):
         evidence.certificate["certificate_id"] = "changed"
+    assert evidence.to_dict()["grade"] == "proved"
+    assert evidence.to_dict()["guarantee"] == claim.guarantee == "finite_sample"
+    with pytest.raises(ValueError, match="Unknown evidence grade"):
+        Evidence(claim, certificate, (), (), "certain")
+    # Evidence that Lean did not check can never back a verified status.
+    for grade in ("cited", "simulated"):
+        unchecked = Evidence(claim, certificate, (), ("model assumed",), grade)
+        with pytest.raises(ValueError, match="checked by Lean"):
+            VerificationResult(1, claim, "snapshot", "verified", unchecked)
     with pytest.raises(ValueError, match="Only a successful"):
         VerificationResult(1, claim, "snapshot", "verified")
     with pytest.raises(ValueError, match="Only a successful"):
