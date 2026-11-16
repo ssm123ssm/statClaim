@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatProof tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Nine short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Ten short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statproof ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatProof: Show Claims</strong> and
   <strong>StatProof: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatProof says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#sample-size"><span class="n">6</span>Choosing a sample size</a></li><li><a href="#single-arm"><span class="n">7</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">8</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">9</span>A Bayesian stopping rule</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatProof says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#single-arm"><span class="n">8</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">9</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">10</span>A Bayesian stopping rule</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -266,7 +266,7 @@ Program status: unresolved_obligation</code></pre></div>
 <p><span class="pill warn">unresolved</span> is different from invalid. The file is well formed, but
 the 5% guarantee was proved for a fixed sample size and nothing here shows it survives
 early stopping. StatProof does not claim the error rate is inflated. It says the
-justification is missing. Lesson 8 shows how to plan an early stop properly.</p>
+justification is missing. Lesson 9 shows how to plan an early stop properly.</p>
 <div class="scroll"><table>
   <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
   <tbody>
@@ -385,14 +385,95 @@ Bonferroni method gives each test a share of the budget.</p>
     <div class="task"><h4>Try it</h4><p>Set all three levels to <code>1/20</code>. You get an <code>allocation</code> obligation: the shares now add up to 3/20.</p></div>
   </div>
 </section>
-<section class="lesson" id="sample-size">
+<section class="lesson" id="why">
   <p class="eyebrow">Lesson 6</p>
+  <h2>Why it passed, and what a change affects</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>So far a valid file has been silent: no message means the pieces fit. We now ask StatProof to show its reasoning, produce a report for the study file, and tell us what an edit affects.</p></div>
+
+<p>When you write <code>fisher(design=..., null=..., alpha=...)</code>, StatProof checks
+that the pieces fit together. Lesson 3 showed what happens when they do not. When they
+do, the reasoning is kept and shown only if you ask. No new file is needed; we use the
+one from lesson 5.</p>
+<div class="scroll shell"><pre><code>statproof explain examples/tutorial/05_several_endpoints.stat --name response</code></pre></div>
+<div class="scroll output"><pre><code>Conclusion: response: the design, the null and the level fit this analysis.
+
+Why it passed
+1. same-model: the null and the design describe the same study model.
+2. supported-null: the declared null (p_treatment = p_control) is supported by this analysis.
+3. level-range: the level 1/40 is a probability.
+4. analysis-contract (from steps 1, 2, 3): the design, the null and the level fit this analysis.
+5. fixed-sampling: sampling is fixed, as the fixed-sample error theorem requires.
+
+Assumptions you must meet in the real study
+- The two samples are independent, each with one common success probability.
+- The arm sizes are fixed before outcomes are observed.
+- The analysis and its level are chosen before outcomes are observed.
+
+Unresolved obligations: None.
+Not established here: No statistical guarantee is established here.
+Independent check of this derivation: passed.</code></pre></div>
+<p>This is called a <strong>derivation</strong>. Read its parts separately:</p>
+<div class="scroll"><table>
+  <thead><tr><th>Part</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>Steps</td><td>Established from your declarations by a stated rule.</td></tr>
+    <tr><td>Assumptions</td><td>Facts about the real study. StatProof cannot check them; you must.</td></tr>
+    <tr><td>Unresolved obligations</td><td>Something a later guarantee needs that is not shown yet.</td></tr>
+    <tr><td>Not established here</td><td>A reminder: this is about fit, not about error rates.</td></tr>
+  </tbody>
+</table></div>
+<p>A derivation says the declarations fit together. It is not the 5% guarantee; that is
+still the job of <code>verify</code>. The last line means a second, separate program
+re-read the declarations and confirmed every step.</p>
+<div class="note"><strong>In VS Code.</strong> Put the cursor on a declaration and run
+<strong>StatProof: Explain Contract</strong>. Leave out <code>--name</code> on the
+command line to explain every declaration, including the family
+<code>endpoints</code>.</div>
+<h3>A report for the whole file</h3>
+<div class="scroll shell"><pre><code>statproof report examples/tutorial/05_several_endpoints.stat --output report.md</code></pre></div>
+<p>The report collects every derivation, the assumptions to meet, the open obligations
+and the claims the file requests. It is meant for a protocol appendix or a reviewer.</p>
+<h3>What does an edit affect?</h3>
+<p>A colleague suggests giving the two secondary endpoints more of the budget. The
+edited file changes two levels from <code>1/80</code> to <code>1/40</code>:</p>
+<figure class="code"><figcaption>examples/tutorial/06_changed_levels.stat</figcaption><div class="scroll"><pre><code><span class="k">let</span> response = <span class="f">fisher</span>(design=design, null=null, alpha=1/40)
+<span class="k">let</span> remission = <span class="f">fisher</span>(design=design, null=null, alpha=1/40)
+<span class="k">let</span> relapse = <span class="f">fisher</span>(design=design, null=null, alpha=1/40)</code></pre></div></figure>
+<div class="scroll shell"><pre><code>statproof impact examples/tutorial/05_several_endpoints.stat examples/tutorial/06_changed_levels.stat</code></pre></div>
+<div class="scroll output"><pre><code>Declarations
+- remission: changed directly
+- relapse: changed directly
+- endpoints: affected through a dependency
+
+Contracts affected
+- remission: satisfied -&gt; satisfied (re-derived for the new declaration)
+- relapse: satisfied -&gt; satisfied (re-derived for the new declaration)
+- endpoints: satisfied -&gt; satisfied, 1 unresolved
+
+Claims affected
+- verify familywise(endpoints): must be re-run: its subject changed
+
+New diagnostics
+- <span class="warn">obligation [allocation]</span> (line 17): endpoints: allocated alpha 3/40 exceeds the
+  requested family bound 1/20.</code></pre></div>
+<p>Each analysis is still fine on its own. The family is where the edit bites: the
+shares now add up to 3/40, so the familywise claim has an open obligation, and the
+certificate from lesson 5 no longer describes this file. In VS Code,
+<strong>StatProof: Show Change Impact</strong> does the same for your unsaved edits.</p>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>A passing declaration keeps a derivation; you see it only when you ask.</li><li>Steps are established, assumptions are yours to meet, obligations are still open.</li><li><code>report</code> documents a study file; <code>impact</code> shows what an edit affects.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Run <code>statproof explain</code> on <code>03_optional_stopping.stat</code>. The declaration passes its contract, with one unresolved obligation: the missing justification from lesson 3.</p></div>
+  </div>
+</section>
+<section class="lesson" id="sample-size">
+  <p class="eyebrow">Lesson 7</p>
   <h2>Choosing a sample size</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>Before the study, we ask how many participants are needed to have an 80% chance of detecting the effect we expect.</p></div>
 
 <p>Power depends on what you expect to happen. Those expectations are inputs you must
 supply. Here we expect a 10% success rate under control and 40% under treatment.</p>
-<figure class="code"><figcaption>examples/tutorial/06_sample_size.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 6: how many participants?</span>
+<figure class="code"><figcaption>examples/tutorial/07_sample_size.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 7: how many participants?</span>
 <span class="k">use</span> models.two_arm_binomial
 <span class="k">use</span> sampling
 <span class="k">use</span> tests.fisher
@@ -454,12 +535,12 @@ is about the range you declared, not about all possible designs.</div>
   </div>
 </section>
 <section class="lesson" id="single-arm">
-  <p class="eyebrow">Lesson 7</p>
+  <p class="eyebrow">Lesson 8</p>
   <h2>A single-arm study</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>Everyone receives the treatment and we ask whether the response rate beats a known benchmark of 20%. We plan the study, analyse it, and report an interval.</p></div>
 
-<p>This lesson uses a new test module but the planning vocabulary from lesson 6.</p>
-<figure class="code"><figcaption>examples/tutorial/07_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 7: one arm, from planning to estimate.</span>
+<p>This lesson uses a new test module but the planning vocabulary from lesson 7.</p>
+<figure class="code"><figcaption>examples/tutorial/08_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 8: one arm, from planning to estimate.</span>
 <span class="k">use</span> tests.binomial
 <span class="k">use</span> planning
 
@@ -489,7 +570,7 @@ is about the range you declared, not about all possible designs.</div>
   smallest sufficient candidate in the range 10 to 60.</code></pre></div>
 <p>So we recruit 35 and will declare success with 12 or more responders.</p>
 <h3>After the study</h3>
-<figure class="code"><figcaption>examples/tutorial/07_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Analyse: the study ran with 35 participants and 14 responded.</span>
+<figure class="code"><figcaption>examples/tutorial/08_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Analyse: the study ran with 35 participants and 14 responded.</span>
 <span class="k">let</span> study = <span class="f">one_arm_binomial</span>(n=35)
 <span class="k">let</span> analysis = <span class="f">binomial_test</span>(model=study, null_rate=1/5, alpha=1/20)
 <span class="k">let</span> data = <span class="f">responses</span>(analysis=analysis, count=14)
@@ -527,14 +608,14 @@ way contain it at least 95% of the time.</p>
   </div>
 </section>
 <section class="lesson" id="stopping">
-  <p class="eyebrow">Lesson 8</p>
+  <p class="eyebrow">Lesson 9</p>
   <h2>Stopping early</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>We return to the problem from lesson 3 and solve it: a study with a planned interim look that stops early if the treatment is clearly not working.</p></div>
 
 <p>Early stopping is fine when the rule is part of the design and the error rates are
 worked out for the whole procedure. A two-stage design does this: treat a first group,
 stop if too few respond, otherwise continue.</p>
-<figure class="code"><figcaption>examples/tutorial/08_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 8: a design with a planned interim look.</span>
+<figure class="code"><figcaption>examples/tutorial/09_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 9: a design with a planned interim look.</span>
 <span class="k">use</span> designs.two_stage
 <span class="k">use</span> planning
 
@@ -566,13 +647,13 @@ whole procedure, interim look included.</p>
   rejecting above 12 in total) rejects with probability at most 1/20 for every
   response rate at or below 1/5.
   It rejects with probability at least 4/5 at the response rate 2/5.</code></pre></div>
-<p>Compare with lesson 7. The fixed design needed 35 participants. This one needs up to
+<p>Compare with lesson 8. The fixed design needed 35 participants. This one needs up to
 43, but if the treatment does not work it stops after 13 about three times in four, for
 an average of 21.</p>
 <h3>Finding a design</h3>
 <p>You do not have to guess the numbers. Describe the search and use
 <code>sample_size</code>:</p>
-<figure class="code"><figcaption>examples/tutorial/08_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Or let StatProof find one.</span>
+<figure class="code"><figcaption>examples/tutorial/09_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Or let StatProof find one.</span>
 <span class="k">let</span> search = <span class="f">two_stage_designs</span>(null_rate=1/5, max_total=45, criterion=<span class="s">&quot;minimax&quot;</span>)
 <span class="k">let</span> found = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=search, target=target))</code></pre></div></figure>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [found]: sample_size(search)
@@ -590,11 +671,11 @@ selected design. That it is the best one is a calculation, and the output says s
   </div>
 </section>
 <section class="lesson" id="bayesian">
-  <p class="eyebrow">Lesson 9</p>
+  <p class="eyebrow">Lesson 10</p>
   <h2>A Bayesian stopping rule</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>Many teams prefer to decide with posterior probabilities. We write such a rule and then check its false-positive rate and power, which the rule alone does not give us.</p></div>
 
-<figure class="code"><figcaption>examples/tutorial/09_bayesian_rule.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 9: decide with posterior probabilities, then check error rates.</span>
+<figure class="code"><figcaption>examples/tutorial/10_bayesian_rule.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 10: decide with posterior probabilities, then check error rates.</span>
 <span class="k">use</span> designs.two_stage
 <span class="k">use</span> planning
 
@@ -621,7 +702,7 @@ selected design. That it is the best one is a calculation, and the output says s
   success at the end if it is at least 19/20.</dd>
 </dl>
 <p>Only the rule changed. The stages, the test and the target are declared as in
-lesson 8.</p>
+lesson 9.</p>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [characteristics]: meets(analysis)
   stages = (10, 20); Type I at the null rate ~ 0.0581; expected sample size under the null ~ 22.48
   power ~ 0.8059; power target met = true; Type I target met = true
@@ -649,9 +730,10 @@ not proved in Lean, and the certificate lists this under its assumptions.</div>
     <tbody>
       <tr><td>Compare two proportions</td><td><code>models.two_arm_binomial</code>, <code>sampling</code>, <code>tests.fisher</code></td><td><code>typeI</code>, <code>result</code></td><td>1, 4</td></tr>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5</td></tr>
-      <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>6</td></tr>
-      <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>7</td></tr>
-      <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>8, 9</td></tr>
+      <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
+      <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>8</td></tr>
+      <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>9, 10</td></tr>
+      <tr><td>See why a declaration passed, or what an edit affects</td><td>(built in)</td><td><code>explain</code>, <code>report</code>, <code>impact</code> commands</td><td>6</td></tr>
     </tbody>
   </table></div>
   <p>Every claim goes through <code>calculate</code> for numbers or <code>verify</code> for

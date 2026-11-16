@@ -1,4 +1,4 @@
-# Lesson 9: decide with posterior probabilities, then check error rates.
+# Lesson 10: decide with posterior probabilities, then check error rates.
 use designs.two_stage
 use planning
 

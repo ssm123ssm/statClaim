@@ -1,4 +1,4 @@
-# Lesson 6: how many participants?
+# Lesson 7: how many participants?
 use models.two_arm_binomial
 use sampling
 use tests.fisher
