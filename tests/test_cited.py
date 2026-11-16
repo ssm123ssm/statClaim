@@ -415,3 +415,24 @@ def test_contract_guidance_lists_the_tests_for_the_outcome():
     )
     message = compilation.diagnostics[0].message
     assert "t_test_one_sided takes mean_difference_at_most" in message
+
+
+def test_study_report_gives_statuses_and_one_assumption_table():
+    from statclaim.contract_reports import report_markdown, study_report
+
+    report = study_report(compile_source(Source(MIXED)), "mixed_endpoints.stat")
+    by_name = {
+        claim["names"][0] if claim["names"] else claim["kind"]: claim for claim in report["claims"]
+    }
+    statuses = sorted(claim["best_status"] for claim in report["claims"])
+    assert statuses == ["conditional", "verified"]
+    register = {item["id"] or item["text"]: item for item in report["assumption_register"]}
+    assert register["normal_outcomes"]["status"] == "assumed"
+    assert register["prespecified_family"]["status"] == "declared"
+    assert register["member_guarantee:symptoms"]["kind"] == "member"
+    assert all(item["needed_by"] for item in register.values())
+    text = report_markdown(report)
+    assert "## Evidence each claim can receive" in text
+    assert "conditional: combination proved in Lean; members assumed" in text
+    assert "| Assumption | Kind | Status | Needed by |" in text
+    assert by_name

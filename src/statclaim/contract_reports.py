@@ -98,6 +98,42 @@ def explanation_markdown(entry: dict) -> str:
     return "\n".join(lines)
 
 
+def assumption_register(claims: list[dict]) -> list[dict]:
+    """Every assumption the requested claims rest on, once, with the claims that need it.
+
+    Cited and conditional claims supply ids and kinds. Other claims supply text only.
+    """
+    register: dict[str, dict] = {}
+    for claim in claims:
+        label = ", ".join(claim["names"]) or f"{claim['kind']}({claim['claim']['subject_name']})"
+        identified = claim["identified_assumptions"]
+        entries = identified or [
+            {"id": None, "kind": None, "text": text, "status": "assumed"}
+            for text in claim["assumptions"]
+        ]
+        for entry in entries:
+            item = register.setdefault(
+                entry["id"] or entry["text"],
+                {
+                    "id": entry["id"],
+                    "kind": entry["kind"],
+                    "text": entry["text"],
+                    "status": entry["status"],
+                    "needed_by": [],
+                },
+            )
+            if label not in item["needed_by"]:
+                item["needed_by"].append(label)
+    return list(register.values())
+
+
+STATUS_MEANING = {
+    "verified": "proved in Lean",
+    "conditional": "combination proved in Lean; members assumed",
+    "cited": "cited from the literature; not machine-checked",
+}
+
+
 def study_report(compilation: Compilation, path: str) -> dict:
     """Validated contracts, requested claims, assumptions and open obligations."""
     contracts = explain(compilation)
@@ -121,7 +157,12 @@ def study_report(compilation: Compilation, path: str) -> dict:
             {
                 "names": claim["names"],
                 "kind": claim["kind"],
+                "label": ", ".join(claim["names"])
+                or f"{claim['kind']}({claim['claim']['subject_name']})",
                 "description": claim["description"],
+                "scope": claim["scope"],
+                "best_status": claim["best_status"],
+                "guarantee": claim["guarantee"],
                 "assumptions": claim["assumptions"],
                 "requirements": claim["requirements"],
                 "verification_requested": any(
@@ -131,6 +172,7 @@ def study_report(compilation: Compilation, path: str) -> dict:
             for claim in claims
         ],
         "assumptions": assumptions,
+        "assumption_register": assumption_register(claims),
         "obligations": obligations,
         "diagnostics": [diagnostic.to_dict() for diagnostic in compilation.diagnostics],
         "all_derivations_checked": all(entry["checked"] for entry in contracts),
@@ -161,8 +203,51 @@ def report_markdown(report: dict) -> str:
         )
     if not report["contracts"]:
         lines.append("| (none) | | | |")
+    lines += [
+        "",
+        "## Evidence each claim can receive",
+        "",
+        "The strongest status `verify(...)` can give each claim. Nothing was run for this report.",
+        "",
+        "| Claim | Kind | Best status | Exact or approximate |",
+        "| --- | --- | --- | --- |",
+    ]
+    for claim in report["claims"]:
+        names = f"`{claim['label']}`"
+        scope = (
+            "exact at the declared size"
+            if claim["scope"] == "finite_sample"
+            else ("large-sample approximation")
+        )
+        lines.append(
+            f"| {names} | {claim['kind']} | {claim['best_status']}: "
+            f"{STATUS_MEANING[claim['best_status']]} | {scope} |"
+        )
+    if not report["claims"]:
+        lines.append("| (none) | | | |")
     lines += ["", "## Assumptions to meet in the real study", ""]
-    lines += [f"- {assumption}" for assumption in report["assumptions"]] or ["None recorded."]
+    if report["assumption_register"]:
+        lines += [
+            "Declared: stated by this file. Assumed: nothing in the file can show it.",
+            "",
+            "| Assumption | Kind | Status | Needed by |",
+            "| --- | --- | --- | --- |",
+        ]
+        lines += [
+            f"| {item['text']} | {item['kind'] or 'model'} | {item['status']} | "
+            f"{', '.join(item['needed_by'])} |"
+            for item in report["assumption_register"]
+        ]
+    extra = [
+        text
+        for text in report["assumptions"]
+        if text not in {item["text"] for item in report["assumption_register"]}
+    ]
+    if extra:
+        lines += ["", "For declarations with no requested claim:", ""]
+        lines += [f"- {assumption}" for assumption in extra]
+    if not report["assumption_register"] and not extra:
+        lines.append("None recorded.")
     lines += ["", "## Outstanding obligations", ""]
     lines += [
         f"- `{item['contract']}` / `{item['code']}`: {item['statement']}"

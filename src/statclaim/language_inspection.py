@@ -227,6 +227,15 @@ def inspect_request(request: RequestIR) -> dict:
     return report
 
 
+def best_status(claim: ClaimIR) -> str:
+    """The strongest status verify(...) can give this claim. Nothing is run."""
+    if isinstance(claim.subject, CitedAnalysisIR):
+        return "cited"
+    if isinstance(claim.subject, ComposedFamilyIR):
+        return "conditional"
+    return "verified"
+
+
 def inspect_program(compilation: Compilation) -> list[dict]:
     program = compilation.program
     claims = {}
@@ -259,6 +268,9 @@ def inspect_program(compilation: Compilation) -> list[dict]:
                 "names": item["names"],
                 "kind": claim.kind,
                 "scope": claim.scope,
+                "best_status": best_status(claim),
+                "guarantee": claim.guarantee.to_dict() if claim.guarantee else None,
+                "identified_assumptions": description.get("assumptions", []),
                 "claim": normalize(claim),
                 "source": span.to_dict(),
                 "description": description["target_property"],
