@@ -26,12 +26,23 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: OutcomeNull`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
-| ComposedFamily | A family with cited members: the combination is proved, the members are assumed. | `analyses: list`, `alpha: exact number` |
+| ComposedFamily | A family beyond two-sided Fisher: the combination is proved, the members assumed. | `analyses: list`, `alpha: exact number` |
 | OneArmModel | One arm with a fixed sample size. | `n: integer` |
 | OneSampleAnalysis | One-sided exact binomial test with its null rate and alpha. | `model: OneArmModel`, `null_rate: exact number`, `alpha: exact number` |
 | OneSampleObservation | Observed responses for a one-sample test. | `analysis: OneSampleAnalysis`, `responses: integer` |
 | DifferenceInterval | Observed two-arm counts and a confidence level. | `model: Model`, `control_successes: integer`, `treatment_successes: integer`, `level: exact number` |
 | Interval | Observed count and confidence level. | `model: OneArmModel`, `responses: integer`, `level: exact number` |
+
+## Adaptive design objects
+
+| Object | Meaning | Public fields |
+| --- | --- | --- |
+| Sequential | Looks at cumulative sample sizes, each with the level spent there. | `looks: list`, `alpha: exact number` |
+| TwoStageModel | Stage sizes of a single-arm design. | `n_stage1: integer`, `n_stage2: integer` |
+| TwoStageObservation | Observed counts, with stage two only if the study continued. | `analysis: TwoStageAnalysis`, `stage1_responses: integer`, `stage2_responses: Option[integer]` |
+| Prior | Beta prior with positive integer parameters. | `a: integer`, `b: integer` |
+| Rule | Interim continuation and final decision rule. | `kind: string` |
+| TwoStageAnalysis | Complete policy: stages, rule and the null response rate. | `design: TwoStageModel`, `rule: Rule`, `null_rate: exact number` |
 
 ## Planning objects
 
@@ -45,16 +56,6 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Sizing | Candidates searched for a design meeting a target. | `candidates: Candidates`, `target: PowerTarget` |
 | OneArmCandidates | Sample sizes searched for a one-sample test. | `analysis: OneSampleAnalysis`, `min_n: integer`, `max_n: integer` |
 | TwoStageCandidates | Two-stage designs searched by an optimal or minimax criterion. | `null_rate: exact number`, `max_total: integer`, `criterion: string` |
-
-## Adaptive design objects
-
-| Object | Meaning | Public fields |
-| --- | --- | --- |
-| TwoStageModel | Stage sizes of a single-arm design. | `n_stage1: integer`, `n_stage2: integer` |
-| TwoStageObservation | Observed counts, with stage two only if the study continued. | `analysis: TwoStageAnalysis`, `stage1_responses: integer`, `stage2_responses: Option[integer]` |
-| Prior | Beta prior with positive integer parameters. | `a: integer`, `b: integer` |
-| Rule | Interim continuation and final decision rule. | `kind: string` |
-| TwoStageAnalysis | Complete policy: stages, rule and the null response rate. | `design: TwoStageModel`, `rule: Rule`, `null_rate: exact number` |
 
 ## Evidence and inspection
 
@@ -153,7 +154,7 @@ Exact test of p_treatment - p_control <= margin, for non-inferiority (negative m
 
 ### `multiplicity.bonferroni` — Multiplicity and composition
 
-Bonferroni for two to twenty endpoints; dependence between them is unrestricted. A family of two-sided Fisher analyses is proved outright. A family with cited tests is conditional: Lean checks the combination and the members are assumed.
+Bonferroni for two to twenty endpoints; dependence between them is unrestricted. A family of two-sided Fisher analyses is proved outright. Any other family, with one-sided, margin or cited tests, is conditional: Lean checks the combination and the members are assumed.
 
 - `bonferroni(analyses, alpha, [joint_law]) -> Family`
 - `familywise(family) -> FamilywiseClaim`
@@ -171,6 +172,13 @@ Exact power at a planning point, target checks and a bounded sample-size search 
 - `response_rate(value) -> Rate`
 - `sample_size(candidates, target) -> PlanningClaim`
 - `smallest_sample_size(candidates, target) -> PlanningClaim`
+
+### `designs.group_sequential` — Adaptive designs
+
+One test repeated at several looks with the error level split across them, stopping at the first rejection. Lean checks that the split gives the overall bound; each look's own bound is assumed. Conservative: it ignores the correlation between looks.
+
+- `alpha_spending(looks, alpha) -> Sequential`
+- `typeI(analysis) -> TypeIClaim`
 
 ### `designs.two_stage` — Adaptive designs
 

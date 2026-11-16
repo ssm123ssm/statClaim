@@ -43,7 +43,7 @@ def test_mixed_family_is_conditional_and_its_fisher_member_is_verified(mixed):
     assert family["status"] == "conditional" and primary["status"] == "verified"
     evidence = family["evidence"]
     assert evidence["grade"] == "conditional" and evidence["machine_checked"] == "composition"
-    assert evidence["sources"] == ["lean_proof", "literature"]
+    assert evidence["sources"] == ["lean_proof", "member_guarantees"]
     assert evidence["scope"] == "finite_sample" and evidence["guarantee"]["bound"] == "1/20"
     ids = [item["id"] for item in evidence["assumptions"]]
     assert ids[:3] == [
@@ -98,3 +98,16 @@ def test_lean_rejects_an_overallocated_composition(tmp_path):
     )
     with pytest.raises(ValueError, match="exceeds"):
         render_composition_proof(Composition(Fraction(1, 20), members), "0" * 64)
+
+
+def test_interim_look_design_gets_a_conditional_overall_error_bound(tmp_path):
+    path = ROOT / "examples/interim_look.stat"
+    report = check_source(
+        Source(path.read_text(), str(path)), project=ROOT, output=tmp_path / "run"
+    )
+    value = report["values"]["overall"]
+    assert value["status"] == "conditional"
+    assert value["evidence"]["guarantee"]["quantity"] == "type_I_error"
+    bundle = Path(value["evidence"]["certificate"]["directory"])
+    assert json.loads((bundle / "inputs.json").read_text())["method"] == "alpha_spending"
+    assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"

@@ -12,6 +12,7 @@ the serialized subject without using the code in this module that built it.
 from dataclasses import dataclass
 from fractions import Fraction
 
+from statclaim.composition import DISCHARGED
 from statclaim.family import MAX_ENDPOINTS
 from statclaim.language import (
     AnalysisIR,
@@ -28,7 +29,6 @@ from statclaim.language import (
     TwoStageAnalysisIR,
     normalize,
 )
-from statclaim.methods.assumptions import PRESPECIFIED_FAMILY
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
 
 
@@ -92,6 +92,19 @@ RULES = {
         "Every member satisfies its own contract, and the distinct-members and family-size "
         "rules hold.",
         "{subject}: its members can be combined under one familywise bound.",
+    ),
+    "same-question": Rule(
+        "Every look uses the same test and the same null.",
+        "{subject}: every look asks the same question ({statement}) with {test}.",
+    ),
+    "increasing-looks": Rule(
+        "Each look has at least as many participants per arm as the one before, and more in total.",
+        "{subject}: the looks' cumulative arm sizes grow: {sizes}.",
+    ),
+    "sequential-contract": Rule(
+        "Every look satisfies its own contract, and the distinct-members, family-size, "
+        "same-question and increasing-looks rules hold.",
+        "{subject}: its looks form one sequential test of the same null.",
     ),
     "family-contract": Rule(
         "Every member satisfies its analysis contract, and the distinct-members, "
@@ -173,6 +186,7 @@ RULES = {
     ),
 }
 
+SEQUENTIAL_CONTRACT_ID = "designs.group_sequential/alpha_spending"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 MARGIN_CONTRACT_ID = "tests.difference/difference_test"
 CONTRACT_IDS = {
@@ -412,13 +426,17 @@ def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:
 
 
 def composed_assumptions(family: ComposedFamilyIR) -> tuple[str, ...]:
-    """The family's own assumption, each member's bound, then the cited members' assumptions."""
+    """Its own assumption, each member's bound, then the cited members' assumptions."""
     composition = family.lower()
-    texts = [PRESPECIFIED_FAMILY.text, *(item.sentence for item in composition.components)]
+    texts = [composition.prespecified.text, *(item.sentence for item in composition.components)]
     cited: list[str] = []
     for _, analysis in family.analyses:
         if isinstance(analysis, CitedAnalysisIR):
-            cited += [item.text for item in analysis.method.assumptions if item.text not in cited]
+            cited += [
+                item.text
+                for item in analysis.method.assumptions
+                if item.text not in cited and item.id not in DISCHARGED[composition.mode]
+            ]
     return (*texts, *cited)
 
 
@@ -429,12 +447,22 @@ def composed_guarantee(family: ComposedFamilyIR) -> dict:
         "sentence": composition.guarantee.sentence,
         "grade": "conditional",
         "members": [item.to_dict() for item in composition.components],
-        "given": [PRESPECIFIED_FAMILY.id, *(f"member_guarantee:{n}" for n, _ in family.analyses)],
+        "given": [
+            composition.prespecified.id,
+            *(f"member_guarantee:{n}" for n, _ in family.analyses),
+        ],
     }
+
+
+def test_key(analysis) -> str:
+    if isinstance(analysis, CitedAnalysisIR):
+        return analysis.method.key
+    return CONTRACT_IDS[analysis.alternative].split("/")[1]
 
 
 def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
     builder = _Builder()
+    sequential = family.mode == "sequential"
     members = [
         _cited_steps(builder, member, analysis)
         if isinstance(analysis, CitedAnalysisIR)
@@ -442,12 +470,38 @@ def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
         for member, analysis in family.analyses
     ]
     names = [member for member, _ in family.analyses]
-    used = (
+    used = [
         *members,
         builder.apply("distinct-members", {"subject": name, "members": names}),
         builder.apply("family-size", {"subject": name, "count": len(names)}),
+    ]
+    if sequential:
+        first = family.analyses[0][1]
+        used += [
+            builder.apply(
+                "same-question",
+                {
+                    "subject": name,
+                    "test": test_key(first),
+                    "statement": first.hypothesis.statement,
+                },
+            ),
+            builder.apply(
+                "increasing-looks",
+                {
+                    "subject": name,
+                    "sizes": [
+                        [a.plan.model.n_control, a.plan.model.n_treatment]
+                        for _, a in family.analyses
+                    ],
+                },
+            ),
+        ]
+    final = builder.apply(
+        "sequential-contract" if sequential else "composed-family-contract",
+        {"subject": name, "members": names},
+        tuple(used),
     )
-    final = builder.apply("composed-family-contract", {"subject": name, "members": names}, used)
     allocated = sum((analysis.alpha for _, analysis in family.analyses), Fraction())
     builder.settle(
         "allocation",
@@ -458,7 +512,7 @@ def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
         _sampling(builder, member, analysis)
     return Derivation(
         name,
-        "multiplicity.bonferroni/bonferroni",
+        SEQUENTIAL_CONTRACT_ID if sequential else "multiplicity.bonferroni/bonferroni",
         builder.steps[final].conclusion,
         tuple(builder.steps),
         composed_assumptions(family),

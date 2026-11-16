@@ -10,7 +10,12 @@ from dataclasses import dataclass
 from fractions import Fraction
 
 from statclaim.fisher import parse_alpha, validate_alpha
-from statclaim.methods.assumptions import PRESPECIFIED_FAMILY
+from statclaim.methods.assumptions import (
+    FIXED_SIZES,
+    PRESPECIFIED_FAMILY,
+    PRESPECIFIED_LOOKS,
+    SINGLE_ANALYSIS,
+)
 from statclaim.methods.core import SCOPES, Guarantee
 from statclaim.planning import _audit
 
@@ -22,7 +27,15 @@ MEMBER_GRADES = {
     "proved": "provable in Lean; verify the member's own Type I claim",
     "cited": "cited from the literature; not machine-checked",
 }
-PRESPECIFIED = PRESPECIFIED_FAMILY.text
+# Two ways to combine. A family holds different questions; a sequential design
+# asks one question at several looks. The arithmetic and the theorem are the same.
+MODES = {
+    "family": ("bonferroni", PRESPECIFIED_FAMILY),
+    "sequential": ("alpha_spending", PRESPECIFIED_LOOKS),
+}
+# A sequential design replaces these member assumptions with its own: each look
+# is one fixed-size test, and the combination accounts for looking repeatedly.
+DISCHARGED = {"family": (), "sequential": (FIXED_SIZES.id, SINGLE_ANALYSIS.id)}
 MAX_MEMBERS = 20
 # What has to grow for a family with large-sample members to reach its bound.
 FAMILY_LIMIT = "each member's sample size or number of events grows"
@@ -67,9 +80,14 @@ class Component:
 class Composition:
     alpha: Fraction
     components: tuple[Component, ...]
+    mode: str = "family"
 
     def __post_init__(self):
         validate_alpha(self.alpha)
+        if self.mode not in MODES:
+            raise ValueError("Unknown composition mode.")
+        if self.mode == "sequential" and len({item.null for item in self.components}) != 1:
+            raise ValueError("Every look of a sequential design tests the same null.")
         if not 2 <= len(self.components) <= MAX_MEMBERS:
             raise ValueError(f"A family needs between 2 and {MAX_MEMBERS} analyses.")
         if len({item.name for item in self.components}) != len(self.components):
@@ -86,7 +104,21 @@ class Composition:
         return "finite_sample" if exact else "asymptotic"
 
     @property
+    def prespecified(self):
+        return MODES[self.mode][1]
+
+    @property
     def guarantee(self) -> Guarantee:
+        if self.mode == "sequential":
+            # Rejecting at any look is a rejection of the one null.
+            return Guarantee(
+                "type_I_error",
+                "at_most",
+                self.alpha,
+                self.components[0].null,
+                self.scope,
+                "the sample size at each look grows",
+            )
         return Guarantee(
             "familywise_error",
             "at_most",
@@ -103,7 +135,7 @@ def composition_payload(composition: Composition) -> dict:
     return {
         "schema_version": 1,
         "scope": "composition",
-        "method": "bonferroni",
+        "method": MODES[composition.mode][0],
         "alpha": str(composition.alpha),
         "members": [item.to_dict() for item in composition.components],
     }
@@ -123,6 +155,7 @@ def parse_composition_payload(payload: dict) -> Composition:
             )
             for item in payload["members"]
         ),
+        {method: mode for mode, (method, _) in MODES.items()}[payload["method"]],
     )
     if payload != composition_payload(composition):
         raise ValueError("Bound family, members, or requested guarantee is inconsistent.")
@@ -130,25 +163,34 @@ def parse_composition_payload(payload: dict) -> Composition:
 
 
 def composition_claims(composition: Composition) -> list[str]:
+    sequential = composition.mode == "sequential"
+    part, whole = ("look", "overall error bound") if sequential else ("member", "familywise bound")
     claims = [
-        f"The member levels sum to {composition.allocated}, which does not exceed the "
-        f"familywise bound {composition.alpha}.",
-        "If each member rejects its own true null with probability at most its level, the "
-        f"probability of rejecting any true member null is at most {composition.alpha}, for "
-        "every configuration of true and false nulls and any dependence between members.",
+        f"The {part} levels sum to {composition.allocated}, which does not exceed the "
+        f"{whole} {composition.alpha}.",
+        (
+            "If the test at each look rejects the true null with probability at most its "
+            f"level, the probability of rejecting it at any look is at most {composition.alpha}, "
+            "whatever the dependence between looks. This split is conservative: it does not "
+            "use the correlation between looks."
+            if sequential
+            else "If each member rejects its own true null with probability at most its level, "
+            f"the probability of rejecting any true member null is at most {composition.alpha}, "
+            "for every configuration of true and false nulls and any dependence between members."
+        ),
     ]
     if composition.scope == "asymptotic":
         claims.append(
-            "If a member's bound holds only up to a slack, the familywise bound holds up to "
-            "the sum of the slacks. With large-sample members the bound is therefore "
+            f"If a {part}'s bound holds only up to a slack, the {whole} holds up to "
+            f"the sum of the slacks. With large-sample {part}s the bound is therefore "
             "approached as the sample sizes grow; none is claimed at the declared sizes."
         )
-    claims.append("Not checked here: the members' own error bounds, listed as assumptions.")
+    claims.append(f"Not checked here: each {part}'s own error bound, listed as an assumption.")
     return claims
 
 
 def composition_assumptions(composition: Composition) -> list[str]:
-    return [PRESPECIFIED, *(item.sentence for item in composition.components)]
+    return [composition.prespecified.text, *(item.sentence for item in composition.components)]
 
 
 def render_composition_proof(composition: Composition, input_sha256: str) -> str:

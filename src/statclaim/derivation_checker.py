@@ -27,7 +27,12 @@ from statclaim.derivations import (
     TWO_STAGE_ASSUMPTIONS,
 )
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
-from statclaim.methods.assumptions import PRESPECIFIED_FAMILY
+from statclaim.methods.assumptions import (
+    FIXED_SIZES,
+    PRESPECIFIED_FAMILY,
+    PRESPECIFIED_LOOKS,
+    SINGLE_ANALYSIS,
+)
 from statclaim.methods.core import Guarantee
 
 SUPPORTED_NULLS = {
@@ -362,16 +367,33 @@ MEMBER_GRADES = {
 }
 
 
+COMPOSITIONS = {
+    # method: (contract, the assumption it adds, member assumptions it replaces)
+    "bonferroni": ("multiplicity.bonferroni/bonferroni", PRESPECIFIED_FAMILY, ()),
+    "alpha_spending": (
+        "designs.group_sequential/alpha_spending",
+        PRESPECIFIED_LOOKS,
+        (FIXED_SIZES.text, SINGLE_ANALYSIS.text),
+    ),
+}
+
+
 def _composed_expected(name: str, subject: dict, contract: str):
-    """A family combining assumed member bounds: steps, obligations, assumptions, guarantee."""
-    if contract != "multiplicity.bonferroni/bonferroni" or subject.get("method") != "bonferroni":
+    """Combined member bounds: steps, obligations, assumptions and guarantee.
+
+    Covers a family of different questions and one question at several looks.
+    """
+    method_name = subject.get("method")
+    if method_name not in COMPOSITIONS or contract != COMPOSITIONS[method_name][0]:
         raise ValueError("the contract does not match the declaration")
+    _, own, discharged = COMPOSITIONS[method_name]
+    sequential = method_name == "alpha_spending"
     members = [(item["name"], item["analysis"]) for item in subject["analyses"]]
     names = [member for member, _ in members]
     steps, finals, sampling, components = [], [], [], []
-    assumptions = [PRESPECIFIED_FAMILY.text]
+    assumptions = [own.text]
     cited_texts: list[str] = []
-    exact = True
+    exact, keys, nulls = True, [], []
     for member, analysis in members:
         start = len(steps)
         if analysis["test"] in METHODS:
@@ -381,10 +403,13 @@ def _composed_expected(name: str, subject: dict, contract: str):
             )
             steps += [(r, f, h, tuple(start + u for u in uses)) for r, f, h, uses in block]
             sampling += fixed
-            cited_texts += [text for text in texts if text not in cited_texts]
+            cited_texts += [
+                text for text in texts if text not in cited_texts and text not in discharged
+            ]
             null, grade, scope = _null_statement(analysis["null"]), "cited", method.scope
             basis = f"{method.module}/{method.key} version {method.version}"
-        elif analysis["test"] == "fisher" and "alternative" not in analysis:
+            keys.append(method.key)
+        elif analysis["test"] == "fisher":
             for rule, facts, holds in _analysis_expectations(member, analysis):
                 steps.append((rule, facts, holds, ()))
             steps.append(
@@ -392,10 +417,12 @@ def _composed_expected(name: str, subject: dict, contract: str):
             )
             sampling.append(_sampling_expectation(member, analysis))
             null, grade, scope = _statement(analysis["null"]), "proved", "finite_sample"
-            basis = "tests.fisher/fisher"
+            basis = CONTRACT_IDS[analysis.get("alternative", "two_sided")]
+            keys.append(basis.split("/")[1])
         else:
-            raise ValueError("a member's analysis cannot join a family")
+            raise ValueError("a member's analysis cannot be combined")
         finals.append(len(steps) - 1)
+        nulls.append((analysis["null"]["predicate"], analysis["null"].get("value")))
         exact = exact and scope == "finite_sample"
         components.append(
             {
@@ -411,21 +438,44 @@ def _composed_expected(name: str, subject: dict, contract: str):
             "type_I_error", "at_most", Fraction(analysis["alpha"]), null, "finite_sample"
         )
         assumptions.append(f"{member}: {bound.sentence} ({MEMBER_GRADES[grade]})")
-    if not any(component["grade"] == "cited" for component in components):
-        raise ValueError("a family without cited members is not a conditional composition")
+    if not sequential and all(key == "fisher" for key in keys):
+        raise ValueError("a family of two-sided Fisher analyses is proved, not conditional")
     low, high = FAMILY_LIMITS
     base = len(steps)
     distinct = len(set(names)) == len(names)
     steps += [
         ("distinct-members", {"subject": name, "members": names}, distinct, ()),
         ("family-size", {"subject": name, "count": len(names)}, low <= len(names) <= high, ()),
+    ]
+    used = [*finals, base, base + 1]
+    if sequential:
+        sizes = [
+            [a["design"]["model"]["n_control"], a["design"]["model"]["n_treatment"]]
+            for _, a in members
+        ]
+        modules = {a["design"]["model"]["module"] for _, a in members}
+        grows = all(
+            later[0] >= earlier[0] and later[1] >= earlier[1] and sum(later) > sum(earlier)
+            for earlier, later in zip(sizes, sizes[1:], strict=False)
+        )
+        steps += [
+            (
+                "same-question",
+                {"subject": name, "test": keys[0], "statement": components[0]["null"]},
+                len(set(keys)) == 1 and len(set(nulls)) == 1 and len(modules) == 1,
+                (),
+            ),
+            ("increasing-looks", {"subject": name, "sizes": sizes}, grows, ()),
+        ]
+        used += [base + 2, base + 3]
+    steps.append(
         (
-            "composed-family-contract",
+            "sequential-contract" if sequential else "composed-family-contract",
             {"subject": name, "members": names},
             True,
-            (*finals, base, base + 1),
-        ),
-    ]
+            tuple(used),
+        )
+    )
     allocated = sum((Fraction(analysis["alpha"]) for _, analysis in members), Fraction())
     allocation = (
         "allocation",
@@ -435,20 +485,32 @@ def _composed_expected(name: str, subject: dict, contract: str):
     obligations = [allocation, *sampling]
     guarantee = None
     if all(holds for _, _, holds in obligations):
-        statement = Guarantee(
-            "familywise_error",
-            "at_most",
-            Fraction(subject["alpha"]),
-            "any subset of the member nulls is true",
-            "finite_sample" if exact else "asymptotic",
-            "each member's sample size or number of events grows",
+        scope = "finite_sample" if exact else "asymptotic"
+        statement = (
+            Guarantee(
+                "type_I_error",
+                "at_most",
+                Fraction(subject["alpha"]),
+                components[0]["null"],
+                scope,
+                "the sample size at each look grows",
+            )
+            if sequential
+            else Guarantee(
+                "familywise_error",
+                "at_most",
+                Fraction(subject["alpha"]),
+                "any subset of the member nulls is true",
+                scope,
+                "each member's sample size or number of events grows",
+            )
         )
         guarantee = {
             **statement.to_dict(),
             "sentence": statement.sentence,
             "grade": "conditional",
             "members": components,
-            "given": [PRESPECIFIED_FAMILY.id, *(f"member_guarantee:{n}" for n in names)],
+            "given": [own.id, *(f"member_guarantee:{n}" for n in names)],
         }
     return steps, obligations, (*assumptions, *cited_texts), guarantee
 

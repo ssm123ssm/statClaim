@@ -655,10 +655,12 @@ def test_one_sided_language_contract_and_planning(tmp_path):
     mixed = compiled(
         ONE_SIDED + "use multiplicity.bonferroni\n"
         "let other = fisher_one_sided(design=fixed(model=study), null=null, alpha=1/40)\n"
-        "let f = bonferroni(analyses=[analysis, other], alpha=1/20, "
-        'joint_law="binomial_marginals")\n'
+        "let f = bonferroni(analyses=[analysis, other], alpha=1/20)\n"
     )
-    assert "unsupported_member" in [d.code for d in mixed.diagnostics]
+    # One-sided members join a family through the conditional combination.
+    assert mixed.status == "elaborated"
+    family = mixed.program.bindings[-1].value
+    assert [c.basis for c in family.lower().components] == ["tests.fisher/fisher_one_sided"] * 2
 
 
 MARGIN = (

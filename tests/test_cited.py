@@ -350,7 +350,7 @@ def test_statuses_never_overstate_their_evidence():
     claim = compile_source(Source(MIXED)).program.requests[0].claim
     conditional = Evidence(claim, {"certificate_id": "x"}, (), (), "conditional")
     assert conditional.machine_checked == "composition"
-    assert conditional.sources == ("lean_proof", "literature")
+    assert conditional.sources == ("lean_proof", "member_guarantees")
     VerificationResult(1, claim, "snapshot", "conditional", conditional)
     with pytest.raises(ValueError, match="checked by Lean"):
         VerificationResult(1, claim, "snapshot", "verified", conditional)
@@ -436,3 +436,104 @@ def test_study_report_gives_statuses_and_one_assumption_table():
     assert "conditional: combination proved in Lean; members assumed" in text
     assert "| Assumption | Kind | Status | Needed by |" in text
     assert by_name
+
+
+LOOKS = (
+    "use models.two_arm_continuous\nuse sampling\nuse tests.t\nuse designs.group_sequential\n"
+    "let halfway = two_arm_continuous(n_control=50, n_treatment=50)\n"
+    "let complete = two_arm_continuous(n_control=100, n_treatment=100)\n"
+    "let interim = t_test(design=fixed(model=halfway), null=equal_means(model=halfway), "
+    "alpha=1/200)\n"
+    "let final = t_test(design=fixed(model=complete), null=equal_means(model=complete), "
+    "alpha=9/200)\n"
+)
+TRIAL = LOOKS + "let trial = alpha_spending(looks=[interim, final], alpha=1/20)\n"
+
+
+def test_sequential_looks_bound_the_one_null_and_replace_run_once():
+    record = family_derivation(TRIAL, "trial")
+    assert check_derivation(record) == []
+    assert record["contract"] == "designs.group_sequential/alpha_spending"
+    guarantee = record["guarantee"]
+    assert guarantee["quantity"] == "type_I_error" and guarantee["bound"] == "1/20"
+    assert guarantee["null"] == "mean_treatment = mean_control"
+    assert guarantee["given"][0] == "prespecified_looks"
+    # Looking twice is what the design accounts for, so "run once" is not assumed.
+    assert not any("run once" in text for text in record["assumptions"])
+    assert any("stops at the first look" in text for text in record["assumptions"])
+    claim = compile_source(Source(TRIAL + "verify typeI(trial)\n")).program.requests[0].claim
+    assert claim.kind == "typeI" and claim.guarantee.quantity == "type_I_error"
+
+
+@pytest.mark.parametrize(
+    "tail,code",
+    [
+        ("let trial = alpha_spending(looks=[final, interim], alpha=1/20)\n", "sequential_order"),
+        (
+            "let other = welch_test(design=fixed(model=complete), "
+            "null=equal_means(model=complete), alpha=9/200)\n"
+            "let trial = alpha_spending(looks=[interim, other], alpha=1/20)\n",
+            "sequential_question",
+        ),
+        (
+            "let shifted = t_test_one_sided(design=fixed(model=complete), "
+            "null=mean_difference_at_most(model=complete, value=0), alpha=9/200)\n"
+            "let trial = alpha_spending(looks=[interim, shifted], alpha=1/20)\n",
+            "sequential_question",
+        ),
+        ("let trial = alpha_spending(looks=[interim], alpha=1/20)\n", "family_size"),
+        (
+            "use multiplicity.bonferroni\n"
+            "let trial = alpha_spending(looks=[interim, final], alpha=1/20)\n"
+            "let wrong = familywise(trial)\n",
+            "type",
+        ),
+    ],
+)
+def test_sequential_design_mistakes_are_explained(tail, code):
+    assert codes(LOOKS + tail) == [code]
+
+
+def test_overspending_across_looks_stays_unresolved():
+    text = TRIAL.replace("alpha=9/200", "alpha=1/20") + "verify typeI(trial)\n"
+    assert codes(text) == ["allocation"]
+    record = family_derivation(TRIAL.replace("alpha=9/200", "alpha=1/20"), "trial")
+    assert check_derivation(record) == [] and record["guarantee"] is None
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda d: d["subject"].update(method="bonferroni"),
+        lambda d: d["subject"]["analyses"].reverse(),
+        lambda d: d["subject"]["analyses"][1]["analysis"].update(test="welch_test"),
+        lambda d: d["guarantee"].update(quantity="familywise_error"),
+        lambda d: d["assumptions"].append("The test is run once, on the complete data."),
+        lambda d: d["steps"][13]["facts"].update(sizes=[[1, 1], [2, 2]]),
+    ],
+)
+def test_checker_rejects_an_altered_sequential_design(change):
+    record = family_derivation(TRIAL, "trial")
+    change(record)
+    assert check_derivation(record)
+
+
+def test_exact_one_sided_and_margin_tests_can_join_a_family():
+    text = (
+        "use models.two_arm_binomial\nuse sampling\nuse tests.fisher\nuse tests.difference\n"
+        "use multiplicity.bonferroni\n"
+        "let study = two_arm_binomial(n_control=40, n_treatment=40)\n"
+        "let plan = fixed(model=study)\n"
+        "let better = fisher_one_sided(design=plan, "
+        "null=proportion_difference_at_most(model=study, value=0), alpha=1/40)\n"
+        "let not_worse = difference_test(design=plan, "
+        "null=proportion_difference_at_most(model=study, value=-1/10), alpha=1/40)\n"
+        "let endpoints = bonferroni(analyses=[better, not_worse], alpha=1/20)\n"
+    )
+    record = family_derivation(text)
+    assert check_derivation(record) == []
+    assert [m["basis"] for m in record["guarantee"]["members"]] == [
+        "tests.fisher/fisher_one_sided",
+        "tests.difference/difference_test",
+    ]
+    assert all(m["grade"] == "proved" for m in record["guarantee"]["members"])

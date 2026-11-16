@@ -126,8 +126,8 @@ provides completion, diagnostics and claim inspection; a REPL remains future wor
 
 ## Families with cited tests
 
-`bonferroni` also takes [cited tests](cited-methods.md), alone or mixed with
-two-sided Fisher analyses. `joint_law` is optional and is left out here:
+`bonferroni` also takes [cited tests](cited-methods.md), one-sided Fisher
+analyses and the exact test with a margin, alone or mixed. `joint_law` is optional and is left out here:
 
 ```stat
 let endpoints = bonferroni(analyses=[response, symptoms], alpha=1/20)
@@ -145,3 +145,24 @@ large-sample guarantee: a family is only as exact as its least exact member.
 
 The certificate kind is `statclaim_composition_certificate`, with status
 `combination_verified_members_assumed`. See `examples/mixed_endpoints.stat`.
+
+## Interim looks
+
+`alpha_spending` in `designs.group_sequential` applies the same theorem to one
+question asked at several looks:
+
+```stat
+let trial = alpha_spending(looks=[interim, final], alpha=1/20)
+let overall = verify(typeI(trial))
+```
+
+Each look is an analysis whose model has the cumulative arm sizes at that look,
+with the level spent there. Every look must use the same test and null, and the
+looks must be in order. The result is `conditional`, and the claim is `typeI`
+because rejecting at any look is one kind of error.
+
+The member assumptions "sizes are fixed" and "the test is run once" are replaced
+by one: the looks happen at the declared sizes and the study stops at the first
+rejection. The split is conservative. Boundaries that use the correlation
+between looks, such as O'Brien-Fleming, are not supported yet. See
+`examples/interim_look.stat`.

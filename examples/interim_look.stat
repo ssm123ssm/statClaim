@@ -1,0 +1,16 @@
+# One interim look at half the data, then the final analysis.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use designs.group_sequential
+
+# Each look is the same test at the cumulative sample size reached by then.
+let halfway = two_arm_continuous(n_control=50, n_treatment=50)
+let complete = two_arm_continuous(n_control=100, n_treatment=100)
+
+let interim = t_test(design=fixed(model=halfway), null=equal_means(model=halfway), alpha=1/200)
+let final = t_test(design=fixed(model=complete), null=equal_means(model=complete), alpha=9/200)
+
+# Spend 0.005 at the interim look and 0.045 at the end: 0.05 overall.
+let trial = alpha_spending(looks=[interim, final], alpha=1/20)
+let overall = verify(typeI(trial))

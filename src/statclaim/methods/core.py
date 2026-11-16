@@ -12,6 +12,7 @@ from fractions import Fraction
 SOURCES = {
     "lean_proof": "a proof in Lean",
     "literature": "a published result",
+    "member_guarantees": "the members' own guarantees, each proved or cited separately",
     "simulation": "a simulation",
 }
 CHECKS = {
@@ -32,7 +33,7 @@ GRADES = {
     "proved": Grade("proved in Lean", ("lean_proof",), "guarantee"),
     "conditional": Grade(
         "combination proved in Lean; the members' own guarantees are assumed",
-        ("lean_proof", "literature"),
+        ("lean_proof", "member_guarantees"),
         "composition",
     ),
     "cited": Grade("cited from the literature; not machine-checked", ("literature",), "contract"),

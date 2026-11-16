@@ -1,6 +1,6 @@
 """Pure claim descriptions and inspection data for reports and editor views."""
 
-from statclaim.composition import composition_assumptions
+from statclaim.composition import DISCHARGED, composition_assumptions
 from statclaim.design import inspect_design
 from statclaim.family import inspect_family
 from statclaim.language import (
@@ -24,7 +24,6 @@ from statclaim.language import (
     normalize,
 )
 from statclaim.language_compiler import Compilation, requirements
-from statclaim.methods.assumptions import PRESPECIFIED_FAMILY
 from statclaim.planning import (
     RESULT_ASSUMPTIONS,
     TwoStagePlan,
@@ -157,7 +156,8 @@ def composed_report(family: ComposedFamilyIR) -> dict:
         "composition", composition.guarantee.sentence, composition_assumptions(composition)
     )
     report["members"] = [item.to_dict() for item in composition.components]
-    assumptions, references = {PRESPECIFIED_FAMILY.id: _marked(PRESPECIFIED_FAMILY)}, []
+    own = composition.prespecified
+    assumptions, references = {own.id: _marked(own)}, []
     for name, analysis in family.analyses:
         # The member's own bound is the hypothesis the combination rests on.
         assumptions[f"member_guarantee:{name}"] = {
@@ -168,6 +168,8 @@ def composed_report(family: ComposedFamilyIR) -> dict:
         }
         if isinstance(analysis, CitedAnalysisIR):
             for item in analysis.method.assumptions:
+                if item.id in DISCHARGED[composition.mode]:
+                    continue
                 entry = assumptions.setdefault(item.id, {**_marked(item), "members": []})
                 entry["members"].append(name)
             references += [r for r in analysis.method.references if r not in references]

@@ -24,7 +24,10 @@ What is supported:
   Beta-posterior rules. Type I error and power are checked for the whole design,
   and the decision for observed counts is checked against the declared rule.
 
-- **Mixed families.** Bonferroni over two-sided Fisher analyses and cited tests.
+- **Interim looks.** One test at several prespecified looks, with the error
+  level split across them. Lean checks the split; each look's own bound is
+  assumed. The split is conservative and ignores the correlation between looks.
+- **Mixed families.** Bonferroni over any of the exact two-arm tests and cited tests.
   Lean checks that the levels fit the budget and that the union bound gives the
   family bound. Each member's own bound is a hypothesis of that theorem.
 - **Two survival curves, cited.** The two-sided log-rank test, with a

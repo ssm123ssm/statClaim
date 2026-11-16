@@ -43,3 +43,9 @@ PRESPECIFIED_ANALYSIS_TIME = Assumption(
     "When to analyse is fixed in advance, by calendar time or by a number of events, and "
     "does not depend on the observed difference between arms.",
 )
+PRESPECIFIED_LOOKS = Assumption(
+    "prespecified_looks",
+    "design",
+    "The looks happen at the declared cumulative sample sizes, fixed in advance, and the "
+    "study stops at the first look that rejects.",
+)

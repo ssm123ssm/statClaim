@@ -38,6 +38,7 @@ from statclaim.language import (
     RateIR,
     RatesIR,
     RuleIR,
+    SequentialIR,
     SizingIR,
     StudyModelIR,
     TwoStageAnalysisIR,
@@ -107,6 +108,10 @@ SCHEMAS = {
         "alpha": FieldSpec(Fraction, description="Exact declared significance level."),
     },
     ComposedFamilyIR: {"analyses": FieldSpec("list"), "alpha": FieldSpec(Fraction)},
+    SequentialIR: {
+        "looks": FieldSpec("list", attribute="analyses"),
+        "alpha": FieldSpec(Fraction, description="Overall error level across all looks."),
+    },
     FamilyIR: {
         "analyses": FieldSpec("list"),
         "alpha": FieldSpec(Fraction),
@@ -398,7 +403,7 @@ def read_field(value: object, name: str, span: Span) -> object:
         if value.calculation is None:
             return None
         return details_kind(value.claim)(value.calculation)
-    if isinstance(value, (FamilyIR, ComposedFamilyIR)) and name == "analyses":
+    if isinstance(value, (FamilyIR, ComposedFamilyIR)) and name in ("analyses", "looks"):
         return tuple(LocatedValue(analysis, span, label) for label, analysis in value.analyses)
     return getattr(value, spec.attribute or name)
 

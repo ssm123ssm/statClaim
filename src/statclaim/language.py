@@ -215,12 +215,21 @@ class ComposedFamilyIR(FamilyLikeIR):
 
     analyses: tuple[tuple[str, LevelTestIR], ...]
     alpha: Fraction
+    mode: str = "family"
 
     def lower(self) -> Composition:
         return Composition(
             self.alpha,
             tuple(_component(name, analysis) for name, analysis in self.analyses),
+            self.mode,
         )
+
+
+@dataclass(frozen=True)
+class SequentialIR(ComposedFamilyIR, LevelTestIR):
+    """One question tested at several looks, with the error level split across them."""
+
+    mode: str = "sequential"
 
 
 def _component(name: str, analysis: LevelTestIR) -> Component:
@@ -239,9 +248,17 @@ def _component(name: str, analysis: LevelTestIR) -> Component:
         analysis.alpha,
         "finite_sample",
         "proved",
-        "tests.fisher/fisher",
+        EXACT_CONTRACT_IDS[analysis.alternative],
         analysis.hypothesis.statement,
     )
+
+
+# The contract behind each exact two-arm analysis, by its alternative.
+EXACT_CONTRACT_IDS = {
+    "two_sided": "tests.fisher/fisher",
+    "greater": "tests.fisher/fisher_one_sided",
+    "margin": "tests.difference/difference_test",
+}
 
 
 @dataclass(frozen=True)
@@ -475,6 +492,8 @@ class ClaimIR:
         subject = self.subject
         if isinstance(subject, CitedAnalysisIR):
             return subject.guarantee
+        if isinstance(subject, ComposedFamilyIR):
+            return subject.lower().guarantee
         if self.kind == "typeI" and isinstance(subject, AnalysisIR):
             return Guarantee(
                 "type_I_error",
@@ -483,8 +502,6 @@ class ClaimIR:
                 subject.hypothesis.statement,
                 "finite_sample",
             )
-        if self.kind == "familywise" and isinstance(subject, ComposedFamilyIR):
-            return subject.lower().guarantee
         if self.kind == "familywise":
             return Guarantee(
                 "familywise_error",
@@ -556,6 +573,7 @@ class ValueType:
                 PlannableIR: "Analysis",
                 LevelTestIR: "Analysis",
                 FamilyLikeIR: "Family",
+                SequentialIR: "Sequential",
                 StudyModelIR: "Model",
                 CandidateSpaceIR: "Candidates",
                 PlanningPointIR: "PlanningPoint",
@@ -661,9 +679,9 @@ def normalize(value: object) -> object:
             if alternative != "two_sided":
                 result["alternative"] = alternative
             return result
-        case ComposedFamilyIR(analyses=analyses, alpha=alpha):
+        case ComposedFamilyIR(analyses=analyses, alpha=alpha, mode=mode):
             return {
-                "method": "bonferroni",
+                "method": "alpha_spending" if mode == "sequential" else "bonferroni",
                 "composition": "conditional",
                 "alpha": str(alpha),
                 "analyses": [
@@ -912,53 +930,48 @@ def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> Analysis
     return AnalysisIR(plan, null.value, alpha.value, "margin")
 
 
-def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyLikeIR:
-    items = arguments["analyses"].value
+def _members(argument: LocatedValue, what: str) -> list[tuple[str, LevelTestIR]]:
+    """Named, distinct analyses for a family or the looks of a sequential design."""
+    items = argument.value
     if not 2 <= len(items) <= MAX_ENDPOINTS:
-        fail(
-            "family_size",
-            f"A Bonferroni family needs between 2 and {MAX_ENDPOINTS} analyses.",
-            arguments["analyses"].span,
-        )
-    analyses = []
+        fail("family_size", f"This needs between 2 and {MAX_ENDPOINTS} {what}.", argument.span)
+    members = []
     for item in items:
         if not isinstance(item.value, (AnalysisIR, CitedAnalysisIR)) or item.name is None:
             fail(
                 "type",
-                "Each family member must be a named Fisher analysis or cited test.",
+                "Each entry must be a named analysis: an exact two-arm test or a cited test.",
                 item.span,
             )
-        if isinstance(item.value, AnalysisIR) and item.value.alternative != "two_sided":
-            fail(
-                "unsupported_member",
-                "Of the exact tests, Bonferroni families currently take two-sided Fisher "
-                "analyses only.",
-                item.span,
-            )
-        analyses.append((item.name, item.value))
-    if len({name for name, _ in analyses}) != len(analyses):
+        members.append((item.name, item.value))
+    if len({name for name, _ in members}) != len(members):
+        fail("duplicate_analysis", "The entries must have distinct names.", argument.span)
+    # A name labels one outcome or one look. Two names for one declaration would
+    # count it twice while reporting two.
+    if len({id(analysis) for _, analysis in members}) != len(members):
         fail(
             "duplicate_analysis",
-            "Family members must have distinct names.",
-            arguments["analyses"].span,
+            "Two entries are the same declaration under different names. "
+            "Declare each analysis separately; its name is its label.",
+            argument.span,
         )
-    # A member's name is its outcome's label. Two names for one declaration would
-    # count a single outcome twice while reporting two.
-    if len({id(analysis) for _, analysis in analyses}) != len(analyses):
-        fail(
-            "duplicate_analysis",
-            "Two family members are the same declaration under different names. "
-            "Declare a separate analysis for each outcome; its name labels the outcome.",
-            arguments["analyses"].span,
-        )
+    return members
+
+
+def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyLikeIR:
+    analyses = _members(arguments["analyses"], "analyses")
     law = arguments["joint_law"]
-    if any(isinstance(analysis, CitedAnalysisIR) for _, analysis in analyses):
+    proved = all(
+        isinstance(analysis, AnalysisIR) and analysis.alternative == "two_sided"
+        for _, analysis in analyses
+    )
+    if not proved:
         # The union bound needs no joint law, so there is nothing to declare.
         if law.value is not None:
             fail(
                 "sampling_contract",
-                "Leave joint_law out for a family with cited tests. The combination holds "
-                "for any dependence between members.",
+                "Leave joint_law out unless every member is a two-sided Fisher analysis. "
+                "The combination holds for any dependence between members.",
                 law.span,
             )
         return ComposedFamilyIR(tuple(analyses), arguments["alpha"].value)
@@ -970,6 +983,56 @@ def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyLikeIR:
             law.span,
         )
     return FamilyIR(tuple(analyses), arguments["alpha"].value, "binomial_marginals")
+
+
+def _test_key(analysis: LevelTestIR) -> str:
+    if isinstance(analysis, CitedAnalysisIR):
+        return analysis.method.key
+    return EXACT_CONTRACT_IDS[analysis.alternative].split("/")[1]
+
+
+def _sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
+    looks = _members(arguments["looks"], "looks")
+    first = looks[0][1]
+    previous = None
+    for name, look in looks:
+        null, model = look.hypothesis, look.plan.model
+        same = (
+            _test_key(look) == _test_key(first)
+            and type(model) is type(first.plan.model)
+            and getattr(model, "outcome", None) == getattr(first.plan.model, "outcome", None)
+            and (null.predicate, null.value) == (first.hypothesis.predicate, first.hypothesis.value)
+        )
+        if not same:
+            fail(
+                "sequential_question",
+                f"{name}: every look must use the same test and the same null as the first "
+                "look. Different questions belong in a bonferroni family.",
+                arguments["looks"].span,
+            )
+        sizes = (model.n_control, model.n_treatment)
+        if previous is not None and not (
+            sizes[0] >= previous[0] and sizes[1] >= previous[1] and sum(sizes) > sum(previous)
+        ):
+            fail(
+                "sequential_order",
+                f"{name}: list the looks in order. Each look's model gives the cumulative "
+                "arm sizes at that look, so they must grow.",
+                arguments["looks"].span,
+            )
+        previous = sizes
+    return SequentialIR(tuple(looks), arguments["alpha"].value)
+
+
+def _familywise(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    family = arguments["family"]
+    if isinstance(family.value, SequentialIR):
+        fail(
+            "type",
+            "A sequential design tests one null, so ask for typeI(...) instead of familywise.",
+            family.span,
+        )
+    return ClaimIR("familywise", family.value, family.name or "<expression>")
 
 
 def _observe(arguments: dict[str, LocatedValue], span: Span) -> ObservationIR:
@@ -1516,7 +1579,7 @@ MODULES = {
                     "familywise",
                     (("family", FamilyLikeIR),),
                     "FamilywiseClaim",
-                    _claim("familywise", "family"),
+                    _familywise,
                 ),
             ),
         ),
@@ -1605,6 +1668,23 @@ MODULES = {
                     documentation="Claim that a candidate meets the target and that no smaller "
                     "candidate in the declared range does. Nothing is claimed outside the range.",
                 ),
+            ),
+        ),
+        Module(
+            "designs.group_sequential",
+            (
+                _constructor(
+                    "alpha_spending",
+                    (("looks", "list"), ("alpha", "level")),
+                    "Sequential",
+                    _sequential,
+                    documentation="One test repeated at several looks, stopping at the first "
+                    "rejection. Give each look as an analysis whose model has the cumulative "
+                    "arm sizes at that look, with the level spent there. The levels may sum "
+                    "to at most alpha. Lean checks the combination; each look's own bound is "
+                    "assumed. The split is conservative.",
+                ),
+                TYPE_I,
             ),
         ),
         Module(

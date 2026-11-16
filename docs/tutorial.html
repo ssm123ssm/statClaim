@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirteen short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Fourteen short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1002,6 +1002,63 @@ too. A family is only as exact as its least exact member.</div>
     <div class="task"><h4>Try it</h4><p>Raise one member's <code>alpha</code> to <code>1/20</code>: the family is overallocated and stays unresolved. Then run <code>statclaim explain</code> on the file and find the guarantee the family's contract carries.</p></div>
   </div>
 </section>
+<section class="lesson" id="interim">
+  <p class="eyebrow">Lesson 14</p>
+  <h2>An interim look</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>In lesson 3, looking at the data early left the claim unresolved. Here we plan the look: we split the error level between an interim analysis and the final one, and get a bound for the whole trial.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/14_interim_look.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 14: look at the data once before the end, without inflating the error.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.t
+<span class="k">use</span> designs.group_sequential
+
+<span class="k">let</span> halfway = <span class="f">two_arm_continuous</span>(n_control=50, n_treatment=50)
+<span class="k">let</span> complete = <span class="f">two_arm_continuous</span>(n_control=100, n_treatment=100)
+
+<span class="k">let</span> interim = <span class="f">t_test</span>(design=<span class="f">fixed</span>(model=halfway), null=<span class="f">equal_means</span>(model=halfway), alpha=1/200)
+<span class="k">let</span> final = <span class="f">t_test</span>(design=<span class="f">fixed</span>(model=complete), null=<span class="f">equal_means</span>(model=complete), alpha=9/200)
+
+<span class="k">let</span> trial = <span class="f">alpha_spending</span>(looks=[interim, final], alpha=1/20)
+<span class="k">let</span> overall = <span class="f">verify</span>(<span class="f">typeI</span>(trial))</code></pre></div></figure>
+<dl class="lines">
+  <dt>Two models</dt>
+  <dd>Each look is an ordinary analysis of the data collected so far. The model gives the
+  <em>cumulative</em> arm sizes at that look: 50 per arm halfway, 100 at the end.</dd>
+  <dt><code>alpha</code> per look</dt>
+  <dd>The level spent at that look. Here 0.005 at the interim look and 0.045 at the end.</dd>
+  <dt><code>alpha_spending</code></dt>
+  <dd>The whole design: test at each look in order, and stop at the first rejection.
+  The levels may sum to at most the overall <code>alpha</code>.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="warn">conditional</span> [overall]: typeI(trial)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: finite-sample bound
+  The look levels sum to 1/20, which does not exceed the overall error bound 1/20.
+  If the test at each look rejects the true null with probability at most its level, the
+  probability of rejecting it at any look is at most 1/20, whatever the dependence between
+  looks. This split is conservative: it does not use the correlation between looks.
+  Assumptions:
+    The looks happen at the declared cumulative sample sizes, fixed in advance, and the study stops at the first look that rejects.
+    interim: Null rejection probability is at most 1/200 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)
+    final: Null rejection probability is at most 9/200 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)</code></pre></div>
+<p>The claim is <code>typeI</code>, not <code>familywise</code>: every look tests the same
+null, so rejecting at any look is one kind of error. The status is
+<span class="pill warn">conditional</span>, as in lesson 13. Lean proved that the two
+levels fit the budget and that the chance of rejecting at either look is then at most
+1/20. Each look's own level rests on its test.</p>
+<p>Compare the assumptions with lesson 12. "The test is run once" is gone. That
+assumption is exactly what a sequential design replaces: it is now "the looks happen at
+the declared sample sizes, and the study stops at the first rejection".</p>
+<div class="note"><strong>Conservative on purpose.</strong> Splitting the level this way
+ignores that the looks share data. Boundaries such as O'Brien-Fleming use that
+correlation to spend more at each look; they are not supported yet. With this split you
+can never spend more than the total.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>A planned interim look is a design with its own error bound.</li><li>Each look is the same test at the cumulative sample size.</li><li>A design can replace an assumption, not only add one.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Set the final look's <code>alpha</code> to <code>1/20</code>: the design overspends and stays unresolved. Then swap the order of the looks and read the diagnostic.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1017,6 +1074,7 @@ too. A family is only as exact as its least exact member.</div>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>
+      <tr><td>Look at the data before the end</td><td><code>designs.group_sequential</code></td><td><code>alpha_spending</code> with <code>typeI</code></td><td>14</td></tr>
       <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>10, 11</td></tr>
       <tr><td>See why a declaration passed, or what an edit affects</td><td>(built in)</td><td><code>explain</code>, <code>report</code>, <code>impact</code> commands</td><td>6</td></tr>
     </tbody>

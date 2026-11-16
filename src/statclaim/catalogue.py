@@ -30,8 +30,9 @@ MODULE_CLASSES = {
     "multiplicity.bonferroni": (
         "Multiplicity and composition",
         "Bonferroni for two to twenty endpoints; dependence between them is unrestricted. "
-        "A family of two-sided Fisher analyses is proved outright. A family with cited "
-        "tests is conditional: Lean checks the combination and the members are assumed.",
+        "A family of two-sided Fisher analyses is proved outright. Any other family, "
+        "with one-sided, margin or cited tests, is conditional: Lean checks the combination "
+        "and the members are assumed.",
     ),
     "planning": (
         "Study planning",
@@ -51,6 +52,13 @@ MODULE_CLASSES = {
         "rate at or below the null rate; power and sample size use the planning module. "
         "Observed counts give a Lean-checked p-value and decision, and an exact "
         "confidence interval with checked coverage.",
+    ),
+    "designs.group_sequential": (
+        "Adaptive designs",
+        "One test repeated at several looks with the error level split across them, "
+        "stopping at the first rejection. Lean checks that the split gives the overall "
+        "bound; each look's own bound is assumed. Conservative: it ignores the correlation "
+        "between looks.",
     ),
     "designs.two_stage": (
         "Adaptive designs",
@@ -89,9 +97,13 @@ OBJECT_CLASSES = {
     ),
     "Observation": ("Core statistical objects", "Observed counts tied to an analysis."),
     "Family": ("Core statistical objects", "Analyses, family alpha and declared joint law."),
+    "Sequential": (
+        "Adaptive design objects",
+        "Looks at cumulative sample sizes, each with the level spent there.",
+    ),
     "ComposedFamily": (
         "Core statistical objects",
-        "A family with cited members: the combination is proved, the members are assumed.",
+        "A family beyond two-sided Fisher: the combination is proved, the members assumed.",
     ),
     "Rates": ("Planning objects", "Planning point for two arms; an input, not a fact."),
     "Rate": ("Planning objects", "Planning point for a single response rate."),
