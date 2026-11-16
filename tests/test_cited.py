@@ -537,3 +537,17 @@ def test_exact_one_sided_and_margin_tests_can_join_a_family():
         "tests.difference/difference_test",
     ]
     assert all(m["grade"] == "proved" for m in record["guarantee"]["members"])
+
+
+@pytest.mark.parametrize("path", sorted((ROOT / "examples").rglob("*.stat")), ids=lambda p: p.stem)
+def test_every_assumption_a_claim_reports_has_an_id_and_kind(path):
+    """A new module must classify its assumption sentences in methods/identify.py."""
+    from statclaim.language_inspection import inspect_program
+
+    compilation = compile_source(Source(path.read_text(), str(path)))
+    if compilation.status == "invalid":
+        return
+    for claim in inspect_program(compilation):
+        for item in claim["identified_assumptions"]:
+            assert item["id"] and item["kind"], item["text"]
+            assert item["status"] in ("declared", "assumed", "condition")

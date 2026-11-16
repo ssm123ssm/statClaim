@@ -8,6 +8,7 @@ from statclaim.derivation_checker import check_derivation
 from statclaim.language import normalize
 from statclaim.language_compiler import Compilation
 from statclaim.language_inspection import inspect_program
+from statclaim.methods.identify import identify
 
 
 def explain(compilation: Compilation, name: str | None = None) -> list[dict]:
@@ -228,20 +229,26 @@ def report_markdown(report: dict) -> str:
     lines += ["", "## Assumptions to meet in the real study", ""]
     if report["assumption_register"]:
         lines += [
-            "Declared: stated by this file. Assumed: nothing in the file can show it.",
+            "Declared: stated by this file. Assumed: nothing in the file can show it. "
+            "Condition: says what the claim is about.",
             "",
             "| Assumption | Kind | Status | Needed by |",
             "| --- | --- | --- | --- |",
         ]
         lines += [
-            f"| {item['text']} | {item['kind'] or 'model'} | {item['status']} | "
+            f"| {item['text']} | {item['kind'] or 'unclassified'} | {item['status']} | "
             f"{', '.join(item['needed_by'])} |"
             for item in report["assumption_register"]
         ]
+    # A declaration's assumption is already listed if a claim reports the same one,
+    # by text or by id, since modules word the same assumption slightly differently.
+    listed = {item["text"] for item in report["assumption_register"]} | {
+        item["id"] for item in report["assumption_register"]
+    }
     extra = [
         text
         for text in report["assumptions"]
-        if text not in {item["text"] for item in report["assumption_register"]}
+        if text not in listed and identify(text)["id"] not in listed
     ]
     if extra:
         lines += ["", "For declarations with no requested claim:", ""]

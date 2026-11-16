@@ -49,6 +49,9 @@ ASSUMPTION_KINDS = {
     "sampling": "About how observations arise. Not checkable from a declaration.",
     "distribution": "About the outcome's distribution. Not checkable from a declaration.",
     "member": "A member test's own error bound, relied on when tests are combined.",
+    "scope": "Says which null or planning point the claim is about. A condition, not a risk.",
+    "data": "About the supplied data matching the declared study.",
+    "unproved_step": "A mathematical identity that is used but not proved in Lean.",
 }
 
 

@@ -32,6 +32,7 @@ from statclaim.language_values import (
     serialize,
 )
 from statclaim.methods.core import GRADES, SCOPES
+from statclaim.methods.identify import identify
 from statclaim.report import (
     run_binomial_result,
     run_composition,
@@ -208,7 +209,10 @@ def _result_value(
             details["evidence_grade"],
             tuple(details.get("references", ())),
             None,
-            tuple(details.get("assumptions", ())),
+            tuple(
+                details.get("assumptions")
+                or [identify(text) for text in details["required_assumptions"]]
+            ),
         )
     if status == "cited":
         evidence = Evidence(

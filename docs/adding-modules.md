@@ -14,6 +14,7 @@ A method whose guarantee Lean cannot prove yet is added as a
    calculations, filesystem writes or evidence generation while editing.
 4. Add an explicit lowering/proof adapter and Lean theorem for supported claims.
    Unsupported claims must retain an unresolved requirement, never a verified flag.
+   Give each new assumption sentence an id and kind in `methods/identify.py`.
 5. Classify new modules and field-bearing types in `catalogue.py`. Run
    `uv run python scripts/update_catalogue.py` to refresh the reference.
 6. Add tests: valid and mismatched nulls/models, invalid inputs, missing adapters,

@@ -75,7 +75,8 @@ uv run --locked statclaim report study.stat --output report.md
 The report is written to be pasted into a statistical analysis plan. It gives
 the strongest status each claim can receive (verified, conditional or cited),
 whether each guarantee is exact or approximate, and one table of every
-assumption with the claims that need it. It also lists every validated contract with its justification, the
+assumption with its kind, whether the file declares it, and the claims that
+need it. It also lists every validated contract with its justification, the
 assumptions to meet, outstanding obligations and requested claims. Add `--json`
 for a structured version.
 

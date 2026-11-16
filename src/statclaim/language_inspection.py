@@ -24,6 +24,7 @@ from statclaim.language import (
     normalize,
 )
 from statclaim.language_compiler import Compilation, requirements
+from statclaim.methods.identify import identify
 from statclaim.planning import (
     RESULT_ASSUMPTIONS,
     TwoStagePlan,
@@ -272,7 +273,8 @@ def inspect_program(compilation: Compilation) -> list[dict]:
                 "scope": claim.scope,
                 "best_status": best_status(claim),
                 "guarantee": claim.guarantee.to_dict() if claim.guarantee else None,
-                "identified_assumptions": description.get("assumptions", []),
+                "identified_assumptions": description.get("assumptions")
+                or [identify(text) for text in description["required_assumptions"]],
                 "claim": normalize(claim),
                 "source": span.to_dict(),
                 "description": description["target_property"],
