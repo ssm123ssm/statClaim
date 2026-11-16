@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from statproof.design import Design
-from statproof.proof import render_design_proof
-from statproof.report import verify_design_only
-from statproof.verification import (
+from statclaim.design import Design
+from statclaim.proof import render_design_proof
+from statclaim.report import verify_design_only
+from statclaim.verification import (
     VerificationError,
     canonical_bytes,
     digest,
@@ -40,14 +40,14 @@ def test_pre_data_design_certificate_is_replayable(issued_design):
     assert "decision" not in report
     assert report["outstanding_obligations"] == []
     certificate = json.loads((bundle / "certificate.json").read_text())
-    assert certificate["kind"] == "statproof_design_certificate"
+    assert certificate["kind"] == "statclaim_design_certificate"
     assert "result" not in certificate["inputs"]
     assert certificate["inputs"]["analysis"]["alpha"] == "1/20"
     assert len(certificate["assumptions"]) == 3
     assert "no observed results" in certificate["scope"]
     checked = recheck_certificate(bundle, project=ROOT)
     assert checked["status"] == "verified"
-    assert checked["kind"] == "statproof_design_certificate"
+    assert checked["kind"] == "statclaim_design_certificate"
     assert checked["claims"] == certificate["claims"]
 
 

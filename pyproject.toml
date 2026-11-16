@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "statproof"
+name = "statclaim"
 version = "0.1.0"
 description = "Exact Fisher testing and a statistical verification library backed by Lean"
 readme = "README.md"
@@ -14,18 +14,18 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.urls]
-Repository = "https://github.com/ssm123ssm/statProof"
-Issues = "https://github.com/ssm123ssm/statProof/issues"
-Documentation = "https://github.com/ssm123ssm/statProof/tree/main/docs"
+Repository = "https://github.com/ssm123ssm/statClaim"
+Issues = "https://github.com/ssm123ssm/statClaim/issues"
+Documentation = "https://github.com/ssm123ssm/statClaim/tree/main/docs"
 
 [project.scripts]
-statproof = "statproof.cli:main"
+statclaim = "statclaim.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.14,<1"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/statproof"]
+packages = ["src/statclaim"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

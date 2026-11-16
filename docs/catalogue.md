@@ -171,4 +171,4 @@ Verification and calculation run only on explicit execution; the editor plans th
 
 The formal library also defines parameter domains, procedures, guarantees and composition rules. These are not all standalone `.stat` constructors yet. See [core object model](core-object-model.md) and [Lean objects](lean-objects.md).
 
-For typed parameters and contracts in machine-readable form, run `statproof catalogue --json`. See [adding modules](adding-modules.md).
+For typed parameters and contracts in machine-readable form, run `statclaim catalogue --json`. See [adding modules](adding-modules.md).

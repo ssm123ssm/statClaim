@@ -1,4 +1,4 @@
-# StatProof in VS Code
+# StatClaim in VS Code
 
 The prototype provides live diagnostics, module/constructor/named-argument/field
 completion, typed object completion, statistical hover explanations,
@@ -7,7 +7,7 @@ first-class calls such as `let checked = verify(claim)` are supported.
 
 ## Start an extension development host
 
-From the StatProof repository root, with Python 3.12/uv, Node 22 or later, and
+From the StatClaim repository root, with Python 3.12/uv, Node 22 or later, and
 VS Code installed:
 
 ```sh
@@ -16,7 +16,7 @@ npm --prefix extensions/vscode ci --ignore-scripts
 code --new-window "$PWD"
 ```
 
-In VS Code, choose **Run and Debug → StatProof Extension**, then press **F5**.
+In VS Code, choose **Run and Debug → StatClaim Extension**, then press **F5**.
 The repository's `.vscode/launch.json` starts a second window with this extension
 loaded. Open `examples/first_class.stat`, `examples/fisher.stat`, or
 `examples/two_outcomes.stat` in that window. No TypeScript build is needed.
@@ -25,8 +25,8 @@ Alternatively, launch a standalone development host with an isolated profile:
 
 ```sh
 code --new-window --disable-extensions --disable-workspace-trust \
-  --user-data-dir "$PWD/.statproof/vscode-development-profile" \
-  --extensions-dir "$PWD/.statproof/vscode-development-extensions" \
+  --user-data-dir "$PWD/.statclaim/vscode-development-profile" \
+  --extensions-dir "$PWD/.statclaim/vscode-development-extensions" \
   --extensionDevelopmentPath="$PWD/extensions/vscode" \
   "$PWD" "$PWD/examples/first_class.stat"
 ```
@@ -37,7 +37,7 @@ settings or install the extension into the normal editor profile. Close the
 development window to stop its language server. A server is launched per editor
 host; there is no separate background service to start first.
 
-If `.statproof/playground/` exists, its files are scratch copies created for
+If `.statclaim/playground/` exists, its files are scratch copies created for
 interactive testing. They are ignored by Git and are independent of the canonical
 examples and test fixtures. Feel free to edit these while development continues.
 
@@ -55,7 +55,7 @@ examples and test fixtures. Feel free to edit these while development continues.
 5. Change an alpha to `2`. A syntax/type/domain error appears in Problems.
    Restore it and the obsolete diagnostic disappears.
 6. Try `adaptive.stat` and `overallocated.stat`. Their known unmet requirements
-   appear as warnings from **statproof requirements**, distinct from syntax/type
+   appear as warnings from **statclaim requirements**, distinct from syntax/type
    errors. They do not establish that the requested guarantee is false.
 
 Incomplete calls and lists can still use completion and hover for earlier valid
@@ -63,11 +63,11 @@ declarations. Constructors are offered only after their modules have been
 imported. Expected-type filtering uses the existing constructor schemas; list
 element refinements and more specific claim subtypes are not yet inferred.
 
-Run **StatProof: Explain Contract** to see why the declaration at the cursor passed
-its checks, and **StatProof: Show Change Impact** to list what unsaved edits affect.
+Run **StatClaim: Explain Contract** to see why the declaration at the cursor passed
+its checks, and **StatClaim: Show Change Impact** to list what unsaved edits affect.
 Both open a read-only note beside the file; see [contract derivations](contracts.md).
 
-Run **StatProof: Show Claims**, or expand **StatProof Claims** in the Explorer,
+Run **StatClaim: Show Claims**, or expand **StatClaim Claims** in the Explorer,
 to inspect each claim, its requirements/assumptions, and matching explicit check
 results. Old results move to a separate historical section after edits.
 See [public fields and the Claims view](fields-and-claims.md) for the detailed
@@ -78,14 +78,14 @@ declaration. See the [hypothesis contract guide](hypothesis-contracts.md).
 
 ## Run verification explicitly
 
-Open a file-backed `.stat` document and run **StatProof: Verify Current File** from
+Open a file-backed `.stat` document and run **StatClaim: Verify Current File** from
 the Command Palette (**Cmd+Shift+P** on macOS). This saves the file and invokes:
 
 ```sh
-uv run --locked statproof check /path/to/file.stat --project /path/to/statProof --json
+uv run --locked statclaim check /path/to/file.stat --project /path/to/statClaim --json
 ```
 
-The **StatProof** output channel retains the complete report and certificate
+The **StatClaim** output channel retains the complete report and certificate
 locations; the Claims view shows matching evidence. The status bar identifies the checked editor version, with the full
 source SHA-256 in its tooltip. A successful `verified` status concerns the report's
 listed claims under its assumptions. Inspect the per-request results for scope;
@@ -108,14 +108,14 @@ cache.
 
 The extension uses `uv` from the editor process's PATH. If VS Code was launched
 from the Dock and cannot find it, put its absolute path in the workspace setting
-`statproof.uvPath` (find it with `command -v uv`). `statproof.projectPath` can select
-the StatProof repository when editing `.stat` files in another workspace.
+`statclaim.uvPath` (find it with `command -v uv`). `statclaim.projectPath` can select
+the StatClaim repository when editing `.stat` files in another workspace.
 
 By default the project is the first workspace folder containing
-`src/statproof/language.py`, or the development extension's containing repository.
-The initial implementation supports one StatProof backend project per host.
+`src/statclaim/language.py`, or the development extension's containing repository.
+The initial implementation supports one StatClaim backend project per host.
 
-Run **StatProof: Restart Language Server** after Python server/compiler changes.
+Run **StatClaim: Restart Language Server** after Python server/compiler changes.
 This clears the server's state, reopens the buffers, and marks prior proof status
 stale. After extension JavaScript, manifest, or syntax grammar changes, run
 **Developer: Reload Window** in the development host. Configuration changes also
@@ -143,7 +143,7 @@ explicit Lean verification, and checks stale status after and during editing.
 The editor test uses an installed macOS VS Code when found. Set
 `VSCODE_EXECUTABLE_PATH` to use another installed binary; otherwise the official
 VS Code test runner downloads its test editor. Each run uses a separate temporary
-profile, and its scratch files/results are under `.statproof/ide-test-*`.
+profile, and its scratch files/results are under `.statclaim/ide-test-*`.
 
 The implementation follows the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/)
 and uses Microsoft's [VS Code language client](https://github.com/microsoft/vscode-languageserver-node).

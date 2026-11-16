@@ -1,7 +1,7 @@
 # Sampling and decision policies
 
 A fixed-sample design observes the model's outcome directly. An adaptive design
-does not: what is recorded depends on interim decisions. `StatProof/Core/Policy.lean`
+does not: what is recorded depends on interim decisions. `StatClaim/Core/Policy.lean`
 therefore describes a design as a **policy**:
 
 - the law of all *potential* data, for each parameter value;
@@ -25,7 +25,7 @@ fixed-sample design establishes nothing.
 
 ## Two-stage binomial design
 
-`StatProof/Modules/TwoStageBinomial.lean` is the first adaptive module: one arm,
+`StatClaim/Modules/TwoStageBinomial.lean` is the first adaptive module: one arm,
 a first stage, an interim futility stop, and a final decision. Two rule families
 are provided:
 
@@ -53,16 +53,16 @@ Current limits, stated plainly:
 
 ## One-sample binomial test
 
-`StatProof/Modules/OneSampleBinomial.lean` is the one-sided exact binomial
+`StatClaim/Modules/OneSampleBinomial.lean` is the one-sided exact binomial
 test. Its Type I bound is checked at the reference rate and holds for every
 smaller rate.
 
-Both composite-null results rest on `StatProof/BinomialMonotone.lean`: the
+Both composite-null results rest on `StatClaim/BinomialMonotone.lean`: the
 probability of an upper set of counts does not decrease as the rate increases.
 
 ## Confidence intervals
 
-`StatProof/Modules/BinomialInterval.lean` defines the exact confidence set for
+`StatClaim/Modules/BinomialInterval.lean` defines the exact confidence set for
 a binomial proportion and proves its coverage for every true rate (`coverage`).
 `interval_contains` places the set for one observed count inside an interval
 with rational endpoints, using two kernel checks.
@@ -73,7 +73,7 @@ intervals into one for the difference.
 
 ## One-sided Fisher test
 
-`StatProof/Modules/FisherOneSided.lean` rejects when the one-sided conditional
+`StatClaim/Modules/FisherOneSided.lean` rejects when the one-sided conditional
 p-value is small. `boundary_le` bounds the error at equal rates for every
 sample size. `typeI_of_hints` extends it to every pair with the treatment rate
 at most the control rate, using the fact that one more treatment success never
@@ -82,7 +82,7 @@ design from kernel-validated thresholds.
 
 ## Tests with a margin
 
-`StatProof/Modules/DifferenceTest.lean` handles the null
+`StatClaim/Modules/DifferenceTest.lean` handles the null
 `p_treatment - p_control ≤ margin`. A test is a list of thresholds that never
 decrease with control successes. Its rejection region is then a lower set in
 control successes and an upper set in treatment successes, so by
@@ -92,7 +92,7 @@ the control rate and concludes the bound for the whole null.
 
 ## Fisher power
 
-`StatProof/Modules/FisherPower.lean` gives the exact power of the fixed Fisher
+`StatClaim/Modules/FisherPower.lean` gives the exact power of the fixed Fisher
 analysis at one pair of rational success probabilities. The rejection region is
 recomputed in the kernel from the formal p-value. Power at a planning point says
 nothing about other alternatives.

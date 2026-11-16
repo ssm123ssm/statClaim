@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from statproof.cli import main
-from statproof.design import Design, load_design
-from statproof.family import Endpoint, FisherFamily, load_family
-from statproof.fisher import fisher_exact, parse_alpha
-from statproof.proof import render_family_proof, render_proof
-from statproof.report import verify_family
-from statproof.verification import (
+from statclaim.cli import main
+from statclaim.design import Design, load_design
+from statclaim.family import Endpoint, FisherFamily, load_family
+from statclaim.fisher import fisher_exact, parse_alpha
+from statclaim.proof import render_family_proof, render_proof
+from statclaim.report import verify_family
+from statclaim.verification import (
     VerificationError,
     _parse_family_payload,
     _profile,
@@ -44,7 +44,7 @@ def test_alpha_declaration_and_claims_are_bound():
     design = load_design(ROOT / "examples/fixed_sample_alpha.toml")
     assert design.alpha == Fraction(1, 40)
     payload = design_payload(design)
-    assert "at most 1/40" in _profile("statproof_design_certificate", payload)["claims"][-1]
+    assert "at most 1/40" in _profile("statclaim_design_certificate", payload)["claims"][-1]
     assert payload["analysis"]["alpha"] == "1/40"
 
 
@@ -73,7 +73,7 @@ def test_family_canonical_scope_rejects_changed_metadata(change):
 
 
 def test_overallocated_family_never_invokes_backend(monkeypatch, tmp_path):
-    monkeypatch.setattr("statproof.report.certify_family", lambda *a, **k: pytest.fail("backend"))
+    monkeypatch.setattr("statclaim.report.certify_family", lambda *a, **k: pytest.fail("backend"))
     family = load_family(ROOT / "examples/two_outcomes_overallocated.toml")
     report = verify_family(family, project=ROOT, output=tmp_path / "unused")
     assert report["status"] == "unresolved_obligation"
@@ -92,7 +92,7 @@ def test_adaptive_family_has_no_fixed_certificate(monkeypatch, tmp_path):
         family,
         endpoints=(replace(first, design=replace(first.design, stopping="data_dependent")), second),
     )
-    monkeypatch.setattr("statproof.report.certify_family", lambda *a, **k: pytest.fail("backend"))
+    monkeypatch.setattr("statclaim.report.certify_family", lambda *a, **k: pytest.fail("backend"))
     report = verify_family(adaptive, project=ROOT, output=tmp_path / "unused")
     assert report["verification"]["stage"] == "sampling_scope"
     assert report["certificate_issued"] is False
@@ -103,7 +103,7 @@ def test_family_failed_proof_remains_unresolved(monkeypatch):
     def failed(*args, **kwargs):
         raise VerificationError("proof", "Failed")
 
-    monkeypatch.setattr("statproof.report.certify_family", failed)
+    monkeypatch.setattr("statclaim.report.certify_family", failed)
     report = verify_family(load_family(ROOT / "examples/two_outcomes.toml"), project=ROOT)
     assert report["status"] == "unresolved_obligation"
     assert report["established_properties"] == []

@@ -84,7 +84,7 @@ hypothesis alone does not establish the full analysis guarantee.
 ## Try it in the IDE
 
 Reload the development window to pick up compiler and extension changes. Open
-`examples/hypothesis_mismatch.stat` or its `.statproof/playground/` scratch copy.
+`examples/hypothesis_mismatch.stat` or its `.statclaim/playground/` scratch copy.
 The analysis should immediately receive the diagnostic above. In Problems, open
 the related information to find the original null; the Claims view also exposes
 the source diagnostic and declaration link. Hover `null` and `fisher` to compare
@@ -93,20 +93,20 @@ the declared restriction with the analysis's supported contract.
 If equality is your intended question, change the value to `0` or use
 `equal_proportions`. The diagnostic clears, but this is still analysis rather than
 a proof. To request evidence, add `let checked = verify(typeI(analysis))` and run
-**StatProof: Verify Current File**. If the nonzero null is intended, retain it:
+**StatClaim: Verify Current File**. If the nonzero null is intended, retain it:
 a corresponding analysis/calibration adapter and proof are not implemented in
 this milestone.
 
 ```sh
 # Expected: invalid, exit 2, hypothesis_mismatch, no Lean or artifact writes.
-uv run --locked statproof compile examples/hypothesis_mismatch.stat
-uv run --locked statproof check examples/hypothesis_mismatch.stat
+uv run --locked statclaim compile examples/hypothesis_mismatch.stat
+uv run --locked statclaim check examples/hypothesis_mismatch.stat
 
 # Expected: valid planned equality claim, no execution.
-uv run --locked statproof compile examples/hypothesis_zero.stat
+uv run --locked statclaim compile examples/hypothesis_zero.stat
 
 # Explicitly check the equality guarantee through the exact zero alias.
-uv run --locked statproof check examples/hypothesis_zero.stat
+uv run --locked statclaim check examples/hypothesis_zero.stat
 ```
 
 ## Implementation and limits
@@ -114,7 +114,7 @@ uv run --locked statproof check examples/hypothesis_zero.stat
 `language_contracts.py` defines declarative hypothesis contracts. A constructor
 registers its contract with its typed argument schema. The common elaborator
 checks it before constructing an analysis. The same metadata supplies hover
-documentation and the `contracts` entries in `statproof modules --json`; the LSP
+documentation and the `contracts` entries in `statclaim modules --json`; the LSP
 does not duplicate these statistical rules. The Fisher analysis object also
 guards its invariant so internal Python code cannot accidentally lower a shifted
 null through the equality-only adapter.

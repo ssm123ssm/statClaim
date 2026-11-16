@@ -6,18 +6,18 @@ from pathlib import Path
 
 import pytest
 
-from statproof.cli import main
-from statproof.contract_reports import (
+from statclaim.cli import main
+from statclaim.contract_reports import (
     explain,
     explanation_markdown,
     impact,
     report_markdown,
     study_report,
 )
-from statproof.derivation_checker import check_derivation
-from statproof.language_compiler import compile_source
-from statproof.language_syntax import Source
-from statproof.lsp import Server
+from statclaim.derivation_checker import check_derivation
+from statclaim.language_compiler import compile_source
+from statclaim.language_syntax import Source
+from statclaim.lsp import Server
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = """use models.two_arm_binomial
@@ -117,8 +117,8 @@ def test_a_rule_name_or_flag_alone_is_not_a_proof():
 
 def test_checker_does_not_use_the_contract_or_builder_code(monkeypatch):
     record = derivation()
-    import statproof.derivations as builder
-    import statproof.language_contracts as contracts
+    import statclaim.derivations as builder
+    import statclaim.language_contracts as contracts
 
     def forbidden(*args, **kwargs):
         raise AssertionError("the checker must not call the code that built the derivation")
@@ -171,7 +171,7 @@ def server():
 def open_document(send, text=BASE):
     return send(
         "textDocument/didOpen",
-        {"textDocument": {"uri": URI, "languageId": "statproof", "version": 1, "text": text}},
+        {"textDocument": {"uri": URI, "languageId": "statclaim", "version": 1, "text": text}},
     )
 
 
@@ -182,14 +182,14 @@ def test_success_is_silent_and_explanations_are_on_request():
     assert [m["method"] for m in messages] == ["textDocument/publishDiagnostics"]
     assert messages[0]["params"]["diagnostics"] == []
     position = {"line": 6, "character": 6}
-    (reply,) = send("statproof/explain", {"textDocument": {"uri": URI}, "position": position}, 2)
+    (reply,) = send("statclaim/explain", {"textDocument": {"uri": URI}, "position": position}, 2)
     result = reply["result"]
     assert [c["name"] for c in result["contracts"]] == ["analysis"]
     assert result["contracts"][0]["checked"]
     assert result["contracts"][0]["range"]["start"]["line"] == 6
     assert "Why it passed" in result["markdown"] and "Unresolved obligations" in result["markdown"]
     # Without a position, or away from a contract, every contract in the file is returned.
-    (reply,) = send("statproof/explain", {"textDocument": {"uri": URI}}, 3)
+    (reply,) = send("statclaim/explain", {"textDocument": {"uri": URI}}, 3)
     assert len(reply["result"]["contracts"]) == 1
 
 
@@ -201,7 +201,7 @@ def test_editor_impact_is_measured_against_the_saved_text():
         "textDocument/didChange",
         {"textDocument": {"uri": URI, "version": 2}, "contentChanges": [{"text": changed}]},
     )
-    (reply,) = send("statproof/impact", {"textDocument": {"uri": URI}}, 4)
+    (reply,) = send("statclaim/impact", {"textDocument": {"uri": URI}}, 4)
     result = reply["result"]
     kinds = {item["name"]: item["change"] for item in result["declarations"]}
     assert kinds["study"] == "changed directly"
@@ -209,7 +209,7 @@ def test_editor_impact_is_measured_against_the_saved_text():
     assert [c["name"] for c in result["contracts"]] == ["analysis"]
     assert result["claims"][0]["change"].startswith("must be re-run")
     send("textDocument/didSave", {"textDocument": {"uri": URI}})
-    (reply,) = send("statproof/impact", {"textDocument": {"uri": URI}}, 5)
+    (reply,) = send("statclaim/impact", {"textDocument": {"uri": URI}}, 5)
     assert reply["result"]["declarations"] == []
 
 

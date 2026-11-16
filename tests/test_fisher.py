@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from statproof.fisher import ALPHA, fisher_exact, fraction_record
+from statclaim.fisher import ALPHA, fisher_exact, fraction_record
 
 
 def compute(n_control, n_treatment, control_successes, treatment_successes):

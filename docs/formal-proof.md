@@ -20,7 +20,7 @@ of a particular Python calculation against the formal rule.
 
 ## The final statement
 
-In `StatProof/Fisher.lean`, `StatProof.fisher_typeI_error_le` states:
+In `StatClaim/Fisher.lean`, `StatClaim.fisher_typeI_error_le` states:
 
 ```lean
 theorem fisher_typeI_error_le (nControl nTreatment : ℕ) (p : unitInterval) :
@@ -43,16 +43,16 @@ been fixed to numerical examples in the general proof.
 
 ## How the proof works
 
-1. **Finite p-values:** `StatProof/FinitePValue.lean` proves that, for nonnegative
+1. **Finite p-values:** `StatClaim/FinitePValue.lean` proves that, for nonnegative
    rational masses, the total mass of outcomes with probability-ordered p-value
    at most `alpha` is at most `alpha`. All ties are included.
-2. **Hypergeometric probabilities:** `StatProof/Hypergeometric.lean` defines the
+2. **Hypergeometric probabilities:** `StatClaim/Hypergeometric.lean` defines the
    feasible counts and the integer weights `choose(nControl,k) *
    choose(nTreatment,total-k)`. Vandermonde's identity proves their sum is
    `choose(nControl+nTreatment,total)`. Division by that positive denominator
    gives a normalized distribution. The finite p-value theorem gives the
    conditional rejection bound.
-3. **Independent binomial sampling:** `StatProof/BinomialModel.lean` defines the
+3. **Independent binomial sampling:** `StatClaim/BinomialModel.lean` defines the
    binomial point masses and their independent product, and proves they sum to
    one. A bijection partitions all feasible observed pairs by the pooled total.
    Each joint mass factors into a pooled binomial mass times a hypergeometric
@@ -61,7 +61,7 @@ been fixed to numerical examples in the general proof.
 4. **Overall error bound:** Each conditional rejection mass is at most `1/20`.
    Multiplying by nonnegative pooled masses and summing gives at most
    `(1/20) * sum(pooled masses) = 1/20`.
-5. **Mathlib probability measures:** `StatProof/Fisher.lean` proves that the
+5. **Mathlib probability measures:** `StatClaim/Fisher.lean` proves that the
    finite binomial formula equals Mathlib's binomial singleton probability, and
    that the finite joint formula equals the product measure's singleton
    probability. The feasible support has probability one. The finite rejection
@@ -81,7 +81,7 @@ in the [test specification](exact-test-spec.md).
 
 The Python implementation enumerates those weights using a recurrence. The
 `verify` command treats its fraction as a proposed value. In
-`StatProof/Computation.lean`, an efficient factorial-based integer formula is
+`StatClaim/Computation.lean`, an efficient factorial-based integer formula is
 proved equal to the formal weights and numerator. A cross-product equality between
 natural numbers then establishes that the proposed fraction equals the formal
 rational p-value. Each concrete equality is checked using `decide +kernel`, without

@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from statproof.cli import main
-from statproof.design import load_design
-from statproof.family import load_family
-from statproof.language import (
+from statclaim.cli import main
+from statclaim.design import load_design
+from statclaim.family import load_family
+from statclaim.language import (
     MODULES,
     AnalysisIR,
     Constructor,
@@ -18,9 +18,9 @@ from statproof.language import (
     elaborate,
     module_catalog,
 )
-from statproof.language_runner import check_source, render_report
-from statproof.language_syntax import Source, parse
-from statproof.verification import VerificationError, design_payload, family_payload
+from statclaim.language_runner import check_source, render_report
+from statclaim.language_syntax import Source, parse
+from statclaim.verification import VerificationError, design_payload, family_payload
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -179,7 +179,7 @@ def test_family_type_and_contract_diagnostics(before, after, code):
 
 def test_entire_file_is_checked_before_backend_or_artifact_writes(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "statproof.language_runner.verify_design_only",
+        "statclaim.language_runner.verify_design_only",
         lambda *a, **k: pytest.fail("backend must not run"),
     )
     report = check_source(
@@ -199,10 +199,10 @@ def test_known_obligations_have_source_locations_without_backend(
     name, code, line, monkeypatch, tmp_path
 ):
     monkeypatch.setattr(
-        "statproof.language_runner.verify_design_only", lambda *a, **k: pytest.fail("backend")
+        "statclaim.language_runner.verify_design_only", lambda *a, **k: pytest.fail("backend")
     )
     monkeypatch.setattr(
-        "statproof.language_runner.verify_family", lambda *a, **k: pytest.fail("backend")
+        "statclaim.language_runner.verify_family", lambda *a, **k: pytest.fail("backend")
     )
     for fast in (True, False):
         report = check_source(source(name), project=ROOT, elaborate_only=fast)
@@ -216,7 +216,7 @@ def test_known_obligations_have_source_locations_without_backend(
 
 def test_fast_mode_displays_planned_claim_and_writes_nothing(monkeypatch):
     monkeypatch.setattr(
-        "statproof.language_runner.verify_design_only", lambda *a, **k: pytest.fail("backend")
+        "statclaim.language_runner.verify_design_only", lambda *a, **k: pytest.fail("backend")
     )
     report = check_source(source(), project=ROOT, elaborate_only=True)
     assert report["status"] == "elaborated"
@@ -252,7 +252,7 @@ def test_backend_failure_is_a_source_located_unresolved_claim(monkeypatch, tmp_p
     def failed(*args, **kwargs):
         raise VerificationError("proof", "Controlled backend failure.")
 
-    monkeypatch.setattr("statproof.report.certify_design", failed)
+    monkeypatch.setattr("statclaim.report.certify_design", failed)
     report = check_source(source(), project=ROOT, output=tmp_path / "run")
     assert report["status"] == "unresolved_obligation"
     assert report["certificate_issued"] is False
@@ -263,7 +263,7 @@ def test_changed_source_during_execution_is_marked_stale(monkeypatch, tmp_path):
     path = tmp_path / "study.stat"
     original = source("fisher_result.stat").text.replace("verify result(data)\n", "")
     path.write_text(original)
-    import statproof.language_runner as runner
+    import statclaim.language_runner as runner
 
     original_calculation = runner.test_design
 
@@ -342,7 +342,7 @@ def test_deleting_source_during_execution_marks_the_run_stale(monkeypatch, tmp_p
     path = tmp_path / "study.stat"
     text = source("fisher_result.stat").text.replace("verify result(data)\n", "")
     path.write_text(text)
-    import statproof.language_runner as runner
+    import statclaim.language_runner as runner
 
     original = runner.test_design
 
@@ -358,7 +358,7 @@ def test_deleting_source_during_execution_marks_the_run_stale(monkeypatch, tmp_p
 
 def test_edited_archive_during_execution_is_detected(monkeypatch, tmp_path):
     text = source("fisher_result.stat").text.replace("verify result(data)\n", "")
-    import statproof.language_runner as runner
+    import statclaim.language_runner as runner
 
     original = runner.test_design
 

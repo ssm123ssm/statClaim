@@ -3,11 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from statproof.cli import main
-from statproof.design import Design
-from statproof.proof import render_design_proof
-from statproof.report import verify_design_only
-from statproof.verification import VerificationError, design_payload
+from statclaim.cli import main
+from statclaim.design import Design
+from statclaim.proof import render_design_proof
+from statclaim.report import verify_design_only
+from statclaim.verification import VerificationError, design_payload
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,8 +34,8 @@ def test_design_verification_never_calculates_a_p_value(monkeypatch):
     def failed(*args, **kwargs):
         raise VerificationError("proof", "No checked proof was returned.")
 
-    monkeypatch.setattr("statproof.report.fisher_exact", forbidden)
-    monkeypatch.setattr("statproof.report.certify_design", failed)
+    monkeypatch.setattr("statclaim.report.fisher_exact", forbidden)
+    monkeypatch.setattr("statclaim.report.certify_design", failed)
     report = verify_design_only(Design(100, 100, "fixed"), project=ROOT)
     assert report["verification_scope"] == "design"
     assert report["certificate_issued"] is False
@@ -50,7 +50,7 @@ def test_adaptive_design_has_missing_justification_without_requiring_data(monkey
     def forbidden(*args, **kwargs):
         raise AssertionError("The fixed-sample backend must not certify this design.")
 
-    monkeypatch.setattr("statproof.report.certify_design", forbidden)
+    monkeypatch.setattr("statclaim.report.certify_design", forbidden)
     report = verify_design_only(
         Design(100, 100, "data_dependent"), project=ROOT, output=tmp_path / "unused"
     )
@@ -67,7 +67,7 @@ def test_design_command_accepts_only_design_inputs(monkeypatch, capsys, tmp_path
         assert options == {"project": ROOT, "output": tmp_path / "new", "timeout": 12}
         return {"status": "verified", "verification_scope": "design"}
 
-    monkeypatch.setattr("statproof.cli.verify_design_only", backend)
+    monkeypatch.setattr("statclaim.cli.verify_design_only", backend)
     code = main(
         [
             "verify-design",
@@ -95,7 +95,7 @@ def test_design_command_rejects_observation_flags(capsys):
 
 def test_result_verification_has_an_explicit_alias(monkeypatch, capsys):
     monkeypatch.setattr(
-        "statproof.cli.verify_design",
+        "statclaim.cli.verify_design",
         lambda *args, **kwargs: {"status": "verified", "verification_scope": "result"},
     )
     assert (

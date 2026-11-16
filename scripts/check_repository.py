@@ -14,7 +14,7 @@ DIRECTORIES = {
     ".venv",
     "node_modules",
     ".lake",
-    ".statproof",
+    ".statclaim",
     "__pycache__",
     ".pytest_cache",
     ".ruff_cache",

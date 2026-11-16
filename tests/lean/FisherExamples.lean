@@ -1,6 +1,6 @@
-import StatProof
+import StatClaim
 
-open StatProof
+open StatClaim
 
 -- Unequal arm sizes: the support bounds agree with the executable convention.
 example : hypergeometricSupport 4 9 12 = {3, 4} := by decide

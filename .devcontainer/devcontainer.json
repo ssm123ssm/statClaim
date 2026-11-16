@@ -1,5 +1,5 @@
 {
-  "name": "StatProof",
+  "name": "StatClaim",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
@@ -18,7 +18,7 @@
         "files.exclude": {
           ".lake": true,
           ".venv": true,
-          ".statproof": true
+          ".statclaim": true
         },
         "files.watcherExclude": {
           "**/.lake/**": true,

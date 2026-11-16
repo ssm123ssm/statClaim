@@ -12,6 +12,6 @@ let characteristics = calculate(meets(analysis=proposed, target=target))
 let expected_size = characteristics.calculation.expected_sample_size_null
 let verification = verify(meets(analysis=proposed, target=target))
 
-# Or let StatProof find one.
+# Or let StatClaim find one.
 let search = two_stage_designs(null_rate=1/5, max_total=45, criterion="minimax")
 let found = calculate(sample_size(candidates=search, target=target))

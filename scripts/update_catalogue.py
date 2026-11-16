@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from statproof.catalogue import render_catalogue
+from statclaim.catalogue import render_catalogue
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--check", action="store_true")

@@ -1,6 +1,6 @@
 # Contract derivations
 
-When you write `fisher(design=..., null=..., alpha=...)`, StatProof checks that
+When you write `fisher(design=..., null=..., alpha=...)`, StatClaim checks that
 the pieces fit: the null belongs to the design's model, the test supports that
 kind of null, and the level is a probability. This is a **contract**.
 
@@ -14,11 +14,11 @@ power. Those are claims, established by `verify(...)` and Lean.
 
 ## Ask why a contract passed
 
-In VS Code, put the cursor on a declaration and run **StatProof: Explain
+In VS Code, put the cursor on a declaration and run **StatClaim: Explain
 Contract**. From a terminal:
 
 ```sh
-uv run --locked statproof explain examples/tutorial/01_first_claim.stat
+uv run --locked statclaim explain examples/tutorial/01_first_claim.stat
 ```
 
 ```text
@@ -44,7 +44,7 @@ The three lists mean different things:
 | List | Meaning |
 | --- | --- |
 | Steps | Established from your declarations by a rule. |
-| Assumptions | Facts about the real study that StatProof cannot check. |
+| Assumptions | Facts about the real study that StatClaim cannot check. |
 | Unresolved obligations | Something a later guarantee needs that is not yet shown, such as a fixed sample size or an alpha allocation within budget. |
 
 ## The independent checker
@@ -62,7 +62,7 @@ good as those statements: a wrongly stated rule would be checked faithfully.
 ## Study report
 
 ```sh
-uv run --locked statproof report study.stat --output report.md
+uv run --locked statclaim report study.stat --output report.md
 ```
 
 The report lists every validated contract with its justification, the
@@ -72,13 +72,13 @@ for a structured version.
 ## What a change affects
 
 ```sh
-uv run --locked statproof impact before.stat after.stat
+uv run --locked statclaim impact before.stat after.stat
 ```
 
 Derivations are recomputed for both versions. The result names the
 declarations changed directly, those affected through a dependency, the
 contracts whose derivation changed or disappeared, and the claims that must be
-verified again. In VS Code, **StatProof: Show Change Impact** compares your
+verified again. In VS Code, **StatClaim: Show Change Impact** compares your
 unsaved edits with the file as last saved.
 
 ## Coverage

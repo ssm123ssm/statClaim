@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from statproof.language import (
+from statclaim.language import (
     MODULES,
     AnalysisIR,
     HypothesisIR,
@@ -16,11 +16,11 @@ from statproof.language import (
     elaborate,
     module_catalog,
 )
-from statproof.language_compiler import compile_source
-from statproof.language_contracts import FISHER_CONTRACT, HypothesisContract
-from statproof.language_runner import check_source
-from statproof.language_syntax import LanguageError, Source, Span
-from statproof.lsp_features import Document
+from statclaim.language_compiler import compile_source
+from statclaim.language_contracts import FISHER_CONTRACT, HypothesisContract
+from statclaim.language_runner import check_source
+from statclaim.language_syntax import LanguageError, Source, Span
+from statclaim.lsp_features import Document
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = (ROOT / "tests/fixtures/fisher.stat").read_text()
@@ -60,8 +60,8 @@ def test_same_model_different_null_is_rejected_before_execution(
         pytest.fail("a hypothesis mismatch must not execute calculations, processes, or Lean")
 
     monkeypatch.setattr(subprocess, "Popen", forbidden)
-    monkeypatch.setattr("statproof.language_runner.verify_design_only", forbidden)
-    monkeypatch.setattr("statproof.language_runner.test_design", forbidden)
+    monkeypatch.setattr("statclaim.language_runner.verify_design_only", forbidden)
+    monkeypatch.setattr("statclaim.language_runner.test_design", forbidden)
     text = replace_null(f"{constructor}(model=study, value={value})")
     for fast in (True, False):
         report = check_source(

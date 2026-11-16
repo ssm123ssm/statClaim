@@ -13,13 +13,13 @@
 
 The compiler is written in Python. It does not continuously generate Python
 source: it builds typed objects in memory. `use` loads registered constructors
-from `src/statproof/language.py`, not arbitrary Python or `.stat` files.
+from `src/statclaim/language.py`, not arbitrary Python or `.stat` files.
 
 - `language_syntax.py`, `language.py`: syntax, typed objects and constructors.
 - `language_contracts.py`, `language_compiler.py`: compatibility and requirements.
 - `language_fields.py`, `language_values.py`: public fields and runtime values.
 - `language_runner.py`, `verification.py`: explicit execution and certificates.
-- `StatProof/`: Lean definitions, theorems and composition rules.
+- `StatClaim/`: Lean definitions, theorems and composition rules.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `catalogue.py`: classified public inventory generated from those registries.
 

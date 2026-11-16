@@ -7,23 +7,23 @@ from pathlib import Path
 
 import pytest
 
-from statproof.cli import main
-from statproof.language import (
+from statclaim.cli import main
+from statclaim.language import (
     CalculationResultIR,
     ClaimIR,
     VerificationResultIR,
     elaborate,
 )
-from statproof.language_compiler import compile_source
-from statproof.language_runner import check_source, render_report
-from statproof.language_syntax import Source, Span
-from statproof.language_values import (
+from statclaim.language_compiler import compile_source
+from statclaim.language_runner import check_source, render_report
+from statclaim.language_syntax import Source, Span
+from statclaim.language_values import (
     CalculationResult,
     Evidence,
     VerificationResult,
     resolve,
 )
-from statproof.verification import VerificationError
+from statclaim.verification import VerificationError
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = (ROOT / "tests/fixtures/fisher.stat").read_text().replace("verify typeI(analysis)\n", "")
@@ -40,8 +40,8 @@ def forbid_execution(monkeypatch):
 
     monkeypatch.setattr(subprocess, "Popen", forbidden)
     for operation in ("test_design", "verify_design", "verify_design_only", "verify_family"):
-        monkeypatch.setattr(f"statproof.language_runner.{operation}", forbidden)
-    monkeypatch.setattr("statproof.fisher.fisher_exact", forbidden)
+        monkeypatch.setattr(f"statclaim.language_runner.{operation}", forbidden)
+    monkeypatch.setattr("statclaim.fisher.fisher_exact", forbidden)
 
 
 def test_first_class_claims_and_result_slots_have_types_sources_and_dependencies():
@@ -176,7 +176,7 @@ def test_result_aliases_and_nested_lists_reuse_an_immutable_runtime_value():
 def test_calculation_bindings_and_aliases_execute_once_without_formal_evidence(
     monkeypatch, tmp_path
 ):
-    import statproof.language_runner as runner
+    import statclaim.language_runner as runner
 
     original = runner.test_design
     calls = []
@@ -218,7 +218,7 @@ def test_backend_failure_produces_a_named_error_value_and_other_requests_continu
     def fail(*args, **kwargs):
         raise VerificationError("proof", "Controlled proof failure.")
 
-    monkeypatch.setattr("statproof.report.certify_design", fail)
+    monkeypatch.setattr("statclaim.report.certify_design", fail)
     text = first_class().text + OBSERVATION + "let computation = calculate(observed)\n"
     report = check_source(Source(text), project=ROOT, output=tmp_path / "run")
     value = report["values"]["checked"]
@@ -231,7 +231,7 @@ def test_backend_failure_produces_a_named_error_value_and_other_requests_continu
 
 
 def test_separate_operation_calls_are_not_deduplicated(monkeypatch, tmp_path):
-    import statproof.language_runner as runner
+    import statclaim.language_runner as runner
 
     original = runner.test_design
     calls = []
@@ -248,7 +248,7 @@ def test_separate_operation_calls_are_not_deduplicated(monkeypatch, tmp_path):
 
 
 def test_named_results_remain_bound_to_the_original_snapshot_after_an_edit(monkeypatch, tmp_path):
-    import statproof.language_runner as runner
+    import statclaim.language_runner as runner
 
     original = runner.test_design
     text = BASE + OBSERVATION + "let computation = calculate(observed)\n"

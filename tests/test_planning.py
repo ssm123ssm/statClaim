@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from statproof.catalogue import catalogue
-from statproof.design import Design
-from statproof.fisher import fisher_exact
-from statproof.language_compiler import compile_source
-from statproof.language_runner import check_source
-from statproof.language_syntax import Source
-from statproof.planning import (
+from statclaim.catalogue import catalogue
+from statclaim.design import Design
+from statclaim.fisher import fisher_exact
+from statclaim.language_compiler import compile_source
+from statclaim.language_runner import check_source
+from statclaim.language_syntax import Source
+from statclaim.planning import (
     BinomialInterval,
     DifferenceInterval,
     MarginTest,
@@ -348,7 +348,7 @@ def test_one_sample_language(tmp_path):
 
 
 def test_cuts_reproduce_the_reference_rejection_region():
-    from statproof.planning import fisher_cuts, fisher_rejection_region
+    from statclaim.planning import fisher_cuts, fisher_rejection_region
 
     for nc, nt in ((3, 4), (7, 5), (9, 9)):
         region = fisher_rejection_region(nc, nt, ALPHA)
@@ -539,7 +539,7 @@ def test_one_declaration_cannot_stand_for_two_outcomes():
 
 
 def test_help_lists_stat_commands_and_keeps_legacy_ones_working(capsys):
-    from statproof.cli import main
+    from statclaim.cli import main
 
     with pytest.raises(SystemExit):
         main(["--help"])
@@ -588,7 +588,7 @@ ONE_SIDED = (
 
 
 def test_one_sided_test_matches_direct_tail_sums():
-    from statproof.planning import fisher_bounds, fisher_rejection_region
+    from statclaim.planning import fisher_bounds, fisher_rejection_region
 
     level = Fraction(1, 40)
     for nc, nt in ((5, 7), (9, 9)):
@@ -640,9 +640,9 @@ def test_one_sided_language_contract_and_planning(tmp_path):
     assert parse_planning_payload(payload) == plan
     proof = render_planning_proof(plan, "0" * 64)
     assert "FisherOneSided.typeI_of_hints" in proof and "checked_sections" in proof
-    from statproof.verification import _profile
+    from statclaim.verification import _profile
 
-    assumptions = _profile("statproof_planning_certificate", payload)["assumptions"]
+    assumptions = _profile("statclaim_planning_certificate", payload)["assumptions"]
     assert any("at most the control's" in line for line in assumptions)
     assert not any("equal success probabilities" in line for line in assumptions)
     values = run(

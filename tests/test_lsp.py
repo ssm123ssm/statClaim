@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from statproof.language_syntax import Source, tokenize
-from statproof.lsp import ProtocolError, Server, read_message, write_message
-from statproof.lsp_features import Document, TextMap
+from statclaim.language_syntax import Source, tokenize
+from statclaim.lsp import ProtocolError, Server, read_message, write_message
+from statclaim.lsp_features import Document, TextMap
 
 ROOT = Path(__file__).resolve().parents[1]
-URI = "file:///tmp/statproof%20study.stat"
+URI = "file:///tmp/statclaim%20study.stat"
 BASE = (ROOT / "tests/fixtures/fisher.stat").read_text()
 PREFIX = BASE[: BASE.index("let analysis")]
 
@@ -44,8 +44,8 @@ def forbid_editor_execution(monkeypatch, request):
         "verify_design_only",
         "verify_family",
     ):
-        monkeypatch.setattr(f"statproof.language_runner.{name}", forbidden)
-    monkeypatch.setattr("statproof.report.fisher_exact", forbidden)
+        monkeypatch.setattr(f"statclaim.language_runner.{name}", forbidden)
+    monkeypatch.setattr("statclaim.report.fisher_exact", forbidden)
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ def connection():
 def open_document(send, text=BASE, version=1):
     return send(
         "textDocument/didOpen",
-        {"textDocument": {"uri": URI, "version": version, "languageId": "statproof", "text": text}},
+        {"textDocument": {"uri": URI, "version": version, "languageId": "statclaim", "text": text}},
     )
 
 
@@ -123,7 +123,7 @@ def test_requirements_are_warnings_not_proof_failures(connection, example, code)
     text = (ROOT / f"examples/{example}.stat").read_text()
     diagnostic = open_document(send, text)["params"]["diagnostics"][0]
     assert diagnostic["severity"] == 2
-    assert diagnostic["source"] == "statproof requirements"
+    assert diagnostic["source"] == "statclaim requirements"
     assert diagnostic["code"] == code
     assert (
         "evidence of inflated error" in diagnostic["message"]
@@ -386,7 +386,7 @@ def test_real_stdio_cli_exchanges_protocol_only_and_exits_cleanly(bad_json):
     for request in requests:
         write_message(wire, request)
     completed = subprocess.run(
-        [str(Path(sys.executable).parent / "statproof"), "lsp"],
+        [str(Path(sys.executable).parent / "statclaim"), "lsp"],
         input=wire.getvalue(),
         capture_output=True,
         timeout=10,
@@ -427,7 +427,7 @@ def test_typed_field_completion_and_optional_evidence_chains(connection):
         for label, kind in expected.items():
             assert items[label]["detail"] == kind
     open_document(send, base + "let field = checked.evidence\n")
-    result = send("statproof/inspect", {"textDocument": {"uri": URI}}, 50)["result"]
+    result = send("statclaim/inspect", {"textDocument": {"uri": URI}}, 50)["result"]
     assert result["version"] == 1
     assert all("evidence" not in claim for claim in result["claims"])
 
@@ -467,7 +467,7 @@ def test_claim_inspection_groups_aliases_and_reports_unrequested_requirements(co
         "let validity = typeI(analysis)\nlet alias = validity\nlet checked = verify(alias)",
     )
     open_document(send, text.replace("fixed(", "adaptive("))
-    result = send("statproof/inspect", {"textDocument": {"uri": URI}, "version": 0}, 60)["result"]
+    result = send("statclaim/inspect", {"textDocument": {"uri": URI}, "version": 0}, 60)["result"]
     assert result["version"] == 1
     assert result["status"] == "unresolved_obligation"
     assert len(result["claims"]) == 1
@@ -485,6 +485,6 @@ def test_claim_inspection_groups_aliases_and_reports_unrequested_requirements(co
             "contentChanges": [{"text": text.replace("fixed(", "adaptive(")}],
         },
     )
-    unrequested = send("statproof/inspect", {"textDocument": {"uri": URI}}, 61)["result"]
+    unrequested = send("statclaim/inspect", {"textDocument": {"uri": URI}}, 61)["result"]
     assert unrequested["claims"][0]["requests"] == []
     assert unrequested["claims"][0]["requirements"][0]["code"] == "sampling_scope"

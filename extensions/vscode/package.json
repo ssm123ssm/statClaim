@@ -1,8 +1,8 @@
 {
-  "name": "statproof",
-  "displayName": "StatProof",
+  "name": "statclaim",
+  "displayName": "StatClaim",
   "description": "Statistical language diagnostics, completion, hover, and explicit Lean verification.",
-  "publisher": "statproof-local",
+  "publisher": "statclaim-local",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -13,12 +13,12 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
-    "onLanguage:statproof",
-    "onCommand:statproof.verifyFile",
-    "onCommand:statproof.restartServer",
-    "onCommand:statproof.explainContract",
-    "onCommand:statproof.showImpact",
-    "onView:statproof.claims"
+    "onLanguage:statclaim",
+    "onCommand:statclaim.verifyFile",
+    "onCommand:statclaim.restartServer",
+    "onCommand:statclaim.explainContract",
+    "onCommand:statclaim.showImpact",
+    "onView:statclaim.claims"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -29,16 +29,16 @@
     "views": {
       "explorer": [
         {
-          "id": "statproof.claims",
-          "name": "StatProof Claims"
+          "id": "statclaim.claims",
+          "name": "StatClaim Claims"
         }
       ]
     },
     "languages": [
       {
-        "id": "statproof",
+        "id": "statclaim",
         "aliases": [
-          "StatProof",
+          "StatClaim",
           "stat"
         ],
         "extensions": [
@@ -49,45 +49,45 @@
     ],
     "grammars": [
       {
-        "language": "statproof",
-        "scopeName": "source.statproof",
-        "path": "./syntaxes/statproof.tmLanguage.json"
+        "language": "statclaim",
+        "scopeName": "source.statclaim",
+        "path": "./syntaxes/statclaim.tmLanguage.json"
       }
     ],
     "commands": [
       {
-        "command": "statproof.verifyFile",
-        "title": "StatProof: Verify Current File"
+        "command": "statclaim.verifyFile",
+        "title": "StatClaim: Verify Current File"
       },
       {
-        "command": "statproof.restartServer",
-        "title": "StatProof: Restart Language Server"
+        "command": "statclaim.restartServer",
+        "title": "StatClaim: Restart Language Server"
       },
       {
-        "command": "statproof.showClaims",
-        "title": "StatProof: Show Claims"
+        "command": "statclaim.showClaims",
+        "title": "StatClaim: Show Claims"
       },
       {
-        "command": "statproof.explainContract",
-        "title": "StatProof: Explain Contract"
+        "command": "statclaim.explainContract",
+        "title": "StatClaim: Explain Contract"
       },
       {
-        "command": "statproof.showImpact",
-        "title": "StatProof: Show Change Impact"
+        "command": "statclaim.showImpact",
+        "title": "StatClaim: Show Change Impact"
       }
     ],
     "configuration": {
-      "title": "StatProof",
+      "title": "StatClaim",
       "properties": {
-        "statproof.uvPath": {
+        "statclaim.uvPath": {
           "type": "string",
           "default": "uv",
           "description": "Path to the uv executable. Reload the extension host after changing."
         },
-        "statproof.projectPath": {
+        "statclaim.projectPath": {
           "type": "string",
           "default": "",
-          "description": "StatProof repository root. Defaults to the workspace root or the development repository. Reload after changing."
+          "description": "StatClaim repository root. Defaults to the workspace root or the development repository. Reload after changing."
         }
       }
     }
@@ -96,7 +96,7 @@
     "check": "node --check extension.js && node --check claims-model.js && node --check claims-view.js && node --check test/suite.js && node --check test/run.js",
     "test": "node test/run.js",
     "test:unit": "node --test test/*.test.js",
-    "package": "vsce package --out dist/statproof.vsix"
+    "package": "vsce package --out dist/statclaim.vsix"
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"
@@ -108,7 +108,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ssm123ssm/statProof.git",
+    "url": "https://github.com/ssm123ssm/statClaim.git",
     "directory": "extensions/vscode"
   },
   "extensionKind": [

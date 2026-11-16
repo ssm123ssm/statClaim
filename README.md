@@ -1,14 +1,14 @@
-# StatProof
+# StatClaim
 
 **Check that a statistical guarantee applies to your study.**
 
-StatProof helps researchers make study assumptions explicit, catch incompatible
+StatClaim helps researchers make study assumptions explicit, catch incompatible
 analyses, and obtain machine-checked evidence for supported statistical claims.
 
-[![Check](https://img.shields.io/github/actions/workflow/status/ssm123ssm/statProof/check.yml?branch=main&style=flat&label=Check&logo=github&logoColor=white)](https://github.com/ssm123ssm/statProof/actions/workflows/check.yml)
-[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in_GitHub_Codespaces-24292f?style=flat&logo=github&logoColor=white)](https://codespaces.new/ssm123ssm/statProof)
+[![Check](https://img.shields.io/github/actions/workflow/status/ssm123ssm/statClaim/check.yml?branch=main&style=flat&label=Check&logo=github&logoColor=white)](https://github.com/ssm123ssm/statClaim/actions/workflows/check.yml)
+[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in_GitHub_Codespaces-24292f?style=flat&logo=github&logoColor=white)](https://codespaces.new/ssm123ssm/statClaim)
 
-## Why StatProof?
+## Why StatClaim?
 
 A correctly computed p-value does not, by itself, establish that a method answers
 your intended question or that its error guarantee applies to your study design.
@@ -25,7 +25,7 @@ stops when a result becomes significant, that guarantee does not automatically
 apply to the whole procedure. The calculations can be correct while the study's
 error-control claim still needs justification.
 
-StatProof connects the study, hypothesis, analysis and claim so it can:
+StatClaim connects the study, hypothesis, analysis and claim so it can:
 
 - Explain supported incompatibilities while you edit, before running an analysis.
 - Show, on request, why a declaration passed its checks and what it still assumes.
@@ -35,7 +35,7 @@ StatProof connects the study, hypothesis, analysis and claim so it can:
 ### Alongside R and Python
 
 Keep using R or Python for data preparation, modelling and visualization.
-StatProof adds an explicit specification of the study and the guarantee you want
+StatClaim adds an explicit specification of the study and the guarantee you want
 to establish. Its small `.stat` notation gives the checker precise objects to
 reason about: models, hypotheses, analyses, claims and evidence.
 
@@ -68,7 +68,7 @@ explains why the current Fisher contract cannot support it. The guidance preserv
 your statistical question: changing the null to satisfy a method would change
 what you are asking.
 
-While editing, StatProof checks types, hypothesis compatibility and proof
+While editing, StatClaim checks types, hypothesis compatibility and proof
 requirements. **Verify Current File** explicitly runs the requested operations
 and Lean checks. `verification.evidence` is present only after successful
 verification; a valid specification alone is not a proof.
@@ -116,7 +116,7 @@ and adaptive designs. See the [roadmap](ROADMAP.md).
 
 Open Codespaces above, wait for setup, then open `playground/welcome.stat`.
 The other files in `playground/` show planning, single-arm and two-stage studies.
-Use **StatProof: Show Claims** and **StatProof: Verify Current File** in the
+Use **StatClaim: Show Claims** and **StatClaim: Verify Current File** in the
 command palette. Your GitHub account controls Codespaces quota and billing.
 
 Locally, install [uv](https://docs.astral.sh/uv/getting-started/installation/),
@@ -124,9 +124,9 @@ Locally, install [uv](https://docs.astral.sh/uv/getting-started/installation/),
 
 ```sh
 make setup
-uv run --locked statproof compile examples/fisher.stat
-uv run --locked statproof check examples/fisher.stat
-uv run --locked statproof catalogue
+uv run --locked statclaim compile examples/fisher.stat
+uv run --locked statclaim check examples/fisher.stat
+uv run --locked statclaim catalogue
 ```
 
 See [quickstart](docs/quickstart.md) for VS Code and result inspection.
@@ -145,6 +145,6 @@ the lesson files are in `examples/tutorial/`.
 - [Roadmap](ROADMAP.md): priorities and release criteria.
 - [Technical reference](docs/README.md): language, proofs and certificates.
 
-Questions and proposals belong in [Discussions](https://github.com/ssm123ssm/statProof/discussions);
-bugs and concrete tasks belong in [Issues](https://github.com/ssm123ssm/statProof/issues).
+Questions and proposals belong in [Discussions](https://github.com/ssm123ssm/statClaim/discussions);
+bugs and concrete tasks belong in [Issues](https://github.com/ssm123ssm/statClaim/issues).
 [MIT license](LICENSE).

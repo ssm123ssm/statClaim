@@ -70,8 +70,8 @@ required. This milestone does not introduce conditionals, optional unwrapping,
 list indexing, or general constructor evaluation on runtime data.
 
 ```sh
-uv run --locked statproof compile examples/fields.stat --json
-uv run --locked statproof check examples/fields.stat --json
+uv run --locked statclaim compile examples/fields.stat --json
+uv run --locked statclaim check examples/fields.stat --json
 ```
 
 The first command checks fields/types without calculations, Lean, or artifacts.
@@ -80,8 +80,8 @@ report, including evidence metadata and certificate references after success.
 
 ## Claims in VS Code
 
-After reloading the extension development window, run **StatProof: Show Claims**,
-or expand **StatProof Claims** in the Explorer. Open `examples/fields.stat` and
+After reloading the extension development window, run **StatClaim: Show Claims**,
+or expand **StatClaim Claims** in the Explorer. Open `examples/fields.stat` and
 try completing `verification.` and `verification.evidence.`; hover shows types
 and preserves optionality throughout the field chain.
 
@@ -94,7 +94,7 @@ another non-statistical tab is open. It displays:
   verification. Click a claim/requirement to reveal the source location.
 - Planned operations with their result names. A clean plan is explicitly not a
   proof and supplies no checked evidence.
-- Results from an explicit **StatProof: Verify Current File** command whose
+- Results from an explicit **StatClaim: Verify Current File** command whose
   editor version and source SHA-256 match the current document.
 
 Successful verification exposes the certificate, established properties, and
@@ -109,7 +109,7 @@ claim section. Server restarts invalidate current status too. Unsuccessful
 checks show diagnostics and no evidence. Closing/reopening a source does not
 restore a persisted proof status.
 
-Claim inspection uses the custom read-only `statproof/inspect` LSP request.
+Claim inspection uses the custom read-only `statclaim/inspect` LSP request.
 `language_inspection.py` supplies the same pure descriptions used by reports.
 The request returns versioned compiler descriptions and requirements only; the
 extension combines these with explicit execution reports. It never runs Lean

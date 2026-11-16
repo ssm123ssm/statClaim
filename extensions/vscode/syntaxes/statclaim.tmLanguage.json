@@ -1,0 +1,40 @@
+{
+  "scopeName": "source.statclaim",
+  "patterns": [
+    {
+      "name": "comment.line.number-sign.statclaim",
+      "match": "#.*$"
+    },
+    {
+      "name": "string.quoted.double.statclaim",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.statclaim",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "keyword.control.statclaim",
+      "match": "\\b(use|let)\\b"
+    },
+    {
+      "name": "support.function.statclaim",
+      "match": "\\b(verify|calculate)\\b"
+    },
+    {
+      "name": "entity.name.function.statclaim",
+      "match": "\\b[A-Za-z_][A-Za-z_0-9]*(?=\\s*\\()"
+    },
+    {
+      "name": "variable.parameter.statclaim",
+      "match": "\\b[A-Za-z_][A-Za-z_0-9]*(?=\\s*=)"
+    },
+    {
+      "name": "constant.numeric.statclaim",
+      "match": "(?<![A-Za-z_0-9])-?[0-9]+(?:\\.[0-9]+)?(?:\\s*/\\s*-?[0-9]+)?"
+    }
+  ]
+}

@@ -39,13 +39,13 @@ After the usual project setup, run from the project directory:
 
 ```sh
 # Compile a plan and inspect types, requested claims, and known requirements:
-uv run --locked statproof compile examples/first_class.stat
+uv run --locked statclaim compile examples/first_class.stat
 
 # Run the actual Lean verification and issue a certificate:
-uv run --locked statproof check examples/first_class.stat
+uv run --locked statclaim check examples/first_class.stat
 
 # Discover the available constructors:
-uv run --locked statproof modules
+uv run --locked statclaim modules
 ```
 
 `compile` performs no numerical calculations, builds, or artifact writes.
@@ -190,7 +190,7 @@ checks those proofs; Python retains their certificates and binds results to thei
 source snapshot. We do not translate arbitrary statistical source into arbitrary
 Python or promise automatic discovery of mathematical proofs.
 
-`statproof.language_compiler.compile_source(Source(...))` is the backend-free API
+`statclaim.language_compiler.compile_source(Source(...))` is the backend-free API
 for tooling. It returns the typed program, diagnostics, and per-operation known
 requirements. These include invalid types and domains, incompatible models,
 overallocated Bonferroni levels, and unjustified adaptive stopping. It can report
@@ -198,9 +198,9 @@ multiple unmet requirements for one operation, with source locations preserved
 through aliases. The compiler never calls numerical evaluators, Lean, or artifact
 writers. A clean plan reports `elaborated`, meaning no known blocker was detected.
 
-`statproof compile file.stat --json` exposes this analysis on the command line.
+`statclaim compile file.stat --json` exposes this analysis on the command line.
 Planned operations report `planned` or `blocked`; their result values remain
-`not_executed`. The explicit `statproof check file.stat` command performs supported
+`not_executed`. The explicit `statclaim check file.stat` command performs supported
 operations and returns named results. Independent operations continue when one
 verification has unmet requirements or a backend error. Any syntax or type error
 anywhere in the file prevents all execution and artifact creation.
@@ -226,7 +226,7 @@ verify familywise(outcomes)
 ```
 
 ```sh
-uv run --locked statproof check examples/two_outcomes.stat
+uv run --locked statclaim check examples/two_outcomes.stat
 ```
 
 The named analyses occupy two endpoint slots under the declared marginal-law
@@ -259,12 +259,12 @@ pipeline. A numerical result and a Type I guarantee remain different claim kinds
 ## Reports, replay, and source changes
 
 ```sh
-uv run --locked statproof check examples/fisher.stat --output .statproof/my-program
-uv run --locked statproof check-certificate .statproof/my-program/request-001
+uv run --locked statclaim check examples/fisher.stat --output .statclaim/my-program
+uv run --locked statclaim check-certificate .statclaim/my-program/request-001
 ```
 
 `--output` must name a new directory. By default, a run directory is allocated
-under `.statproof/programs/`. A run retains:
+under `.statclaim/programs/`. A run retains:
 
 - `Source.stat`: the UTF-8 source snapshot used for this execution.
 - `run.json`: the source hash, normalized typed objects, source locations,

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>StatProof Tutorial</title>
+<title>StatClaim Tutorial</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap">
 <style>
@@ -88,7 +88,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <body>
 <main>
 <header class="top">
-  <p class="eyebrow">StatProof tutorial</p>
+  <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
   <p class="lede">Eleven short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
@@ -101,17 +101,17 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   Lean or any programming language.</p>
   <p>Open the repository in GitHub Codespaces, or install it locally with
   <code>make setup</code> (see the quickstart). Every lesson has a file in
-  <code>examples/tutorial/</code>. Commands are shown as <code>statproof ...</code>; from
-  the repository folder, type <code>uv run --locked statproof ...</code>.</p>
-  <p>In VS Code the same two actions are <strong>StatProof: Show Claims</strong> and
-  <strong>StatProof: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatProof says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li></ol>
+  <code>examples/tutorial/</code>. Commands are shown as <code>statclaim ...</code>; from
+  the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
+  <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
+  <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
   <p class="eyebrow">Lesson 1</p>
   <h2>Your first checked claim</h2>
-  <div class="goal"><span class="tag">In this lesson</span><p>We describe a simple two-group study, choose a test, and ask StatProof to check one guarantee: that the test's false-positive rate is at most 5%.</p></div>
+  <div class="goal"><span class="tag">In this lesson</span><p>We describe a simple two-group study, choose a test, and ask StatClaim to check one guarantee: that the test's false-positive rate is at most 5%.</p></div>
 
 <p>A <code>.stat</code> file is a list of declarations. It contains no data and runs no
 analysis by itself. It states what the study is and which guarantee you want.</p>
@@ -154,8 +154,8 @@ analysis by itself. It states what the study is and which guarantee you want.</p
 <h3>Run it</h3>
 <p>There are two commands. <code>compile</code> checks the file and lists what would be
 verified. It is instant and proves nothing. <code>check</code> runs the verification.</p>
-<div class="scroll shell"><pre><code>statproof compile examples/tutorial/01_first_claim.stat
-statproof check   examples/tutorial/01_first_claim.stat</code></pre></div>
+<div class="scroll shell"><pre><code>statclaim compile examples/tutorial/01_first_claim.stat
+statclaim check   examples/tutorial/01_first_claim.stat</code></pre></div>
 <div class="scroll output"><pre><code><span class="ok">verified</span> [verification]: typeI(analysis)
   The specified two-sided Fisher analysis has Type I error at most 1/20
   under the null, for every common success probability in [0, 1].
@@ -163,10 +163,10 @@ statproof check   examples/tutorial/01_first_claim.stat</code></pre></div>
     The samples follow two independent binomial distributions.
     Positive arm sizes were fixed before outcomes were observed.
     The error bound is under the null of equal success probabilities.
-  Certificate: .statproof/programs/.../request-001
+  Certificate: .statclaim/programs/.../request-001
 Program status: verified</code></pre></div>
 <p><span class="pill ok">verified</span> means Lean checked a proof of the claim. The assumptions listed
-under it are part of the result: the claim holds <em>if</em> they do. StatProof cannot
+under it are part of the result: the claim holds <em>if</em> they do. StatClaim cannot
 check that your real study was randomised properly or that participants are independent.</p>
 
   <div class="wrap-up">
@@ -205,14 +205,14 @@ better. Second, the last four lines read <strong>fields</strong> with a dot.</p>
   </tbody>
 </table></div>
 <p>To see the values, ask for the full report:</p>
-<div class="scroll shell"><pre><code>statproof check examples/tutorial/02_reading_results.stat --json</code></pre></div>
+<div class="scroll shell"><pre><code>statclaim check examples/tutorial/02_reading_results.stat --json</code></pre></div>
 <h3>Evidence can be absent</h3>
 <p><code>evidence</code> exists only after a successful verification. If verification
 fails or was never run, <code>evidence</code> is empty, and so is every field read from
 it. A file that merely compiles never has evidence.</p>
 <div class="note"><strong>Certificates.</strong> Each verified claim leaves a folder with
 the exact inputs, the Lean proof and a log. Anyone can replay it with
-<code>statproof check-certificate &lt;folder&gt;</code>.</div>
+<code>statclaim check-certificate &lt;folder&gt;</code>.</div>
 
   <div class="wrap-up">
     <div><h4>What you learned</h4><ul><li>Objects have named fields, read with a dot.</li><li><code>status</code> says what happened; <code>evidence</code> exists only on success.</li><li>Certificates can be replayed.</li></ul></div>
@@ -221,7 +221,7 @@ the exact inputs, the Lean proof and a log. Anyone can replay it with
 </section>
 <section class="lesson" id="refusals">
   <p class="eyebrow">Lesson 3</p>
-  <h2>When StatProof says no</h2>
+  <h2>When StatClaim says no</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>We make two common mistakes on purpose and read the explanations. Knowing the two kinds of refusal is most of what you need to work with the tool.</p></div>
 
 <h3>Mistake 1: a question the test does not answer</h3>
@@ -265,7 +265,7 @@ This is not evidence of inflated error.
 Program status: unresolved_obligation</code></pre></div>
 <p><span class="pill warn">unresolved</span> is different from invalid. The file is well formed, but
 the 5% guarantee was proved for a fixed sample size and nothing here shows it survives
-early stopping. StatProof does not claim the error rate is inflated. It says the
+early stopping. StatClaim does not claim the error rate is inflated. It says the
 justification is missing. Lesson 10 shows how to plan an early stop properly.</p>
 <div class="scroll"><table>
   <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
@@ -388,13 +388,13 @@ Bonferroni method gives each test a share of the budget.</p>
 <section class="lesson" id="why">
   <p class="eyebrow">Lesson 6</p>
   <h2>Why it passed, and what a change affects</h2>
-  <div class="goal"><span class="tag">In this lesson</span><p>So far a valid file has been silent: no message means the pieces fit. We now ask StatProof to show its reasoning, produce a report for the study file, and tell us what an edit affects.</p></div>
+  <div class="goal"><span class="tag">In this lesson</span><p>So far a valid file has been silent: no message means the pieces fit. We now ask StatClaim to show its reasoning, produce a report for the study file, and tell us what an edit affects.</p></div>
 
-<p>When you write <code>fisher(design=..., null=..., alpha=...)</code>, StatProof checks
+<p>When you write <code>fisher(design=..., null=..., alpha=...)</code>, StatClaim checks
 that the pieces fit together. Lesson 3 showed what happens when they do not. When they
 do, the reasoning is kept and shown only if you ask. No new file is needed; we use the
 one from lesson 5.</p>
-<div class="scroll shell"><pre><code>statproof explain examples/tutorial/05_several_endpoints.stat --name response</code></pre></div>
+<div class="scroll shell"><pre><code>statclaim explain examples/tutorial/05_several_endpoints.stat --name response</code></pre></div>
 <div class="scroll output"><pre><code>Conclusion: response: the design, the null and the level fit this analysis.
 
 Why it passed
@@ -417,7 +417,7 @@ Independent check of this derivation: passed.</code></pre></div>
   <thead><tr><th>Part</th><th>Meaning</th></tr></thead>
   <tbody>
     <tr><td>Steps</td><td>Established from your declarations by a stated rule.</td></tr>
-    <tr><td>Assumptions</td><td>Facts about the real study. StatProof cannot check them; you must.</td></tr>
+    <tr><td>Assumptions</td><td>Facts about the real study. StatClaim cannot check them; you must.</td></tr>
     <tr><td>Unresolved obligations</td><td>Something a later guarantee needs that is not shown yet.</td></tr>
     <tr><td>Not established here</td><td>A reminder: this is about fit, not about error rates.</td></tr>
   </tbody>
@@ -426,11 +426,11 @@ Independent check of this derivation: passed.</code></pre></div>
 still the job of <code>verify</code>. The last line means a second, separate program
 re-read the declarations and confirmed every step.</p>
 <div class="note"><strong>In VS Code.</strong> Put the cursor on a declaration and run
-<strong>StatProof: Explain Contract</strong>. Leave out <code>--name</code> on the
+<strong>StatClaim: Explain Contract</strong>. Leave out <code>--name</code> on the
 command line to explain every declaration, including the family
 <code>endpoints</code>.</div>
 <h3>A report for the whole file</h3>
-<div class="scroll shell"><pre><code>statproof report examples/tutorial/05_several_endpoints.stat --output report.md</code></pre></div>
+<div class="scroll shell"><pre><code>statclaim report examples/tutorial/05_several_endpoints.stat --output report.md</code></pre></div>
 <p>The report collects every derivation, the assumptions to meet, the open obligations
 and the claims the file requests. It is meant for a protocol appendix or a reviewer.</p>
 <h3>What does an edit affect?</h3>
@@ -439,7 +439,7 @@ edited file changes two levels from <code>1/80</code> to <code>1/40</code>:</p>
 <figure class="code"><figcaption>examples/tutorial/06_changed_levels.stat</figcaption><div class="scroll"><pre><code><span class="k">let</span> response = <span class="f">fisher</span>(design=design, null=null, alpha=1/40)
 <span class="k">let</span> remission = <span class="f">fisher</span>(design=design, null=null, alpha=1/40)
 <span class="k">let</span> relapse = <span class="f">fisher</span>(design=design, null=null, alpha=1/40)</code></pre></div></figure>
-<div class="scroll shell"><pre><code>statproof impact examples/tutorial/05_several_endpoints.stat examples/tutorial/06_changed_levels.stat</code></pre></div>
+<div class="scroll shell"><pre><code>statclaim impact examples/tutorial/05_several_endpoints.stat examples/tutorial/06_changed_levels.stat</code></pre></div>
 <div class="scroll output"><pre><code>Declarations
 - remission: changed directly
 - relapse: changed directly
@@ -459,11 +459,11 @@ New diagnostics
 <p>Each analysis is still fine on its own. The family is where the edit bites: the
 shares now add up to 3/40, so the familywise claim has an open obligation, and the
 certificate from lesson 5 no longer describes this file. In VS Code,
-<strong>StatProof: Show Change Impact</strong> does the same for your unsaved edits.</p>
+<strong>StatClaim: Show Change Impact</strong> does the same for your unsaved edits.</p>
 
   <div class="wrap-up">
     <div><h4>What you learned</h4><ul><li>A passing declaration keeps a derivation; you see it only when you ask.</li><li>Steps are established, assumptions are yours to meet, obligations are still open.</li><li><code>report</code> documents a study file; <code>impact</code> shows what an edit affects.</li></ul></div>
-    <div class="task"><h4>Try it</h4><p>Run <code>statproof explain</code> on <code>03_optional_stopping.stat</code>. The declaration passes its contract, with one unresolved obligation: the missing justification from lesson 3.</p></div>
+    <div class="task"><h4>Try it</h4><p>Run <code>statclaim explain</code> on <code>03_optional_stopping.stat</code>. The declaration passes its contract, with one unresolved obligation: the missing justification from lesson 3.</p></div>
   </div>
 </section>
 <section class="lesson" id="sample-size">
@@ -781,7 +781,7 @@ would have stopped.</p>
 <h3>Finding a design</h3>
 <p>You do not have to guess the numbers. Describe the search and use
 <code>sample_size</code>:</p>
-<figure class="code"><figcaption>examples/tutorial/10_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Or let StatProof find one.</span>
+<figure class="code"><figcaption>examples/tutorial/10_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Or let StatClaim find one.</span>
 <span class="k">let</span> search = <span class="f">two_stage_designs</span>(null_rate=1/5, max_total=45, criterion=<span class="s">&quot;minimax&quot;</span>)
 <span class="k">let</span> found = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=search, target=target))</code></pre></div></figure>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [found]: sample_size(search)
@@ -868,7 +868,7 @@ not proved in Lean, and the certificate lists this under its assumptions.</div>
     </tbody>
   </table></div>
   <p>Every claim goes through <code>calculate</code> for numbers or <code>verify</code> for
-  checked evidence. <code>statproof catalogue</code> lists every constructor and field.</p>
+  checked evidence. <code>statclaim catalogue</code> lists every constructor and field.</p>
   <h3>Habits worth keeping</h3>
   <ul>
     <li>Write the file before the data arrive. The assumptions all say "fixed before
@@ -878,7 +878,7 @@ not proved in Lean, and the certificate lists this under its assumptions.</div>
     <li>Report verified numbers; explore with calculated ones.</li>
   </ul>
 </section>
-<footer>StatProof is a developer preview. See <code>docs/scope.md</code> for what is and
+<footer>StatClaim is a developer preview. See <code>docs/scope.md</code> for what is and
 is not checked, and <code>docs/planning.md</code> for more on planning.</footer>
 </main>
 </body>

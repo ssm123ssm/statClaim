@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from statproof.design import load_design
-from statproof.family import load_family
-from statproof.fisher import fisher_exact
-from statproof.language_runner import check_source
-from statproof.language_syntax import Source
-from statproof.verification import (
+from statclaim.design import load_design
+from statclaim.family import load_family
+from statclaim.fisher import fisher_exact
+from statclaim.language_runner import check_source
+from statclaim.language_syntax import Source
+from statclaim.verification import (
     canonical_bytes,
     design_payload,
     digest,

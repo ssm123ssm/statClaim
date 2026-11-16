@@ -1,6 +1,6 @@
-import StatProof
+import StatClaim
 
-namespace StatProof.Tests.CoreObjects
+namespace StatClaim.Tests.CoreObjects
 
 open Core
 
@@ -112,11 +112,11 @@ noncomputable def identityAnalysis : Analysis model where
 def identityResult : Result identityAnalysis := ⟨observed, observed.val⟩
 example : identityResult.exactClaim.statement := rfl
 
-end StatProof.Tests.CoreObjects
+end StatClaim.Tests.CoreObjects
 
-namespace StatProof.Tests.HypothesisContracts
+namespace StatClaim.Tests.HypothesisContracts
 
-open StatProof.Modules.TwoArmBinomial
+open StatClaim.Modules.TwoArmBinomial
 
 example (parameter : Parameters) :
     proportionDifference 0 parameter ↔ equalProportions parameter :=
@@ -130,4 +130,4 @@ example (parameter : Parameters)
   · intro equal
     exact (ne_of_lt h) equal.symm
 
-end StatProof.Tests.HypothesisContracts
+end StatClaim.Tests.HypothesisContracts

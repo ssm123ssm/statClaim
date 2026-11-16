@@ -1,11 +1,11 @@
-import StatProof.Modules.Fisher
+import StatClaim.Modules.Fisher
 
 /-!
 Verify the design before collecting data. No observed success counts, numerical
 p-values, or proposed calculation results are needed for this guarantee.
 -/
 
-namespace StatProof.Examples.DesignGuarantee
+namespace StatClaim.Examples.DesignGuarantee
 
 open Core
 
@@ -28,4 +28,4 @@ theorem stopping_justification_missing :
 
 #check stopping_justification_missing
 
-end StatProof.Examples.DesignGuarantee
+end StatClaim.Examples.DesignGuarantee

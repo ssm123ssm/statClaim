@@ -12,5 +12,5 @@ for example in planning unequal_allocation one_sided non_inferiority one_sample 
     cp "examples/$example.stat" "playground/$example.stat"
   fi
 done
-uv run --locked statproof doctor
-printf '\nReady: open playground/welcome.stat and run StatProof: Show Claims.\n'
+uv run --locked statclaim doctor
+printf '\nReady: open playground/welcome.stat and run StatClaim: Show Claims.\n'

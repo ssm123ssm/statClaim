@@ -1,10 +1,10 @@
 cff-version: 1.2.0
-message: "If you use StatProof, please cite this repository and the exact commit or release."
-title: StatProof
+message: "If you use StatClaim, please cite this repository and the exact commit or release."
+title: StatClaim
 type: software
 authors:
   - family-names: Manathunga
     given-names: Supun
 license: MIT
-repository-code: "https://github.com/ssm123ssm/statProof"
-url: "https://github.com/ssm123ssm/statProof"
+repository-code: "https://github.com/ssm123ssm/statClaim"
+url: "https://github.com/ssm123ssm/statClaim"

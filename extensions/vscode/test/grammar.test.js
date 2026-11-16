@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const grammar = require('../syntaxes/statproof.tmLanguage.json');
+const grammar = require('../syntaxes/statclaim.tmLanguage.json');
 
 test('highlighting recognizes keywords, operations, constructors, arguments, and exact numbers', () => {
   function recognizes(scope, text) {

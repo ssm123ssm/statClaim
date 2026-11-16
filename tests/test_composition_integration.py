@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from statproof.design import Design
-from statproof.family import load_family
-from statproof.report import verify_design, verify_design_only, verify_family
-from statproof.verification import VerificationError, canonical_bytes, digest, recheck_certificate
+from statclaim.design import Design
+from statclaim.family import load_family
+from statclaim.report import verify_design, verify_design_only, verify_family
+from statclaim.verification import VerificationError, canonical_bytes, digest, recheck_certificate
 
 ROOT = Path(__file__).resolve().parents[1]
 pytestmark = [
@@ -40,7 +40,7 @@ def test_strong_family_certificate_replays_without_observations(family_certifica
         "dependence between outcomes is unrestricted" in a for a in report["required_assumptions"]
     )
     checked = recheck_certificate(bundle, project=ROOT)
-    assert checked["kind"] == "statproof_family_certificate"
+    assert checked["kind"] == "statclaim_family_certificate"
     assert checked["status"] == "verified"
     assert checked["certificate_id"] == report["certificate"]["certificate_id"]
 
@@ -88,7 +88,7 @@ def test_kernel_rejects_false_family_allocation(family_certificate, tmp_path, be
         ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=120
     )
     assert checked.returncode != 0
-    assert "STATPROOF_CHECKED" not in checked.stdout
+    assert "STATCLAIM_CHECKED" not in checked.stdout
 
 
 @pytest.mark.parametrize("change", ["alpha", "joint_law", "claims"])

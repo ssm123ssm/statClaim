@@ -2,7 +2,7 @@
 
 **Roadmap.** The goal is a consistent way to plan a study, understand its
 expected performance and retain the justification with the design. Bayesian and
-adaptive designs are core targets, reflecting StatProof's original motivation.
+adaptive designs are core targets, reflecting StatClaim's original motivation.
 
 Implemented so far: exact Fisher power, target checks, a bounded sample-size
 search, and a two-stage binomial policy with count or Beta-posterior rules.

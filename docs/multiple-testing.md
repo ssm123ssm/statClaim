@@ -35,10 +35,10 @@ Unequal allocations are supported provided their sum does not exceed family alph
 Both analyses and the allocation must be specified before observing results.
 
 ```sh
-uv run --locked statproof inspect-family examples/two_outcomes.toml
-uv run --locked statproof verify-family examples/two_outcomes.toml \
-  --output .statproof/two-outcomes
-uv run --locked statproof check-certificate .statproof/two-outcomes
+uv run --locked statclaim inspect-family examples/two_outcomes.toml
+uv run --locked statclaim verify-family examples/two_outcomes.toml \
+  --output .statclaim/two-outcomes
+uv run --locked statclaim check-certificate .statclaim/two-outcomes
 ```
 
 Inspection exits with code 1 because it has not checked the proof. Successful

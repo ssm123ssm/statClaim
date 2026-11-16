@@ -1,6 +1,6 @@
 # Contributing
 
-StatProof needs statistical methods, Lean proofs, language/editor improvements,
+StatClaim needs statistical methods, Lean proofs, language/editor improvements,
 and clear examples. Small documentation fixes are welcome. For a new method,
 open an issue describing the model, null, assumptions and intended guarantee
 before building it. See [adding modules](docs/adding-modules.md).

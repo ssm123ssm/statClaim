@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-from statproof.catalogue import catalogue, render_catalogue
-from statproof.cli import main
-from statproof.language import MODULES, OPERATIONS, Module
-from statproof.language_fields import SCHEMAS
+from statclaim.catalogue import catalogue, render_catalogue
+from statclaim.cli import main
+from statclaim.language import MODULES, OPERATIONS, Module
+from statclaim.language_fields import SCHEMAS
 
 
 def test_inventory_includes_every_constructor_and_public_schema():

@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from statproof.design import Design
-from statproof.fisher import fisher_exact
-from statproof.proof import render_proof
-from statproof.report import verify_design
-from statproof.verification import (
+from statclaim.design import Design
+from statclaim.fisher import fisher_exact
+from statclaim.proof import render_proof
+from statclaim.report import verify_design
+from statclaim.verification import (
     VerificationError,
     _check_proof,
     _run,
@@ -49,14 +49,14 @@ def test_proof_uses_kernel_arithmetic_and_binds_the_proposed_value(result):
     assert "sorry" not in source
     assert "(1 : ℚ) / 35" in source
     assert "checked_typeI" in source
-    assert f"STATPROOF_CHECKED {'a' * 64}" in source
+    assert f"STATCLAIM_CHECKED {'a' * 64}" in source
 
 
 def test_adaptive_design_never_calls_certificate_backend(monkeypatch, tmp_path):
     def forbidden(*args, **kwargs):
         raise AssertionError("Unsupported sampling must not reach the certificate backend.")
 
-    monkeypatch.setattr("statproof.report.certify_result", forbidden)
+    monkeypatch.setattr("statclaim.report.certify_result", forbidden)
     report = verify_design(
         Design(4, 4, "data_dependent"),
         control_successes=0,
@@ -75,7 +75,7 @@ def test_failed_check_does_not_issue_a_certificate(monkeypatch):
     def failed(*args, **kwargs):
         raise VerificationError("proof", "Proof check failed.")
 
-    monkeypatch.setattr("statproof.report.certify_result", failed)
+    monkeypatch.setattr("statclaim.report.certify_result", failed)
     report = verify_design(
         Design(4, 4, "fixed"),
         control_successes=0,
@@ -89,7 +89,7 @@ def test_failed_check_does_not_issue_a_certificate(monkeypatch):
 
 
 def test_successful_subprocess_without_audit_marker_is_insufficient(monkeypatch, tmp_path):
-    monkeypatch.setattr("statproof.verification._run", lambda *args: "Build succeeded.\n")
+    monkeypatch.setattr("statclaim.verification._run", lambda *args: "Build succeeded.\n")
     with pytest.raises(VerificationError, match="audited-proof marker"):
         _check_proof(tmp_path, "a" * 64, ROOT, 10, [], compile_output=False)
 

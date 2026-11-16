@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from statproof.language_runner import check_source
-from statproof.language_syntax import Source
-from statproof.verification import VerificationError, recheck_certificate
+from statclaim.language_runner import check_source
+from statclaim.language_syntax import Source
+from statclaim.verification import VerificationError, recheck_certificate
 
 ROOT = Path(__file__).resolve().parents[1]
 pytestmark = [
@@ -52,7 +52,7 @@ def test_planning_example_components(runs):
     evidence = values["sizing_evidence"]
     assert "smallest sufficient candidate" in evidence["established_properties"][-1]
     replay = recheck_certificate(Path(evidence["certificate"]["directory"]), project=ROOT)
-    assert replay["kind"] == "statproof_planning_certificate"
+    assert replay["kind"] == "statclaim_planning_certificate"
 
 
 @pytest.mark.parametrize("name", ["two_stage", "two_stage_posterior", "one_sample"])
@@ -61,14 +61,14 @@ def test_policy_certificates_replay(runs, name):
     assert report["values"]["verification"]["status"] == "verified", report["diagnostics"]
     certificate = report["values"]["verification"]["evidence"]["certificate"]
     replay = recheck_certificate(Path(certificate["directory"]), project=ROOT)
-    assert replay["kind"] == "statproof_policy_certificate"
+    assert replay["kind"] == "statclaim_policy_certificate"
 
 
 def test_one_sample_result_certificate_replays_and_resists_tampering(runs, tmp_path):
     evidence = runs["one_sample_result"]["values"]["verification"]["evidence"]
     source = Path(evidence["certificate"]["directory"])
     assert recheck_certificate(source, project=ROOT)["kind"] == (
-        "statproof_binomial_result_certificate"
+        "statclaim_binomial_result_certificate"
     )
     bundle = tmp_path / "tampered"
     shutil.copytree(source, bundle)
@@ -83,7 +83,7 @@ def test_interval_certificate_replays_and_rejects_a_narrower_interval(runs, tmp_
     evidence = runs["confidence_interval"]["values"]["verification"]["evidence"]
     source = Path(evidence["certificate"]["directory"])
     assert recheck_certificate(source, project=ROOT)["kind"] == (
-        "statproof_binomial_interval_certificate"
+        "statclaim_binomial_interval_certificate"
     )
     bundle = tmp_path / "narrow"
     shutil.copytree(source, bundle)
@@ -113,7 +113,7 @@ def test_two_stage_result_certificate_replays_and_resists_tampering(runs, tmp_pa
     assert report["status"] == "verified", report["diagnostics"]
     source = Path(report["values"]["verification"]["evidence"]["certificate"]["directory"])
     assert recheck_certificate(source, project=ROOT)["kind"] == (
-        "statproof_two_stage_result_certificate"
+        "statclaim_two_stage_result_certificate"
     )
     bundle = tmp_path / "tampered"
     shutil.copytree(source, bundle)
@@ -129,7 +129,7 @@ def test_difference_interval_certificate_replays_and_rejects_a_narrower_interval
     assert report["status"] == "verified", report["diagnostics"]
     source = Path(report["values"]["verification"]["evidence"]["certificate"]["directory"])
     assert recheck_certificate(source, project=ROOT)["kind"] == (
-        "statproof_difference_interval_certificate"
+        "statclaim_difference_interval_certificate"
     )
     bundle = tmp_path / "narrow"
     shutil.copytree(source, bundle)
@@ -148,9 +148,9 @@ def test_one_sided_certificates_replay_and_resist_tampering(runs, tmp_path):
         directory = Path(report["values"][name]["evidence"]["certificate"]["directory"])
         kinds[name] = recheck_certificate(directory, project=ROOT)["kind"]
     assert kinds == {
-        "guarantee": "statproof_design_certificate",
-        "sizing": "statproof_planning_certificate",
-        "outcome": "statproof_per_result_certificate",
+        "guarantee": "statclaim_design_certificate",
+        "sizing": "statclaim_planning_certificate",
+        "outcome": "statclaim_per_result_certificate",
     }
     source = Path(report["values"]["outcome"]["evidence"]["certificate"]["directory"])
     bundle = tmp_path / "tampered"
@@ -166,7 +166,7 @@ def test_margin_certificates_replay_and_resist_tampering(runs, tmp_path):
     report = runs["non_inferiority"]
     assert report["status"] == "verified", report["diagnostics"]
     source = Path(report["values"]["outcome"]["evidence"]["certificate"]["directory"])
-    assert recheck_certificate(source, project=ROOT)["kind"] == "statproof_margin_test_certificate"
+    assert recheck_certificate(source, project=ROOT)["kind"] == "statclaim_margin_test_certificate"
     bundle = tmp_path / "tampered"
     shutil.copytree(source, bundle)
     inputs = json.loads((bundle / "inputs.json").read_text())

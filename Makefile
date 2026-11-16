@@ -52,32 +52,32 @@ reference-check:
 	uv run --locked python scripts/compare_with_r.py
 
 demo:
-	uv run --locked statproof test examples/fixed_sample.toml --control-successes 10 --treatment-successes 25
+	uv run --locked statclaim test examples/fixed_sample.toml --control-successes 10 --treatment-successes 25
 
 verify-demo:
-	uv run --locked statproof verify examples/fixed_sample.toml --control-successes 10 --treatment-successes 25
+	uv run --locked statclaim verify examples/fixed_sample.toml --control-successes 10 --treatment-successes 25
 
 design-demo:
-	uv run --locked statproof verify-design examples/fixed_sample.toml
+	uv run --locked statclaim verify-design examples/fixed_sample.toml
 
 alpha-demo:
-	uv run --locked statproof verify-design examples/fixed_sample_alpha.toml
+	uv run --locked statclaim verify-design examples/fixed_sample_alpha.toml
 
 family-demo:
-	uv run --locked statproof verify-family examples/two_outcomes.toml
+	uv run --locked statclaim verify-family examples/two_outcomes.toml
 
 composition-demo:
 	lake build
 	lake env lean examples/MultipleTesting.lean
 
 language-demo:
-	uv run --locked statproof check examples/fisher.stat
+	uv run --locked statclaim check examples/fisher.stat
 
 language-family-demo:
-	uv run --locked statproof check examples/two_outcomes.stat
+	uv run --locked statclaim check examples/two_outcomes.stat
 
 language-result-demo:
-	uv run --locked statproof check examples/fisher_result.stat
+	uv run --locked statclaim check examples/fisher_result.stat
 
 editor-check:
 	npm --prefix extensions/vscode run check

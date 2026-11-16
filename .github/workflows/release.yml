@@ -20,5 +20,5 @@ jobs:
         with:
           name: release-packages
           path: |
-            extensions/vscode/dist/statproof.vsix
+            extensions/vscode/dist/statclaim.vsix
             dist/*

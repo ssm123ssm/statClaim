@@ -13,7 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from statproof.fisher import fisher_exact
+from statclaim.fisher import fisher_exact
 
 R_CODE = """
 args <- commandArgs(trailingOnly = TRUE)

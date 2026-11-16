@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from statproof.language_compiler import compile_source
-from statproof.language_syntax import Source
+from statclaim.language_compiler import compile_source
+from statclaim.language_syntax import Source
 
 ROOT = Path(__file__).resolve().parents[1]
 LESSONS = sorted((ROOT / "examples/tutorial").glob("*.stat"))

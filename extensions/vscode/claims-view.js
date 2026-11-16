@@ -26,7 +26,7 @@ class ClaimsView {
       ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);
     item.tooltip = node.label;
     item.description = node.description;
-    if (node.location?.range) item.command = { command: 'statproof.revealLocation', title: 'Show declaration', arguments: [node.location] };
+    if (node.location?.range) item.command = { command: 'statclaim.revealLocation', title: 'Show declaration', arguments: [node.location] };
     if (node.certificate) item.command = { command: 'vscode.open', title: 'Open certificate', arguments: [vscode.Uri.file(node.certificate)] };
     return item;
   }
@@ -34,7 +34,7 @@ class ClaimsView {
     clearTimeout(this.timer);
     const sequence = ++this.sequence;
     const active = vscode.window.activeTextEditor?.document;
-    if (active?.languageId === 'statproof') this.document = active;
+    if (active?.languageId === 'statclaim') this.document = active;
     const document = this.document;
     if (!document || document.isClosed) {
       this.roots = buildClaimsTree(null);
@@ -49,7 +49,7 @@ class ClaimsView {
     this.changed.fire();
     this.timer = setTimeout(async () => {
       try {
-        const result = await this.client.sendRequest('statproof/inspect', { textDocument: { uri }, version: live.version });
+        const result = await this.client.sendRequest('statclaim/inspect', { textDocument: { uri }, version: live.version });
         if (sequence !== this.sequence || document.isClosed || document.version !== live.version) return;
         if (!result || result.version !== live.version) { this.schedule(); return; }
         this.inspection = result;

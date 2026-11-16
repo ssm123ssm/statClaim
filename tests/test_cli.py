@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from statproof.cli import main
-from statproof.design import Design
-from statproof.report import test_design as run_design_test
+from statclaim.cli import main
+from statclaim.design import Design
+from statclaim.report import test_design as run_design_test
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -125,7 +125,7 @@ def test_verify_command_maps_backend_options(monkeypatch, capsys, tmp_path):
         }
         return {"status": "verified", "certificate_issued": True}
 
-    monkeypatch.setattr("statproof.cli.verify_design", backend)
+    monkeypatch.setattr("statclaim.cli.verify_design", backend)
     assert (
         main(
             [

@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from statproof.design import Design
-from statproof.fisher import fisher_exact
-from statproof.proof import render_proof
-from statproof.report import verify_design
-from statproof.verification import (
+from statclaim.design import Design
+from statclaim.fisher import fisher_exact
+from statclaim.proof import render_proof
+from statclaim.report import verify_design
+from statclaim.verification import (
     VerificationError,
     canonical_bytes,
     certify_result,
@@ -124,7 +124,7 @@ def test_recomputed_hashes_cannot_make_a_false_p_value_valid(issued, tmp_path):
 
 
 def test_bundle_change_during_replay_is_rejected(issued, tmp_path, monkeypatch):
-    import statproof.verification as backend
+    import statclaim.verification as backend
 
     _, original = issued
     bundle = tmp_path / "changing"
@@ -141,7 +141,7 @@ def test_bundle_change_during_replay_is_rejected(issued, tmp_path, monkeypatch):
 
 
 def test_failed_final_write_does_not_publish_a_certificate(tmp_path, monkeypatch):
-    import statproof.verification as backend
+    import statclaim.verification as backend
 
     original_write = backend._write_json
 

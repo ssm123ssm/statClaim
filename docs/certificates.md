@@ -1,25 +1,25 @@
 # Certificate and replay guide
 
 The standalone file language uses these same certificate kinds and proof
-generators. `statproof check examples/fisher.stat --output .statproof/my-program`
+generators. `statclaim check examples/fisher.stat --output .statclaim/my-program`
 retains the source and typed program in a parent run directory, then places each
 verified request's certificate in `request-NNN/`. Replay that request directory
 with `check-certificate`. The parent `run.json` is a source/IR provenance report,
 not a mathematical certificate. Translation from `.stat` declarations remains a
 trusted application boundary. See the [file-language guide](stat-language.md).
 
-Planning claims issue `statproof_planning_certificate` (a fixed design's Type I
-bound and its power at one point) and `statproof_policy_certificate` (a complete
-single-arm design). `statproof_binomial_result_certificate` covers an observed
-one-sample result, `statproof_two_stage_result_certificate` the decision of a
-two-stage design, and `statproof_binomial_interval_certificate` an exact
-confidence interval. `statproof_difference_interval_certificate` covers an
+Planning claims issue `statclaim_planning_certificate` (a fixed design's Type I
+bound and its power at one point) and `statclaim_policy_certificate` (a complete
+single-arm design). `statclaim_binomial_result_certificate` covers an observed
+one-sample result, `statclaim_two_stage_result_certificate` the decision of a
+two-stage design, and `statclaim_binomial_interval_certificate` an exact
+confidence interval. `statclaim_difference_interval_certificate` covers an
 interval for a difference of two proportions, and
-`statproof_margin_test_certificate` an exact test with a margin. All replay with `check-certificate`.
+`statclaim_margin_test_certificate` an exact test with a margin. All replay with `check-certificate`.
 
 The TOML commands below (`verify-design`, `verify-family`, `verify-result` and
 their `inspect` counterparts) predate the file language. They still work but are
-no longer listed in `statproof --help`; prefer `.stat` files.
+no longer listed in `statclaim --help`; prefer `.stat` files.
 
 Design and family workflows need no observations. Fisher's alpha is configurable
 as an exact string in the optional `[analysis]` table; it defaults to `1/20`.
@@ -28,9 +28,9 @@ The bound in the generated proof and certificate uses that declared value.
 The primary design workflow is:
 
 ```sh
-uv run --locked statproof verify-design examples/fixed_sample.toml \
-  --output .statproof/my-design
-uv run --locked statproof check-certificate .statproof/my-design
+uv run --locked statclaim verify-design examples/fixed_sample.toml \
+  --output .statclaim/my-design
+uv run --locked statclaim check-certificate .statclaim/my-design
 ```
 
 `verify-design` constructs the declared model, fixed sampling plan, and Fisher
@@ -38,12 +38,12 @@ analysis through the shared Lean objects. It checks positive sizes, the fixed
 plan, the sampling compatibility contract, the core design claim, and the uniform
 Type I error bound at the declared alpha for every common success probability in `[0, 1]`.
 
-The resulting `statproof_design_certificate` has `verification_scope: "design"`
+The resulting `statclaim_design_certificate` has `verification_scope: "design"`
 in its report and no calculation or decision. Its inputs contain the design,
 procedure identifier/version, equal-proportions null, and the exact chosen threshold.
 It certifies only the named design properties under explicit assumptions.
 
-`verify-family` issues a third kind, `statproof_family_certificate`, with
+`verify-family` issues a third kind, `statclaim_family_certificate`, with
 `verification_scope: "family"` in its report. It composes the declared Fisher analyses
 using the generic Bonferroni theorem. Its retained proof quantifies over all
 joint sampling-law families satisfying the explicitly declared binomial marginal
@@ -64,18 +64,18 @@ mapping to the displayed report remain explicit trusted components.
 After `make setup`, from the source project folder:
 
 ```sh
-uv run --locked statproof verify-result examples/fixed_sample.toml \
+uv run --locked statclaim verify-result examples/fixed_sample.toml \
   --control-successes 10 --treatment-successes 25 \
-  --output .statproof/my-example
-uv run --locked statproof check-certificate .statproof/my-example
+  --output .statclaim/my-example
+uv run --locked statclaim check-certificate .statclaim/my-example
 ```
 
 The output directory must not exist, so a previous certificate cannot be silently
 overwritten. Without `--output`, a unique directory is created under
-`.statproof/certificates/`. The directory is ignored by Git. The JSON response gives
+`.statclaim/certificates/`. The directory is ignored by Git. The JSON response gives
 its absolute location and the certificate's content identifier.
 
-Use `--project /path/to/statProof` when running from elsewhere. Verification needs
+Use `--project /path/to/statClaim` when running from elsewhere. Verification needs
 the Lean source project and its dependencies even if the Python CLI was installed
 from a wheel. `--timeout` is a positive, finite number of seconds per backend
 command, with default `120`. Verification can be expensive for large tables;
@@ -88,7 +88,7 @@ certificates check positive sizes, the allocation inequality, conditional margin
 Fisher bounds, and the strong familywise claim. They retain the assumed
 marginal-law equalities as explicit hypotheses of the theorem. Design-only
 certificates verify the declarations and general guarantee, without any supplied
-counts or numerical results. Per-result certificates (`statproof_per_result_certificate`)
+counts or numerical results. Per-result certificates (`statclaim_per_result_certificate`)
 add the following checks:
 
 1. Positive declared arm sizes and observed counts within their bounds.
@@ -99,7 +99,7 @@ add the following checks:
 6. The general Type I error guarantee instantiated at the declared arm sizes.
 
 Integer arithmetic uses factorial-based binomial coefficients whose equivalence
-to the specification is proved in `StatProof/Computation.lean`. Cross-product
+to the specification is proved in `StatClaim/Computation.lean`. Cross-product
 equalities certify proposed fractions, using Lean's kernel reduction. There is no
 `native_decide` or native-evaluation axiom in the checked proofs.
 
@@ -127,7 +127,7 @@ of the certificate fields excluding the identifier itself; creation time means
 separate issuances can have different identifiers.
 
 The certificate records the actual Lean version, pinned toolchain, dependency
-revisions, and StatProof version. Dependency checkouts must match their pinned Git
+revisions, and StatClaim version. Dependency checkouts must match their pinned Git
 revisions and have no local changes or untracked files. It records hashes of the
 local Lean sources, application Python sources, Lake configuration/manifest, and
 compiled project library. Source and artifact snapshots are checked again after

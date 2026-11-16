@@ -1,13 +1,13 @@
-import StatProof
+import StatClaim
 
 /-!
 Policy-level operating characteristics checked for concrete designs, plus
 negative cases: a failing bound must not be provable by the same check.
 -/
 
-open StatProof StatProof.Modules
+open StatClaim StatClaim.Modules
 
-namespace StatProof.Tests.Policies
+namespace StatClaim.Tests.Policies
 
 /-- Simon's optimal two-stage design for 20% versus 40% response. -/
 def simon := TwoStageBinomial.thresholdDesign 13 30 3 12
@@ -86,10 +86,10 @@ example : ¬ (4 * rejectionDenominator 35 35 10 5 ≤
     rejectionNumerator 35 35 1 10 2 5 (FisherPower.checkedReject 35 35 1 20) * 5) := by
   decide +kernel
 
-end StatProof.Tests.Policies
+end StatClaim.Tests.Policies
 
-namespace StatProof.Tests.Minimality
-open StatProof StatProof.Modules
+namespace StatClaim.Tests.Minimality
+open StatClaim StatClaim.Modules
 
 /-- No equal-arm size from 2 to 11 reaches 80% Fisher power at 10% versus 40%. -/
 example : FisherPower.SmallerFail 1 2 12 1 20 1 10 2 5 4 5 := by decide +kernel
@@ -118,4 +118,4 @@ example : DifferenceTest.cellCheck 1 1 [1, 1] 2 0 0 1 40 0 1 = false := by decid
 /-- Thresholds must not decrease as control successes increase. -/
 example : ¬ DifferenceTest.Increasing 2 2 [2, 1, 3] := by decide
 
-end StatProof.Tests.Minimality
+end StatClaim.Tests.Minimality

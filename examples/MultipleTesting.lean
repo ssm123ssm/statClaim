@@ -1,6 +1,6 @@
-import StatProof
+import StatClaim
 
-namespace StatProof.Examples.MultipleTesting
+namespace StatClaim.Examples.MultipleTesting
 
 open Core Modules MeasureTheory
 
@@ -43,4 +43,4 @@ example : ¬ (FisherFamily.module sizes sizes defaultLevel defaultLevel
   have allocation := requirement.2
   norm_num [defaultLevel, targetAlpha, familyLevel] at allocation
 
-end StatProof.Examples.MultipleTesting
+end StatClaim.Examples.MultipleTesting

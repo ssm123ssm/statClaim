@@ -5,8 +5,8 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 paths = [
-    root / "StatProof.lean",
-    *sorted((root / "StatProof").rglob("*.lean")),
+    root / "StatClaim.lean",
+    *sorted((root / "StatClaim").rglob("*.lean")),
     *sorted((root / "tests/lean").rglob("*.lean")),
     *sorted((root / "examples").rglob("*.lean")),
 ]

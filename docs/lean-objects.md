@@ -16,7 +16,7 @@ make objects-demo
 For the primary workflow before observations, run `make design-objects-demo`,
 which checks `examples/DesignGuarantee.lean`. It constructs and verifies the design
 and leaves out the observation and numerical result entirely. A replayable JSON
-design certificate is available through `statproof verify-design DESIGN.toml`.
+design certificate is available through `statclaim verify-design DESIGN.toml`.
 
 `make objects-demo` builds the library and checks `examples/FisherObjects.lean`. That example
 constructs a model, sampling plan, analysis, general guarantee, observation,
@@ -30,7 +30,7 @@ provide artifact paths for their respective scopes.
 
 ## Core objects
 
-`StatProof/Core/Objects.lean` defines:
+`StatClaim/Core/Objects.lean` defines:
 
 | Object | Implemented meaning |
 | --- | --- |
@@ -61,7 +61,7 @@ and provenance. Naming a claim or marking it assumed provides no proof term.
 
 ## Model and hypothesis
 
-`StatProof/Modules/TwoArmBinomial.lean` defines a full model with parameters
+`StatClaim/Modules/TwoArmBinomial.lean` defines a full model with parameters
 `(p_control, p_treatment)`, each in `[0, 1]`. Its law is the product of the two
 binomial measures, and its admissible counts are bounded by the two arm sizes.
 The module proves support probability one for every parameter pair.
@@ -75,9 +75,9 @@ Creating the model does not assume the null is true for the observed data.
 The following is ordinary Lean code:
 
 ```lean
-import StatProof.Modules.Fisher
+import StatClaim.Modules.Fisher
 
-open StatProof
+open StatClaim
 
 def sizes : FixedSampleDesign := ⟨100, 100, by decide, by decide⟩
 noncomputable def model := Modules.TwoArmBinomial.model sizes

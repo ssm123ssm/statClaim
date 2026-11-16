@@ -56,7 +56,7 @@ passing tests alone cannot establish that a new method models the intended study
   diagnoses properties such as power and bias by simulation, without deductive
   guarantees.
 
-StatProof differs in checking the guarantees themselves in Lean, for exact
+StatClaim differs in checking the guarantees themselves in Lean, for exact
 finite designs. See the [project background](background.md).
 
 See [formal proof](formal-proof.md) and [certificates](certificates.md).

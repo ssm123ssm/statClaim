@@ -1,6 +1,6 @@
-import StatProof
+import StatClaim
 
-namespace StatProof.Tests.Composition
+namespace StatClaim.Tests.Composition
 
 open Core Modules MeasureTheory
 
@@ -66,4 +66,4 @@ example (family : Bonferroni.Family 2 Unit ℕ) (parameter : Unit)
   ext outcome
   simp [Bonferroni.Family.falseRejectionEvent, Fin.exists_fin_two, first_true, second_false]
 
-end StatProof.Tests.Composition
+end StatClaim.Tests.Composition

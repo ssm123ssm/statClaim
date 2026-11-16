@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from statproof.cli import main
-from statproof.design import Design, inspect_design, load_design
+from statclaim.cli import main
+from statclaim.design import Design, inspect_design, load_design
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -68,7 +68,7 @@ def test_fixed_design_has_no_stopping_obligation():
 def test_library_theorem_is_not_presented_as_verification_of_this_run():
     report = inspect_design(Design(100, 100, "fixed"))
     reference = report["formal_reference"]
-    assert reference["theorem"] == "StatProof.Modules.Fisher.typeI_statement"
+    assert reference["theorem"] == "StatClaim.Modules.Fisher.typeI_statement"
     assert reference["checked_in_this_run"] is False
     assert reference["application_to_this_run"] == "unresolved_design_verification"
     assert report["verification_scope"] == "design"

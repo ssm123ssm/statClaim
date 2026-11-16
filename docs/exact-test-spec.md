@@ -14,7 +14,7 @@ The target theorem is that this specified procedure rejects with probability at
 most the declared exact `alpha` in `[0,1]` under that null, for every such common `p`.
 The default is `1/20`. Discreteness can make the actual rejection probability smaller. The procedure does not
 randomize. The mathematical target is now checked in Lean as
-`StatProof.fisher_typeI_error_le_alpha`, against the product of Mathlib's binomial
+`StatClaim.fisher_typeI_error_le_alpha`, against the product of Mathlib's binomial
 measures. Correspondence between a Python execution and that formal rejection
 event is now checked per result by the `verify` command. The fast `test` command
 does not perform that check.
@@ -52,7 +52,7 @@ q(k) = w(k) / D
 
 `D` is positive for valid observations. Vandermonde's identity gives
 `sum_k w(k) = D`, so these conditional masses sum to one. These facts are checked
-in `StatProof/Hypergeometric.lean`. `StatProof/BinomialModel.lean` proves that
+in `StatClaim/Hypergeometric.lean`. `StatClaim/BinomialModel.lean` proves that
 these masses give the finite conditional probabilities whenever the pooled total
 has positive probability.
 
@@ -79,7 +79,7 @@ support contains one table and the p-value is `1`.
 
 ## Executable calculation
 
-`src/statproof/fisher.py` uses Python's arbitrary-precision integers, `math.comb`,
+`src/statclaim/fisher.py` uses Python's arbitrary-precision integers, `math.comb`,
 and `fractions.Fraction`. It enumerates each feasible control count and adds the
 weights meeting the probability-ordering condition. To avoid recomputing both
 binomial coefficients at every point, neighboring weights use the exact identity
@@ -103,9 +103,9 @@ or establish that the sampling assumptions hold for the study.
 
 ## Lean proofs completed
 
-`StatProof/FinitePValue.lean` defines `probabilityOrderedPValue` on a finite
+`StatClaim/FinitePValue.lean` defines `probabilityOrderedPValue` on a finite
 support with rational masses and proves
-`StatProof.probabilityOrdered_rejection_mass_le`:
+`StatClaim.probabilityOrdered_rejection_mass_le`:
 
 ```text
 For nonnegative masses and alpha >= 0,
@@ -118,19 +118,19 @@ with maximum mass, observes that every rejected outcome is counted in its
 p-value, and bounds the rejected mass by that p-value. An empty rejection set is
 handled separately. No proof placeholders or additional project axioms are used.
 
-`StatProof/Hypergeometric.lean` specializes the generic theorem to the conditional
+`StatClaim/Hypergeometric.lean` specializes the generic theorem to the conditional
 weights, proves their normalization, and proves that rational probability
 ordering equals integer weight ordering. The latter gives the exact integer
 ratio specified above, with the same inclusive support bounds as the executable.
 
-`StatProof/BinomialModel.lean` defines the independent-binomial joint masses,
+`StatClaim/BinomialModel.lean` defines the independent-binomial joint masses,
 proves their normalization, and partitions every feasible pair of observed counts
 by its pooled total. It proves that each joint mass factors into a pooled
 binomial mass and the rational hypergeometric mass. Summing the conditional bounds
 therefore gives the uniform unconditional bound.
 
-`StatProof/Fisher.lean` connects those finite masses to Mathlib's product of
-binomial probability measures. Its generalized theorem, `StatProof.fisher_typeI_error_le_alpha`,
+`StatClaim/Fisher.lean` connects those finite masses to Mathlib's product of
+binomial probability measures. Its generalized theorem, `StatClaim.fisher_typeI_error_le_alpha`,
 states that the probability of the Lean-defined rejection region at a nonnegative
 rational `alpha` is at most that `alpha`, for all arm sizes and all common real probabilities in the closed unit
 interval. The application restricts arm sizes to positive integers; the theorem
@@ -141,7 +141,7 @@ unconditional bound. It consequently includes `p = 0` and `p = 1` directly,
 without defining conditional probabilities for impossible totals. A separate
 conditional-probability formula requires a positive-probability pooled total.
 
-`StatProof/Computation.lean` proves an efficient factorial-based integer formula
+`StatClaim/Computation.lean` proves an efficient factorial-based integer formula
 equal to the formal weights. For a proposed rational result, a checked natural
 cross-product equality proves equality to the formal p-value. `verify` uses
 `decide +kernel` for those integer checks and instantiates the model theorem for

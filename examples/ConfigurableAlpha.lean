@@ -1,6 +1,6 @@
-import StatProof.Modules.Fisher
+import StatClaim.Modules.Fisher
 
-namespace StatProof.Examples.ConfigurableAlpha
+namespace StatClaim.Examples.ConfigurableAlpha
 
 open Core
 
@@ -15,4 +15,4 @@ noncomputable def guarantee : TypeIGuarantee analysis (level.value : ℝ) :=
 
 #check guarantee.certificate.establishes
 
-end StatProof.Examples.ConfigurableAlpha
+end StatClaim.Examples.ConfigurableAlpha

@@ -1,12 +1,12 @@
-import StatProof.Modules.Fisher
-import StatProof.Computation
+import StatClaim.Modules.Fisher
+import StatClaim.Computation
 
 /-!
 The first analysis expressed through the shared objects. This is ordinary Lean
 code, not the proposed statistical grammar. Run `make objects-demo` to check it.
 -/
 
-namespace StatProof.Examples.FisherObjects
+namespace StatClaim.Examples.FisherObjects
 
 open Core
 
@@ -51,4 +51,4 @@ theorem stopping_justification_missing :
 #check resultCertificate.establishes
 #check stopping_justification_missing
 
-end StatProof.Examples.FisherObjects
+end StatClaim.Examples.FisherObjects

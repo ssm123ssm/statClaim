@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from statproof.language import FieldIR, elaborate
-from statproof.language_compiler import compile_source
-from statproof.language_runner import check_source
-from statproof.language_syntax import FieldAccess, Source, parse
-from statproof.verification import VerificationError
+from statclaim.language import FieldIR, elaborate
+from statclaim.language_compiler import compile_source
+from statclaim.language_runner import check_source
+from statclaim.language_syntax import FieldAccess, Source, parse
+from statclaim.verification import VerificationError
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = (ROOT / "tests/fixtures/fisher.stat").read_text().replace("verify typeI(analysis)\n", "")
@@ -68,7 +68,7 @@ def test_runtime_projections_remain_deferred_during_compile(monkeypatch, tmp_pat
         subprocess, "Popen", lambda *a, **k: pytest.fail("compiler invoked process")
     )
     monkeypatch.setattr(
-        "statproof.language_runner.test_design", lambda *a, **k: pytest.fail("calculation")
+        "statclaim.language_runner.test_design", lambda *a, **k: pytest.fail("calculation")
     )
     tail = (
         CLAIM
@@ -149,7 +149,7 @@ def test_backend_errors_produce_status_but_never_evidence(monkeypatch, tmp_path)
     def failed(*args, **kwargs):
         raise VerificationError("proof", "Controlled verification failure")
 
-    monkeypatch.setattr("statproof.report.certify_design", failed)
+    monkeypatch.setattr("statclaim.report.certify_design", failed)
     result = report(
         CLAIM + "let state = checked.status\nlet path = checked.evidence.certificate.file\n",
         tmp_path,
