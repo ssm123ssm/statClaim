@@ -13,6 +13,16 @@ const SCOPES = { finite_sample: 'finite-sample bound', asymptotic: 'large-sample
 
 function evidenceNodes(value, historical = false) {
   const evidence = value?.evidence;
+  if (value?.status === 'cited' && evidence) {
+    return [group(historical ? 'Historical cited guarantee — previous snapshot only'
+      : 'Cited guarantee — not machine-checked', [
+      leaf(`Evidence grade: ${GRADES[evidence.grade] || 'unknown'}`),
+      group('Cited properties', evidence.established_properties.map(text => leaf(text))),
+      group('Required assumptions — none checked',
+        evidence.required_assumptions.map(text => leaf(text))),
+      group('References', evidence.references.map(text => leaf(text)))
+    ])];
+  }
   if (value?.status !== 'verified' || !evidence) return [leaf('No checked evidence')];
   const certificate = evidence.certificate;
   return [group(historical ? 'Historical evidence — previous snapshot only' : 'Checked evidence', [

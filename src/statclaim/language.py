@@ -9,12 +9,15 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Literal as Choice
 
+from statclaim.cited import METHODS, CitedMethod
 from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statclaim.fisher import validate_alpha
 from statclaim.language_contracts import (
+    EQUAL_MEANS_CONTRACT,
     FISHER_CONTRACT,
     MARGIN_CONTRACT,
+    MEAN_DIFFERENCE_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
     HypothesisContract,
 )
@@ -79,15 +82,44 @@ class PlanningPointIR:
     """A parameter point used for planning; never a replacement for the null."""
 
 
+class StudyModelIR:
+    """A sampling model that a study design can be declared over."""
+
+
+class LevelTestIR:
+    """An analysis that a Type I error claim can be requested for."""
+
+
 @dataclass(frozen=True)
-class ModelIR:
+class ModelIR(StudyModelIR):
     n_control: int
     n_treatment: int
 
 
 @dataclass(frozen=True)
+class ContinuousModelIR(StudyModelIR):
+    """Two arms with a continuous outcome; no distribution is fixed by the model."""
+
+    n_control: int
+    n_treatment: int
+
+
+@dataclass(frozen=True)
+class MeanHypothesisIR:
+    model: ContinuousModelIR
+    predicate: Choice["equal_means", "mean_difference_at_most"] = "equal_means"
+    value: Fraction = Fraction(0)
+
+    @property
+    def statement(self) -> str:
+        if self.predicate == "equal_means":
+            return "mean_treatment = mean_control"
+        return f"mean_treatment - mean_control <= {self.value}"
+
+
+@dataclass(frozen=True)
 class PlanIR:
-    model: ModelIR
+    model: StudyModelIR
     stopping: Choice["fixed", "data_dependent"]
 
 
@@ -120,7 +152,7 @@ class HypothesisIR:
 
 
 @dataclass(frozen=True)
-class AnalysisIR(PlannableIR):
+class AnalysisIR(PlannableIR, LevelTestIR):
     plan: PlanIR
     hypothesis: HypothesisIR
     alpha: Fraction
@@ -166,6 +198,20 @@ class AnalysisIR(PlannableIR):
             self.alpha,
             self.alternative,
         )
+
+
+@dataclass(frozen=True)
+class CitedAnalysisIR(LevelTestIR):
+    """An analysis whose guarantee is cited from the literature, not proved in Lean."""
+
+    plan: PlanIR
+    hypothesis: MeanHypothesisIR
+    alpha: Fraction
+    method: CitedMethod
+
+    @property
+    def target_property(self) -> str:
+        return self.method.property(self.alpha, self.hypothesis.value)
 
 
 @dataclass(frozen=True)
@@ -395,7 +441,9 @@ class ClaimIR:
 
     @property
     def guarantee(self) -> str:
-        """The scope of the claimed guarantee; every current module is exact."""
+        """The scope of the claimed guarantee; every Lean-backed module is exact."""
+        if isinstance(self.subject, CitedAnalysisIR):
+            return self.subject.method.guarantee
         return "finite_sample"
 
 
@@ -452,6 +500,8 @@ class ValueType:
                 bool: "boolean",
                 PlanIR: "StudyDesign",
                 PlannableIR: "Analysis",
+                LevelTestIR: "Analysis",
+                StudyModelIR: "Model",
                 CandidateSpaceIR: "Candidates",
                 PlanningPointIR: "PlanningPoint",
                 TwoStageAnalysisIR: "TwoStageAnalysis",
@@ -525,6 +575,20 @@ def normalize(value: object) -> object:
             return str(value)
         case ModelIR(n_control=nc, n_treatment=nt):
             return {"module": "two_arm_binomial", "n_control": nc, "n_treatment": nt}
+        case ContinuousModelIR(n_control=nc, n_treatment=nt):
+            return {"module": "two_arm_continuous", "n_control": nc, "n_treatment": nt}
+        case MeanHypothesisIR(model=model, predicate=predicate, value=bound):
+            result = {"predicate": predicate, "model": normalize(model)}
+            if predicate != "equal_means":
+                result["value"] = str(bound)
+            return result
+        case CitedAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, method=method):
+            return {
+                "test": method.key,
+                "design": normalize(plan),
+                "null": normalize(hypothesis),
+                "alpha": str(alpha),
+            }
         case PlanIR(model=model, stopping=stopping):
             return {"model": normalize(model), "stopping": stopping}
         case HypothesisIR(model=model, predicate=predicate, value=bound):
@@ -683,6 +747,34 @@ def _model(arguments: dict[str, LocatedValue], span: Span) -> ModelIR:
         if argument.value <= 0:
             fail("domain", f"{name} must be a positive integer.", argument.span)
     return ModelIR(arguments["n_control"].value, arguments["n_treatment"].value)
+
+
+def _continuous_model(arguments: dict[str, LocatedValue], span: Span) -> ContinuousModelIR:
+    for name, argument in arguments.items():
+        if argument.value <= 0:
+            fail("domain", f"{name} must be a positive integer.", argument.span)
+    return ContinuousModelIR(arguments["n_control"].value, arguments["n_treatment"].value)
+
+
+def _cited_test(method: CitedMethod) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> CitedAnalysisIR:
+        design, alpha = arguments["design"], arguments["alpha"]
+        model = design.value.model
+        if (
+            min(model.n_control, model.n_treatment) < method.min_per_arm
+            or model.n_control + model.n_treatment < method.min_total
+        ):
+            fail(
+                "domain",
+                f"{method.key} needs at least {method.min_per_arm} per arm and "
+                f"{method.min_total} in total to estimate the variance.",
+                design.span,
+            )
+        if not 0 < alpha.value < 1:
+            fail("domain", "alpha must lie strictly between 0 and 1 for this test.", alpha.span)
+        return CitedAnalysisIR(design.value, arguments["null"].value, alpha.value, method)
+
+    return build
 
 
 def _fisher(alternative: str) -> Callable:
@@ -1128,10 +1220,62 @@ OPERATIONS = {
 }
 
 
+# One constructor shared by every module whose analyses carry a Type I claim.
+TYPE_I = _constructor(
+    "typeI", (("analysis", LevelTestIR),), "TypeIClaim", _claim("typeI", "analysis")
+)
+
+
+def _cited_constructor(key: str) -> Constructor:
+    method = METHODS[key]
+    contract = EQUAL_MEANS_CONTRACT if method.sided == "two_sided" else MEAN_DIFFERENCE_CONTRACT
+    return _constructor(
+        key,
+        (("design", PlanIR), ("null", MeanHypothesisIR), ("alpha", "level")),
+        "CitedAnalysis",
+        _cited_test(method),
+        hypothesis_contract=contract,
+        documentation=f"{method.title}. Its guarantee is cited from the literature and is "
+        f"not checked by Lean. {contract.guidance}",
+    )
+
+
 # Extending this registry adds vocabulary and typed builders; parsing is unchanged.
 MODULES = {
     module.name: module
     for module in (
+        Module(
+            "models.two_arm_continuous",
+            (
+                _constructor(
+                    "two_arm_continuous",
+                    (("n_control", "integer"), ("n_treatment", "integer")),
+                    "ContinuousModel",
+                    _continuous_model,
+                    documentation="Two arms with a continuous outcome. The model fixes no "
+                    "distribution; each test states the distribution it assumes.",
+                ),
+                _constructor(
+                    "equal_means",
+                    (("model", ContinuousModelIR),),
+                    "MeanHypothesis",
+                    lambda args, span: MeanHypothesisIR(args["model"].value),
+                    documentation="Null: mean_treatment = mean_control.",
+                ),
+                _constructor(
+                    "mean_difference_at_most",
+                    (("model", ContinuousModelIR), ("value", "number")),
+                    "MeanHypothesis",
+                    lambda args, span: MeanHypothesisIR(
+                        args["model"].value, "mean_difference_at_most", args["value"].value
+                    ),
+                    documentation="Null: mean_treatment - mean_control <= value, in the "
+                    "outcome's units. A negative value is a non-inferiority margin.",
+                ),
+                TYPE_I,
+            ),
+        ),
+        Module("tests.t", tuple(_cited_constructor(key) for key in METHODS)),
         Module(
             "models.two_arm_binomial",
             (
@@ -1177,9 +1321,7 @@ MODULES = {
                     "Observation",
                     _observe,
                 ),
-                _constructor(
-                    "typeI", (("analysis", AnalysisIR),), "TypeIClaim", _claim("typeI", "analysis")
-                ),
+                TYPE_I,
                 _constructor(
                     "result",
                     (("observation", ObservationIR),),
@@ -1193,13 +1335,13 @@ MODULES = {
             (
                 _constructor(
                     "fixed",
-                    (("model", ModelIR),),
+                    (("model", StudyModelIR),),
                     "StudyDesign",
                     lambda args, span: PlanIR(args["model"].value, "fixed"),
                 ),
                 _constructor(
                     "adaptive",
-                    (("model", ModelIR),),
+                    (("model", StudyModelIR),),
                     "StudyDesign",
                     lambda args, span: PlanIR(args["model"].value, "data_dependent"),
                 ),
@@ -1678,6 +1820,8 @@ class Elaborator:
             if statement.name not in self.modules:
                 module = MODULES[statement.name]
                 for constructor in module.constructors:
+                    if self.constructors.get(constructor.name) is constructor:
+                        continue
                     if constructor.name in self.constructors:
                         fail(
                             "module_conflict",

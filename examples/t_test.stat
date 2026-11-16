@@ -1,0 +1,21 @@
+# A continuous endpoint. The guarantees below are cited, not proved in Lean.
+use models.two_arm_continuous
+use sampling
+use tests.t
+
+let study = two_arm_continuous(n_control=60, n_treatment=60)
+let plan = fixed(model=study)
+
+# Two-sided: exact under normal outcomes with equal variances.
+let null = equal_means(model=study)
+let analysis = t_test(design=plan, null=null, alpha=1/20)
+let checked = verify(typeI(analysis))
+let status = checked.status
+let grade = checked.evidence.grade
+let references = checked.evidence.references
+
+# Non-inferiority with Welch's test: a large-sample approximation.
+let margin = mean_difference_at_most(model=study, value=-2)
+let welch = welch_test_one_sided(design=plan, null=margin, alpha=1/40)
+let approximate = verify(typeI(welch))
+let scope = approximate.claim.guarantee

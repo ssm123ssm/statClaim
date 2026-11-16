@@ -24,6 +24,10 @@ What is supported:
   Beta-posterior rules. Type I error and power are checked for the whole design,
   and the decision for observed counts is checked against the declared rule.
 
+- **Two means, cited.** Pooled-variance and Welch t-tests, two-sided or
+  one-sided with a margin. The contract is checked; the guarantee is cited from
+  the literature and not proved. See [cited methods](cited-methods.md).
+
 Error bounds for single-arm designs cover every rate at or below the null rate.
 Power is always at one declared planning point. The posterior rule's closed
 form is a definition; its identity with the Beta integral is not proved in Lean.
@@ -56,10 +60,11 @@ Every claim also states its scope: `finite_sample` for a bound that holds at the
 declared sample size, or `asymptotic` for a large-sample approximation. The two
 are never shown as the same thing.
 
-All current modules are `proved` and `finite_sample`. The other grades are for
-planned methods whose guarantees Lean cannot yet prove. Read them with
-`evidence.grade` and `claim.guarantee`. Only `proved` and `conditional` evidence
-can give a `verified` status.
+The exact modules are `proved` and `finite_sample`. The t-tests are `cited`;
+Welch's is also `asymptotic`. No module uses `conditional` or `simulated` yet.
+Read them with `evidence.grade` and `claim.guarantee`. Only `proved` and
+`conditional` evidence can give a `verified` status; cited evidence gives the
+status `cited` and has no certificate.
 
 Certificates record source/toolchain hashes and can be replayed. Trust includes
 the Lean kernel and declared axioms, the pinned dependencies, and the translation

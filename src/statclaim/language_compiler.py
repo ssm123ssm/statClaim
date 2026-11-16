@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from statclaim.language import (
     AnalysisIR,
+    CitedAnalysisIR,
     DifferenceIntervalIR,
     FamilyIR,
     FeasibilityIR,
@@ -85,6 +86,19 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
         subject, (OneSampleObservationIR, TwoStageObservationIR, IntervalIR, DifferenceIntervalIR)
     ):
         return ()
+    if isinstance(subject, CitedAnalysisIR):
+        if request.operation != "verify" or subject.plan.stopping == "fixed":
+            return ()
+        return (
+            Diagnostic(
+                "sampling_scope",
+                f"{name}: the cited guarantee assumes arm sizes fixed in advance and a single "
+                "analysis. Data-dependent stopping is outside it and needs a design with its "
+                "own guarantee. This is not evidence of inflated error.",
+                _origin(program, subject.plan, request.span),
+                "obligation",
+            ),
+        )
     if isinstance(subject, FamilyIR):
         family = subject.lower()
         if family.allocated_alpha > family.alpha:

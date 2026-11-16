@@ -3,6 +3,9 @@
 There is no external plugin loader yet. Modules are registered in the repository.
 Start with an issue containing a small `.stat` example and the desired claim.
 
+A method whose guarantee Lean cannot prove yet is added as a
+[cited method](cited-methods.md) instead; step 4 does not apply to it.
+
 1. Define the model, hypothesis, design and assumptions precisely. Explain which
    combinations must fail and why.
 2. Add a typed object/constructor in `language.py`. Add an analysis contract in

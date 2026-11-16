@@ -12,7 +12,9 @@ from statclaim.language import (
     CalculationResultIR,
     CandidatesIR,
     CandidateSpaceIR,
+    CitedAnalysisIR,
     ClaimIR,
+    ContinuousModelIR,
     DifferenceIntervalIR,
     FamilyIR,
     FeasibilityIR,
@@ -20,6 +22,7 @@ from statclaim.language import (
     HypothesisIR,
     IntervalIR,
     LocatedValue,
+    MeanHypothesisIR,
     ModelIR,
     ObservationIR,
     OneArmCandidatesIR,
@@ -35,6 +38,7 @@ from statclaim.language import (
     RatesIR,
     RuleIR,
     SizingIR,
+    StudyModelIR,
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
     TwoStageModelIR,
@@ -71,7 +75,21 @@ class FieldSpec:
 
 SCHEMAS = {
     ModelIR: {"n_control": FieldSpec(int), "n_treatment": FieldSpec(int)},
-    PlanIR: {"model": FieldSpec(ModelIR), "stopping": FieldSpec(str)},
+    PlanIR: {"model": FieldSpec(StudyModelIR), "stopping": FieldSpec(str)},
+    ContinuousModelIR: {"n_control": FieldSpec(int), "n_treatment": FieldSpec(int)},
+    MeanHypothesisIR: {
+        "model": FieldSpec(ContinuousModelIR),
+        "predicate": FieldSpec(str),
+        "value": FieldSpec(Fraction),
+        "statement": FieldSpec(str),
+    },
+    CitedAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(MeanHypothesisIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction),
+        "guarantee": FieldSpec(str, description="finite_sample or asymptotic."),
+        "property": FieldSpec(str, attribute="target_property"),
+    },
     HypothesisIR: {
         "model": FieldSpec(ModelIR),
         "predicate": FieldSpec(str),
@@ -101,7 +119,10 @@ SCHEMAS = {
     Evidence: {
         "grade": FieldSpec(str, description="proved, conditional, cited or simulated."),
         "claim": FieldSpec(ClaimIR),
-        "certificate": FieldSpec(CertificateReference),
+        "certificate": FieldSpec(
+            CertificateReference, optional=True, description="Absent for cited evidence."
+        ),
+        "references": FieldSpec("list", description="Publications a cited guarantee rests on."),
         "established_properties": FieldSpec("list"),
         "required_assumptions": FieldSpec("list"),
     },
@@ -289,7 +310,7 @@ VERIFICATION_FIELDS = {
     "evidence": FieldSpec(
         Evidence,
         optional=True,
-        description="Checked evidence only after successful verification. "
+        description="Evidence after a verified or cited result; read its grade. "
         "Absent on unmet requirements or backend errors; unevaluated during compilation. "
         "Optional field access propagates absence.",
     ),
@@ -350,7 +371,11 @@ def read_field(value: object, name: str, span: Span) -> object:
     spec = fields_for(value).get(name)
     if spec is None:
         fail("unknown_field", f"{type(value).__name__} has no public field {name!r}.", span)
+    if isinstance(value, CitedAnalysisIR) and name == "guarantee":
+        return value.method.guarantee
     if isinstance(value, Evidence) and name == "certificate":
+        if value.certificate is None:
+            return None
         return CertificateReference(**dict(value.certificate))
     if isinstance(value, CalculationResult) and name == "calculation":
         if value.calculation is None:

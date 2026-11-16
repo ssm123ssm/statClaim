@@ -12,6 +12,9 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | StudyDesign | Model with a stopping rule. | `model: Model`, `stopping: string` |
 | Hypothesis | A null restriction, not an assertion of truth. | `model: Model`, `predicate: string`, `value: exact number`, `statement: string` |
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
+| ContinuousModel | Two arms with a continuous outcome. | `n_control: integer`, `n_treatment: integer` |
+| MeanHypothesis | A null restriction on the arm means. | `model: ContinuousModel`, `predicate: string`, `value: exact number`, `statement: string` |
+| CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: MeanHypothesis`, `alpha: exact number`, `guarantee: string`, `property: string` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
 | OneArmModel | One arm with a fixed sample size. | `n: integer` |
@@ -55,7 +58,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Evidence | Checked properties, assumptions and certificate. | `grade: string`, `claim: Claim`, `certificate: CertificateReference`, `established_properties: list`, `required_assumptions: list` |
+| Evidence | Checked properties, assumptions and certificate. | `grade: string`, `claim: Claim`, `certificate: Option[CertificateReference]`, `references: list`, `established_properties: list`, `required_assumptions: list` |
 | CertificateReference | Certificate identity, path and hash. | `certificate_id: string`, `file: string`, `directory: string`, `sha256: string` |
 | CalculationDetails | Exact p-value, alpha and test details. | `p_value: exact number`, `alpha: exact number`, `observed_table_probability: exact number`, `p_value_le_alpha: boolean`, `test: string`, `test_version: string` |
 | PlanningDetails | Calculated sizes, power and target components; not proof evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
@@ -73,6 +76,28 @@ Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `Pla
 ## Modules
 
 `use` imports built-in constructors; it does not load arbitrary files or plugins.
+
+### `models.two_arm_continuous` — Models and hypotheses
+
+Two arms with a continuous outcome; equal-means and mean-difference nulls. The model fixes no distribution.
+
+- `two_arm_continuous(n_control, n_treatment) -> ContinuousModel`
+- `equal_means(model) -> MeanHypothesis`
+- `mean_difference_at_most(model, value) -> MeanHypothesis`
+- `typeI(analysis) -> TypeIClaim`
+
+### `tests.t` — Cited analyses
+
+Pooled-variance and Welch t-tests. The compiler checks the null and the sampling plan against each test's contract. The Type I guarantee is cited from the literature and is not checked by Lean: exact under normality and equal variances for the pooled test, a large-sample approximation for Welch.
+
+- `t_test(design, null, alpha) -> CitedAnalysis`
+  Required null: mean_treatment = mean_control; same model required.
+- `t_test_one_sided(design, null, alpha) -> CitedAnalysis`
+  Required null: mean_treatment - mean_control <= value; same model required.
+- `welch_test(design, null, alpha) -> CitedAnalysis`
+  Required null: mean_treatment = mean_control; same model required.
+- `welch_test_one_sided(design, null, alpha) -> CitedAnalysis`
+  Required null: mean_treatment - mean_control <= value; same model required.
 
 ### `models.two_arm_binomial` — Models and hypotheses
 

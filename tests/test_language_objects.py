@@ -286,7 +286,7 @@ def test_execution_values_cannot_change_evidence_or_numeric_payloads():
         Evidence(claim, certificate, (), (), "certain")
     # Evidence that Lean did not check can never back a verified status.
     for grade in ("cited", "simulated"):
-        unchecked = Evidence(claim, certificate, (), ("model assumed",), grade)
+        unchecked = Evidence(claim, None, (), ("model assumed",), grade)
         with pytest.raises(ValueError, match="checked by Lean"):
             VerificationResult(1, claim, "snapshot", "verified", unchecked)
     with pytest.raises(ValueError, match="Only a successful"):

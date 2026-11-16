@@ -4,6 +4,18 @@ from statclaim.language import MODULES, OPERATIONS, ValueType
 from statclaim.language_fields import SCHEMAS
 
 MODULE_CLASSES = {
+    "models.two_arm_continuous": (
+        "Models and hypotheses",
+        "Two arms with a continuous outcome; equal-means and mean-difference nulls. "
+        "The model fixes no distribution.",
+    ),
+    "tests.t": (
+        "Cited analyses",
+        "Pooled-variance and Welch t-tests. The compiler checks the null and the sampling "
+        "plan against each test's contract. The Type I guarantee is cited from the "
+        "literature and is not checked by Lean: exact under normality and equal variances "
+        "for the pooled test, a large-sample approximation for Welch.",
+    ),
     "models.two_arm_binomial": (
         "Models and hypotheses",
         "Two independent binomial arms; equality, difference and inequality nulls; "
@@ -64,6 +76,12 @@ OBJECT_CLASSES = {
     "StudyDesign": ("Core statistical objects", "Model with a stopping rule."),
     "Hypothesis": ("Core statistical objects", "A null restriction, not an assertion of truth."),
     "Analysis": ("Core statistical objects", "Design, compatible null and exact alpha."),
+    "ContinuousModel": ("Core statistical objects", "Two arms with a continuous outcome."),
+    "MeanHypothesis": ("Core statistical objects", "A null restriction on the arm means."),
+    "CitedAnalysis": (
+        "Core statistical objects",
+        "Design, null and alpha for a test whose guarantee is cited, not proved.",
+    ),
     "Observation": ("Core statistical objects", "Observed counts tied to an analysis."),
     "Family": ("Core statistical objects", "Analyses, family alpha and declared joint law."),
     "Rates": ("Planning objects", "Planning point for two arms; an input, not a fact."),

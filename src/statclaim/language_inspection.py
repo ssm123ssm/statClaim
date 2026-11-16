@@ -5,6 +5,7 @@ from statclaim.family import inspect_family
 from statclaim.language import (
     AnalysisIR,
     CalculationResultIR,
+    CitedAnalysisIR,
     ClaimIR,
     DifferenceIntervalIR,
     FamilyIR,
@@ -128,6 +129,16 @@ def inspect_planning(request: RequestIR) -> dict:
     return planning_report("policy", text, policy_assumptions(plan))
 
 
+def cited_report(analysis: CitedAnalysisIR) -> dict:
+    """Describe a cited guarantee. Nothing is calculated, proved or certified."""
+    method = analysis.method
+    report = planning_report("cited", analysis.target_property, list(method.assumptions))
+    report["method"] = method.title
+    report["guarantee"] = method.guarantee
+    report["references"] = list(method.references)
+    return report
+
+
 def inspect_request(request: RequestIR) -> dict:
     subject = request.claim.subject
     if request.claim.kind in ("meets", "sample_size"):
@@ -149,6 +160,8 @@ def inspect_request(request: RequestIR) -> dict:
             ),
             RESULT_ASSUMPTIONS,
         )
+    if isinstance(subject, CitedAnalysisIR):
+        return cited_report(subject)
     if isinstance(subject, FamilyIR):
         return inspect_family(subject.lower())
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject

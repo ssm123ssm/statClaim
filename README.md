@@ -87,6 +87,16 @@ verification; a valid specification alone is not a proof.
 | Stop early for futility | `designs.two_stage` | Type I error and power of the whole design, and the decision for observed data |
 | Find a two-stage design | `designs.two_stage` | The selected optimal or minimax design |
 
+Some common tests are supported with a **cited** guarantee instead: StatClaim
+checks that your null and sampling plan fit the test, then lists the published
+guarantee and its assumptions. These are never reported as verified.
+
+| You want to | Use | Guarantee |
+| --- | --- | --- |
+| Compare two means | `tests.t` | Cited: pooled t-test (exact under normality) or Welch (large-sample) |
+
+See [cited methods](docs/cited-methods.md) and [evidence grades](docs/scope.md#evidence-grades).
+
 This is a 0.1 developer preview; the language and APIs may change. A checked
 claim holds under its stated assumptions. Whether a real study meets those
 assumptions is a scientific judgment. See [scope and trust](docs/scope.md).

@@ -31,7 +31,7 @@ are not exposed. Dotted module imports keep their existing spelling.
 | Claim | `kind`, `subject`, `guarantee` |
 | Verification result | `request_id`, `claim`, `source_sha256`, `status`, `diagnostics`, `evidence` |
 | Calculation result | `request_id`, `claim`, `source_sha256`, `status`, `diagnostics`, `calculation`, `decision` |
-| Evidence | `grade`, `claim`, `certificate`, `established_properties`, `required_assumptions` |
+| Evidence | `grade`, `claim`, `certificate` (absent when cited), `references`, `established_properties`, `required_assumptions` |
 | Certificate reference | `certificate_id`, `file`, `directory`, `sha256` |
 | Calculation details | `p_value`, `alpha`, `observed_table_probability`, `p_value_le_alpha`, `test`, `test_version` |
 | Diagnostic | `code`, `message`, `severity` |

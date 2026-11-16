@@ -11,6 +11,7 @@ from statclaim.language import (
     GUARANTEE_SCOPES,
     LANGUAGE_VERSION,
     AnalysisIR,
+    CitedAnalysisIR,
     FamilyIR,
     FeasibilityIR,
     ObservationIR,
@@ -21,7 +22,7 @@ from statclaim.language import (
     TwoStageObservationIR,
 )
 from statclaim.language_compiler import compile_source
-from statclaim.language_inspection import inspect_planning, inspect_request
+from statclaim.language_inspection import cited_report, inspect_planning, inspect_request
 from statclaim.language_syntax import Diagnostic, Source, Span
 from statclaim.language_values import (
     CalculationResult,
@@ -52,6 +53,16 @@ from statclaim.verification import digest
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
+    if isinstance(subject, CitedAnalysisIR):
+        # The contract checks passed during compilation. No backend runs: the
+        # guarantee is the published result, restated with its assumptions.
+        report = cited_report(subject)
+        report.update(
+            status="cited",
+            evidence_grade="cited",
+            established_properties=[f"Cited, not checked: {report['target_property']}"],
+        )
+        return report
     if request.claim.kind in ("meets", "sample_size"):
         options = {
             "verify": request.operation == "verify",
@@ -187,6 +198,15 @@ def _result_value(
             tuple(details["required_assumptions"]),
             details["evidence_grade"],
         )
+    if status == "cited":
+        evidence = Evidence(
+            request.claim,
+            None,
+            tuple(details["established_properties"]),
+            tuple(details["required_assumptions"]),
+            details["evidence_grade"],
+            tuple(details["references"]),
+        )
     # Keep the established aggregate report status for CLI compatibility, but
     # distinguish backend errors from missing statistical requirements in values.
     failure = details.get("verification", {})
@@ -319,9 +339,13 @@ def check_source(
         r["report"]["certificate_issued"] for r in report["requests"]
     )
     statuses = [r["status"] for r in report["requests"]]
+    # A file is only as strong as its weakest claim: one cited claim means the
+    # file as a whole is not verified.
     report["status"] = (
         "unresolved_obligation"
         if "unresolved_obligation" in statuses
+        else "cited"
+        if "cited" in statuses
         else "verified"
         if "verified" in statuses
         else "calculated"
@@ -444,6 +468,17 @@ def render_report(report: dict, source: Source) -> str:
             lines.append("  Assumptions:")
             lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
             lines.append(f"  Certificate: {details['certificate']['directory']}")
+        elif request["status"] == "cited":
+            evidence = request["value"]["evidence"]
+            lines.append(
+                f"  Evidence: {EVIDENCE_GRADES[evidence['grade']]}; "
+                f"guarantee: {GUARANTEE_SCOPES[evidence['guarantee']]}"
+            )
+            lines.append(f"  {details['method']}. {details['target_property']}")
+            lines.append("  Assumptions, none of them checked:")
+            lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
+            lines.append("  References:")
+            lines.extend(f"    {reference}" for reference in details["references"])
         elif request["status"] in ("planned", "blocked"):
             lines.append(f"  {details['target_property']}")
             lines.append("  Assumptions:")

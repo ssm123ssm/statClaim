@@ -159,8 +159,12 @@ def test_module_constructor_and_builtin_completion_use_registry():
         "tests.fisher",
         "tests.binomial",
         "tests.difference",
+        "tests.t",
     }
-    assert set(complete("use models.")) == {"models.two_arm_binomial"}
+    assert set(complete("use models.")) == {
+        "models.two_arm_binomial",
+        "models.two_arm_continuous",
+    }
     assert "fisher" not in complete("let x = fi")
     assert "fisher" in complete(PREFIX + "let x = fi")
     assert "verify" in complete("let x = ver")

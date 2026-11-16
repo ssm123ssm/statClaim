@@ -31,6 +31,14 @@ class HypothesisContract:
             if argument.definition_span is None
             else (RelatedLocation(f"Declared null: {null.statement}", argument.definition_span),)
         )
+        if type(design.model) is not type(null.model):
+            message = (
+                f"{name}: the design and the null use different outcome models. "
+                "Declare the design and the null over the same model."
+            )
+            raise LanguageError(
+                Diagnostic("model_mismatch", message, argument.span, related=related)
+            )
         if design.model != null.model:
             message = (
                 f"{name}: the null belongs to a different model. "
@@ -92,4 +100,21 @@ MARGIN_CONTRACT = HypothesisContract(
     "exceeds the control's by enough. Its null is "
     "proportion_difference_at_most(model=..., value=margin). A negative margin is a "
     "non-inferiority question; zero is superiority.",
+)
+
+EQUAL_MEANS_CONTRACT = HypothesisContract(
+    ("equal_means",),
+    "mean_treatment = mean_control",
+    "The two-sided test asks whether the arm means differ. Its null is equal_means(model=...). "
+    "For a one-sided or non-inferiority question, use the one-sided test with "
+    "mean_difference_at_most(model=..., value=...).",
+)
+
+MEAN_DIFFERENCE_CONTRACT = HypothesisContract(
+    ("mean_difference_at_most",),
+    "mean_treatment - mean_control <= value",
+    "The one-sided test rejects when the treatment mean exceeds the control mean by enough. "
+    "Its null is mean_difference_at_most(model=..., value=...): zero for superiority, a "
+    "negative value for non-inferiority. Use equal_means with the two-sided test for a "
+    "two-sided question.",
 )

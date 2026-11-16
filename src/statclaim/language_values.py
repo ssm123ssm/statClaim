@@ -154,14 +154,17 @@ class Evidence:
     """
 
     claim: ClaimIR
-    certificate: Mapping
+    certificate: Mapping | None
     established_properties: tuple[str, ...]
     required_assumptions: tuple[str, ...]
     grade: str
+    references: tuple[str, ...] = ()
 
     def __post_init__(self):
         if self.grade not in EVIDENCE_GRADES:
             raise ValueError(f"Unknown evidence grade {self.grade!r}.")
+        if (self.grade in ("proved", "conditional")) != (self.certificate is not None):
+            raise ValueError("Exactly the evidence checked by Lean carries a certificate.")
         object.__setattr__(self, "certificate", freeze(self.certificate))
 
     def to_dict(self) -> dict:
@@ -173,6 +176,7 @@ class Evidence:
             "certificate": thaw(self.certificate),
             "established_properties": list(self.established_properties),
             "required_assumptions": list(self.required_assumptions),
+            "references": list(self.references),
         }
 
 
@@ -186,9 +190,11 @@ class VerificationResult:
     diagnostics: tuple[Diagnostic, ...] = ()
 
     def __post_init__(self):
-        if (self.status == "verified") != (self.evidence is not None):
+        if (self.status in ("verified", "cited")) != (self.evidence is not None):
             raise ValueError("Only a successful verification result carries checked evidence.")
-        if self.evidence is not None and self.evidence.grade not in ("proved", "conditional"):
+        if self.evidence is not None and (self.evidence.grade in ("proved", "conditional")) != (
+            self.status == "verified"
+        ):
             raise ValueError("A verified result needs evidence checked by Lean.")
         if self.evidence is not None and self.evidence.claim != self.claim:
             raise ValueError("Evidence must establish the verification result's claim.")

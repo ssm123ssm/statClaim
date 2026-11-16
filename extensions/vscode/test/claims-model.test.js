@@ -56,3 +56,16 @@ test('a mismatched claim cannot borrow another claim certificate even with a mat
     value: { ...request.value, claim: { ...claim, kind: 'result' } } }] } };
   assert.ok(!labels(buildClaimsTree(inspection, wrong, live)).includes('Checked evidence'));
 });
+
+test('a cited guarantee is never presented as checked evidence', () => {
+  const cited = { grade: 'cited', certificate: null, established_properties: ['Cited, not checked: level'],
+    required_assumptions: ['Normal outcomes'], references: ['Student (1908)'] };
+  const citedState = { ...state, report: { source: { sha256: 'source' }, requests: [
+    { request_id: 1, operation: 'verify', status: 'cited', value: { status: 'cited', claim, evidence: cited } }] } };
+  const tree = labels(buildClaimsTree(inspection, citedState, live));
+  assert.ok(tree.includes('verify #1: cited'));
+  assert.ok(tree.includes('Cited guarantee — not machine-checked'));
+  assert.ok(tree.includes('Evidence grade: cited from the literature; not machine-checked'));
+  assert.ok(tree.includes('Student (1908)'));
+  assert.ok(!tree.includes('Checked evidence'));
+});
