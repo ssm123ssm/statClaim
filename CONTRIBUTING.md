@@ -5,7 +5,13 @@ and clear examples. Small documentation fixes are welcome. For a new method,
 open an issue describing the model, null, assumptions and intended guarantee
 before building it. See [adding modules](docs/adding-modules.md).
 
-Priority areas include [sample-size/power planning and Bayesian adaptive
+The easiest way in is a [cited method](docs/cited-methods.md#adding-a-cited-method):
+a test whose guarantee is published but not yet proved in Lean. It is one data
+entry in `src/statclaim/methods/`, needs no knowledge of the compiler or Lean,
+and gets its constructor, contract checks, editor support and reports for free.
+A new kind of endpoint is one more entry. Changing an entry needs a new version.
+
+Priority areas also include [sample-size/power planning and Bayesian adaptive
 designs](docs/study-planning.md). Help define planning support alongside new
 methods, with explicit assumptions and a clear distinction between proof,
 numerical bounds and simulation results.
