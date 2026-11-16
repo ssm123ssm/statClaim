@@ -1,0 +1,16 @@
+# Lesson 12: a continuous outcome, with a guarantee that is cited, not proved.
+use models.two_arm_continuous
+use sampling
+use tests.t
+
+let study = two_arm_continuous(n_control=60, n_treatment=60)
+let plan = fixed(model=study)
+let null = equal_means(model=study)
+
+let analysis = t_test(design=plan, null=null, alpha=1/20)
+let checked = verify(typeI(analysis))
+let grade = checked.evidence.grade
+
+let robust = welch_test(design=plan, null=null, alpha=1/20)
+let approximate = verify(typeI(robust))
+let scope = approximate.claim.scope

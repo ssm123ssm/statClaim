@@ -18,4 +18,5 @@ let references = checked.evidence.references
 let margin = mean_difference_at_most(model=study, value=-2)
 let welch = welch_test_one_sided(design=plan, null=margin, alpha=1/40)
 let approximate = verify(typeI(welch))
-let scope = approximate.claim.guarantee
+let scope = approximate.claim.scope
+let statement = approximate.claim.guarantee.sentence

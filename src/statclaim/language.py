@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Literal as Choice
 
-from statclaim.cited import METHODS, CitedMethod
 from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statclaim.fisher import validate_alpha
@@ -35,6 +34,8 @@ from statclaim.language_syntax import (
     Statement,
     parse,
 )
+from statclaim.methods import METHOD_MODULES
+from statclaim.methods.core import CitedMethod, Guarantee
 from statclaim.planning import (
     CRITERIA,
     MAX_MARGIN_ARM,
@@ -55,19 +56,6 @@ from statclaim.planning import (
 )
 
 LANGUAGE_VERSION = "0.11.0"
-
-# How a guarantee was established. Only the first two involve Lean.
-EVIDENCE_GRADES = {
-    "proved": "proved in Lean",
-    "conditional": "proved in Lean, conditional on cited component guarantees",
-    "cited": "cited from the literature; not machine-checked",
-    "simulated": "estimated by simulation; not a proof",
-}
-# What kind of statement a guarantee is. An approximation is never shown as a bound.
-GUARANTEE_SCOPES = {
-    "finite_sample": "finite-sample bound",
-    "asymptotic": "large-sample approximation",
-}
 
 
 class PlannableIR:
@@ -210,8 +198,8 @@ class CitedAnalysisIR(LevelTestIR):
     method: CitedMethod
 
     @property
-    def target_property(self) -> str:
-        return self.method.property(self.alpha, self.hypothesis.value)
+    def guarantee(self) -> Guarantee:
+        return self.method.guarantee(self.alpha, self.hypothesis.statement)
 
 
 @dataclass(frozen=True)
@@ -440,11 +428,33 @@ class ClaimIR:
     name: str
 
     @property
-    def guarantee(self) -> str:
-        """The scope of the claimed guarantee; every Lean-backed module is exact."""
-        if isinstance(self.subject, CitedAnalysisIR):
-            return self.subject.method.guarantee
-        return "finite_sample"
+    def guarantee(self) -> Guarantee | None:
+        """The error-rate statement this claim asks for, when it is a single bound."""
+        subject = self.subject
+        if isinstance(subject, CitedAnalysisIR):
+            return subject.guarantee
+        if self.kind == "typeI" and isinstance(subject, AnalysisIR):
+            return Guarantee(
+                "type_I_error",
+                "at_most",
+                subject.alpha,
+                subject.hypothesis.statement,
+                "finite_sample",
+            )
+        if self.kind == "familywise":
+            return Guarantee(
+                "familywise_error",
+                "at_most",
+                subject.alpha,
+                "any subset of the member nulls is true",
+                "finite_sample",
+            )
+        return None
+
+    @property
+    def scope(self) -> str:
+        """finite_sample or asymptotic. Every Lean-backed claim is a finite-sample one."""
+        return self.guarantee.scope if self.guarantee else "finite_sample"
 
 
 @dataclass(frozen=True)
@@ -1226,11 +1236,17 @@ TYPE_I = _constructor(
 )
 
 
-def _cited_constructor(key: str) -> Constructor:
-    method = METHODS[key]
-    contract = EQUAL_MEANS_CONTRACT if method.sided == "two_sided" else MEAN_DIFFERENCE_CONTRACT
+# The null forms a cited method may name, each with its contract.
+MEAN_CONTRACTS = {
+    "equal_means": EQUAL_MEANS_CONTRACT,
+    "mean_difference_at_most": MEAN_DIFFERENCE_CONTRACT,
+}
+
+
+def _cited_constructor(method: CitedMethod) -> Constructor:
+    contract = MEAN_CONTRACTS[method.null]
     return _constructor(
-        key,
+        method.key,
         (("design", PlanIR), ("null", MeanHypothesisIR), ("alpha", "level")),
         "CitedAnalysis",
         _cited_test(method),
@@ -1275,7 +1291,10 @@ MODULES = {
                 TYPE_I,
             ),
         ),
-        Module("tests.t", tuple(_cited_constructor(key) for key in METHODS)),
+        *(
+            Module(group.name, tuple(_cited_constructor(method) for method in group.methods))
+            for group in METHOD_MODULES
+        ),
         Module(
             "models.two_arm_binomial",
             (

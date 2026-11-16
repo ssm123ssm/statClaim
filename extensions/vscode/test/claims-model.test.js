@@ -4,7 +4,7 @@ const { buildClaimsTree } = require('../claims-model');
 
 const claim = { kind: 'typeI', subject_name: 'analysis', subject: { alpha: '1/20' } };
 const inspection = { uri: 'file:///study.stat', version: 2, status: 'elaborated', diagnostics: [], claims: [{
-  names: ['validity'], kind: 'typeI', guarantee: 'finite_sample', claim, description: 'Uniform Type I bound', assumptions: ['Declared model'],
+  names: ['validity'], kind: 'typeI', scope: 'finite_sample', claim, description: 'Uniform Type I bound', assumptions: ['Declared model'],
   requirements: [], range: { start: { line: 1, character: 0 }, end: { line: 1, character: 10 } },
   requests: [{ request_id: 1, operation: 'verify', names: ['checked'], requirements: [] }]
 }] };
@@ -59,7 +59,9 @@ test('a mismatched claim cannot borrow another claim certificate even with a mat
 
 test('a cited guarantee is never presented as checked evidence', () => {
   const cited = { grade: 'cited', certificate: null, established_properties: ['Cited, not checked: level'],
-    required_assumptions: ['Normal outcomes'], references: ['Student (1908)'] };
+    required_assumptions: ['Normal outcomes'],
+    assumptions: [{ id: 'normal_outcomes', kind: 'distribution', text: 'Normal outcomes', status: 'assumed' }],
+    method: { key: 't_test', version: 1, title: 'Pooled t-test' }, references: ['Student (1908)'] };
   const citedState = { ...state, report: { source: { sha256: 'source' }, requests: [
     { request_id: 1, operation: 'verify', status: 'cited', value: { status: 'cited', claim, evidence: cited } }] } };
   const tree = labels(buildClaimsTree(inspection, citedState, live));
@@ -67,5 +69,7 @@ test('a cited guarantee is never presented as checked evidence', () => {
   assert.ok(tree.includes('Cited guarantee — not machine-checked'));
   assert.ok(tree.includes('Evidence grade: cited from the literature; not machine-checked'));
   assert.ok(tree.includes('Student (1908)'));
+  assert.ok(tree.includes('Normal outcomes (assumed)'));
+  assert.ok(tree.includes('Method: Pooled t-test (version 1)'));
   assert.ok(!tree.includes('Checked evidence'));
 });

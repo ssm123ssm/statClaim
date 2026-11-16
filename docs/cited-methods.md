@@ -28,8 +28,23 @@ No Lean installation is needed to check this file. See `examples/t_test.stat`.
 
 ## What is not checked
 
-The assumptions and the guarantee itself. Read them in the report, or with
-`checked.evidence.required_assumptions` and `checked.evidence.references`.
+The guarantee itself, and most of its assumptions. The report names each
+assumption and marks it:
+
+- `declared`: your file states it. `fixed` says the sizes are set in advance.
+- `assumed`: nothing in the file can show it, such as normal outcomes.
+
+Read them with `checked.evidence.required_assumptions` and
+`checked.evidence.references`. The JSON report also gives each assumption's id
+and kind, and the method's version.
+
+The claim's guarantee is a structured value, not only a sentence:
+
+```stat
+let bound = checked.claim.guarantee.bound        # 1/20
+let relation = checked.claim.guarantee.relation  # equals or at_most
+let scope = checked.claim.scope                  # finite_sample or asymptotic
+```
 
 ## Supported tests
 
@@ -48,6 +63,26 @@ Cited tests cannot yet join a Bonferroni family or a planning search.
 
 ## Adding a cited method
 
-Add a `CitedMethod` to `src/statclaim/cited.py` with its scope, assumptions and
-references, and register its constructor in `language.py`. Each entry needs a
-published source and statistical review: the entry is trusted, not proved.
+You need to read three short files, all in `src/statclaim/methods/`:
+
+- `core.py`: what an assumption, a guarantee and a method are.
+- `assumptions.py`: the shared assumptions. Reuse one before adding one.
+- `t_tests.py`: a complete example to copy.
+
+To add a test over an existing model and null:
+
+1. Write a method file that exports `MODULE`, or add a `CitedMethod` to an
+   existing file. State the null it supports, whether the error rate `equals`
+   alpha or is `at_most` alpha, the scope, the assumptions and the references.
+2. List a new file in `methods/__init__.py`.
+3. Run `uv run python scripts/update_method_versions.py` and
+   `uv run python scripts/update_catalogue.py`.
+4. Add an example, and a test for a null the method must reject.
+
+The constructor, editor support, catalogue entry and report follow from the
+entry. A method over a new kind of outcome also needs a model and nulls in
+`language.py`; open an issue first.
+
+Each entry is trusted, not proved, so it needs a published source and statistical
+review. After a reviewed change to an entry, raise its `version`. A test fails
+until you do, because evidence records the version it relied on.

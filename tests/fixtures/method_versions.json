@@ -1,0 +1,18 @@
+{
+  "t_test": {
+    "version": 1,
+    "sha256": "e1f6c17d642ffcd1fe0988f663081a5ef58f7913539715728b83d90d4cd393d2"
+  },
+  "t_test_one_sided": {
+    "version": 1,
+    "sha256": "df5d2e2f2ac4cdc5f65e62b2e3a353cec645a93a96fb40bc9376bae7966f9edd"
+  },
+  "welch_test": {
+    "version": 1,
+    "sha256": "35c4ef9effb84ac1fd050b81605a1ecbe4e6083572dedad541e4fe633603132b"
+  },
+  "welch_test_one_sided": {
+    "version": 1,
+    "sha256": "156f521cb00a0be925f94c91951258230ec0552cfb09d1cc7ee3f5cc8ca898e7"
+  }
+}

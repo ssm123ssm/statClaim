@@ -281,7 +281,7 @@ def test_execution_values_cannot_change_evidence_or_numeric_payloads():
     with pytest.raises(TypeError):
         evidence.certificate["certificate_id"] = "changed"
     assert evidence.to_dict()["grade"] == "proved"
-    assert evidence.to_dict()["guarantee"] == claim.guarantee == "finite_sample"
+    assert evidence.to_dict()["scope"] == claim.scope == "finite_sample"
     with pytest.raises(ValueError, match="Unknown evidence grade"):
         Evidence(claim, certificate, (), (), "certain")
     # Evidence that Lean did not check can never back a verified status.

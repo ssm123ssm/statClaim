@@ -1,17 +1,19 @@
 """Contract-tier analyses: checked against their contract, cited, never verified."""
 
+import json
 import subprocess
 from pathlib import Path
 
 import pytest
 
-from statclaim.cited import METHODS
 from statclaim.cli import main
-from statclaim.language import GUARANTEE_SCOPES
 from statclaim.language_compiler import compile_source
 from statclaim.language_runner import check_source, render_report
 from statclaim.language_syntax import Source
 from statclaim.language_values import Evidence, VerificationResult
+from statclaim.methods import ASSUMPTIONS, METHODS
+from statclaim.methods.core import SCOPES
+from statclaim.verification import digest
 
 ROOT = Path(__file__).resolve().parents[1]
 HEAD = (
@@ -38,10 +40,24 @@ def no_backend(monkeypatch):
 
 def test_every_method_states_scope_assumptions_and_references():
     for method in METHODS.values():
-        assert method.guarantee in GUARANTEE_SCOPES
+        assert method.scope in SCOPES
         assert method.assumptions and method.references
-    assert METHODS["t_test"].guarantee == "finite_sample"
-    assert METHODS["welch_test"].guarantee == "asymptotic"
+        assert all(ASSUMPTIONS[item.id] is item for item in method.assumptions)
+    assert METHODS["t_test"].scope == "finite_sample"
+    assert METHODS["welch_test"].scope == "asymptotic"
+
+
+def test_changing_a_method_requires_a_new_version():
+    """Evidence records the method version, so a silent change would mislead."""
+    recorded = json.loads((ROOT / "tests/fixtures/method_versions.json").read_text())
+    current = {
+        key: {"version": method.version, "sha256": digest(repr(method).encode())}
+        for key, method in METHODS.items()
+    }
+    assert current == recorded, (
+        "A cited method changed. Bump its version, then run "
+        "'uv run python scripts/update_method_versions.py'."
+    )
 
 
 def test_cited_claim_gives_cited_evidence_without_lean_or_certificate(tmp_path):
@@ -50,7 +66,7 @@ def test_cited_claim_gives_cited_evidence_without_lean_or_certificate(tmp_path):
         + "let analysis = t_test(design=plan, null=null, alpha=1/20)\n"
         + "let checked = verify(typeI(analysis))\n"
         + "let file = checked.evidence.certificate.file\n"
-        + "let scope = analysis.guarantee\n"
+        + "let scope = checked.claim.scope\n"
     )
     report = run(text, tmp_path)
     value = report["values"]["checked"]
@@ -58,7 +74,23 @@ def test_cited_claim_gives_cited_evidence_without_lean_or_certificate(tmp_path):
     assert not report["backend_invoked"] and not report["certificate_issued"]
     evidence = value["evidence"]
     assert evidence["grade"] == "cited" and evidence["certificate"] is None
-    assert evidence["guarantee"] == report["values"]["scope"] == "finite_sample"
+    assert evidence["scope"] == report["values"]["scope"] == "finite_sample"
+    assert evidence["guarantee"] == {
+        "quantity": "type_I_error",
+        "relation": "equals",
+        "bound": "1/20",
+        "null": "mean_treatment = mean_control",
+        "scope": "finite_sample",
+    }
+    assert evidence["sources"] == ["literature"] and evidence["machine_checked"] == "contract"
+    assert evidence["method"] == {
+        "key": "t_test",
+        "version": 1,
+        "title": "Two-sided pooled-variance t-test",
+    }
+    assert {"id": "normal_outcomes", "kind": "distribution"}.items() <= evidence["assumptions"][
+        3
+    ].items()
     assert evidence["references"] == list(METHODS["t_test"].references)
     assert all(text.startswith("Cited, not checked") for text in evidence["established_properties"])
     assert report["values"]["file"] is None
@@ -75,8 +107,10 @@ def test_approximate_guarantee_is_worded_and_scoped_differently(tmp_path):
         + "let checked = verify(typeI(welch))\n"
     )
     evidence = run(text, tmp_path)["values"]["checked"]["evidence"]
-    assert evidence["guarantee"] == "asymptotic"
-    assert "No bound is claimed at the declared arm sizes" in evidence["established_properties"][0]
+    assert evidence["scope"] == "asymptotic"
+    assert (
+        "No bound is claimed at the declared sample sizes" in evidence["established_properties"][0]
+    )
 
 
 def test_cited_evidence_can_never_back_a_verified_result():

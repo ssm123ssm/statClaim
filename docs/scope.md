@@ -56,13 +56,18 @@ Every piece of evidence states how its guarantee was established:
 | `cited` | Taken from the literature; not machine-checked. |
 | `simulated` | Estimated by simulation; not a proof. |
 
+A grade is shorthand for two facts, also available separately:
+`evidence.sources` says where the statement comes from (a Lean proof, the
+literature or a simulation), and `evidence.machine_checked` says how far a
+machine checked it (the guarantee, only the composition, or only the contract).
+
 Every claim also states its scope: `finite_sample` for a bound that holds at the
 declared sample size, or `asymptotic` for a large-sample approximation. The two
 are never shown as the same thing.
 
 The exact modules are `proved` and `finite_sample`. The t-tests are `cited`;
 Welch's is also `asymptotic`. No module uses `conditional` or `simulated` yet.
-Read them with `evidence.grade` and `claim.guarantee`. Only `proved` and
+Read them with `evidence.grade` and `claim.scope`. Only `proved` and
 `conditional` evidence can give a `verified` status; cited evidence gives the
 status `cited` and has no certificate.
 

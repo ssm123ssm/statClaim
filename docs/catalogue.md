@@ -4,6 +4,15 @@ Generated from the language registries. Update with `uv run python scripts/updat
 
 All APIs are preview APIs. Object availability does not imply a proof adapter. See [scope](scope.md) for supported guarantees.
 
+## Claims and results
+
+| Object | Meaning | Public fields |
+| --- | --- | --- |
+| Guarantee | An error-rate statement: quantity, relation, bound, null and scope. | `quantity: string`, `relation: string`, `bound: exact number`, `null: string`, `scope: string`, `sentence: string` |
+| Claim | Requested typeI, result, familywise or planning proposition. | `kind: string`, `subject: object`, `scope: string`, `guarantee: Option[Guarantee]` |
+| VerificationResult | Explicit verification outcome; optional evidence. | `request_id: integer`, `claim: Claim`, `source_sha256: string`, `status: string`, `diagnostics: list`, `evidence: Option[Evidence]` |
+| CalculationResult | Calculation outcome; no proof evidence. | `request_id: integer`, `claim: Claim`, `source_sha256: string`, `status: string`, `diagnostics: list`, `calculation: Option[CalculationDetails]`, `decision: Option[string]` |
+
 ## Core statistical objects
 
 | Object | Meaning | Public fields |
@@ -14,7 +23,7 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
 | ContinuousModel | Two arms with a continuous outcome. | `n_control: integer`, `n_treatment: integer` |
 | MeanHypothesis | A null restriction on the arm means. | `model: ContinuousModel`, `predicate: string`, `value: exact number`, `statement: string` |
-| CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: MeanHypothesis`, `alpha: exact number`, `guarantee: string`, `property: string` |
+| CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: MeanHypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
 | OneArmModel | One arm with a fixed sample size. | `n: integer` |
@@ -46,19 +55,11 @@ All APIs are preview APIs. Object availability does not imply a proof adapter. S
 | Rule | Interim continuation and final decision rule. | `kind: string` |
 | TwoStageAnalysis | Complete policy: stages, rule and the null response rate. | `design: TwoStageModel`, `rule: Rule`, `null_rate: exact number` |
 
-## Claims and results
-
-| Object | Meaning | Public fields |
-| --- | --- | --- |
-| Claim | Requested typeI, result, familywise or planning proposition. | `kind: string`, `subject: object`, `guarantee: string` |
-| VerificationResult | Explicit verification outcome; optional evidence. | `request_id: integer`, `claim: Claim`, `source_sha256: string`, `status: string`, `diagnostics: list`, `evidence: Option[Evidence]` |
-| CalculationResult | Calculation outcome; no proof evidence. | `request_id: integer`, `claim: Claim`, `source_sha256: string`, `status: string`, `diagnostics: list`, `calculation: Option[CalculationDetails]`, `decision: Option[string]` |
-
 ## Evidence and inspection
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Evidence | Checked properties, assumptions and certificate. | `grade: string`, `claim: Claim`, `certificate: Option[CertificateReference]`, `references: list`, `established_properties: list`, `required_assumptions: list` |
+| Evidence | Checked properties, assumptions and certificate. | `grade: string`, `sources: list`, `machine_checked: string`, `claim: Claim`, `certificate: Option[CertificateReference]`, `references: list`, `established_properties: list`, `required_assumptions: list` |
 | CertificateReference | Certificate identity, path and hash. | `certificate_id: string`, `file: string`, `directory: string`, `sha256: string` |
 | CalculationDetails | Exact p-value, alpha and test details. | `p_value: exact number`, `alpha: exact number`, `observed_table_probability: exact number`, `p_value_le_alpha: boolean`, `test: string`, `test_version: string` |
 | PlanningDetails | Calculated sizes, power and target components; not proof evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
@@ -88,7 +89,7 @@ Two arms with a continuous outcome; equal-means and mean-difference nulls. The m
 
 ### `tests.t` — Cited analyses
 
-Pooled-variance and Welch t-tests. The compiler checks the null and the sampling plan against each test's contract. The Type I guarantee is cited from the literature and is not checked by Lean: exact under normality and equal variances for the pooled test, a large-sample approximation for Welch.
+Pooled-variance and Welch t-tests for two means. The compiler checks the null and the sampling plan against each test's contract. The Type I guarantee is cited from the literature and is not checked by Lean: exact under normality and equal variances for the pooled test, a large-sample approximation for Welch.
 
 - `t_test(design, null, alpha) -> CitedAnalysis`
   Required null: mean_treatment = mean_control; same model required.

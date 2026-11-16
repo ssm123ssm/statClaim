@@ -366,6 +366,8 @@ def check_derivation(derivation: dict) -> list[str]:
                 problems.append(f"Step {index + 1} names an unknown rule.")
             elif step.get("premise") != rule.premise:
                 problems.append(f"Step {index + 1} misstates the premise of {step['rule']}.")
+            elif step.get("rule_version") != rule.version:
+                problems.append(f"Step {index + 1} uses another version of {step['rule']}.")
             if any(not isinstance(use, int) or not 0 <= use < index for use in step["uses"]):
                 problems.append(f"Step {index + 1} uses a step that does not precede it.")
         # The required steps must appear, in order, as the leading steps.

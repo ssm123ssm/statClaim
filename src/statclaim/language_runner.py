@@ -7,8 +7,6 @@ from fractions import Fraction
 from pathlib import Path
 
 from statclaim.language import (
-    EVIDENCE_GRADES,
-    GUARANTEE_SCOPES,
     LANGUAGE_VERSION,
     AnalysisIR,
     CitedAnalysisIR,
@@ -32,6 +30,7 @@ from statclaim.language_values import (
     resolve,
     serialize,
 )
+from statclaim.methods.core import GRADES, SCOPES
 from statclaim.report import (
     run_binomial_result,
     run_interval,
@@ -206,6 +205,8 @@ def _result_value(
             tuple(details["required_assumptions"]),
             details["evidence_grade"],
             tuple(details["references"]),
+            details["method"],
+            tuple(details["assumptions"]),
         )
     # Keep the established aggregate report status for CLI compatibility, but
     # distinguish backend errors from missing statistical requirements in values.
@@ -460,8 +461,8 @@ def render_report(report: dict, source: Source) -> str:
         if details["certificate_issued"]:
             evidence = request["value"]["evidence"]
             lines.append(
-                f"  Evidence: {EVIDENCE_GRADES[evidence['grade']]}; "
-                f"guarantee: {GUARANTEE_SCOPES[evidence['guarantee']]}"
+                f"  Evidence: {GRADES[evidence['grade']].label}; "
+                f"guarantee: {SCOPES[evidence['scope']]}"
             )
             for claim in details["established_properties"]:
                 lines.append(f"  {claim}")
@@ -471,12 +472,19 @@ def render_report(report: dict, source: Source) -> str:
         elif request["status"] == "cited":
             evidence = request["value"]["evidence"]
             lines.append(
-                f"  Evidence: {EVIDENCE_GRADES[evidence['grade']]}; "
-                f"guarantee: {GUARANTEE_SCOPES[evidence['guarantee']]}"
+                f"  Evidence: {GRADES[evidence['grade']].label}; "
+                f"guarantee: {SCOPES[evidence['scope']]}"
             )
-            lines.append(f"  {details['method']}. {details['target_property']}")
-            lines.append("  Assumptions, none of them checked:")
-            lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
+            method = details["method"]
+            lines.append(
+                f"  Method: {method['title']} ({method['key']}, version {method['version']})"
+            )
+            lines.append(f"  {details['target_property']}")
+            lines.append("  Assumptions:")
+            lines.extend(
+                f"    [{item['id']}] {item['text']} ({item['status']})"
+                for item in evidence["assumptions"]
+            )
             lines.append("  References:")
             lines.extend(f"    {reference}" for reference in details["references"])
         elif request["status"] in ("planned", "blocked"):

@@ -39,6 +39,8 @@ class Rule:
     # failure is then recorded as an unresolved obligation.
     obligation: str | None = None
     code: str | None = None
+    # Bump when the premise or what counts as satisfying it changes.
+    version: int = 1
 
 
 RULES = {
@@ -193,6 +195,7 @@ class Step:
     def to_dict(self) -> dict:
         return {
             "rule": self.rule,
+            "rule_version": RULES[self.rule].version,
             "premise": RULES[self.rule].premise,
             "facts": self.facts,
             "uses": list(self.uses),

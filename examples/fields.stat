@@ -18,7 +18,8 @@ let certificate_file = evidence.certificate.file
 let certificate_hash = evidence.certificate.sha256
 let checked_assumptions = evidence.required_assumptions
 let grade = evidence.grade
-let guarantee = claim.guarantee
+let scope = claim.scope
+let bound = claim.guarantee.bound
 
 # Runtime fields stay deferred during compile; calculations supply no evidence.
 let data = observe(analysis, control_successes=10, treatment_successes=25)

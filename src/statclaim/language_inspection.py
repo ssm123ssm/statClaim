@@ -132,9 +132,15 @@ def inspect_planning(request: RequestIR) -> dict:
 def cited_report(analysis: CitedAnalysisIR) -> dict:
     """Describe a cited guarantee. Nothing is calculated, proved or certified."""
     method = analysis.method
-    report = planning_report("cited", analysis.target_property, list(method.assumptions))
-    report["method"] = method.title
-    report["guarantee"] = method.guarantee
+    report = planning_report(
+        "cited", analysis.guarantee.sentence, [item.text for item in method.assumptions]
+    )
+    report["method"] = method.to_dict()
+    # A design assumption is stated by the file itself; the rest cannot be.
+    report["assumptions"] = [
+        {**item.to_dict(), "status": "declared" if item.kind == "design" else "assumed"}
+        for item in method.assumptions
+    ]
     report["references"] = list(method.references)
     return report
 
@@ -219,7 +225,7 @@ def inspect_program(compilation: Compilation) -> list[dict]:
             {
                 "names": item["names"],
                 "kind": claim.kind,
-                "guarantee": claim.guarantee,
+                "scope": claim.scope,
                 "claim": normalize(claim),
                 "source": span.to_dict(),
                 "description": description["target_property"],

@@ -14,6 +14,8 @@ class HypothesisContract:
     null_argument: str = "null"
     # When set, the null's value must equal this; other values are a different question.
     required_value: object = None
+    # Bump when the supported nulls change.
+    version: int = 1
 
     def accepts(self, design, hypothesis) -> bool:
         return (
@@ -67,6 +69,7 @@ class HypothesisContract:
 
     def to_dict(self) -> dict:
         return {
+            "version": self.version,
             "supported_predicates": list(self.supported_predicates),
             "expected_null": self.expected,
             "guidance": self.guidance,

@@ -6,7 +6,6 @@ from fractions import Fraction
 from types import MappingProxyType
 
 from statclaim.language import (
-    EVIDENCE_GRADES,
     CalculationResultIR,
     ClaimIR,
     FieldIR,
@@ -16,6 +15,7 @@ from statclaim.language import (
     normalize,
 )
 from statclaim.language_syntax import Diagnostic
+from statclaim.methods.core import GRADES, Guarantee
 
 
 def freeze(value: object) -> object:
@@ -159,19 +159,39 @@ class Evidence:
     required_assumptions: tuple[str, ...]
     grade: str
     references: tuple[str, ...] = ()
+    # Set for cited evidence: the method with its version, and its assumptions by id.
+    method: Mapping | None = None
+    assumptions: tuple[Mapping, ...] = ()
 
     def __post_init__(self):
-        if self.grade not in EVIDENCE_GRADES:
+        if self.grade not in GRADES:
             raise ValueError(f"Unknown evidence grade {self.grade!r}.")
         if (self.grade in ("proved", "conditional")) != (self.certificate is not None):
             raise ValueError("Exactly the evidence checked by Lean carries a certificate.")
         object.__setattr__(self, "certificate", freeze(self.certificate))
+        object.__setattr__(self, "method", freeze(self.method))
+        object.__setattr__(self, "assumptions", freeze(self.assumptions))
+
+    @property
+    def sources(self) -> tuple[str, ...]:
+        """Where the guarantee's statement comes from."""
+        return GRADES[self.grade].sources
+
+    @property
+    def machine_checked(self) -> str:
+        """How far a machine checked it: the guarantee, the composition or the contract."""
+        return GRADES[self.grade].machine_checked
 
     def to_dict(self) -> dict:
         return {
             "type": "Evidence",
             "grade": self.grade,
-            "guarantee": self.claim.guarantee,
+            "sources": list(self.sources),
+            "machine_checked": self.machine_checked,
+            "scope": self.claim.scope,
+            "guarantee": self.claim.guarantee.to_dict() if self.claim.guarantee else None,
+            "method": thaw(self.method),
+            "assumptions": thaw(self.assumptions),
             "claim": normalize(self.claim),
             "certificate": thaw(self.certificate),
             "established_properties": list(self.established_properties),
@@ -278,6 +298,7 @@ def serialize(value: object) -> object:
             PlanningDetails,
             PendingField,
             Diagnostic,
+            Guarantee,
         ),
     ):
         return value.to_dict()

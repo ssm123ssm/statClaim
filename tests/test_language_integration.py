@@ -179,7 +179,9 @@ def test_real_verification_fields_match_checked_evidence_and_exact_calculation(l
     assert values["certificate_hash"] == digest(Path(values["certificate_file"]).read_bytes())
     assert values["checked_assumptions"] == evidence["required_assumptions"]
     assert values["grade"] == evidence["grade"] == "proved"
-    assert values["guarantee"] == evidence["guarantee"] == "finite_sample"
+    assert values["scope"] == evidence["scope"] == "finite_sample"
+    assert values["bound"] == evidence["guarantee"]["bound"] == "1/20"
+    assert evidence["sources"] == ["lean_proof"] and evidence["machine_checked"] == "guarantee"
     text = render_report(report, Source((ROOT / "examples/fields.stat").read_text()))
     assert "Evidence: proved in Lean; guarantee: finite-sample bound" in text
     assert (

@@ -63,6 +63,7 @@ from statclaim.language_values import (
     StageResultDetails,
     VerificationResult,
 )
+from statclaim.methods.core import Guarantee
 
 
 @dataclass(frozen=True)
@@ -87,8 +88,7 @@ SCHEMAS = {
         "design": FieldSpec(PlanIR, attribute="plan"),
         "null": FieldSpec(MeanHypothesisIR, attribute="hypothesis"),
         "alpha": FieldSpec(Fraction),
-        "guarantee": FieldSpec(str, description="finite_sample or asymptotic."),
-        "property": FieldSpec(str, attribute="target_property"),
+        "guarantee": FieldSpec(Guarantee, description="The cited error-rate statement."),
     },
     HypothesisIR: {
         "model": FieldSpec(ModelIR),
@@ -114,10 +114,23 @@ SCHEMAS = {
     ClaimIR: {
         "kind": FieldSpec(str),
         "subject": FieldSpec(object),
-        "guarantee": FieldSpec(str, description="finite_sample or asymptotic."),
+        "scope": FieldSpec(str, description="finite_sample or asymptotic."),
+        "guarantee": FieldSpec(
+            Guarantee, optional=True, description="Present when the claim is one error bound."
+        ),
+    },
+    Guarantee: {
+        "quantity": FieldSpec(str),
+        "relation": FieldSpec(str, description="equals or at_most."),
+        "bound": FieldSpec(Fraction),
+        "null": FieldSpec(str),
+        "scope": FieldSpec(str),
+        "sentence": FieldSpec(str),
     },
     Evidence: {
         "grade": FieldSpec(str, description="proved, conditional, cited or simulated."),
+        "sources": FieldSpec("list", description="Where the guarantee's statement comes from."),
+        "machine_checked": FieldSpec(str, description="guarantee, composition or contract."),
         "claim": FieldSpec(ClaimIR),
         "certificate": FieldSpec(
             CertificateReference, optional=True, description="Absent for cited evidence."
@@ -371,8 +384,6 @@ def read_field(value: object, name: str, span: Span) -> object:
     spec = fields_for(value).get(name)
     if spec is None:
         fail("unknown_field", f"{type(value).__name__} has no public field {name!r}.", span)
-    if isinstance(value, CitedAnalysisIR) and name == "guarantee":
-        return value.method.guarantee
     if isinstance(value, Evidence) and name == "certificate":
         if value.certificate is None:
             return None
@@ -387,6 +398,8 @@ def read_field(value: object, name: str, span: Span) -> object:
 
 
 def project(value: object, name: str, span: Span, requests) -> object:
+    if value is None:
+        fail("absent_value", f"There is no value here to read {name!r} from.", span)
     spec = fields_for(value).get(name)
     if spec is None:
         kind = (

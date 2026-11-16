@@ -9,6 +9,8 @@ A failed contract is a diagnostic, as before. A passing contract now keeps a
 you must meet in the real study, and any obligation still open. Nothing is
 shown unless you ask.
 
+Each rule and contract has a version, recorded in the derivation.
+
 A derivation is about compatibility only. It does not prove an error rate or
 power. Those are claims, established by `verify(...)` and Lean.
 

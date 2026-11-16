@@ -2,19 +2,13 @@
 
 from statclaim.language import MODULES, OPERATIONS, ValueType
 from statclaim.language_fields import SCHEMAS
+from statclaim.methods import METHOD_MODULES
 
 MODULE_CLASSES = {
     "models.two_arm_continuous": (
         "Models and hypotheses",
         "Two arms with a continuous outcome; equal-means and mean-difference nulls. "
         "The model fixes no distribution.",
-    ),
-    "tests.t": (
-        "Cited analyses",
-        "Pooled-variance and Welch t-tests. The compiler checks the null and the sampling "
-        "plan against each test's contract. The Type I guarantee is cited from the "
-        "literature and is not checked by Lean: exact under normality and equal variances "
-        "for the pooled test, a large-sample approximation for Welch.",
     ),
     "models.two_arm_binomial": (
         "Models and hypotheses",
@@ -71,7 +65,13 @@ MODULE_CLASSES = {
         "Observed counts give a checked decision.",
     ),
 }
+# Cited method modules describe themselves; adding one needs no edit here.
+MODULE_CLASSES.update({group.name: ("Cited analyses", group.summary) for group in METHOD_MODULES})
 OBJECT_CLASSES = {
+    "Guarantee": (
+        "Claims and results",
+        "An error-rate statement: quantity, relation, bound, null and scope.",
+    ),
     "Model": ("Core statistical objects", "Sampling model and arm sizes."),
     "StudyDesign": ("Core statistical objects", "Model with a stopping rule."),
     "Hypothesis": ("Core statistical objects", "A null restriction, not an assertion of truth."),
