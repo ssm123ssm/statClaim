@@ -22,12 +22,12 @@ from statproof.language import (
 )
 from statproof.language_compiler import Compilation, requirements
 from statproof.planning import (
-    PLANNING_ASSUMPTIONS,
     RESULT_ASSUMPTIONS,
     TwoStagePlan,
     TwoStageRule,
     composite_null,
     margin_assumptions,
+    planning_assumptions,
     policy_assumptions,
 )
 from statproof.report import (
@@ -84,7 +84,7 @@ def inspect_planning(request: RequestIR) -> dict:
                 f"{candidates.max_per_arm} controls "
                 f"gives {goal}. {_scope(subject)}"
             )
-        return planning_report("planning", text, PLANNING_ASSUMPTIONS)
+        return planning_report("planning", text, planning_assumptions(analysis.alternative))
     if not feasibility and isinstance(subject.candidates, TwoStageCandidatesIR):
         candidates = subject.candidates
         return planning_report(

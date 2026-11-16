@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatProof tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Ten short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Eleven short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statproof ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatProof: Show Claims</strong> and
   <strong>StatProof: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatProof says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#single-arm"><span class="n">8</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">9</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">10</span>A Bayesian stopping rule</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatProof says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -244,7 +244,7 @@ Program status: invalid</code></pre></div>
 <p><span class="pill bad">invalid</span> means the file itself is wrong and nothing can be verified.
 Fisher's test, as supported here, answers one question: are the two rates equal? The
 message does not tell you to switch to that null. Doing so would make the error go away
-by changing your question.</p>
+by changing your question. Lesson 8 introduces a test that does support a margin.</p>
 <h3>Mistake 2: stopping when the result looks good</h3>
 <p>Now the null is fine, but the design is <code>adaptive</code>: the sample size depends
 on the data, for example by checking results as they come in.</p>
@@ -266,7 +266,7 @@ Program status: unresolved_obligation</code></pre></div>
 <p><span class="pill warn">unresolved</span> is different from invalid. The file is well formed, but
 the 5% guarantee was proved for a fixed sample size and nothing here shows it survives
 early stopping. StatProof does not claim the error rate is inflated. It says the
-justification is missing. Lesson 9 shows how to plan an early stop properly.</p>
+justification is missing. Lesson 10 shows how to plan an early stop properly.</p>
 <div class="scroll"><table>
   <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
   <tbody>
@@ -534,13 +534,127 @@ is about the range you declared, not about all possible designs.</div>
     <div class="task"><h4>Try it</h4><p>Raise the required power to <code>9/10</code>. The recommendation grows; if it exceeds your range you get <code>no_feasible_candidate</code>, so widen the range.</p></div>
   </div>
 </section>
-<section class="lesson" id="single-arm">
+<section class="lesson" id="better">
   <p class="eyebrow">Lesson 8</p>
+  <h2>Better, or at least not worse</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Most trials ask a directional question. We test whether a treatment is better than the control, estimate by how much, and then test whether a cheaper treatment is at least not much worse.</p></div>
+
+<p>The Fisher test of lessons 1 to 7 asks whether two rates differ. Two more analyses
+ask directional questions. Both use a null you met in lesson 3,
+<code>proportion_difference_at_most</code>, and both reuse the claims and planning
+vocabulary you already know.</p>
+<h3>Is the treatment better?</h3>
+<figure class="code"><figcaption>examples/tutorial/08_better_or_not_worse.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 8: is the treatment better, or at least not worse?</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> tests.difference
+<span class="k">use</span> estimation
+<span class="k">use</span> planning
+
+<span class="c"># Part 1: is the treatment better?</span>
+<span class="k">let</span> study = <span class="f">two_arm_binomial</span>(n_control=36, n_treatment=36)
+<span class="k">let</span> design = <span class="f">fixed</span>(model=study)
+<span class="k">let</span> no_better = <span class="f">proportion_difference_at_most</span>(model=study, value=0)
+<span class="k">let</span> superiority = <span class="f">fisher_one_sided</span>(design=design, null=no_better, alpha=1/40)
+
+<span class="k">let</span> target = <span class="f">power_target</span>(
+    at=<span class="f">binomial_rates</span>(p_control=1/10, p_treatment=2/5),
+    minimum=4/5,
+    maximum_typeI=1/40,
+)
+<span class="k">let</span> planned = <span class="f">verify</span>(<span class="f">meets</span>(analysis=superiority, target=target))
+
+<span class="c"># 4 of 36 controls and 14 of 36 treated participants responded.</span>
+<span class="k">let</span> data = <span class="f">observe</span>(analysis=superiority, control_successes=4, treatment_successes=14)
+<span class="k">let</span> outcome = <span class="f">verify</span>(<span class="f">result</span>(data))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>no_better</code></dt>
+  <dd>The null "treatment rate minus control rate is at most 0": the treatment is no
+  better. Rejecting it supports the treatment.</dd>
+  <dt><code>fisher_one_sided</code></dt>
+  <dd>The one-sided Fisher test. It accepts this null and no other. The level
+  <code>1/40</code> is the usual one-sided 2.5%.</dd>
+</dl>
+<p><code>meets</code>, <code>observe</code> and <code>result</code> are unchanged from
+lessons 4 and 7.</p>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [planned]: meets(superiority)
+  The one-sided Fisher analysis with arm sizes (36, 36) and alpha 1/40 has Type I error
+  at most 1/40 whenever the treatment success probability is at most the control&#x27;s.
+  Its power is at least 4/5 at p_control = 1/10, p_treatment = 2/5.
+<span class="ok">verified</span> [outcome]: result(data)
+  Exact one-sided p-value equals the Lean definition for these counts.
+  Reported decision follows from comparing that p-value with the level.</code></pre></div>
+<p>The one-sided p-value is 0.0065, so the null is rejected. Read the error claim
+closely: it holds whenever the treatment is no better than the control, including when
+it is worse. A guarantee only for exactly equal rates would be weaker.</p>
+<h3>By how much?</h3>
+<figure class="code"><figcaption>examples/tutorial/08_better_or_not_worse.stat</figcaption><div class="scroll"><pre><code><span class="c"># How large is the difference?</span>
+<span class="k">let</span> interval = <span class="f">calculate</span>(
+    <span class="f">difference_interval</span>(model=study, control_successes=4, treatment_successes=14, level=19/20)
+)</code></pre></div></figure>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [interval]: interval(study)
+  control 4 of 36, treatment 14 of 36; estimate ~ 0.2778;
+  interval = [-0.0691, 0.5627] at level 19/20</code></pre></div>
+<p>The estimated difference is 28 percentage points. The interval is built from an exact
+interval for each group, which makes it valid for every pair of true rates and also
+wide. Here it includes zero although the test rejected. That is not a contradiction: the
+interval is cautious, and the two answer slightly different questions. Report both.</p>
+<h3>Is it at least not much worse?</h3>
+<p>A cheaper treatment does not need to be better. It may be enough to show it is at
+most 10 percentage points worse. This is a non-inferiority question.</p>
+<figure class="code"><figcaption>examples/tutorial/08_better_or_not_worse.stat</figcaption><div class="scroll"><pre><code><span class="c"># Part 2: is a cheaper treatment at most 10 points worse?</span>
+<span class="k">let</span> trial = <span class="f">two_arm_binomial</span>(n_control=60, n_treatment=60)
+<span class="k">let</span> too_much_worse = <span class="f">proportion_difference_at_most</span>(model=trial, value=-1/10)
+<span class="k">let</span> non_inferiority = <span class="f">difference_test</span>(design=<span class="f">fixed</span>(model=trial), null=too_much_worse, alpha=1/40)
+
+<span class="c"># 50 of 60 controls and 52 of 60 treated participants responded.</span>
+<span class="k">let</span> trial_data = <span class="f">observe</span>(analysis=non_inferiority, control_successes=50, treatment_successes=52)
+<span class="k">let</span> trial_outcome = <span class="f">verify</span>(<span class="f">result</span>(trial_data))
+
+<span class="c"># How likely was this trial to succeed if both rates are truly 85%?</span>
+<span class="k">let</span> hoped = <span class="f">power_target</span>(
+    at=<span class="f">binomial_rates</span>(p_control=17/20, p_treatment=17/20),
+    minimum=4/5,
+    maximum_typeI=1/40,
+)
+<span class="k">let</span> chance = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=non_inferiority, target=hoped))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>too_much_worse</code></dt>
+  <dd>The null "treatment rate minus control rate is at most -1/10": the treatment falls
+  short by more than the margin. Rejecting it shows non-inferiority.</dd>
+  <dt><code>difference_test</code></dt>
+  <dd>An exact test for a null with a margin. It needs <code>use tests.difference</code>.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [trial_outcome]: result(trial_data)
+  The exact difference test with arm sizes (60, 60) and the listed rejection thresholds
+  has Type I error at most 1/40 whenever p_treatment - p_control &lt;= -1/10.
+  For 50 of 60 control and 52 of 60 treatment successes, the test does not reject the
+  null: with that many control successes it needs at least 53 treatment successes.
+<span class="calc">calculated</span> [chance]: meets(non_inferiority)
+  arm sizes = (60, 60); total = 120
+  power ~ 0.3017; power target met = false</code></pre></div>
+<p>The treatment did slightly better in the sample, and non-inferiority was still not
+shown. The last lines say why: with 60 per group this trial had only a 30% chance of
+succeeding even if the two treatments are equally good. Non-inferiority trials need
+large samples, and the planning step would have said so in advance.</p>
+<div class="note"><strong>What this test is.</strong> For each number of control
+successes, the test lists how many treatment successes are needed to reject. The list
+is stored in the certificate. Results are a decision without a p-value, and the test
+currently supports up to 120 participants per group.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>fisher_one_sided</code> tests whether the treatment is better; <code>difference_test</code> tests a margin.</li><li>Their error guarantees cover the whole null, not only its boundary.</li><li><code>difference_interval</code> estimates the difference, conservatively.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Search for a non-inferiority sample size: add <code>equal_arm_sizes(analysis=non_inferiority, min_per_arm=60, max_per_arm=120)</code> and <code>calculate(sample_size(...))</code> with a target of <code>minimum=1/2</code>.</p></div>
+  </div>
+</section>
+<section class="lesson" id="single-arm">
+  <p class="eyebrow">Lesson 9</p>
   <h2>A single-arm study</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>Everyone receives the treatment and we ask whether the response rate beats a known benchmark of 20%. We plan the study, analyse it, and report an interval.</p></div>
 
 <p>This lesson uses a new test module but the planning vocabulary from lesson 7.</p>
-<figure class="code"><figcaption>examples/tutorial/08_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 8: one arm, from planning to estimate.</span>
+<figure class="code"><figcaption>examples/tutorial/09_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 9: one arm, from planning to estimate.</span>
 <span class="k">use</span> tests.binomial
 <span class="k">use</span> planning
 
@@ -570,7 +684,7 @@ is about the range you declared, not about all possible designs.</div>
   smallest sufficient candidate in the range 10 to 60.</code></pre></div>
 <p>So we recruit 35 and will declare success with 12 or more responders.</p>
 <h3>After the study</h3>
-<figure class="code"><figcaption>examples/tutorial/08_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Analyse: the study ran with 35 participants and 14 responded.</span>
+<figure class="code"><figcaption>examples/tutorial/09_single_arm.stat</figcaption><div class="scroll"><pre><code><span class="c"># Analyse: the study ran with 35 participants and 14 responded.</span>
 <span class="k">let</span> study = <span class="f">one_arm_binomial</span>(n=35)
 <span class="k">let</span> analysis = <span class="f">binomial_test</span>(model=study, null_rate=1/5, alpha=1/20)
 <span class="k">let</span> data = <span class="f">responses</span>(analysis=analysis, count=14)
@@ -608,14 +722,14 @@ way contain it at least 95% of the time.</p>
   </div>
 </section>
 <section class="lesson" id="stopping">
-  <p class="eyebrow">Lesson 9</p>
+  <p class="eyebrow">Lesson 10</p>
   <h2>Stopping early</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>We return to the problem from lesson 3 and solve it: a study with a planned interim look that stops early if the treatment is clearly not working.</p></div>
 
 <p>Early stopping is fine when the rule is part of the design and the error rates are
 worked out for the whole procedure. A two-stage design does this: treat a first group,
 stop if too few respond, otherwise continue.</p>
-<figure class="code"><figcaption>examples/tutorial/09_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 9: a design with a planned interim look.</span>
+<figure class="code"><figcaption>examples/tutorial/10_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 10: a design with a planned interim look.</span>
 <span class="k">use</span> designs.two_stage
 <span class="k">use</span> planning
 
@@ -647,7 +761,7 @@ whole procedure, interim look included.</p>
   rejecting above 12 in total) rejects with probability at most 1/20 for every
   response rate at or below 1/5.
   It rejects with probability at least 4/5 at the response rate 2/5.</code></pre></div>
-<p>Compare with lesson 8. The fixed design needed 35 participants. This one needs up to
+<p>Compare with lesson 9. The fixed design needed 35 participants. This one needs up to
 43, but if the treatment does not work it stops after 13 about three times in four, for
 an average of 21.</p>
 <h3>After the study</h3>
@@ -667,7 +781,7 @@ would have stopped.</p>
 <h3>Finding a design</h3>
 <p>You do not have to guess the numbers. Describe the search and use
 <code>sample_size</code>:</p>
-<figure class="code"><figcaption>examples/tutorial/09_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Or let StatProof find one.</span>
+<figure class="code"><figcaption>examples/tutorial/10_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Or let StatProof find one.</span>
 <span class="k">let</span> search = <span class="f">two_stage_designs</span>(null_rate=1/5, max_total=45, criterion=<span class="s">&quot;minimax&quot;</span>)
 <span class="k">let</span> found = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=search, target=target))</code></pre></div></figure>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [found]: sample_size(search)
@@ -685,11 +799,11 @@ selected design. That it is the best one is a calculation, and the output says s
   </div>
 </section>
 <section class="lesson" id="bayesian">
-  <p class="eyebrow">Lesson 10</p>
+  <p class="eyebrow">Lesson 11</p>
   <h2>A Bayesian stopping rule</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>Many teams prefer to decide with posterior probabilities. We write such a rule and then check its false-positive rate and power, which the rule alone does not give us.</p></div>
 
-<figure class="code"><figcaption>examples/tutorial/10_bayesian_rule.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 10: decide with posterior probabilities, then check error rates.</span>
+<figure class="code"><figcaption>examples/tutorial/11_bayesian_rule.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 11: decide with posterior probabilities, then check error rates.</span>
 <span class="k">use</span> designs.two_stage
 <span class="k">use</span> planning
 
@@ -716,7 +830,7 @@ selected design. That it is the best one is a calculation, and the output says s
   success at the end if it is at least 19/20.</dd>
 </dl>
 <p>Only the rule changed. The stages, the test and the target are declared as in
-lesson 9.</p>
+lesson 10.</p>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [characteristics]: meets(analysis)
   stages = (10, 20); Type I at the null rate ~ 0.0581; expected sample size under the null ~ 22.48
   power ~ 0.8059; power target met = true; Type I target met = true
@@ -743,10 +857,13 @@ not proved in Lean, and the certificate lists this under its assumptions.</div>
     <thead><tr><th>You want to</th><th>Modules</th><th>Claim</th><th>Lesson</th></tr></thead>
     <tbody>
       <tr><td>Compare two proportions</td><td><code>models.two_arm_binomial</code>, <code>sampling</code>, <code>tests.fisher</code></td><td><code>typeI</code>, <code>result</code></td><td>1, 4</td></tr>
+      <tr><td>Ask whether a treatment is better</td><td><code>tests.fisher</code></td><td><code>fisher_one_sided</code> with <code>typeI</code>, <code>result</code></td><td>8</td></tr>
+      <tr><td>Show a treatment is not worse by a margin</td><td><code>tests.difference</code></td><td><code>difference_test</code> with <code>typeI</code>, <code>result</code></td><td>8</td></tr>
+      <tr><td>Estimate a difference</td><td><code>estimation</code></td><td><code>difference_interval</code></td><td>8</td></tr>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
-      <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>8</td></tr>
-      <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>9, 10</td></tr>
+      <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>
+      <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>10, 11</td></tr>
       <tr><td>See why a declaration passed, or what an edit affects</td><td>(built in)</td><td><code>explain</code>, <code>report</code>, <code>impact</code> commands</td><td>6</td></tr>
     </tbody>
   </table></div>

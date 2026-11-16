@@ -640,6 +640,11 @@ def test_one_sided_language_contract_and_planning(tmp_path):
     assert parse_planning_payload(payload) == plan
     proof = render_planning_proof(plan, "0" * 64)
     assert "FisherOneSided.typeI_of_hints" in proof and "checked_sections" in proof
+    from statproof.verification import _profile
+
+    assumptions = _profile("statproof_planning_certificate", payload)["assumptions"]
+    assert any("at most the control's" in line for line in assumptions)
+    assert not any("equal success probabilities" in line for line in assumptions)
     values = run(
         ONE_SIDED
         + "let data = observe(analysis=analysis, control_successes=1, treatment_successes=9)\n"

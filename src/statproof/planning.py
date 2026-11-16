@@ -380,6 +380,18 @@ PLANNING_ASSUMPTIONS = [
 ]
 
 
+def planning_assumptions(alternative: str) -> list[str]:
+    """The planning assumptions, with the null that matches the analysis."""
+    if alternative == "two_sided":
+        return list(PLANNING_ASSUMPTIONS)
+    return [
+        *PLANNING_ASSUMPTIONS[:2],
+        "The error bound is under the null that the treatment success probability is at most "
+        "the control's.",
+        PLANNING_ASSUMPTIONS[3],
+    ]
+
+
 def _lean_list(values) -> str:
     return "[" + ", ".join(str(value) for value in values) + "]"
 

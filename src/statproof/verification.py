@@ -26,7 +26,6 @@ from statproof.planning import (
     INTERVAL_KIND,
     MARGIN_KIND,
     NULL_NAMES,
-    PLANNING_ASSUMPTIONS,
     PLANNING_KIND,
     POLICY_KIND,
     RESULT_ASSUMPTIONS,
@@ -56,6 +55,7 @@ from statproof.planning import (
     parse_policy_payload,
     parse_result_payload,
     parse_stage_result_payload,
+    planning_assumptions,
     planning_claims,
     planning_payload,
     planning_theorems,
@@ -171,7 +171,8 @@ def _profile(kind: str, payload: dict) -> dict:
         general_theorem = "StatProof.Modules.FisherFamilyN.strong_control"
     elif kind == PLANNING_KIND:
         plan = parse_planning_payload(payload)
-        claims, assumptions = planning_claims(plan), PLANNING_ASSUMPTIONS
+        claims = planning_claims(plan)
+        assumptions = planning_assumptions(plan.design.alternative)
         theorems = planning_theorems(plan)
         scope = (
             "The declared fixed design, its Type I bound and its power at one planning point; "

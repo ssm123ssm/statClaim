@@ -1,0 +1,46 @@
+# Lesson 8: is the treatment better, or at least not worse?
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use tests.difference
+use estimation
+use planning
+
+# Part 1: is the treatment better?
+let study = two_arm_binomial(n_control=36, n_treatment=36)
+let design = fixed(model=study)
+let no_better = proportion_difference_at_most(model=study, value=0)
+let superiority = fisher_one_sided(design=design, null=no_better, alpha=1/40)
+
+let target = power_target(
+    at=binomial_rates(p_control=1/10, p_treatment=2/5),
+    minimum=4/5,
+    maximum_typeI=1/40,
+)
+let planned = verify(meets(analysis=superiority, target=target))
+
+# 4 of 36 controls and 14 of 36 treated participants responded.
+let data = observe(analysis=superiority, control_successes=4, treatment_successes=14)
+let outcome = verify(result(data))
+
+# How large is the difference?
+let interval = calculate(
+    difference_interval(model=study, control_successes=4, treatment_successes=14, level=19/20)
+)
+
+# Part 2: is a cheaper treatment at most 10 points worse?
+let trial = two_arm_binomial(n_control=60, n_treatment=60)
+let too_much_worse = proportion_difference_at_most(model=trial, value=-1/10)
+let non_inferiority = difference_test(design=fixed(model=trial), null=too_much_worse, alpha=1/40)
+
+# 50 of 60 controls and 52 of 60 treated participants responded.
+let trial_data = observe(analysis=non_inferiority, control_successes=50, treatment_successes=52)
+let trial_outcome = verify(result(trial_data))
+
+# How likely was this trial to succeed if both rates are truly 85%?
+let hoped = power_target(
+    at=binomial_rates(p_control=17/20, p_treatment=17/20),
+    minimum=4/5,
+    maximum_typeI=1/40,
+)
+let chance = calculate(meets(analysis=non_inferiority, target=hoped))
