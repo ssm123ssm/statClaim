@@ -16,14 +16,16 @@ from pathlib import Path
 from statclaim import __version__
 from statclaim.composition import (
     COMPOSITION_KIND,
-    COMPOSITION_THEOREMS,
-    GENERAL_THEOREM,
     Composition,
     composition_assumptions,
     composition_claims,
     composition_payload,
+    composition_theorems,
     parse_composition_payload,
     render_composition_proof,
+)
+from statclaim.composition import (
+    general_theorem as composition_theorem,
 )
 from statclaim.design import Design
 from statclaim.family import FAMILY_ASSUMPTIONS, Endpoint, FisherFamily
@@ -183,12 +185,13 @@ def _profile(kind: str, payload: dict) -> dict:
     elif kind == COMPOSITION_KIND:
         composition = parse_composition_payload(payload)
         claims = composition_claims(composition)
-        assumptions, theorems = composition_assumptions(composition), COMPOSITION_THEOREMS
+        assumptions = composition_assumptions(composition)
+        theorems = composition_theorems(composition)
         scope = (
             "How the declared member levels combine. The members' own error bounds are "
             "hypotheses of the theorem and are not certified here."
         )
-        general_theorem = GENERAL_THEOREM
+        general_theorem = composition_theorem(composition)
     elif kind == PLANNING_KIND:
         plan = parse_planning_payload(payload)
         claims = planning_claims(plan)

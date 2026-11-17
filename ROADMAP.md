@@ -28,6 +28,8 @@
 - Outcomes and null forms as registry data; a cited log-rank test for survival.
 - One-sided and margin tests in Bonferroni families.
 - Interim looks with the error level split across them, the split proved in Lean.
+- Fixed-sequence testing proved in Lean; designs with looks as entries of larger plans.
+- A complete generated language reference.
 
 ## Direction
 

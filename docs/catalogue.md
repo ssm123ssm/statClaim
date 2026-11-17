@@ -70,7 +70,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: OutcomeNull`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
-| ComposedFamily | A family beyond two-sided Fisher: the combination is proved, the members assumed. | `analyses: list`, `alpha: exact number` |
+| ComposedFamily | A Bonferroni family or fixed sequence: the combination is proved, the members assumed. | `analyses: list`, `alpha: exact number` |
 | OneArmModel | One arm with a fixed sample size. | `n: integer` |
 | OneSampleAnalysis | One-sided exact binomial test with its null rate and alpha. | `model: OneArmModel`, `null_rate: exact number`, `alpha: exact number` |
 | OneSampleObservation | Observed responses for a one-sample test. | `analysis: OneSampleAnalysis`, `responses: integer` |
@@ -217,7 +217,15 @@ Exact test of p_treatment - p_control <= margin, for non-inferiority (negative m
 Bonferroni for two to twenty endpoints; dependence between them is unrestricted. A family of two-sided Fisher analyses is proved outright. Any other family, with one-sided, margin or cited tests, is conditional: Lean checks the combination and the members are assumed.
 
 - `bonferroni(analyses: list, alpha: level, joint_law?: string) -> Family`
-  Bonferroni: the members' levels may sum to at most alpha. Members may be Fisher analyses, cited tests or a mix; dependence between them is unrestricted. A family of two-sided Fisher analyses is proved outright. Any other family is conditional: Lean checks the combination and each member's own bound is assumed.
+  Bonferroni: the members' levels may sum to at most alpha. Members may be exact tests, cited tests, designs with interim looks, or a mix; dependence between them is unrestricted. A family of two-sided Fisher analyses is proved outright. Any other family is conditional: Lean checks the combination and each member's own bound is assumed.
+- `familywise(family: Family) -> FamilywiseClaim`
+
+### `multiplicity.fixed_sequence` — Multiplicity and composition
+
+Hierarchical testing in a fixed order, each test at the full level and only after every earlier test rejected. Lean checks the combination; the tests' own bounds are assumed.
+
+- `fixed_sequence(analyses: list, alpha: level) -> ComposedFamily`
+  Hierarchical testing: the analyses are tested in the listed order, each at the full level alpha, and a test is carried out only if every earlier one rejected. Entries may be exact tests, cited tests or designs with interim looks. Lean checks the combination; each test's own bound is assumed.
 - `familywise(family: Family) -> FamilywiseClaim`
 
 ### `planning` — Study planning
@@ -479,6 +487,7 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `independent_censoring` | sampling | Within each arm, censoring is independent of the time to the event. |
 | `prespecified_analysis_time` | design | When to analyse is fixed in advance, by calendar time or by a number of events, and does not depend on the observed difference between arms. |
 | `prespecified_looks` | design | The looks happen at the declared cumulative sample sizes, fixed in advance, and the study stops at the first look that rejects. |
+| `prespecified_order` | design | The tests and their order are fixed in advance, and a test is carried out only if every earlier test in the order rejected. |
 
 ## Limits
 
@@ -526,6 +535,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `family_size` | error | A family or sequential design has too few or too many entries. |
 | `duplicate_analysis` | error | A family or sequential design lists an analysis twice. |
 | `sequential_question` | error | The looks of a sequential design differ in test or null. |
+| `sequence_level` | error | A test in a fixed sequence does not use the full level. |
 | `sequential_order` | error | The looks are not in order of growing sample size. |
 | `sampling_scope` | obligation | The design stops on the data, which the guarantee does not cover. Not evidence of inflated error. |
 | `allocation` | obligation | The members' levels sum to more than the overall level. |

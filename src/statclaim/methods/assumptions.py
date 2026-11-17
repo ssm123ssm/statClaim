@@ -49,3 +49,9 @@ PRESPECIFIED_LOOKS = Assumption(
     "The looks happen at the declared cumulative sample sizes, fixed in advance, and the "
     "study stops at the first look that rejects.",
 )
+PRESPECIFIED_ORDER = Assumption(
+    "prespecified_order",
+    "design",
+    "The tests and their order are fixed in advance, and a test is carried out only if "
+    "every earlier test in the order rejected.",
+)

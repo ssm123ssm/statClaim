@@ -150,16 +150,12 @@ def _marked(assumption) -> dict:
     return {**assumption.to_dict(), "status": status}
 
 
-def composed_report(family: ComposedFamilyIR) -> dict:
-    """Describe a family whose members' bounds are assumed. Nothing is checked yet."""
+def _register(family: ComposedFamilyIR, assumptions: dict, references: list) -> None:
+    """Add a combination's assumptions, and those of the tests inside it, by id."""
     composition = family.lower()
-    report = planning_report(
-        "composition", composition.guarantee.sentence, composition_assumptions(composition)
-    )
-    report["members"] = [item.to_dict() for item in composition.components]
     own = composition.prespecified
-    assumptions, references = {own.id: _marked(own)}, []
-    for name, analysis in family.analyses:
+    assumptions.setdefault(own.id, _marked(own))
+    for name, _ in family.analyses:
         # The member's own bound is the hypothesis the combination rests on.
         assumptions[f"member_guarantee:{name}"] = {
             "id": f"member_guarantee:{name}",
@@ -167,13 +163,27 @@ def composed_report(family: ComposedFamilyIR) -> dict:
             "text": next(c.sentence for c in composition.components if c.name == name),
             "status": "assumed",
         }
-        if isinstance(analysis, CitedAnalysisIR):
+    for name, analysis in family.analyses:
+        if isinstance(analysis, ComposedFamilyIR):
+            _register(analysis, assumptions, references)
+        elif isinstance(analysis, CitedAnalysisIR):
             for item in analysis.method.assumptions:
                 if item.id in DISCHARGED[composition.mode]:
                     continue
                 entry = assumptions.setdefault(item.id, {**_marked(item), "members": []})
                 entry["members"].append(name)
             references += [r for r in analysis.method.references if r not in references]
+
+
+def composed_report(family: ComposedFamilyIR) -> dict:
+    """Describe a combination whose members' bounds are assumed. Nothing is checked yet."""
+    composition = family.lower()
+    report = planning_report(
+        "composition", composition.guarantee.sentence, composition_assumptions(composition)
+    )
+    report["members"] = [item.to_dict() for item in composition.components]
+    assumptions, references = {}, []
+    _register(family, assumptions, references)
     report["assumptions"] = list(assumptions.values())
     report["references"] = references
     return report

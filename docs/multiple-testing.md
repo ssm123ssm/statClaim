@@ -166,3 +166,27 @@ by one: the looks happen at the declared sizes and the study stops at the first
 rejection. The split is conservative. Boundaries that use the correlation
 between looks, such as O'Brien-Fleming, are not supported yet. See
 `examples/interim_look.stat`.
+
+## Fixed sequences
+
+`fixed_sequence` in `multiplicity.fixed_sequence` is hierarchical testing:
+
+```stat
+let hierarchy = fixed_sequence(analyses=[survival, symptoms, response], alpha=1/20)
+let overall = verify(familywise(hierarchy))
+```
+
+The endpoints are tested in the listed order, each at the full level, and one
+is tested only if every earlier one was rejected. Every entry must have the
+sequence's `alpha`. Lean applies
+`StatClaim.Modules.Composition.fixed_sequence_le_of_levels`: a false rejection
+needs the first true null's own test to reject, so the error is at most the
+level. The result is `conditional`.
+
+An entry of a family or a sequence may be a whole design with interim looks.
+It counts as one test of its null at its overall level, and its own split is
+checked as part of the larger plan. See `examples/confirmatory_trial.stat`.
+
+A secondary endpoint is declared as one test at its stated sample size. If a
+trial stops at an interim look and analyses it on the interim data, that is
+not the declared test.

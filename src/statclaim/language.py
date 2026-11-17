@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Literal as Choice
 
-from statclaim.composition import Component, Composition
+from statclaim.composition import MODES, Component, Composition
 from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statclaim.fisher import validate_alpha
@@ -233,6 +233,17 @@ class SequentialIR(ComposedFamilyIR, LevelTestIR):
 
 
 def _component(name: str, analysis: LevelTestIR) -> Component:
+    if isinstance(analysis, SequentialIR):
+        # A design with interim looks counts as one test of its null at its overall level.
+        inner = analysis.lower()
+        return Component(
+            name,
+            analysis.alpha,
+            inner.scope,
+            "conditional",
+            inner.rules.contract,
+            inner.components[0].null,
+        )
     if isinstance(analysis, CitedAnalysisIR):
         method = analysis.method
         return Component(
@@ -681,7 +692,7 @@ def normalize(value: object) -> object:
             return result
         case ComposedFamilyIR(analyses=analyses, alpha=alpha, mode=mode):
             return {
-                "method": "alpha_spending" if mode == "sequential" else "bonferroni",
+                "method": MODES[mode].method,
                 "composition": "conditional",
                 "alpha": str(alpha),
                 "analyses": [
@@ -930,17 +941,35 @@ def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> Analysis
     return AnalysisIR(plan, null.value, alpha.value, "margin")
 
 
-def _members(argument: LocatedValue, what: str) -> list[tuple[str, LevelTestIR]]:
-    """Named, distinct analyses for a family or the looks of a sequential design."""
+def _members(
+    argument: LocatedValue, what: str, *, designs: bool = True
+) -> list[tuple[str, LevelTestIR]]:
+    """Named, distinct analyses for a family, a sequence or the looks of a design.
+
+    With designs=True an entry may also be a whole design with interim looks.
+    """
     items = argument.value
+    allowed = (
+        (AnalysisIR, CitedAnalysisIR, SequentialIR)
+        if designs
+        else (
+            AnalysisIR,
+            CitedAnalysisIR,
+        )
+    )
     if not 2 <= len(items) <= MAX_ENDPOINTS:
         fail("family_size", f"This needs between 2 and {MAX_ENDPOINTS} {what}.", argument.span)
     members = []
     for item in items:
-        if not isinstance(item.value, (AnalysisIR, CitedAnalysisIR)) or item.name is None:
+        if not isinstance(item.value, allowed) or item.name is None:
             fail(
                 "type",
-                "Each entry must be a named analysis: an exact two-arm test or a cited test.",
+                "Each entry must be a named analysis: an exact two-arm test"
+                + (
+                    ", a cited test or a design with interim looks."
+                    if designs
+                    else " or a cited test."
+                ),
                 item.span,
             )
         members.append((item.name, item.value))
@@ -962,7 +991,9 @@ def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyLikeIR:
     analyses = _members(arguments["analyses"], "analyses")
     law = arguments["joint_law"]
     proved = all(
-        isinstance(analysis, AnalysisIR) and analysis.alternative == "two_sided"
+        isinstance(analysis, AnalysisIR)
+        and not isinstance(analysis, SequentialIR)
+        and analysis.alternative == "two_sided"
         for _, analysis in analyses
     )
     if not proved:
@@ -992,7 +1023,7 @@ def _test_key(analysis: LevelTestIR) -> str:
 
 
 def _sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
-    looks = _members(arguments["looks"], "looks")
+    looks = _members(arguments["looks"], "looks", designs=False)
     first = looks[0][1]
     previous = None
     for name, look in looks:
@@ -1022,6 +1053,21 @@ def _sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
             )
         previous = sizes
     return SequentialIR(tuple(looks), arguments["alpha"].value)
+
+
+def _fixed_sequence(arguments: dict[str, LocatedValue], span: Span) -> ComposedFamilyIR:
+    analyses = _members(arguments["analyses"], "analyses")
+    alpha = arguments["alpha"]
+    for name, analysis in analyses:
+        if analysis.alpha != alpha.value:
+            fail(
+                "sequence_level",
+                f"{name} has alpha {analysis.alpha}, but every test in a fixed sequence uses "
+                f"the full level {alpha.value}. The order, not a split of the level, controls "
+                "the error. To split the level, use bonferroni.",
+                arguments["analyses"].span,
+            )
+    return ComposedFamilyIR(tuple(analyses), alpha.value, "fixed_sequence")
 
 
 def _familywise(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
@@ -1393,6 +1439,7 @@ OPERATIONS = {
 }
 
 
+FAMILYWISE = _constructor("familywise", (("family", FamilyLikeIR),), "FamilywiseClaim", _familywise)
 # One constructor shared by every module whose analyses carry a Type I claim.
 TYPE_I = _constructor(
     "typeI", (("analysis", LevelTestIR),), "TypeIClaim", _claim("typeI", "analysis")
@@ -1570,17 +1617,30 @@ MODULES = {
                     "Family",
                     _family,
                     documentation="Bonferroni: the members' levels may sum to at most alpha. "
-                    "Members may be Fisher analyses, cited tests or a mix; dependence between "
-                    "them is unrestricted. A family of two-sided Fisher analyses is proved "
+                    "Members may be exact tests, cited tests, designs with interim looks, or "
+                    "a mix; dependence between them is unrestricted. "
+                    "A family of two-sided Fisher analyses is proved "
                     "outright. Any other family is conditional: Lean checks the combination "
                     "and each member's own bound is assumed.",
                 ),
+                FAMILYWISE,
+            ),
+        ),
+        Module(
+            "multiplicity.fixed_sequence",
+            (
                 _constructor(
-                    "familywise",
-                    (("family", FamilyLikeIR),),
-                    "FamilywiseClaim",
-                    _familywise,
+                    "fixed_sequence",
+                    (("analyses", "list"), ("alpha", "level")),
+                    "ComposedFamily",
+                    _fixed_sequence,
+                    documentation="Hierarchical testing: the analyses are tested in the listed "
+                    "order, each at the full level alpha, and a test is carried out only if "
+                    "every earlier one rejected. Entries may be exact tests, cited tests or "
+                    "designs with interim looks. Lean checks the combination; each test's own "
+                    "bound is assumed.",
                 ),
+                FAMILYWISE,
             ),
         ),
         Module(

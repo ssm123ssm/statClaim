@@ -551,3 +551,84 @@ def test_every_assumption_a_claim_reports_has_an_id_and_kind(path):
         for item in claim["identified_assumptions"]:
             assert item["id"] and item["kind"], item["text"]
             assert item["status"] in ("declared", "assumed", "condition")
+
+
+CONFIRMATORY = (ROOT / "examples/confirmatory_trial.stat").read_text()
+SEQUENCE = (
+    TWO_MEANS.replace("alpha=1/40", "alpha=1/20").replace(
+        "use multiplicity.bonferroni", "use multiplicity.fixed_sequence"
+    )
+    + "let endpoints = fixed_sequence(analyses=[first, second], alpha=1/20)\n"
+)
+
+
+def test_fixed_sequence_tests_each_endpoint_at_the_full_level():
+    record = family_derivation(SEQUENCE)
+    assert check_derivation(record) == []
+    assert record["contract"] == "multiplicity.fixed_sequence/fixed_sequence"
+    guarantee = record["guarantee"]
+    assert guarantee["quantity"] == "familywise_error" and guarantee["bound"] == "1/20"
+    assert guarantee["given"][0] == "prespecified_order"
+    # No allocation rule applies: the order, not a split, controls the error.
+    assert "allocation" not in [step["rule"] for step in record["steps"]]
+    assert "full-level" in [step["rule"] for step in record["steps"]]
+    assert codes(
+        SEQUENCE.replace("[first, second], alpha=1/20", "[first, second], alpha=1/40")
+    ) == ["sequence_level"]
+
+
+def test_a_design_with_looks_can_be_a_member_of_a_sequence_or_family():
+    record = family_derivation(CONFIRMATORY, "hierarchy")
+    assert check_derivation(record) == []
+    members = record["guarantee"]["members"]
+    assert [m["grade"] for m in members] == ["conditional", "cited", "proved"]
+    assert members[0]["basis"] == "designs.group_sequential/alpha_spending"
+    assert record["guarantee"]["scope"] == "asymptotic"
+    rules = [step["rule"] for step in record["steps"]]
+    assert rules.count("sequential-contract") == 1
+    assert rules.count("fixed-sequence-contract") == 1
+    assert rules.index("sequential-contract") < rules.index("fixed-sequence-contract")
+    # The nested design's own split is an obligation of the whole.
+    over = CONFIRMATORY.replace("alpha=9/200", "alpha=1/20")
+    assert codes(over).count("allocation") == 2  # asked for twice: hierarchy and survival
+    nested = family_derivation(over, "hierarchy")
+    assert check_derivation(nested) == [] and nested["guarantee"] is None
+    # Looks themselves cannot hold designs.
+    assert codes(
+        CONFIRMATORY + "let wrong = alpha_spending(looks=[survival, symptoms], alpha=1/20)\n"
+    ) == ["type"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda d: d["subject"].update(method="bonferroni"),
+        lambda d: d["subject"]["analyses"][1]["analysis"].update(alpha="1/40"),
+        lambda d: d["subject"]["analyses"][0]["analysis"]["analyses"].reverse(),
+        lambda d: d["subject"]["analyses"][0]["analysis"].update(method="bonferroni"),
+        lambda d: d["guarantee"]["members"][0].update(grade="proved"),
+        lambda d: d["guarantee"].update(scope="finite_sample"),
+        lambda d: d["assumptions"].pop(4),
+    ],
+)
+def test_checker_rejects_an_altered_nested_design(change):
+    record = family_derivation(CONFIRMATORY, "hierarchy")
+    change(record)
+    assert check_derivation(record)
+
+
+def test_report_lists_the_assumptions_of_every_level_of_a_nested_design():
+    from statclaim.contract_reports import study_report
+
+    report = study_report(compile_source(Source(CONFIRMATORY)), "confirmatory_trial.stat")
+    register = {item["id"]: item for item in report["assumption_register"]}
+    for expected in (
+        "prespecified_order",
+        "prespecified_looks",
+        "member_guarantee:survival",
+        "member_guarantee:interim",
+        "independent_censoring",
+        "normal_outcomes",
+    ):
+        assert expected in register
+    assert "familywise(hierarchy)" in register["independent_censoring"]["needed_by"]

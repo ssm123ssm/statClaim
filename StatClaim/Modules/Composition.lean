@@ -61,4 +61,54 @@ theorem familywise_le_of_levels (law : Measure Outcome) [IsProbabilityMeasure la
     (fun i => by exact_mod_cast (levels i).nonnegative) slack_nonnegative marginal
   exact_mod_cast allocation
 
+/-- In a fixed sequence, a null is rejected only if its own test and every earlier
+test reject. This is the event that some true null is rejected. -/
+def sequenceFalseRejection (trueNull : Fin m → Prop) (reject : Fin m → Set Outcome) :
+    Set Outcome :=
+  {outcome | ∃ k, trueNull k ∧ ∀ i, i ≤ k → outcome ∈ reject i}
+
+/-- Testing in a fixed order, each test at the full level and only after every
+earlier test rejected, rejects some true null with probability at most that level
+plus the slack. A false rejection needs the first true null's own test to reject. -/
+theorem fixed_sequence_le (law : Measure Outcome) [IsProbabilityMeasure law]
+    (trueNull : Fin m → Prop) (reject : Fin m → Set Outcome) (alpha slack : ℝ)
+    (alpha_nonnegative : 0 ≤ alpha) (slack_nonnegative : 0 ≤ slack)
+    (marginal : ∀ i, trueNull i → law.real (reject i) ≤ alpha + slack) :
+    law.real (sequenceFalseRejection trueNull reject) ≤ alpha + slack := by
+  classical
+  by_cases some : ∃ k, trueNull k
+  · obtain ⟨first, first_true, first_least⟩ : ∃ j, trueNull j ∧ ∀ k, trueNull k → j ≤ k := by
+      let trueNulls := Finset.univ.filter (fun k => trueNull k)
+      have nonempty : trueNulls.Nonempty := by
+        obtain ⟨k, hk⟩ := some
+        exact ⟨k, by simp [trueNulls, hk]⟩
+      refine ⟨trueNulls.min' nonempty, ?_, ?_⟩
+      · have member := Finset.min'_mem trueNulls nonempty
+        simpa [trueNulls] using member
+      · intro k hk
+        exact Finset.min'_le trueNulls k (by simp [trueNulls, hk])
+    have subset : sequenceFalseRejection trueNull reject ⊆ reject first := by
+      rintro outcome ⟨k, hk, all⟩
+      exact all first (first_least k hk)
+    exact le_trans (measureReal_mono subset) (marginal first first_true)
+  · have empty : sequenceFalseRejection trueNull reject = ∅ := by
+      apply Set.eq_empty_of_forall_notMem
+      rintro outcome ⟨k, hk, _⟩
+      exact some ⟨k, hk⟩
+    rw [empty, measureReal_empty]
+    exact add_nonneg alpha_nonnegative slack_nonnegative
+
+/-- The same with exact rational levels, all equal to the sequence's level. -/
+theorem fixed_sequence_le_of_levels (law : Measure Outcome) [IsProbabilityMeasure law]
+    (trueNull : Fin m → Prop) (reject : Fin m → Set Outcome)
+    (levels : Fin m → SignificanceLevel) (slack : ℝ) (slack_nonnegative : 0 ≤ slack)
+    (marginal : ∀ i, trueNull i → law.real (reject i) ≤ ((levels i).value : ℝ) + slack)
+    (alpha : ℚ) (alpha_nonnegative : 0 ≤ alpha) (full_level : ∀ i, (levels i).value = alpha) :
+    law.real (sequenceFalseRejection trueNull reject) ≤ (alpha : ℝ) + slack := by
+  apply fixed_sequence_le law trueNull reject (alpha : ℝ) slack
+    (by exact_mod_cast alpha_nonnegative) slack_nonnegative
+  intro i null
+  have bound := marginal i null
+  rwa [full_level i] at bound
+
 end StatClaim.Modules.Composition

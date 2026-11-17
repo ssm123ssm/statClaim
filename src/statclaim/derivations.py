@@ -12,7 +12,7 @@ the serialized subject without using the code in this module that built it.
 from dataclasses import dataclass
 from fractions import Fraction
 
-from statclaim.composition import DISCHARGED
+from statclaim.composition import DISCHARGED, MODES
 from statclaim.family import MAX_ENDPOINTS
 from statclaim.language import (
     AnalysisIR,
@@ -106,6 +106,15 @@ RULES = {
         "same-question and increasing-looks rules hold.",
         "{subject}: its looks form one sequential test of the same null.",
     ),
+    "full-level": Rule(
+        "Every test in the sequence uses the sequence's level.",
+        "{subject}: every test uses the full level {alpha}.",
+    ),
+    "fixed-sequence-contract": Rule(
+        "Every test satisfies its own contract, and the distinct-members, family-size and "
+        "full-level rules hold.",
+        "{subject}: its tests form one fixed sequence.",
+    ),
     "family-contract": Rule(
         "Every member satisfies its analysis contract, and the distinct-members, "
         "family-size and joint-law rules hold.",
@@ -186,7 +195,6 @@ RULES = {
     ),
 }
 
-SEQUENTIAL_CONTRACT_ID = "designs.group_sequential/alpha_spending"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 MARGIN_CONTRACT_ID = "tests.difference/difference_test"
 CONTRACT_IDS = {
@@ -345,9 +353,13 @@ def _analysis_steps(builder: _Builder, name: str, analysis: AnalysisIR) -> int:
     return builder.apply("analysis-contract", {"subject": name}, used)
 
 
-def _sampling(builder: _Builder, name: str, analysis: AnalysisIR) -> None:
+def _fixed(name: str, analysis) -> tuple[str, dict, bool]:
     stopping = analysis.plan.stopping
-    builder.settle("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
+    return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
+
+
+def _sampling(builder: _Builder, name: str, analysis: AnalysisIR) -> None:
+    builder.settle(*_fixed(name, analysis))
 
 
 def derive_analysis(name: str, analysis: AnalysisIR) -> Derivation:
@@ -426,18 +438,28 @@ def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:
 
 
 def composed_assumptions(family: ComposedFamilyIR) -> tuple[str, ...]:
-    """Its own assumption, each member's bound, then the cited members' assumptions."""
+    """Its own assumption and member bounds, those of designs inside it, then the tests'."""
+    own, nested, cited = _assumption_parts(family)
+    return (*own, *nested, *cited)
+
+
+def _assumption_parts(family: ComposedFamilyIR) -> tuple[list[str], list[str], list[str]]:
     composition = family.lower()
-    texts = [composition.prespecified.text, *(item.sentence for item in composition.components)]
+    own = [composition.prespecified.text, *(item.sentence for item in composition.components)]
+    nested: list[str] = []
     cited: list[str] = []
     for _, analysis in family.analyses:
-        if isinstance(analysis, CitedAnalysisIR):
+        if isinstance(analysis, ComposedFamilyIR):
+            inner_own, inner_nested, inner_cited = _assumption_parts(analysis)
+            nested += [text for text in (*inner_own, *inner_nested) if text not in nested]
+            cited += [text for text in inner_cited if text not in cited]
+        elif isinstance(analysis, CitedAnalysisIR):
             cited += [
                 item.text
                 for item in analysis.method.assumptions
                 if item.text not in cited and item.id not in DISCHARGED[composition.mode]
             ]
-    return (*texts, *cited)
+    return own, nested, cited
 
 
 def composed_guarantee(family: ComposedFamilyIR) -> dict:
@@ -460,22 +482,28 @@ def test_key(analysis) -> str:
     return CONTRACT_IDS[analysis.alternative].split("/")[1]
 
 
-def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
-    builder = _Builder()
-    sequential = family.mode == "sequential"
-    members = [
-        _cited_steps(builder, member, analysis)
-        if isinstance(analysis, CitedAnalysisIR)
-        else _analysis_steps(builder, member, analysis)
-        for member, analysis in family.analyses
-    ]
+def _composed_steps(builder: _Builder, name: str, family: ComposedFamilyIR, pending: list) -> int:
+    """Steps for a combination; its open-or-met obligation rules are added to pending."""
+    rules = MODES[family.mode]
+    inner: list = []
+    members = []
+    for member, analysis in family.analyses:
+        if isinstance(analysis, ComposedFamilyIR):
+            members.append(_composed_steps(builder, member, analysis, inner))
+        else:
+            members.append(
+                _cited_steps(builder, member, analysis)
+                if isinstance(analysis, CitedAnalysisIR)
+                else _analysis_steps(builder, member, analysis)
+            )
+            inner.append(_fixed(member, analysis))
     names = [member for member, _ in family.analyses]
     used = [
         *members,
         builder.apply("distinct-members", {"subject": name, "members": names}),
         builder.apply("family-size", {"subject": name, "count": len(names)}),
     ]
-    if sequential:
+    if family.mode == "sequential":
         first = family.analyses[0][1]
         used += [
             builder.apply(
@@ -497,22 +525,31 @@ def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
                 },
             ),
         ]
-    final = builder.apply(
-        "sequential-contract" if sequential else "composed-family-contract",
-        {"subject": name, "members": names},
-        tuple(used),
-    )
-    allocated = sum((analysis.alpha for _, analysis in family.analyses), Fraction())
-    builder.settle(
-        "allocation",
-        {"subject": name, "allocated": str(allocated), "alpha": str(family.alpha)},
-        allocated <= family.alpha,
-    )
-    for member, analysis in family.analyses:
-        _sampling(builder, member, analysis)
+    if family.mode == "fixed_sequence":
+        used.append(builder.apply("full-level", {"subject": name, "alpha": str(family.alpha)}))
+    final = builder.apply(rules.rule, {"subject": name, "members": names}, tuple(used))
+    if rules.splits:
+        allocated = sum((analysis.alpha for _, analysis in family.analyses), Fraction())
+        pending.append(
+            (
+                "allocation",
+                {"subject": name, "allocated": str(allocated), "alpha": str(family.alpha)},
+                allocated <= family.alpha,
+            )
+        )
+    pending += inner
+    return final
+
+
+def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
+    builder = _Builder()
+    pending: list = []
+    final = _composed_steps(builder, name, family, pending)
+    for rule, facts, holds in pending:
+        builder.settle(rule, facts, holds)
     return Derivation(
         name,
-        SEQUENTIAL_CONTRACT_ID if sequential else "multiplicity.bonferroni/bonferroni",
+        MODES[family.mode].contract,
         builder.steps[final].conclusion,
         tuple(builder.steps),
         composed_assumptions(family),

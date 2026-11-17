@@ -27,6 +27,7 @@ Other files in `playground/`:
 | `t_test.stat` | A continuous outcome with a cited t-test |
 | `log_rank.stat` | A time-to-event outcome with the cited log-rank test |
 | `interim_look.stat` | An interim analysis with the error level split across looks |
+| `confirmatory_trial.stat` | An interim look and ordered endpoints in one plan |
 | `mixed_endpoints.stat` | A proved and a cited test under one error bound |
 
 ## Without Lean

@@ -44,6 +44,12 @@ MODULE_CLASSES = {
         "with one-sided, margin or cited tests, is conditional: Lean checks the combination "
         "and the members are assumed.",
     ),
+    "multiplicity.fixed_sequence": (
+        "Multiplicity and composition",
+        "Hierarchical testing in a fixed order, each test at the full level and only after "
+        "every earlier test rejected. Lean checks the combination; the tests' own bounds "
+        "are assumed.",
+    ),
     "planning": (
         "Study planning",
         "Exact power at a planning point, target checks and a bounded sample-size search "
@@ -113,7 +119,7 @@ OBJECT_CLASSES = {
     ),
     "ComposedFamily": (
         "Core statistical objects",
-        "A family beyond two-sided Fisher: the combination is proved, the members assumed.",
+        "A Bonferroni family or fixed sequence: the combination is proved, the members assumed.",
     ),
     "Rates": ("Planning objects", "Planning point for two arms; an input, not a fact."),
     "Rate": ("Planning objects", "Planning point for a single response rate."),

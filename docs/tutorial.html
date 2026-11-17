@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Fourteen short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Fifteen short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1059,6 +1059,94 @@ can never spend more than the total.</div>
     <div class="task"><h4>Try it</h4><p>Set the final look's <code>alpha</code> to <code>1/20</code>: the design overspends and stays unresolved. Then swap the order of the looks and read the diagnostic.</p></div>
   </div>
 </section>
+<section class="lesson" id="confirmatory">
+  <p class="eyebrow">Lesson 15</p>
+  <h2>A whole confirmatory trial</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>We put the pieces together: a survival primary endpoint with an interim look, followed by two secondary endpoints that are tested in order. One file states the whole plan, and one report says what it rests on.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/15_confirmatory_trial.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 15: a confirmatory trial with an interim look and ordered endpoints.</span>
+<span class="k">use</span> models.two_arm_survival
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.survival
+<span class="k">use</span> tests.t
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> designs.group_sequential
+<span class="k">use</span> multiplicity.fixed_sequence
+
+<span class="c"># Primary: overall survival, analysed at 150 and at 300 participants per arm.</span>
+<span class="k">let</span> interim_cohort = <span class="f">two_arm_survival</span>(n_control=150, n_treatment=150)
+<span class="k">let</span> full_cohort = <span class="f">two_arm_survival</span>(n_control=300, n_treatment=300)
+<span class="k">let</span> interim = <span class="f">log_rank</span>(
+    design=<span class="f">fixed</span>(model=interim_cohort),
+    null=<span class="f">equal_survival</span>(model=interim_cohort),
+    alpha=1/200,
+)
+<span class="k">let</span> final = <span class="f">log_rank</span>(
+    design=<span class="f">fixed</span>(model=full_cohort),
+    null=<span class="f">equal_survival</span>(model=full_cohort),
+    alpha=9/200,
+)
+<span class="k">let</span> survival = <span class="f">alpha_spending</span>(looks=[interim, final], alpha=1/20)
+
+<span class="c"># Secondary 1: change in a symptom score.</span>
+<span class="k">let</span> scores = <span class="f">two_arm_continuous</span>(n_control=300, n_treatment=300)
+<span class="k">let</span> symptoms = <span class="f">t_test</span>(design=<span class="f">fixed</span>(model=scores), null=<span class="f">equal_means</span>(model=scores), alpha=1/20)
+
+<span class="c"># Secondary 2: response, yes or no.</span>
+<span class="k">let</span> responders = <span class="f">two_arm_binomial</span>(n_control=300, n_treatment=300)
+<span class="k">let</span> response = <span class="f">fisher</span>(
+    design=<span class="f">fixed</span>(model=responders),
+    null=<span class="f">equal_proportions</span>(model=responders),
+    alpha=1/20,
+)
+
+<span class="c"># Test in this order at the full level; stop at the first endpoint that fails.</span>
+<span class="k">let</span> hierarchy = <span class="f">fixed_sequence</span>(analyses=[survival, symptoms, response], alpha=1/20)
+<span class="k">let</span> overall = <span class="f">verify</span>(<span class="f">familywise</span>(hierarchy))
+<span class="k">let</span> primary = <span class="f">verify</span>(<span class="f">typeI</span>(survival))
+<span class="k">let</span> exact_secondary = <span class="f">verify</span>(<span class="f">typeI</span>(response))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>survival</code></dt>
+  <dd>The primary endpoint is itself a design with two looks, as in lesson 14. Here it is
+  used as one entry of a larger plan.</dd>
+  <dt><code>fixed_sequence</code></dt>
+  <dd>Hierarchical testing. The endpoints are tested in the listed order, each at the
+  <em>full</em> level, and an endpoint is tested only if every earlier one was rejected.
+  The order pays for the multiplicity, so nothing is split.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="warn">conditional</span> [overall]: familywise(hierarchy)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: large-sample approximation
+  Every test in the sequence uses the full level 1/20.
+  Assumptions:
+    The tests and their order are fixed in advance, and a test is carried out only if every earlier test in the order rejected.
+    survival: Null rejection probability is at most 1/20 whenever survival_treatment = survival_control at every time. (holds if each of its own looks' bounds holds; verify its own Type I claim)
+    symptoms: Null rejection probability is at most 1/20 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)
+    response: Null rejection probability is at most 1/20 whenever p_treatment = p_control. (provable in Lean; verify the member's own Type I claim)
+<span class="warn">conditional</span> [primary]: typeI(survival)
+<span class="ok">verified</span> [exact_secondary]: typeI(response)
+Program status: conditional</code></pre></div>
+<p>Read the three member lines. Each says how far that endpoint's own guarantee goes:
+the survival design is itself conditional on its two looks, the t-test is cited, and
+the Fisher test can be proved, which the last line does. The whole plan is a large-sample
+approximation, because its least exact member is.</p>
+<p>Now ask for the plan's assumptions in one table:</p>
+<div class="scroll output"><pre><code>statclaim report examples/tutorial/15_confirmatory_trial.stat</code></pre></div>
+<p>The report lists every assumption once, from every level of the design, with the
+claims that need it: the fixed order, the planned looks, independent censoring, normal
+symptom scores, and so on. Each is marked <em>declared</em> or <em>assumed</em>. This is
+the table to put in a statistical analysis plan.</p>
+<div class="note"><strong>If the trial stops at the interim look.</strong> The secondary
+endpoints are declared as single tests on the full 300 per arm. If the trial stops early
+and they are analysed on the interim data instead, that is a different test from the
+one declared, and this guarantee does not cover it.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>A design with looks can be one entry in a larger plan.</li><li>A fixed sequence tests each endpoint at the full level, in order.</li><li>One report collects the assumptions of every level.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Give <code>symptoms</code> the level <code>1/40</code> and read why a fixed sequence refuses it. Then run <code>statclaim explain</code> and find the steps for the nested design.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1074,6 +1162,7 @@ can never spend more than the total.</div>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>
+      <tr><td>Test endpoints in a fixed order</td><td><code>multiplicity.fixed_sequence</code></td><td><code>fixed_sequence</code> with <code>familywise</code></td><td>15</td></tr>
       <tr><td>Look at the data before the end</td><td><code>designs.group_sequential</code></td><td><code>alpha_spending</code> with <code>typeI</code></td><td>14</td></tr>
       <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>10, 11</td></tr>
       <tr><td>See why a declaration passed, or what an edit affects</td><td>(built in)</td><td><code>explain</code>, <code>report</code>, <code>impact</code> commands</td><td>6</td></tr>

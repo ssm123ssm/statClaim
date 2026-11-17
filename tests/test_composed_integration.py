@@ -96,7 +96,7 @@ def test_lean_rejects_an_overallocated_composition(tmp_path):
         Component(name, Fraction(1, 20), "finite_sample", "cited", "tests.t/t_test version 1", "x")
         for name in ("a", "b")
     )
-    with pytest.raises(ValueError, match="exceeds"):
+    with pytest.raises(ValueError, match="do not fit"):
         render_composition_proof(Composition(Fraction(1, 20), members), "0" * 64)
 
 
@@ -111,3 +111,35 @@ def test_interim_look_design_gets_a_conditional_overall_error_bound(tmp_path):
     bundle = Path(value["evidence"]["certificate"]["directory"])
     assert json.loads((bundle / "inputs.json").read_text())["method"] == "alpha_spending"
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
+
+
+def test_confirmatory_trial_with_looks_and_a_fixed_sequence(tmp_path):
+    path = ROOT / "examples/confirmatory_trial.stat"
+    report = check_source(
+        Source(path.read_text(), str(path)), project=ROOT, output=tmp_path / "run"
+    )
+    values = report["values"]
+    assert [values[name]["status"] for name in ("overall", "primary", "exact_secondary")] == [
+        "conditional",
+        "conditional",
+        "verified",
+    ]
+    assert report["status"] == "conditional"
+    bundle = Path(values["overall"]["evidence"]["certificate"]["directory"])
+    proof = (bundle / "Proof.lean").read_text()
+    assert "fixed_sequence_le_of_levels" in proof and "checked_levels" in proof
+    assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
+
+
+def test_lean_rejects_a_sequence_whose_levels_were_altered(tmp_path):
+    path = ROOT / "examples/confirmatory_trial.stat"
+    report = check_source(
+        Source(path.read_text(), str(path)), project=ROOT, output=tmp_path / "run"
+    )
+    original = Path(report["values"]["overall"]["evidence"]["certificate"]["directory"])
+    bundle = tmp_path / "forged"
+    shutil.copytree(original, bundle)
+    text = (bundle / "inputs.json").read_text()
+    (bundle / "inputs.json").write_text(text.replace('"level": "1/20"', '"level": "1/10"', 1))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT)

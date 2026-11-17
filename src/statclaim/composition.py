@@ -1,8 +1,12 @@
-"""Combining members' error bounds into a familywise bound, checked by Lean.
+"""Combining members' error bounds into one overall bound, checked by Lean.
 
 The members' own guarantees are hypotheses here. Lean checks only that the
-levels add up and that the union bound then gives the family bound. This is the
-"conditional" evidence grade: the combination is proved, the parts are not.
+levels fit and that the combination rule then gives the overall bound. This is
+the "conditional" evidence grade: the combination is proved, the parts are not.
+
+There are three ways to combine, each a Mode below. To add one, add a Mode, a
+Lean theorem for it and a proof template; the language, derivations and reports
+read the table.
 """
 
 import re
@@ -14,36 +18,90 @@ from statclaim.methods.assumptions import (
     FIXED_SIZES,
     PRESPECIFIED_FAMILY,
     PRESPECIFIED_LOOKS,
+    PRESPECIFIED_ORDER,
     SINGLE_ANALYSIS,
 )
-from statclaim.methods.core import SCOPES, Guarantee
+from statclaim.methods.core import SCOPES, Assumption, Guarantee
 from statclaim.planning import _audit
 
 COMPOSITION_KIND = "statclaim_composition_certificate"
-COMPOSITION_THEOREMS = ["checked_allocation", "checked_composition"]
-GENERAL_THEOREM = "StatClaim.Modules.Composition.familywise_le_of_levels"
 # How a member's own bound is established. Either way it is a hypothesis here.
 MEMBER_GRADES = {
     "proved": "provable in Lean; verify the member's own Type I claim",
     "cited": "cited from the literature; not machine-checked",
+    "conditional": "holds if each of its own looks' bounds holds; verify its own Type I claim",
 }
-# Two ways to combine. A family holds different questions; a sequential design
-# asks one question at several looks. The arithmetic and the theorem are the same.
-MODES = {
-    "family": ("bonferroni", PRESPECIFIED_FAMILY),
-    "sequential": ("alpha_spending", PRESPECIFIED_LOOKS),
-}
-# A sequential design replaces these member assumptions with its own: each look
-# is one fixed-size test, and the combination accounts for looking repeatedly.
-DISCHARGED = {"family": (), "sequential": (FIXED_SIZES.id, SINGLE_ANALYSIS.id)}
 MAX_MEMBERS = 20
-# What has to grow for a family with large-sample members to reach its bound.
-FAMILY_LIMIT = "each member's sample size or number of events grows"
+
+
+@dataclass(frozen=True)
+class Mode:
+    method: str  # the name recorded in certificates and derivations
+    contract: str
+    own: Assumption  # the assumption this way of combining adds
+    discharged: tuple[str, ...]  # member assumptions it replaces, by id
+    rule: str  # the derivation rule that concludes the contract
+    extra_rules: tuple[str, ...]
+    splits: bool  # True: levels sum to at most alpha. False: each equals alpha.
+    quantity: str
+    limit: str  # what must grow for a large-sample combination to reach its bound
+    theorem: str
+    part: str  # what a member is called in messages
+
+
+MODES = {
+    # Different questions, each at its own share of the level.
+    "family": Mode(
+        "bonferroni",
+        "multiplicity.bonferroni/bonferroni",
+        PRESPECIFIED_FAMILY,
+        (),
+        "composed-family-contract",
+        (),
+        True,
+        "familywise_error",
+        "each member's sample size or number of events grows",
+        "familywise_le_of_levels",
+        "member",
+    ),
+    # One question at several looks. Each look is one fixed-size test, and the
+    # design itself accounts for looking repeatedly.
+    "sequential": Mode(
+        "alpha_spending",
+        "designs.group_sequential/alpha_spending",
+        PRESPECIFIED_LOOKS,
+        (FIXED_SIZES.id, SINGLE_ANALYSIS.id),
+        "sequential-contract",
+        ("same-question", "increasing-looks"),
+        True,
+        "type_I_error",
+        "the sample size at each look grows",
+        "familywise_le_of_levels",
+        "look",
+    ),
+    # Different questions in a fixed order, each at the full level, each tested
+    # only if every earlier one was rejected.
+    "fixed_sequence": Mode(
+        "fixed_sequence",
+        "multiplicity.fixed_sequence/fixed_sequence",
+        PRESPECIFIED_ORDER,
+        (),
+        "fixed-sequence-contract",
+        ("full-level",),
+        False,
+        "familywise_error",
+        "each member's sample size or number of events grows",
+        "fixed_sequence_le_of_levels",
+        "test",
+    ),
+}
+METHODS_TO_MODES = {mode.method: key for key, mode in MODES.items()}
+DISCHARGED = {key: mode.discharged for key, mode in MODES.items()}
 
 
 @dataclass(frozen=True)
 class Component:
-    """One member, reduced to what the union bound needs and how it is justified."""
+    """One member, reduced to what the combination needs and how it is justified."""
 
     name: str
     level: Fraction
@@ -86,56 +144,57 @@ class Composition:
         validate_alpha(self.alpha)
         if self.mode not in MODES:
             raise ValueError("Unknown composition mode.")
-        if self.mode == "sequential" and len({item.null for item in self.components}) != 1:
-            raise ValueError("Every look of a sequential design tests the same null.")
         if not 2 <= len(self.components) <= MAX_MEMBERS:
-            raise ValueError(f"A family needs between 2 and {MAX_MEMBERS} analyses.")
+            raise ValueError(f"A combination needs between 2 and {MAX_MEMBERS} analyses.")
         if len({item.name for item in self.components}) != len(self.components):
             raise ValueError("Analysis names must be distinct.")
+        if self.mode == "sequential" and len({item.null for item in self.components}) != 1:
+            raise ValueError("Every look of a sequential design tests the same null.")
+
+    @property
+    def rules(self) -> Mode:
+        return MODES[self.mode]
 
     @property
     def allocated(self) -> Fraction:
         return sum((item.level for item in self.components), Fraction())
 
     @property
+    def fits(self) -> bool:
+        """The levels are within what this way of combining allows."""
+        if self.rules.splits:
+            return self.allocated <= self.alpha
+        return all(item.level == self.alpha for item in self.components)
+
+    @property
     def scope(self) -> str:
-        """A family is only as exact as its least exact member."""
+        """A combination is only as exact as its least exact member."""
         exact = all(item.scope == "finite_sample" for item in self.components)
         return "finite_sample" if exact else "asymptotic"
 
     @property
-    def prespecified(self):
-        return MODES[self.mode][1]
+    def prespecified(self) -> Assumption:
+        return self.rules.own
 
     @property
     def guarantee(self) -> Guarantee:
-        if self.mode == "sequential":
-            # Rejecting at any look is a rejection of the one null.
-            return Guarantee(
-                "type_I_error",
-                "at_most",
-                self.alpha,
-                self.components[0].null,
-                self.scope,
-                "the sample size at each look grows",
-            )
+        null = (
+            self.components[0].null
+            if self.mode == "sequential"  # rejecting at any look rejects the one null
+            else "any subset of the member nulls is true"
+        )
         return Guarantee(
-            "familywise_error",
-            "at_most",
-            self.alpha,
-            "any subset of the member nulls is true",
-            self.scope,
-            FAMILY_LIMIT,
+            self.rules.quantity, "at_most", self.alpha, null, self.scope, self.rules.limit
         )
 
 
 def composition_payload(composition: Composition) -> dict:
-    if composition.allocated > composition.alpha:
-        raise ValueError("The allocated alpha exceeds the requested familywise bound.")
+    if not composition.fits:
+        raise ValueError("The member levels do not fit the requested overall bound.")
     return {
         "schema_version": 1,
         "scope": "composition",
-        "method": MODES[composition.mode][0],
+        "method": composition.rules.method,
         "alpha": str(composition.alpha),
         "members": [item.to_dict() for item in composition.components],
     }
@@ -155,34 +214,57 @@ def parse_composition_payload(payload: dict) -> Composition:
             )
             for item in payload["members"]
         ),
-        {method: mode for mode, (method, _) in MODES.items()}[payload["method"]],
+        METHODS_TO_MODES[payload["method"]],
     )
     if payload != composition_payload(composition):
-        raise ValueError("Bound family, members, or requested guarantee is inconsistent.")
+        raise ValueError("Bound combination, members, or requested guarantee is inconsistent.")
     return composition
 
 
+def composition_theorems(composition: Composition) -> list[str]:
+    first = "checked_allocation" if composition.rules.splits else "checked_levels"
+    return [first, "checked_composition"]
+
+
+def general_theorem(composition: Composition) -> str:
+    return f"StatClaim.Modules.Composition.{composition.rules.theorem}"
+
+
 def composition_claims(composition: Composition) -> list[str]:
-    sequential = composition.mode == "sequential"
-    part, whole = ("look", "overall error bound") if sequential else ("member", "familywise bound")
-    claims = [
-        f"The {part} levels sum to {composition.allocated}, which does not exceed the "
-        f"{whole} {composition.alpha}.",
-        (
+    alpha, part = composition.alpha, composition.rules.part
+    if composition.mode == "fixed_sequence":
+        claims = [
+            f"Every test in the sequence uses the full level {alpha}.",
+            "If each test rejects its own true null with probability at most that level, and "
+            "a test is carried out only when every earlier test rejected, the probability of "
+            f"rejecting any true null is at most {alpha}, for every configuration of true "
+            "and false nulls and any dependence between tests.",
+        ]
+        whole = "familywise bound"
+    elif composition.mode == "sequential":
+        claims = [
+            f"The look levels sum to {composition.allocated}, which does not exceed the "
+            f"overall error bound {alpha}.",
             "If the test at each look rejects the true null with probability at most its "
-            f"level, the probability of rejecting it at any look is at most {composition.alpha}, "
+            f"level, the probability of rejecting it at any look is at most {alpha}, "
             "whatever the dependence between looks. This split is conservative: it does not "
-            "use the correlation between looks."
-            if sequential
-            else "If each member rejects its own true null with probability at most its level, "
-            f"the probability of rejecting any true member null is at most {composition.alpha}, "
-            "for every configuration of true and false nulls and any dependence between members."
-        ),
-    ]
+            "use the correlation between looks.",
+        ]
+        whole = "overall error bound"
+    else:
+        claims = [
+            f"The member levels sum to {composition.allocated}, which does not exceed the "
+            f"familywise bound {alpha}.",
+            "If each member rejects its own true null with probability at most its level, "
+            f"the probability of rejecting any true member null is at most {alpha}, "
+            "for every configuration of true and false nulls and any dependence between members.",
+        ]
+        whole = "familywise bound"
     if composition.scope == "asymptotic":
+        slack = "the sum of the slacks" if composition.rules.splits else "the largest slack"
         claims.append(
             f"If a {part}'s bound holds only up to a slack, the {whole} holds up to "
-            f"the sum of the slacks. With large-sample {part}s the bound is therefore "
+            f"{slack}. With large-sample {part}s the bound is therefore "
             "approached as the sample sizes grow; none is claimed at the declared sizes."
         )
     claims.append(f"Not checked here: each {part}'s own error bound, listed as an assumption.")
@@ -197,8 +279,8 @@ def render_composition_proof(composition: Composition, input_sha256: str) -> str
     """Only validated rational literals and the member count enter the template."""
     if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
         raise ValueError("Expected a SHA-256 input identifier.")
-    if composition.allocated > composition.alpha:
-        raise ValueError("The allocated alpha exceeds the requested familywise bound.")
+    if not composition.fits:
+        raise ValueError("The member levels do not fit the requested overall bound.")
     count = len(composition.components)
     levels = []
     for item in composition.components:
@@ -206,7 +288,7 @@ def render_composition_proof(composition: Composition, input_sha256: str) -> str
         levels.append(f"⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩")
     numerator, denominator = composition.alpha.as_integer_ratio()
     separator = ",\n    "
-    return f"""import StatClaim
+    header = f"""import StatClaim
 import Lean.Util.CollectAxioms
 
 -- Canonical composition SHA-256: {input_sha256}
@@ -218,7 +300,9 @@ open Modules.Composition
 def levels : Fin {count} → SignificanceLevel :=
   ![{separator.join(levels)}]
 def familyLevel : ℚ := ({numerator} : ℚ) / {denominator}
-
+"""
+    if composition.rules.splits:
+        body = f"""
 theorem checked_allocation : ∑ i, (levels i).value ≤ familyLevel := by
   norm_num [Fin.sum_univ_succ, levels, familyLevel]
 
@@ -231,6 +315,24 @@ theorem checked_composition {{Outcome : Type}} [MeasurableSpace Outcome]
     law.real (falseRejection trueNull reject) ≤ (familyLevel : ℝ) + ∑ i, slack i :=
   familywise_le_of_levels law trueNull reject levels slack slack_nonnegative marginal
     familyLevel checked_allocation
+"""
+    else:
+        body = f"""
+theorem checked_levels : ∀ i, (levels i).value = familyLevel := by
+  intro i
+  fin_cases i <;> norm_num [levels, familyLevel]
 
+-- A null is rejected only if its own test and every earlier test reject.
+theorem checked_composition {{Outcome : Type}} [MeasurableSpace Outcome]
+    (law : Measure Outcome) [IsProbabilityMeasure law]
+    (trueNull : Fin {count} → Prop) (reject : Fin {count} → Set Outcome)
+    (slack : ℝ) (slack_nonnegative : 0 ≤ slack)
+    (marginal : ∀ i, trueNull i →
+      law.real (reject i) ≤ ((levels i).value : ℝ) + slack) :
+    law.real (sequenceFalseRejection trueNull reject) ≤ (familyLevel : ℝ) + slack :=
+  fixed_sequence_le_of_levels law trueNull reject levels slack slack_nonnegative marginal
+    familyLevel (by norm_num [familyLevel]) checked_levels
+"""
+    return f"""{header}{body}
 end StatClaimCertificate
-{_audit(COMPOSITION_THEOREMS, input_sha256)}"""
+{_audit(composition_theorems(composition), input_sha256)}"""

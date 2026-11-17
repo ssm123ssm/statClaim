@@ -50,6 +50,39 @@ def _origin(program: ProgramIR, value: object, fallback: Span, field: str | None
     return bindings[0].span if bindings else fallback
 
 
+def _combination_requirements(program, request, name, family, seen: set[int]) -> list:
+    """Open requirements of a combination and of any design with looks inside it."""
+    diagnostics = []
+    composition = family.lower()
+    if composition.rules.splits and not composition.fits:
+        diagnostics.append(
+            Diagnostic(
+                "allocation",
+                f"{name}: the {composition.rules.part} levels sum to {composition.allocated}, "
+                f"above the overall level {family.alpha}. No bound follows from this "
+                "allocation; this does not prove excessive actual error.",
+                _origin(program, family, request.span, "alpha"),
+                "obligation",
+            )
+        )
+    for member, analysis in family.analyses:
+        if isinstance(analysis, ComposedFamilyIR):
+            diagnostics += _combination_requirements(program, request, member, analysis, seen)
+        elif analysis.plan.stopping != "fixed" and id(analysis.plan) not in seen:
+            seen.add(id(analysis.plan))
+            diagnostics.append(
+                Diagnostic(
+                    "sampling_scope",
+                    f"{name}: {member} uses data-dependent stopping, which its own "
+                    "guarantee does not cover. Declare planned looks with alpha_spending "
+                    "instead. This is not evidence of inflated error.",
+                    _origin(program, analysis.plan, request.span),
+                    "obligation",
+                )
+            )
+    return diagnostics
+
+
 def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ...]:
     """Inspect supported contracts without numerical evaluation or Lean."""
     subject, name = request.claim.subject, request.claim.name
@@ -101,32 +134,7 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
             ),
         )
     if isinstance(subject, ComposedFamilyIR):
-        allocated = sum((analysis.alpha for _, analysis in subject.analyses), start=0)
-        if allocated > subject.alpha:
-            diagnostics.append(
-                Diagnostic(
-                    "allocation",
-                    f"{name}: allocated alpha {allocated} exceeds the requested family bound "
-                    f"{subject.alpha}. No Bonferroni bound follows from this allocation; "
-                    "this does not prove excessive actual error.",
-                    _origin(program, subject, request.span, "alpha"),
-                    "obligation",
-                )
-            )
-        seen: set[int] = set()
-        for _, analysis in subject.analyses:
-            if analysis.plan.stopping != "fixed" and id(analysis.plan) not in seen:
-                seen.add(id(analysis.plan))
-                diagnostics.append(
-                    Diagnostic(
-                        "sampling_scope",
-                        f"{name}: a member uses data-dependent stopping, which its own "
-                        "guarantee does not cover. This is not evidence of inflated error.",
-                        _origin(program, analysis.plan, request.span),
-                        "obligation",
-                    )
-                )
-        return tuple(diagnostics)
+        return tuple(_combination_requirements(program, request, name, subject, set()))
     if isinstance(subject, FamilyIR):
         family = subject.lower()
         if family.allocated_alpha > family.alpha:

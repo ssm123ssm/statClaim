@@ -1,0 +1,44 @@
+# A confirmatory trial: a survival primary endpoint with one interim look, then
+# two secondary endpoints tested in order only if the primary succeeds.
+use models.two_arm_survival
+use models.two_arm_continuous
+use models.two_arm_binomial
+use sampling
+use tests.survival
+use tests.t
+use tests.fisher
+use designs.group_sequential
+use multiplicity.fixed_sequence
+
+# Primary: overall survival, analysed at 150 and at 300 participants per arm.
+let interim_cohort = two_arm_survival(n_control=150, n_treatment=150)
+let full_cohort = two_arm_survival(n_control=300, n_treatment=300)
+let interim = log_rank(
+    design=fixed(model=interim_cohort),
+    null=equal_survival(model=interim_cohort),
+    alpha=1/200,
+)
+let final = log_rank(
+    design=fixed(model=full_cohort),
+    null=equal_survival(model=full_cohort),
+    alpha=9/200,
+)
+let survival = alpha_spending(looks=[interim, final], alpha=1/20)
+
+# Secondary 1: change in a symptom score.
+let scores = two_arm_continuous(n_control=300, n_treatment=300)
+let symptoms = t_test(design=fixed(model=scores), null=equal_means(model=scores), alpha=1/20)
+
+# Secondary 2: response, yes or no.
+let responders = two_arm_binomial(n_control=300, n_treatment=300)
+let response = fisher(
+    design=fixed(model=responders),
+    null=equal_proportions(model=responders),
+    alpha=1/20,
+)
+
+# Test in this order at the full level; stop at the first endpoint that fails.
+let hierarchy = fixed_sequence(analyses=[survival, symptoms, response], alpha=1/20)
+let overall = verify(familywise(hierarchy))
+let primary = verify(typeI(survival))
+let exact_secondary = verify(typeI(response))
