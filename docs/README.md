@@ -16,5 +16,6 @@ Start with the [quickstart](quickstart.md), [language reference](catalogue.md),
 - [Sampling and decision policies](policies.md): the Lean model for adaptive designs
 - [Planning a study](planning.md): power, sample size and two-stage designs
 - [Planning and Bayesian roadmap](study-planning.md): proposed further capabilities
+- [Replication materials](../replication/README.md): an error-injection evaluation
 - [Development](development.md), [adding modules](adding-modules.md)
 - [Background](background.md): the original concept note and related work

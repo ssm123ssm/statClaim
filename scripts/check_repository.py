@@ -19,6 +19,8 @@ DIRECTORIES = {
     ".pytest_cache",
     ".ruff_cache",
     "dist",
+    # Local paper drafts; they were once committed by mistake.
+    "statclaim_paper",
 }
 files = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
 bad = []

@@ -1,0 +1,422 @@
+[
+  {
+    "key": "ni_null_superiority_test",
+    "category": "Hypothesis",
+    "error": "A non-inferiority null is given to a two-sided superiority test.",
+    "expected": "rejected",
+    "expected_code": "hypothesis_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "hypothesis_mismatch"
+    ],
+    "message": "t_test: hypothesis contract mismatch.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "equality_null_one_sided_test",
+    "category": "Hypothesis",
+    "error": "An equality null is given to a one-sided test.",
+    "expected": "rejected",
+    "expected_code": "hypothesis_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "hypothesis_mismatch"
+    ],
+    "message": "t_test_one_sided: hypothesis contract mismatch.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "nonzero_difference_fisher",
+    "category": "Hypothesis",
+    "error": "Fisher's exact test is used to test a nonzero difference in proportions.",
+    "expected": "rejected",
+    "expected_code": "hypothesis_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "hypothesis_mismatch"
+    ],
+    "message": "fisher: hypothesis contract mismatch.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "null_from_another_study",
+    "category": "Hypothesis",
+    "error": "The null is stated for a model with different arm sizes than the design.",
+    "expected": "rejected",
+    "expected_code": "model_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "model_mismatch"
+    ],
+    "message": "t_test: the null belongs to a different model. The analysis design has arm sizes (60, 60), while the null's model has (20, 20). Declare the intended null for the design's model. Matching a null form alone does not make different models compatible.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "binary_test_continuous_outcome",
+    "category": "Hypothesis",
+    "error": "A test for proportions is declared for a continuous outcome.",
+    "expected": "rejected",
+    "expected_code": "type",
+    "outcome": "rejected",
+    "codes": [
+      "type"
+    ],
+    "message": "model expects Model; received OutcomeModel.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "survival_test_continuous_outcome",
+    "category": "Hypothesis",
+    "error": "The log-rank test is declared for a continuous outcome.",
+    "expected": "rejected",
+    "expected_code": "hypothesis_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "hypothesis_mismatch"
+    ],
+    "message": "log_rank: hypothesis contract mismatch.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "optional_stopping_exact",
+    "category": "Sampling",
+    "error": "Data are checked repeatedly and the study stops when significant (exact test).",
+    "expected": "unresolved",
+    "expected_code": "sampling_scope",
+    "outcome": "unresolved",
+    "codes": [
+      "sampling_scope"
+    ],
+    "message": "analysis: data-dependent stopping needs a justified sampling law before the fixed-sample guarantee can be used. This is not evidence of inflated error.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "optional_stopping_cited",
+    "category": "Sampling",
+    "error": "Data are checked repeatedly and the study stops when significant (t-test).",
+    "expected": "unresolved",
+    "expected_code": "sampling_scope",
+    "outcome": "unresolved",
+    "codes": [
+      "sampling_scope"
+    ],
+    "message": "analysis: the cited guarantee assumes arm sizes fixed in advance and a single analysis. Data-dependent stopping is outside it and needs a design with its own guarantee. This is not evidence of inflated error.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "looks_at_full_level",
+    "category": "Sampling",
+    "error": "An interim and a final analysis are each run at the full 5% level.",
+    "expected": "unresolved",
+    "expected_code": "allocation",
+    "outcome": "unresolved",
+    "codes": [
+      "allocation"
+    ],
+    "message": "trial: the look levels sum to 1/10, above the overall level 1/20. No bound follows from this allocation; this does not prove excessive actual error.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "looks_out_of_order",
+    "category": "Sampling",
+    "error": "The looks are listed with the final analysis before the interim one.",
+    "expected": "rejected",
+    "expected_code": "sequential_order",
+    "outcome": "rejected",
+    "codes": [
+      "sequential_order"
+    ],
+    "message": "interim: list the looks in order. Each look's model gives the cumulative arm sizes at that look, so they must grow.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "looks_change_the_test",
+    "category": "Sampling",
+    "error": "The interim look uses a different test from the final analysis.",
+    "expected": "rejected",
+    "expected_code": "sequential_question",
+    "outcome": "rejected",
+    "codes": [
+      "sequential_question"
+    ],
+    "message": "final: every look must use the same test and the same null as the first look. Different questions belong in a bonferroni family.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "result_feeds_design",
+    "category": "Sampling",
+    "error": "A design value is taken from the result of an earlier analysis.",
+    "expected": "rejected",
+    "expected_code": "type",
+    "outcome": "rejected",
+    "codes": [
+      "type"
+    ],
+    "message": "alpha expects level; received Option[exact number].",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "undeclared_peeking",
+    "category": "Sampling",
+    "error": "The file declares a fixed design, but the data were in fact checked along the way.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "The test is run once, on the complete data. (declared)",
+    "as_expected": true,
+    "note": "StatClaim sees only the declaration. The report lists 'run once' as declared by the file, which is the statement the study broke."
+  },
+  {
+    "key": "ten_endpoints_at_five_percent",
+    "category": "Multiplicity",
+    "error": "Ten endpoints are each tested at 5% and a 5% familywise error is claimed.",
+    "expected": "unresolved",
+    "expected_code": "allocation",
+    "outcome": "unresolved",
+    "codes": [
+      "allocation"
+    ],
+    "message": "family: allocated alpha 1/2 exceeds the requested family bound 1/20. No Bonferroni certificate can be supplied from this allocation; this does not prove excessive actual error.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "duplicate_endpoint",
+    "category": "Multiplicity",
+    "error": "One analysis is listed twice in a family to appear as two endpoints.",
+    "expected": "rejected",
+    "expected_code": "duplicate_analysis",
+    "outcome": "rejected",
+    "codes": [
+      "duplicate_analysis"
+    ],
+    "message": "Two entries are the same declaration under different names. Declare each analysis separately; its name is its label.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "sequence_with_split_levels",
+    "category": "Multiplicity",
+    "error": "A hierarchical procedure is declared but the level is split between endpoints.",
+    "expected": "rejected",
+    "expected_code": "sequence_level",
+    "outcome": "rejected",
+    "codes": [
+      "sequence_level"
+    ],
+    "message": "analysis has alpha 1/40, but every test in a fixed sequence uses the full level 1/20. The order, not a split of the level, controls the error. To split the level, use bonferroni.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "familywise_claim_on_looks",
+    "category": "Multiplicity",
+    "error": "A familywise claim is requested for repeated looks at one question.",
+    "expected": "rejected",
+    "expected_code": "type",
+    "outcome": "rejected",
+    "codes": [
+      "type"
+    ],
+    "message": "A sequential design tests one null, so ask for typeI(...) instead of familywise.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "same_outcome_declared_twice",
+    "category": "Multiplicity",
+    "error": "The same outcome is declared as two separate analyses to gain a second chance.",
+    "expected": "invisible",
+    "expected_code": null,
+    "outcome": "invisible",
+    "codes": [],
+    "message": "",
+    "as_expected": true,
+    "note": "Two declarations with identical content are indistinguishable from two real outcomes measured on the same participants."
+  },
+  {
+    "key": "approximate_sample_size",
+    "category": "Planning",
+    "error": "The per-arm size 29 from the normal-approximation formula is used with Fisher's exact test, expecting 80% power.",
+    "expected": "calculated",
+    "expected_code": "target_not_met",
+    "outcome": "calculated",
+    "codes": [
+      "target_not_met"
+    ],
+    "message": "exact power 0.681 (not met)",
+    "as_expected": true,
+    "note": "The size is computed in scenarios.py from the standard formula, not typed in."
+  },
+  {
+    "key": "target_stricter_than_level",
+    "category": "Planning",
+    "error": "A 2.5% Type I error is promised from a test run at 5%.",
+    "expected": "unresolved",
+    "expected_code": "typeI_target_not_established",
+    "outcome": "unresolved",
+    "codes": [
+      "typeI_target_not_established"
+    ],
+    "message": "analysis: alpha 1/20 exceeds the requested Type I bound 1/40. The Fisher theorem bounds error by alpha only; this is not evidence that the actual error exceeds the request.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "planning_point_in_null",
+    "category": "Planning",
+    "error": "Power is planned at a point where the two arms have equal rates.",
+    "expected": "rejected",
+    "expected_code": "alternative_in_null",
+    "outcome": "rejected",
+    "codes": [
+      "alternative_in_null"
+    ],
+    "message": "The planning point satisfies the analysis's null (p_treatment = p_control). Power is assessed at an alternative; choose a point outside the null.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "range_too_small",
+    "category": "Planning",
+    "error": "A sample-size search is limited to sizes that cannot reach the target.",
+    "expected": "calculated",
+    "expected_code": "no_feasible_candidate",
+    "outcome": "calculated",
+    "codes": [
+      "no_feasible_candidate"
+    ],
+    "message": "11 sizes searched, none sufficient",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "posterior_threshold_as_error_rate",
+    "category": "Planning",
+    "error": "A 95% posterior probability rule is assumed to give a 5% false-positive rate.",
+    "expected": "calculated",
+    "expected_code": "target_not_met",
+    "outcome": "calculated",
+    "codes": [
+      "target_not_met"
+    ],
+    "message": "exact power 0.806 (met); Type I error 0.0581 (not met)",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "level_of_zero",
+    "category": "Values",
+    "error": "A t-test is declared with a significance level of zero.",
+    "expected": "rejected",
+    "expected_code": "domain",
+    "outcome": "rejected",
+    "codes": [
+      "domain"
+    ],
+    "message": "alpha must lie strictly between 0 and 1 for this test.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "one_participant_per_arm",
+    "category": "Values",
+    "error": "Welch's test is declared with one participant per arm.",
+    "expected": "rejected",
+    "expected_code": "domain",
+    "outcome": "rejected",
+    "codes": [
+      "domain"
+    ],
+    "message": "welch_test needs at least 2 per arm and 4 in total to estimate the variance.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "more_events_than_participants",
+    "category": "Values",
+    "error": "The observed number of responders exceeds the arm size.",
+    "expected": "rejected",
+    "expected_code": "domain",
+    "outcome": "rejected",
+    "codes": [
+      "domain"
+    ],
+    "message": "treatment_successes must be between 0 and 100 for this analysis.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "non_normal_outcomes",
+    "category": "Assumptions",
+    "error": "The pooled t-test is used for a strongly skewed outcome.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "Outcomes in each arm are normally distributed. (assumed)",
+    "as_expected": true,
+    "note": "Nothing in a design can show the outcome's distribution. The report lists normality as assumed."
+  },
+  {
+    "key": "small_sample_large_sample_test",
+    "category": "Assumptions",
+    "error": "Welch's test, whose guarantee is large-sample, is used with three per arm.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "Outcomes in each arm are identically distributed with finite, positive variance. (assumed)",
+    "as_expected": true,
+    "note": "No sample size is too small to declare. The result is worded as a large-sample approximation with no bound at the declared size."
+  },
+  {
+    "key": "informative_censoring",
+    "category": "Assumptions",
+    "error": "The log-rank test is used although sicker participants drop out earlier.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "Within each arm, censoring is independent of the time to the event. (assumed)",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "one_sided_at_five_percent",
+    "category": "Assumptions",
+    "error": "A one-sided non-inferiority test is run at 5% where 2.5% is the convention.",
+    "expected": "invisible",
+    "expected_code": null,
+    "outcome": "invisible",
+    "codes": [],
+    "message": "",
+    "as_expected": true,
+    "note": "The guarantee at 5% is correct as stated. Which level a regulator expects is a convention, not a property of the test."
+  },
+  {
+    "key": "wrong_sample_size_transcribed",
+    "category": "Assumptions",
+    "error": "The file declares 100 per arm but the protocol enrols 80.",
+    "expected": "invisible",
+    "expected_code": null,
+    "outcome": "invisible",
+    "codes": [],
+    "message": "",
+    "as_expected": true,
+    "note": "StatClaim checks the declared study, not its agreement with another document."
+  }
+]
