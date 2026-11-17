@@ -28,6 +28,7 @@ Other files in `playground/`:
 | `log_rank.stat` | A time-to-event outcome with the cited log-rank test |
 | `interim_look.stat` | An interim analysis with the error level split across looks |
 | `confirmatory_trial.stat` | An interim look and ordered endpoints in one plan |
+| `recycling.stat` | Co-primary endpoints with recycling, gating secondary endpoints |
 | `mixed_endpoints.stat` | A proved and a cited test under one error bound |
 
 ## Without Lean

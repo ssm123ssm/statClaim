@@ -110,6 +110,20 @@ RULES = {
         "Every test in the sequence uses the sequence's level.",
         "{subject}: every test uses the full level {alpha}.",
     ),
+    "graph-weights": Rule(
+        "There is one starting share for each test, each from 0 to 1, summing to at most 1.",
+        "{subject}: the starting shares {weights} sum to {total}.",
+    ),
+    "graph-transitions": Rule(
+        "Each test has one row of shares, from 0 to 1, passing nothing to itself and at "
+        "most its whole level in total.",
+        "{subject}: every row of transitions is a valid way to pass a level on.",
+    ),
+    "graphical-contract": Rule(
+        "Every test satisfies its own contract, and the distinct-members, family-size, "
+        "full-level, graph-weights and graph-transitions rules hold.",
+        "{subject}: its tests, shares and transitions form one graphical procedure.",
+    ),
     "fixed-sequence-contract": Rule(
         "Every test satisfies its own contract, and the distinct-members, family-size and "
         "full-level rules hold.",
@@ -464,16 +478,25 @@ def _assumption_parts(family: ComposedFamilyIR) -> tuple[list[str], list[str], l
 
 def composed_guarantee(family: ComposedFamilyIR) -> dict:
     composition = family.lower()
-    return {
+    rules = composition.rules
+    guarantee = {
         **composition.guarantee.to_dict(),
         "sentence": composition.guarantee.sentence,
-        "grade": "conditional",
+        "grade": rules.grade,
         "members": [item.to_dict() for item in composition.components],
         "given": [
             composition.prespecified.id,
             *(f"member_guarantee:{n}" for n, _ in family.analyses),
         ],
     }
+    if rules.grade == "cited":
+        guarantee["method"] = {
+            "key": rules.method,
+            "version": rules.version,
+            "title": rules.title,
+        }
+        guarantee["references"] = list(rules.references)
+    return guarantee
 
 
 def test_key(analysis) -> str:
@@ -525,8 +548,23 @@ def _composed_steps(builder: _Builder, name: str, family: ComposedFamilyIR, pend
                 },
             ),
         ]
-    if family.mode == "fixed_sequence":
+    if family.mode in ("fixed_sequence", "graphical"):
         used.append(builder.apply("full-level", {"subject": name, "alpha": str(family.alpha)}))
+    if family.mode == "graphical":
+        weights = [str(weight) for weight in family.weights]
+        used += [
+            builder.apply(
+                "graph-weights",
+                {"subject": name, "weights": weights, "total": str(sum(family.weights))},
+            ),
+            builder.apply(
+                "graph-transitions",
+                {
+                    "subject": name,
+                    "transitions": [[str(share) for share in row] for row in family.transitions],
+                },
+            ),
+        ]
     final = builder.apply(rules.rule, {"subject": name, "members": names}, tuple(used))
     if rules.splits:
         allocated = sum((analysis.alpha for _, analysis in family.analyses), Fraction())

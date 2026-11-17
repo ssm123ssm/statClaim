@@ -17,6 +17,7 @@ from statclaim.fisher import parse_alpha, validate_alpha
 from statclaim.methods.assumptions import (
     FIXED_SIZES,
     PRESPECIFIED_FAMILY,
+    PRESPECIFIED_GRAPH,
     PRESPECIFIED_LOOKS,
     PRESPECIFIED_ORDER,
     SINGLE_ANALYSIS,
@@ -29,8 +30,16 @@ COMPOSITION_KIND = "statclaim_composition_certificate"
 MEMBER_GRADES = {
     "proved": "provable in Lean; verify the member's own Type I claim",
     "cited": "cited from the literature; not machine-checked",
-    "conditional": "holds if each of its own looks' bounds holds; verify its own Type I claim",
+    "conditional": "holds if each of its own members' bounds holds; verify its own claim",
 }
+BRETZ = (
+    "Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to "
+    "sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604."
+)
+BURMAN = (
+    "Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the "
+    "construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761."
+)
 MAX_MEMBERS = 20
 
 
@@ -45,8 +54,16 @@ class Mode:
     splits: bool  # True: levels sum to at most alpha. False: each equals alpha.
     quantity: str
     limit: str  # what must grow for a large-sample combination to reach its bound
-    theorem: str
+    theorem: str | None  # the Lean theorem; None when the rule itself is cited
     part: str  # what a member is called in messages
+    title: str = ""
+    references: tuple[str, ...] = ()
+    version: int = 1
+
+    @property
+    def grade(self) -> str:
+        """conditional: Lean checks the rule. cited: the rule is taken from the literature."""
+        return "conditional" if self.theorem else "cited"
 
 
 MODES = {
@@ -94,6 +111,23 @@ MODES = {
         "fixed_sequence_le_of_levels",
         "test",
     ),
+    # Different questions that pass their share of the level on after a rejection.
+    # The rule is cited: Lean does not check it.
+    "graphical": Mode(
+        "graphical",
+        "multiplicity.graphical/graphical",
+        PRESPECIFIED_GRAPH,
+        (),
+        "graphical-contract",
+        ("full-level", "graph-weights", "graph-transitions"),
+        False,
+        "familywise_error",
+        "each member's sample size or number of events grows",
+        None,
+        "test",
+        "Graphical multiple testing procedure",
+        (BRETZ, BURMAN),
+    ),
 }
 METHODS_TO_MODES = {mode.method: key for key, mode in MODES.items()}
 DISCHARGED = {key: mode.discharged for key, mode in MODES.items()}
@@ -109,18 +143,23 @@ class Component:
     grade: str
     basis: str  # the contract or method that supplies the member's bound
     null: str
+    # type_I_error for a single test or a design with looks; familywise_error for
+    # a member that is itself a family, a sequence or a graph.
+    quantity: str = "type_I_error"
 
     def __post_init__(self):
         validate_alpha(self.level)
         if self.scope not in SCOPES or self.grade not in MEMBER_GRADES:
             raise ValueError("Unknown member scope or grade.")
+        if self.quantity not in ("type_I_error", "familywise_error"):
+            raise ValueError("Unknown member error quantity.")
         for text in (self.name, self.basis, self.null):
             if not isinstance(text, str) or not text.strip() or "\n" in text:
                 raise ValueError("Member names and descriptions must be single-line text.")
 
     @property
     def sentence(self) -> str:
-        bound = Guarantee("type_I_error", "at_most", self.level, self.null, "finite_sample")
+        bound = Guarantee(self.quantity, "at_most", self.level, self.null, "finite_sample")
         return f"{self.name}: {bound.sentence} ({MEMBER_GRADES[self.grade]})"
 
     def to_dict(self) -> dict:
@@ -131,6 +170,7 @@ class Component:
             "grade": self.grade,
             "basis": self.basis,
             "null": self.null,
+            "quantity": self.quantity,
         }
 
 
@@ -189,6 +229,8 @@ class Composition:
 
 
 def composition_payload(composition: Composition) -> dict:
+    if composition.rules.theorem is None:
+        raise ValueError("This way of combining is cited; there is nothing for Lean to check.")
     if not composition.fits:
         raise ValueError("The member levels do not fit the requested overall bound.")
     return {
@@ -211,6 +253,7 @@ def parse_composition_payload(payload: dict) -> Composition:
                 item["grade"],
                 item["basis"],
                 item["null"],
+                item["quantity"],
             )
             for item in payload["members"]
         ),
@@ -232,11 +275,18 @@ def general_theorem(composition: Composition) -> str:
 
 def composition_claims(composition: Composition) -> list[str]:
     alpha, part = composition.alpha, composition.rules.part
+    if composition.mode == "graphical":
+        return [
+            f"Cited, not checked: {composition.guarantee.sentence}",
+            "The procedure tests each null at its current share of the level and, after a "
+            "rejection, passes that share on as the declared rules state.",
+        ]
     if composition.mode == "fixed_sequence":
         claims = [
             f"Every test in the sequence uses the full level {alpha}.",
             "If each test rejects its own true null with probability at most that level, and "
-            "a test is carried out only when every earlier test rejected, the probability of "
+            "a test is carried out only when every earlier test rejected (every null of an "
+            "earlier entry that holds several), the probability of "
             f"rejecting any true null is at most {alpha}, for every configuration of true "
             "and false nulls and any dependence between tests.",
         ]

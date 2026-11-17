@@ -282,6 +282,39 @@ SCENARIOS = (
         note="Two declarations with identical content are indistinguishable from two real "
         "outcomes measured on the same participants.",
     ),
+    Scenario(
+        "graph_shares_exceed_whole",
+        "Multiplicity",
+        "A graphical procedure starts three endpoints with half the level each.",
+        CONTINUOUS.replace(
+            "equal_means(model=study)", "mean_difference_at_most(model=study, value=0)"
+        )
+        .replace("t_test(", "welch_test_one_sided(")
+        .replace("alpha=1/20", "alpha=1/40")
+        + "use multiplicity.graphical\n"
+        + "let second = welch_test_one_sided(design=plan, null=null, alpha=1/40)\n"
+        + "let third = welch_test_one_sided(design=plan, null=null, alpha=1/40)\n"
+        + "let graph = graphical(analyses=[analysis, second, third], weights=[1/2, 1/2, 1/2], "
+        + "transitions=[[0, 1, 0], [0, 0, 1], [1, 0, 0]], alpha=1/40)\n",
+        "rejected",
+        "graph_definition",
+    ),
+    Scenario(
+        "graph_recycles_to_itself",
+        "Multiplicity",
+        "A graphical procedure lets an endpoint keep its own level after it is rejected.",
+        CONTINUOUS.replace(
+            "equal_means(model=study)", "mean_difference_at_most(model=study, value=0)"
+        )
+        .replace("t_test(", "welch_test_one_sided(")
+        .replace("alpha=1/20", "alpha=1/40")
+        + "use multiplicity.graphical\n"
+        + "let second = welch_test_one_sided(design=plan, null=null, alpha=1/40)\n"
+        + "let graph = graphical(analyses=[analysis, second], weights=[1/2, 1/2], "
+        + "transitions=[[1, 0], [1, 0]], alpha=1/40)\n",
+        "rejected",
+        "graph_definition",
+    ),
     # ---- Planning and error targets
     Scenario(
         "approximate_sample_size",

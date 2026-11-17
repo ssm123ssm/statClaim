@@ -155,6 +155,7 @@ def _register(family: ComposedFamilyIR, assumptions: dict, references: list) -> 
     composition = family.lower()
     own = composition.prespecified
     assumptions.setdefault(own.id, _marked(own))
+    references += [r for r in composition.rules.references if r not in references]
     for name, _ in family.analyses:
         # The member's own bound is the hypothesis the combination rests on.
         assumptions[f"member_guarantee:{name}"] = {
@@ -182,6 +183,9 @@ def composed_report(family: ComposedFamilyIR) -> dict:
         "composition", composition.guarantee.sentence, composition_assumptions(composition)
     )
     report["members"] = [item.to_dict() for item in composition.components]
+    rules = composition.rules
+    if rules.grade == "cited":
+        report["method"] = {"key": rules.method, "version": rules.version, "title": rules.title}
     assumptions, references = {}, []
     _register(family, assumptions, references)
     report["assumptions"] = list(assumptions.values())
@@ -245,7 +249,7 @@ def best_status(claim: ClaimIR) -> str:
     if isinstance(claim.subject, CitedAnalysisIR):
         return "cited"
     if isinstance(claim.subject, ComposedFamilyIR):
-        return "conditional"
+        return claim.subject.lower().rules.grade
     return "verified"
 
 

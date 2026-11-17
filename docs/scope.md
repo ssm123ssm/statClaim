@@ -24,6 +24,11 @@ What is supported:
   Beta-posterior rules. Type I error and power are checked for the whole design,
   and the decision for observed counts is checked against the declared rule.
 
+- **Graphical procedures.** Tests with starting shares of the level and rules
+  for passing a share on after a rejection. The contract checks the graph; the
+  procedure's guarantee is cited.
+- **Nesting.** A family, sequence, graph or design with looks can be an entry of
+  a family or a sequence.
 - **Fixed sequences.** Endpoints tested in a fixed order, each at the full level
   and only after every earlier one was rejected. Lean checks the rule; each
   test's own bound is assumed. A design with interim looks can be an entry.

@@ -632,3 +632,114 @@ def test_report_lists_the_assumptions_of_every_level_of_a_nested_design():
     ):
         assert expected in register
     assert "familywise(hierarchy)" in register["independent_censoring"]["needed_by"]
+
+
+RECYCLING = (ROOT / "examples/recycling.stat").read_text()
+GRAPH = (
+    EQUAL.replace("let null = equal_means(model=study)\n", "")
+    + "use multiplicity.graphical\n"
+    + "let null = mean_difference_at_most(model=study, value=0)\n"
+    + "let a = welch_test_one_sided(design=plan, null=null, alpha=1/40)\n"
+    + "let b = welch_test_one_sided(design=plan, null=null, alpha=1/40)\n"
+)
+
+
+def graph(weights="[1/2, 1/2]", transitions="[[0, 1], [1, 0]]", alpha="1/40") -> str:
+    return (
+        GRAPH
+        + f"let endpoints = graphical(analyses=[a, b], weights={weights}, "
+        + f"transitions={transitions}, alpha={alpha})\n"
+    )
+
+
+def test_graphical_procedure_is_cited_and_its_graph_is_checked(tmp_path):
+    record = family_derivation(graph())
+    assert check_derivation(record) == []
+    guarantee = record["guarantee"]
+    assert guarantee["grade"] == "cited" and guarantee["quantity"] == "familywise_error"
+    assert guarantee["method"]["key"] == "graphical" and len(guarantee["references"]) == 2
+    assert guarantee["given"][0] == "prespecified_graph"
+    report = run(graph() + "let checked = verify(familywise(endpoints))\n", tmp_path)
+    value = report["values"]["checked"]
+    assert value["status"] == "cited" and not report["backend_invoked"]
+    assert value["evidence"]["machine_checked"] == "contract"
+    assert value["evidence"]["certificate"] is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        graph(weights="[1/2, 1/2, 0]"),  # one weight too many
+        graph(weights="[3/4, 1/2]"),  # weights above 1 in total
+        graph(weights="[1/2, -1/2]"),  # a negative weight
+        graph(transitions="[[0, 1]]"),  # a row missing
+        graph(transitions="[[1/2, 1/2], [1, 0]]"),  # passes level to itself
+        graph(transitions="[[0, 3/2], [1, 0]]"),  # a share above 1
+        graph(transitions="[[0, 1], [1, 0, 0]]"),  # a row too long
+    ],
+)
+def test_an_invalid_graph_is_rejected(text):
+    assert codes(text) == ["graph_definition"]
+
+
+def test_graph_tests_are_declared_at_the_overall_level():
+    assert codes(graph(alpha="1/20")) == ["sequence_level"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda d: d["subject"].update(weights=["1", "1"]),
+        lambda d: d["subject"]["transitions"][0].__setitem__(0, "1/2"),
+        lambda d: d["subject"].update(method="fixed_sequence"),
+        lambda d: d["guarantee"].update(grade="conditional"),
+        lambda d: d["guarantee"]["method"].update(version=2),
+        lambda d: d["guarantee"]["references"].pop(),
+        lambda d: d["steps"][-3]["facts"].update(total="1/2"),
+    ],
+)
+def test_checker_rejects_an_altered_graph(change):
+    record = family_derivation(graph())
+    change(record)
+    assert check_derivation(record)
+
+
+def test_a_graph_can_gate_a_fixed_sequence():
+    record = family_derivation(RECYCLING, "trial")
+    assert check_derivation(record) == []
+    members = record["guarantee"]["members"]
+    assert [m["grade"] for m in members] == ["cited", "cited", "proved"]
+    assert members[0]["quantity"] == "familywise_error"
+    assert members[0]["basis"] == "multiplicity.graphical/graphical version 1"
+    # The sequence's own rule is proved; its first entry rests on a cited rule.
+    assert record["guarantee"]["grade"] == "conditional"
+    # The graph's own assumption reaches the whole plan's list.
+    assert any("passing a share on" in text for text in record["assumptions"])
+
+
+def test_families_and_sequences_nest_in_each_other():
+    text = (
+        TWO_MEANS
+        + "use multiplicity.fixed_sequence\n"
+        + "let third = welch_test(design=plan, null=null, alpha=1/40)\n"
+        + "let ordered = fixed_sequence(analyses=[second, third], alpha=1/40)\n"
+        + "let endpoints = bonferroni(analyses=[first, ordered], alpha=1/20)\n"
+    )
+    record = family_derivation(text)
+    assert check_derivation(record) == []
+    inner = record["guarantee"]["members"][1]
+    assert inner["quantity"] == "familywise_error" and inner["grade"] == "conditional"
+    assert inner["basis"] == "multiplicity.fixed_sequence/fixed_sequence"
+    # An exact Fisher family may also be a member.
+    fisher = (
+        (ROOT / "examples/three_outcomes.stat")
+        .read_text()
+        .replace("let verification = verify(familywise(endpoints))", "")
+    )
+    nested = (
+        fisher
+        + "use multiplicity.fixed_sequence\n"
+        + "let last = fisher(design=plan, null=null, alpha=1/20)\n"
+        + "let trial = fixed_sequence(analyses=[endpoints, last], alpha=1/20)\n"
+    )
+    assert check_derivation(family_derivation(nested, "trial")) == []

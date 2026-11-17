@@ -1,0 +1,59 @@
+# Co-primary endpoints with recycling, then secondary endpoints in a fixed order.
+# This is the structure of many confirmatory trial plans.
+use models.two_arm_continuous
+use models.two_arm_binomial
+use sampling
+use tests.t
+use tests.fisher
+use multiplicity.graphical
+use multiplicity.fixed_sequence
+
+let per_protocol = two_arm_continuous(n_control=440, n_treatment=440)
+let everyone = two_arm_continuous(n_control=500, n_treatment=500)
+let responders = two_arm_binomial(n_control=500, n_treatment=500)
+
+# Three primary questions about lung function, each declared at the overall level.
+let trough_not_worse = welch_test_one_sided(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-50),
+    alpha=1/40,
+)
+let peak_not_worse = welch_test_one_sided(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-50),
+    alpha=1/40,
+)
+let peak_better = welch_test_one_sided(
+    design=fixed(model=everyone),
+    null=mean_difference_at_most(model=everyone, value=0),
+    alpha=1/40,
+)
+
+# The level starts split between the two non-inferiority tests. After a
+# rejection it is passed on: trough to peak, peak to superiority, and back.
+let primary = graphical(
+    analyses=[trough_not_worse, peak_not_worse, peak_better],
+    weights=[1/2, 1/2, 0],
+    transitions=[
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 0, 0],
+    ],
+    alpha=1/40,
+)
+
+# Secondary endpoints are tested only if all three primary nulls are rejected.
+let capacity = welch_test_one_sided(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-50),
+    alpha=1/40,
+)
+let onset = fisher_one_sided(
+    design=fixed(model=responders),
+    null=proportion_difference_at_most(model=responders, value=0),
+    alpha=1/40,
+)
+let trial = fixed_sequence(analyses=[primary, capacity, onset], alpha=1/40)
+
+let primary_error = verify(familywise(primary))
+let overall_error = verify(familywise(trial))

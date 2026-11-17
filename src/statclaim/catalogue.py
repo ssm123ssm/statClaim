@@ -44,6 +44,12 @@ MODULE_CLASSES = {
         "with one-sided, margin or cited tests, is conditional: Lean checks the combination "
         "and the members are assumed.",
     ),
+    "multiplicity.graphical": (
+        "Multiplicity and composition",
+        "A graphical procedure: each test starts with a share of the level and passes it on "
+        "after a rejection. The contract checks the shares and transitions. The procedure's "
+        "guarantee is cited, not checked by Lean.",
+    ),
     "multiplicity.fixed_sequence": (
         "Multiplicity and composition",
         "Hierarchical testing in a fixed order, each test at the full level and only after "
@@ -119,7 +125,7 @@ OBJECT_CLASSES = {
     ),
     "ComposedFamily": (
         "Core statistical objects",
-        "A Bonferroni family or fixed sequence: the combination is proved, the members assumed.",
+        "A family, sequence or graph of analyses and other combinations; the members are assumed.",
     ),
     "Rates": ("Planning objects", "Planning point for two arms; an input, not a fact."),
     "Rate": ("Planning objects", "Planning point for a single response rate."),

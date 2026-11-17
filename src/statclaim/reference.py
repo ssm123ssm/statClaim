@@ -179,7 +179,11 @@ DIAGNOSTICS = {
     "family_size": ("error", "A family or sequential design has too few or too many entries."),
     "duplicate_analysis": ("error", "A family or sequential design lists an analysis twice."),
     "sequential_question": ("error", "The looks of a sequential design differ in test or null."),
-    "sequence_level": ("error", "A test in a fixed sequence does not use the full level."),
+    "sequence_level": (
+        "error",
+        "A test in a fixed sequence or a graph is not declared at the overall level.",
+    ),
+    "graph_definition": ("error", "The weights or transitions of a graph are not valid."),
     "sequential_order": ("error", "The looks are not in order of growing sample size."),
     # Open requirements
     "sampling_scope": (

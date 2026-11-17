@@ -4,7 +4,7 @@ Everything here runs from a clean checkout with Python only, in a few seconds.
 
 ## Error-injection evaluation
 
-`scenarios.py` holds 31 scenarios. Each takes a valid study file and injects one
+`scenarios.py` holds 33 scenarios. Each takes a valid study file and injects one
 common specification error. `evaluate.py` runs them and writes what StatClaim
 reports to [results.md](results.md) and `results.json`.
 

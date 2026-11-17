@@ -190,3 +190,34 @@ checked as part of the larger plan. See `examples/confirmatory_trial.stat`.
 A secondary endpoint is declared as one test at its stated sample size. If a
 trial stops at an interim look and analyses it on the interim data, that is
 not the declared test.
+
+## Graphical procedures
+
+`graphical` in `multiplicity.graphical` states a procedure with recycling:
+
+```stat
+let primary = graphical(
+    analyses=[trough_not_worse, peak_not_worse, peak_better],
+    weights=[1/2, 1/2, 0],
+    transitions=[[0, 1, 0], [0, 0, 1], [1, 0, 0]],
+    alpha=1/40,
+)
+```
+
+`weights` gives each test's starting share of the level. Row i of `transitions`
+says how test i's level is shared among the others when it is rejected. The
+contract checks that there is one weight per test, that the weights sum to at
+most 1, that no test passes level to itself and that no row passes on more than
+the whole. Every test is declared at the overall `alpha`.
+
+The result is `cited`: the procedure's guarantee is taken from Bretz et al.
+(2009) and Burman et al. (2009), not proved in Lean. It also assumes each test
+controls its error at every level up to `alpha`.
+
+## Nesting
+
+An entry of a family or a fixed sequence may itself be a family, a sequence, a
+graph or a design with looks. It counts as one member whose own bound is
+assumed, with the grade of its own rule. In a fixed sequence, an entry that
+holds several nulls must have all of them rejected before the next entry is
+tested. See `examples/recycling.stat`.

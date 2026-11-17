@@ -6,6 +6,7 @@ import tempfile
 from fractions import Fraction
 from pathlib import Path
 
+from statclaim.composition import composition_claims
 from statclaim.language import (
     LANGUAGE_VERSION,
     AnalysisIR,
@@ -144,6 +145,15 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             output=output,
             timeout=timeout,
         )
+    if isinstance(subject, ComposedFamilyIR) and subject.lower().rules.grade == "cited":
+        # A cited combination rule: its contract was checked while compiling.
+        report = inspect_request(request)
+        report.update(
+            status="cited",
+            evidence_grade="cited",
+            established_properties=composition_claims(subject.lower()),
+        )
+        return report
     if isinstance(subject, ComposedFamilyIR):
         return run_composition(
             inspect_request(request),

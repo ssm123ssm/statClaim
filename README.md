@@ -98,6 +98,7 @@ is `verified`, `conditional` or `cited`, and a file reports its weakest status.
 | Compare two survival curves | `tests.survival` | Cited: log-rank test (large-sample) |
 | Combine proved and cited tests | `multiplicity.bonferroni` | Conditional: Lean checks the combination, the members are assumed |
 | Test endpoints in a fixed order | `multiplicity.fixed_sequence` | Conditional: Lean checks the hierarchical rule |
+| Recycle the level between endpoints | `multiplicity.graphical` | Cited: the graph is checked, the procedure's guarantee is cited |
 | Plan interim looks | `designs.group_sequential` | Conditional: Lean checks the split of the error level across looks |
 
 See [cited methods](docs/cited-methods.md) and [evidence grades](docs/scope.md#evidence-grades).
@@ -154,7 +155,7 @@ uv run --locked statclaim catalogue
 
 See [quickstart](docs/quickstart.md) for VS Code and result inspection.
 
-Then work through the [tutorial](docs/tutorial.html): fifteen lessons, from a first
+Then work through the [tutorial](docs/tutorial.html): sixteen lessons, from a first
 checked claim to planning and analysing a study. Open the file in a browser;
 the lesson files are in `examples/tutorial/`.
 

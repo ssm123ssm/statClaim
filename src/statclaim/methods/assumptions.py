@@ -55,3 +55,10 @@ PRESPECIFIED_ORDER = Assumption(
     "The tests and their order are fixed in advance, and a test is carried out only if "
     "every earlier test in the order rejected.",
 )
+PRESPECIFIED_GRAPH = Assumption(
+    "prespecified_graph",
+    "design",
+    "The tests, their starting shares of the level and the rules for passing a share on "
+    "are fixed in advance, and a share is passed on only after a rejection. Each test "
+    "controls its error at every level up to the overall level, not only at one.",
+)

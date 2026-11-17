@@ -65,6 +65,9 @@ All assume independent observations, a plan fixed in advance and one analysis.
 `claim.guarantee` is `finite_sample` for the pooled tests and `asymptotic` for
 Welch. A file with any cited claim has overall status `cited`.
 
+A way of combining tests can be cited too: see graphical procedures in
+[multiple testing](multiple-testing.md#graphical-procedures).
+
 Cited tests can join a Bonferroni family; see
 [multiple testing](multiple-testing.md#families-with-cited-tests). They cannot
 yet be used in a planning search.

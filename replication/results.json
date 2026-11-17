@@ -248,6 +248,34 @@
     "note": "Two declarations with identical content are indistinguishable from two real outcomes measured on the same participants."
   },
   {
+    "key": "graph_shares_exceed_whole",
+    "category": "Multiplicity",
+    "error": "A graphical procedure starts three endpoints with half the level each.",
+    "expected": "rejected",
+    "expected_code": "graph_definition",
+    "outcome": "rejected",
+    "codes": [
+      "graph_definition"
+    ],
+    "message": "The weights sum to 3/2, more than 1.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "graph_recycles_to_itself",
+    "category": "Multiplicity",
+    "error": "A graphical procedure lets an endpoint keep its own level after it is rejected.",
+    "expected": "rejected",
+    "expected_code": "graph_definition",
+    "outcome": "rejected",
+    "codes": [
+      "graph_definition"
+    ],
+    "message": "A test cannot pass its level to itself.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
     "key": "approximate_sample_size",
     "category": "Planning",
     "error": "The per-arm size 29 from the normal-approximation formula is used with Fisher's exact test, expecting 80% power.",

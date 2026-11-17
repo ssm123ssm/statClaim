@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Fifteen short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Sixteen short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1121,7 +1121,7 @@ can never spend more than the total.</div>
   Every test in the sequence uses the full level 1/20.
   Assumptions:
     The tests and their order are fixed in advance, and a test is carried out only if every earlier test in the order rejected.
-    survival: Null rejection probability is at most 1/20 whenever survival_treatment = survival_control at every time. (holds if each of its own looks' bounds holds; verify its own Type I claim)
+    survival: Null rejection probability is at most 1/20 whenever survival_treatment = survival_control at every time. (holds if each of its own members' bounds holds; verify its own claim)
     symptoms: Null rejection probability is at most 1/20 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)
     response: Null rejection probability is at most 1/20 whenever p_treatment = p_control. (provable in Lean; verify the member's own Type I claim)
 <span class="warn">conditional</span> [primary]: typeI(survival)
@@ -1147,6 +1147,112 @@ one declared, and this guarantee does not cover it.</div>
     <div class="task"><h4>Try it</h4><p>Give <code>symptoms</code> the level <code>1/40</code> and read why a fixed sequence refuses it. Then run <code>statclaim explain</code> and find the steps for the nested design.</p></div>
   </div>
 </section>
+<section class="lesson" id="recycling">
+  <p class="eyebrow">Lesson 16</p>
+  <h2>Recycling the level</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Splitting the level between endpoints wastes the share of an endpoint that succeeds. A graphical procedure passes that share on. Its guarantee is cited, so this lesson also shows a plan whose parts have three different grades.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/16_recycling.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 16: pass an unused share of the level on after a rejection.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.t
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> multiplicity.graphical
+<span class="k">use</span> multiplicity.fixed_sequence
+
+<span class="k">let</span> per_protocol = <span class="f">two_arm_continuous</span>(n_control=440, n_treatment=440)
+<span class="k">let</span> everyone = <span class="f">two_arm_continuous</span>(n_control=500, n_treatment=500)
+<span class="k">let</span> responders = <span class="f">two_arm_binomial</span>(n_control=500, n_treatment=500)
+
+<span class="c"># Three primary questions about lung function, each declared at the overall level.</span>
+<span class="k">let</span> trough_not_worse = <span class="f">welch_test_one_sided</span>(
+    design=<span class="f">fixed</span>(model=per_protocol),
+    null=<span class="f">mean_difference_at_most</span>(model=per_protocol, value=-50),
+    alpha=1/40,
+)
+<span class="k">let</span> peak_not_worse = <span class="f">welch_test_one_sided</span>(
+    design=<span class="f">fixed</span>(model=per_protocol),
+    null=<span class="f">mean_difference_at_most</span>(model=per_protocol, value=-50),
+    alpha=1/40,
+)
+<span class="k">let</span> peak_better = <span class="f">welch_test_one_sided</span>(
+    design=<span class="f">fixed</span>(model=everyone),
+    null=<span class="f">mean_difference_at_most</span>(model=everyone, value=0),
+    alpha=1/40,
+)
+
+<span class="c"># The level starts split between the two non-inferiority tests. After a</span>
+<span class="c"># rejection it is passed on: trough to peak, peak to superiority, and back.</span>
+<span class="k">let</span> primary = <span class="f">graphical</span>(
+    analyses=[trough_not_worse, peak_not_worse, peak_better],
+    weights=[1/2, 1/2, 0],
+    transitions=[
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 0, 0],
+    ],
+    alpha=1/40,
+)
+
+<span class="c"># Secondary endpoints are tested only if all three primary nulls are rejected.</span>
+<span class="k">let</span> capacity = <span class="f">welch_test_one_sided</span>(
+    design=<span class="f">fixed</span>(model=per_protocol),
+    null=<span class="f">mean_difference_at_most</span>(model=per_protocol, value=-50),
+    alpha=1/40,
+)
+<span class="k">let</span> onset = <span class="f">fisher_one_sided</span>(
+    design=<span class="f">fixed</span>(model=responders),
+    null=<span class="f">proportion_difference_at_most</span>(model=responders, value=0),
+    alpha=1/40,
+)
+<span class="k">let</span> trial = <span class="f">fixed_sequence</span>(analyses=[primary, capacity, onset], alpha=1/40)
+
+<span class="k">let</span> primary_error = <span class="f">verify</span>(<span class="f">familywise</span>(primary))
+<span class="k">let</span> overall_error = <span class="f">verify</span>(<span class="f">familywise</span>(trial))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>weights</code></dt>
+  <dd>Each test's starting share of the level. Here the two non-inferiority tests start
+  with half each, 1.25%, and the superiority test starts with nothing.</dd>
+  <dt><code>transitions</code></dt>
+  <dd>One row per test. Row 1 says where the first test's level goes when it is
+  rejected: all of it to the second test. A test cannot pass level to itself, and a row
+  cannot pass on more than the whole.</dd>
+  <dt><code>alpha=1/40</code> on every test</dt>
+  <dd>In a graph each test is declared at the overall level. The weights, not the
+  tests, say what each starts with.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">cited</span> [primary_error]: familywise(primary)
+  Evidence: cited from the literature; not machine-checked; guarantee: large-sample approximation
+  Method: Graphical multiple testing procedure (graphical, version 1)
+  References:
+    Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604.
+    Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761.
+<span class="warn">conditional</span> [overall_error]: familywise(trial)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: large-sample approximation
+  Assumptions:
+    primary: Probability of rejecting any true member null is at most 1/40 whenever any subset of the member nulls is true. (cited from the literature; not machine-checked)
+    capacity: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control &lt;= -50. (cited from the literature; not machine-checked)
+    onset: Null rejection probability is at most 1/40 whenever p_treatment - p_control &lt;= 0. (provable in Lean; verify the member's own Type I claim)
+Program status: cited</code></pre></div>
+<p>The graph is <span class="pill calc">cited</span>. StatClaim checked that the weights
+and transitions are a valid graph, and that every test fits its own contract. That the
+recycling rule controls the error is a published result, not something Lean checked
+here.</p>
+<p>The whole trial is <span class="pill warn">conditional</span>. The fixed-sequence rule
+that gates the secondary endpoints is proved, and it takes the graph as one entry: the
+secondary endpoints are tested only if <em>all three</em> primary nulls are rejected. So
+one plan now holds a proved rule, a cited rule, cited tests and an exact test, and the
+report says which is which.</p>
+<div class="note"><strong>Combinations nest.</strong> A family, a sequence, a graph or a
+design with looks can be an entry of a family or a sequence. In a sequence, such an entry
+must be rejected in full before the next entry is tested.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>A graph states where an endpoint's level goes after it succeeds.</li><li>The graph's validity is checked; its guarantee is cited.</li><li>Combinations can be entries of other combinations.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Change <code>weights</code> to <code>[1/2, 1/2, 1/2]</code>, then make a test pass level to itself, and read the two diagnostics.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1163,6 +1269,7 @@ one declared, and this guarantee does not cover it.</div>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>
       <tr><td>Test endpoints in a fixed order</td><td><code>multiplicity.fixed_sequence</code></td><td><code>fixed_sequence</code> with <code>familywise</code></td><td>15</td></tr>
+      <tr><td>Recycle the level after a rejection</td><td><code>multiplicity.graphical</code></td><td><code>graphical</code> with <code>familywise</code> (cited)</td><td>16</td></tr>
       <tr><td>Look at the data before the end</td><td><code>designs.group_sequential</code></td><td><code>alpha_spending</code> with <code>typeI</code></td><td>14</td></tr>
       <tr><td>Stop early for futility</td><td><code>designs.two_stage</code></td><td><code>meets</code>, <code>sample_size</code></td><td>10, 11</td></tr>
       <tr><td>See why a declaration passed, or what an edit affects</td><td>(built in)</td><td><code>explain</code>, <code>report</code>, <code>impact</code> commands</td><td>6</td></tr>

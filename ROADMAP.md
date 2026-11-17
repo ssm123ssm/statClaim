@@ -30,6 +30,8 @@
 - Interim looks with the error level split across them, the split proved in Lean.
 - Fixed-sequence testing proved in Lean; designs with looks as entries of larger plans.
 - A complete generated language reference.
+- Graphical procedures with recycling (cited), and nesting of combinations.
+- Replication materials: an error-injection evaluation and a re-check of Simon (1989).
 
 ## Direction
 

@@ -143,3 +143,18 @@ def test_lean_rejects_a_sequence_whose_levels_were_altered(tmp_path):
     (bundle / "inputs.json").write_text(text.replace('"level": "1/20"', '"level": "1/10"', 1))
     with pytest.raises(VerificationError):
         recheck_certificate(bundle, project=ROOT)
+
+
+def test_recycling_graph_gating_a_sequence(tmp_path):
+    path = ROOT / "examples/recycling.stat"
+    report = check_source(
+        Source(path.read_text(), str(path)), project=ROOT, output=tmp_path / "run"
+    )
+    values = report["values"]
+    assert values["primary_error"]["status"] == "cited"
+    assert values["overall_error"]["status"] == "conditional"
+    assert report["status"] == "cited"  # the weakest status in the file
+    bundle = Path(values["overall_error"]["evidence"]["certificate"]["directory"])
+    members = json.loads((bundle / "inputs.json").read_text())["members"]
+    assert members[0]["quantity"] == "familywise_error" and members[0]["grade"] == "cited"
+    assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"

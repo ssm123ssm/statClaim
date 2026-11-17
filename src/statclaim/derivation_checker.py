@@ -30,6 +30,7 @@ from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
 from statclaim.methods.assumptions import (
     FIXED_SIZES,
     PRESPECIFIED_FAMILY,
+    PRESPECIFIED_GRAPH,
     PRESPECIFIED_LOOKS,
     PRESPECIFIED_ORDER,
     SINGLE_ANALYSIS,
@@ -365,13 +366,22 @@ def _cited_expected(name: str, subject: dict, contract: str):
 MEMBER_GRADES = {
     "proved": "provable in Lean; verify the member's own Type I claim",
     "cited": "cited from the literature; not machine-checked",
-    "conditional": "holds if each of its own looks' bounds holds; verify its own Type I claim",
+    "conditional": "holds if each of its own members' bounds holds; verify its own claim",
 }
 
 
+BRETZ = (
+    "Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to "
+    "sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604."
+)
+BURMAN = (
+    "Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the "
+    "construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761."
+)
 COMPOSITIONS = {
     # method: (contract, the assumption it adds, member assumptions it replaces,
-    #          concluding rule, levels are split, error quantity, what must grow)
+    #          concluding rule, levels are split, error quantity, what must grow,
+    #          grade of the combination rule)
     "bonferroni": (
         "multiplicity.bonferroni/bonferroni",
         PRESPECIFIED_FAMILY,
@@ -380,6 +390,7 @@ COMPOSITIONS = {
         True,
         "familywise_error",
         "each member's sample size or number of events grows",
+        "conditional",
     ),
     "alpha_spending": (
         "designs.group_sequential/alpha_spending",
@@ -389,6 +400,7 @@ COMPOSITIONS = {
         True,
         "type_I_error",
         "the sample size at each look grows",
+        "conditional",
     ),
     "fixed_sequence": (
         "multiplicity.fixed_sequence/fixed_sequence",
@@ -398,8 +410,28 @@ COMPOSITIONS = {
         False,
         "familywise_error",
         "each member's sample size or number of events grows",
+        "conditional",
+    ),
+    "graphical": (
+        "multiplicity.graphical/graphical",
+        PRESPECIFIED_GRAPH,
+        (),
+        "graphical-contract",
+        False,
+        "familywise_error",
+        "each member's sample size or number of events grows",
+        "cited",
     ),
 }
+GRAPHICAL_METHOD = {
+    "key": "graphical",
+    "version": 1,
+    "title": "Graphical multiple testing procedure",
+}
+
+
+def _share(text) -> bool:
+    return isinstance(text, str) and 0 <= Fraction(text) <= 1
 
 
 def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False) -> dict:
@@ -410,10 +442,11 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
     method_name = subject.get("method")
     if method_name not in COMPOSITIONS or subject.get("composition") != "conditional":
         raise ValueError("not a conditional combination")
-    contract, own, discharged, rule, splits, quantity, limit = COMPOSITIONS[method_name]
+    contract, own, discharged, rule, splits, quantity, limit, grade_of_rule = COMPOSITIONS[
+        method_name
+    ]
     sequential = method_name == "alpha_spending"
-    if nested and not sequential:
-        raise ValueError("only a design with looks may be a member")
+    graphical = method_name == "graphical"
     members = [(item["name"], item["analysis"]) for item in subject["analyses"]]
     names = [member for member, _ in members]
     steps: list[tuple] = []
@@ -422,9 +455,10 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
     exact, keys, nulls = True, [], []
     for member, analysis in members:
         start = offset + len(steps)
+        member_quantity = "type_I_error"
         if "test" not in analysis:
-            if sequential:
-                raise ValueError("a look must be a single analysis")
+            if sequential or graphical:
+                raise ValueError("a look or a graph's test must be a single analysis")
             block = _combination(member, analysis, start, nested=True)
             steps += block["steps"]
             inner_obligations += block["obligations"]
@@ -432,8 +466,11 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
                 text for text in (*block["own"], *block["nested"]) if text not in nested_texts
             ]
             cited_texts += [text for text in block["cited"] if text not in cited_texts]
-            null, grade, scope = block["null"], "conditional", block["scope"]
-            basis = block["contract"]
+            null, grade, scope = block["null"], block["grade"], block["scope"]
+            member_quantity = block["quantity"]
+            basis = block["contract"] + (
+                f" version {GRAPHICAL_METHOD['version']}" if grade == "cited" else ""
+            )
             keys.append("design")
         elif analysis["test"] in METHODS:
             method = METHODS[analysis["test"]]
@@ -472,13 +509,14 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
                 "grade": grade,
                 "basis": basis,
                 "null": null,
+                "quantity": member_quantity,
             }
         )
         bound = Guarantee(
-            "type_I_error", "at_most", Fraction(analysis["alpha"]), null, "finite_sample"
+            member_quantity, "at_most", Fraction(analysis["alpha"]), null, "finite_sample"
         )
         own_texts.append(f"{member}: {bound.sentence} ({MEMBER_GRADES[grade]})")
-    if method_name == "bonferroni" and all(key == "fisher" for key in keys):
+    if method_name == "bonferroni" and not nested and all(key == "fisher" for key in keys):
         raise ValueError("a family of two-sided Fisher analyses is proved, not conditional")
     low, high = FAMILY_LIMITS
     base = offset + len(steps)
@@ -513,6 +551,32 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
         full = all(Fraction(analysis["alpha"]) == alpha for _, analysis in members)
         steps.append(("full-level", {"subject": name, "alpha": subject["alpha"]}, full, ()))
         used.append(base + 2)
+    if graphical:
+        weights, table = subject["weights"], subject["transitions"]
+        count = len(members)
+        weights_ok = (
+            len(weights) == count
+            and all(_share(weight) for weight in weights)
+            and sum(Fraction(weight) for weight in weights) <= 1
+        )
+        table_ok = len(table) == count and all(
+            len(row) == count
+            and all(_share(share) for share in row)
+            and Fraction(row[index]) == 0
+            and sum(Fraction(share) for share in row) <= 1
+            for index, row in enumerate(table)
+        )
+        total = str(sum((Fraction(weight) for weight in weights), Fraction()))
+        steps += [
+            (
+                "graph-weights",
+                {"subject": name, "weights": weights, "total": total},
+                weights_ok,
+                (),
+            ),
+            ("graph-transitions", {"subject": name, "transitions": table}, table_ok, ()),
+        ]
+        used += [base + 3, base + 4]
     steps.append((rule, {"subject": name, "members": names}, True, tuple(used)))
     obligations = []
     if splits:
@@ -528,21 +592,29 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
     scope = "finite_sample" if exact else "asymptotic"
     null = components[0]["null"] if sequential else "any subset of the member nulls is true"
     statement = Guarantee(quantity, "at_most", alpha, null, scope, limit)
+    extra = (
+        {"method": GRAPHICAL_METHOD, "references": [BRETZ, BURMAN]}
+        if grade_of_rule == "cited"
+        else {}
+    )
     return {
         "contract": contract,
+        "grade": grade_of_rule,
+        "quantity": quantity,
         "steps": steps,
         "obligations": obligations,
         "own": own_texts,
         "nested": nested_texts,
         "cited": cited_texts,
         "scope": scope,
-        "null": components[0]["null"],
+        "null": null,
         "guarantee": {
             **statement.to_dict(),
             "sentence": statement.sentence,
-            "grade": "conditional",
+            "grade": grade_of_rule,
             "members": components,
             "given": [own.id, *(f"member_guarantee:{n}" for n in names)],
+            **extra,
         },
     }
 

@@ -208,14 +208,19 @@ class FamilyLikeIR:
 
 @dataclass(frozen=True)
 class ComposedFamilyIR(FamilyLikeIR):
-    """A family whose members' bounds are assumed and whose combination is proved.
+    """Several analyses combined under one error bound, by one of composition.MODES.
 
-    Members may be Fisher analyses, cited analyses or a mix.
+    The members' own bounds are assumed. A member may be a single analysis or
+    another combination: a design with looks, a family, a sequence or a graph.
     """
 
-    analyses: tuple[tuple[str, LevelTestIR], ...]
+    analyses: tuple[tuple[str, object], ...]
     alpha: Fraction
     mode: str = "family"
+    # For a graph only: each test's starting share of the level, and for each test
+    # the shares of its level passed to the others when it is rejected.
+    weights: tuple[Fraction, ...] = ()
+    transitions: tuple[tuple[Fraction, ...], ...] = ()
 
     def lower(self) -> Composition:
         return Composition(
@@ -243,6 +248,20 @@ def _component(name: str, analysis: LevelTestIR) -> Component:
             "conditional",
             inner.rules.contract,
             inner.components[0].null,
+        )
+    if isinstance(analysis, ComposedFamilyIR):
+        # A family, sequence or graph counts as one member with a familywise bound.
+        inner = analysis.lower()
+        rules = inner.rules
+        basis = rules.contract + (f" version {rules.version}" if rules.grade == "cited" else "")
+        return Component(
+            name,
+            analysis.alpha,
+            inner.scope,
+            rules.grade,
+            basis,
+            inner.guarantee.null,
+            "familywise_error",
         )
     if isinstance(analysis, CitedAnalysisIR):
         method = analysis.method
@@ -690,8 +709,10 @@ def normalize(value: object) -> object:
             if alternative != "two_sided":
                 result["alternative"] = alternative
             return result
-        case ComposedFamilyIR(analyses=analyses, alpha=alpha, mode=mode):
-            return {
+        case ComposedFamilyIR(
+            analyses=analyses, alpha=alpha, mode=mode, weights=weights, transitions=transitions
+        ):
+            result = {
                 "method": MODES[mode].method,
                 "composition": "conditional",
                 "alpha": str(alpha),
@@ -699,6 +720,10 @@ def normalize(value: object) -> object:
                     {"name": name, "analysis": normalize(analysis)} for name, analysis in analyses
                 ],
             }
+            if mode == "graphical":
+                result["weights"] = [str(weight) for weight in weights]
+                result["transitions"] = [[str(share) for share in row] for row in transitions]
+            return result
         case FamilyIR(analyses=analyses, alpha=alpha, joint_law=law):
             return {
                 "method": "bonferroni",
@@ -942,20 +967,18 @@ def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> Analysis
 
 
 def _members(
-    argument: LocatedValue, what: str, *, designs: bool = True
-) -> list[tuple[str, LevelTestIR]]:
-    """Named, distinct analyses for a family, a sequence or the looks of a design.
+    argument: LocatedValue, what: str, *, combinations: bool = True
+) -> list[tuple[str, object]]:
+    """Named, distinct analyses for a family, a sequence, a graph or a design's looks.
 
-    With designs=True an entry may also be a whole design with interim looks.
+    With combinations=True an entry may also be a whole design with looks, a
+    family, a sequence or a graph.
     """
     items = argument.value
     allowed = (
-        (AnalysisIR, CitedAnalysisIR, SequentialIR)
-        if designs
-        else (
-            AnalysisIR,
-            CitedAnalysisIR,
-        )
+        (AnalysisIR, CitedAnalysisIR, ComposedFamilyIR, FamilyIR)
+        if combinations
+        else (AnalysisIR, CitedAnalysisIR)
     )
     if not 2 <= len(items) <= MAX_ENDPOINTS:
         fail("family_size", f"This needs between 2 and {MAX_ENDPOINTS} {what}.", argument.span)
@@ -966,18 +989,22 @@ def _members(
                 "type",
                 "Each entry must be a named analysis: an exact two-arm test"
                 + (
-                    ", a cited test or a design with interim looks."
-                    if designs
+                    ", a cited test, or a named design, family, sequence or graph."
+                    if combinations
                     else " or a cited test."
                 ),
                 item.span,
             )
-        members.append((item.name, item.value))
+        value = item.value
+        if isinstance(value, FamilyIR):
+            # As a member, a proved Fisher family is one more combination of assumed parts.
+            value = ComposedFamilyIR(value.analyses, value.alpha)
+        members.append((item.name, value))
     if len({name for name, _ in members}) != len(members):
         fail("duplicate_analysis", "The entries must have distinct names.", argument.span)
     # A name labels one outcome or one look. Two names for one declaration would
     # count it twice while reporting two.
-    if len({id(analysis) for _, analysis in members}) != len(members):
+    if len({id(item.value) for item in items}) != len(members):
         fail(
             "duplicate_analysis",
             "Two entries are the same declaration under different names. "
@@ -991,9 +1018,7 @@ def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyLikeIR:
     analyses = _members(arguments["analyses"], "analyses")
     law = arguments["joint_law"]
     proved = all(
-        isinstance(analysis, AnalysisIR)
-        and not isinstance(analysis, SequentialIR)
-        and analysis.alternative == "two_sided"
+        isinstance(analysis, AnalysisIR) and analysis.alternative == "two_sided"
         for _, analysis in analyses
     )
     if not proved:
@@ -1023,7 +1048,7 @@ def _test_key(analysis: LevelTestIR) -> str:
 
 
 def _sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
-    looks = _members(arguments["looks"], "looks", designs=False)
+    looks = _members(arguments["looks"], "looks", combinations=False)
     first = looks[0][1]
     previous = None
     for name, look in looks:
@@ -1068,6 +1093,58 @@ def _fixed_sequence(arguments: dict[str, LocatedValue], span: Span) -> ComposedF
                 arguments["analyses"].span,
             )
     return ComposedFamilyIR(tuple(analyses), alpha.value, "fixed_sequence")
+
+
+def _share(item: LocatedValue, what: str) -> Fraction:
+    value = Fraction(item.value) if type(item.value) is int else item.value
+    if not isinstance(value, Fraction) or not 0 <= value <= 1:
+        fail("graph_definition", f"Each {what} must be an exact number from 0 to 1.", item.span)
+    return value
+
+
+def _graphical(arguments: dict[str, LocatedValue], span: Span) -> ComposedFamilyIR:
+    analyses = _members(arguments["analyses"], "analyses", combinations=False)
+    alpha, count = arguments["alpha"], len(analyses)
+    for name, analysis in analyses:
+        if analysis.alpha != alpha.value:
+            fail(
+                "sequence_level",
+                f"{name} has alpha {analysis.alpha}. In a graph, declare every test at the "
+                f"overall level {alpha.value}; the weights say what share each starts with.",
+                arguments["analyses"].span,
+            )
+    weights = arguments["weights"]
+    if not isinstance(weights.value, tuple) or len(weights.value) != count:
+        fail(
+            "graph_definition",
+            f"weights needs one number for each of the {count} tests.",
+            weights.span,
+        )
+    shares = tuple(_share(item, "weight") for item in weights.value)
+    if sum(shares) > 1:
+        fail("graph_definition", f"The weights sum to {sum(shares)}, more than 1.", weights.span)
+    table = arguments["transitions"]
+    rows = table.value
+    if len(rows) != count or any(
+        not isinstance(row.value, tuple) or len(row.value) != count for row in rows
+    ):
+        fail(
+            "graph_definition",
+            f"transitions needs {count} rows of {count} numbers: row i says how test i's "
+            "level is shared out when it is rejected.",
+            table.span,
+        )
+    passed = tuple(tuple(_share(item, "transition") for item in row.value) for row in rows)
+    for index, row in enumerate(passed):
+        if row[index] != 0:
+            fail("graph_definition", "A test cannot pass its level to itself.", rows[index].span)
+        if sum(row) > 1:
+            fail(
+                "graph_definition",
+                f"Row {index + 1} of transitions sums to {sum(row)}, more than 1.",
+                rows[index].span,
+            )
+    return ComposedFamilyIR(tuple(analyses), alpha.value, "graphical", shares, passed)
 
 
 def _familywise(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
@@ -1617,11 +1694,34 @@ MODULES = {
                     "Family",
                     _family,
                     documentation="Bonferroni: the members' levels may sum to at most alpha. "
-                    "Members may be exact tests, cited tests, designs with interim looks, or "
-                    "a mix; dependence between them is unrestricted. "
+                    "Members may be exact tests, cited tests, designs with interim looks, "
+                    "sequences, graphs or other families; dependence between them is "
+                    "unrestricted. "
                     "A family of two-sided Fisher analyses is proved "
                     "outright. Any other family is conditional: Lean checks the combination "
                     "and each member's own bound is assumed.",
+                ),
+                FAMILYWISE,
+            ),
+        ),
+        Module(
+            "multiplicity.graphical",
+            (
+                _constructor(
+                    "graphical",
+                    (
+                        ("analyses", "list"),
+                        ("weights", "list"),
+                        ("transitions", "list"),
+                        ("alpha", "level"),
+                    ),
+                    "ComposedFamily",
+                    _graphical,
+                    documentation="A graphical procedure with recycling. weights gives each "
+                    "test's starting share of alpha. Row i of transitions says how test i's "
+                    "level is shared among the others when it is rejected. Declare every test "
+                    "at the overall alpha. The procedure's guarantee is cited, not checked by "
+                    "Lean; the contract checks that the weights and transitions are valid.",
                 ),
                 FAMILYWISE,
             ),
@@ -1636,9 +1736,10 @@ MODULES = {
                     _fixed_sequence,
                     documentation="Hierarchical testing: the analyses are tested in the listed "
                     "order, each at the full level alpha, and a test is carried out only if "
-                    "every earlier one rejected. Entries may be exact tests, cited tests or "
-                    "designs with interim looks. Lean checks the combination; each test's own "
-                    "bound is assumed.",
+                    "every earlier one rejected. An entry may be a test, a design with interim "
+                    "looks, or a family, sequence or graph; such an entry must be rejected in "
+                    "full before the next is tested. Lean checks the combination; each "
+                    "entry's own bound is assumed.",
                 ),
                 FAMILYWISE,
             ),
