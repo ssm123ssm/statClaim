@@ -67,7 +67,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
 | OutcomeModel | Two arms with a continuous, survival or other registered outcome. | `outcome: string`, `n_control: integer`, `n_treatment: integer` |
 | OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
-| CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: OutcomeNull`, `alpha: exact number`, `guarantee: Guarantee` |
+| CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
 | ComposedFamily | A family, sequence or graph of analyses and other combinations; the members are assumed. | `analyses: list`, `alpha: exact number` |
@@ -146,30 +146,59 @@ Two arms with a time-to-event outcome, possibly censored; equal-survival null. F
   Null: the two arms have the same distribution of time to the event.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
+### `tests.declared` — Declared analyses
+
+A test the author names and vouches for, for analyses StatClaim has no contract for. Only its fit to the design is checked: the null and the design must describe the same model. Its result has the status 'declared', the weakest, and any plan that contains it reports that status.
+
+- `declared_test(design: StudyDesign, null: Hypothesis, alpha: level, method: string, scope?: string, reference?: string) -> CitedAnalysis`
+  A test you name and vouch for, when StatClaim has no contract for the analysis. method says what the test is. scope is finite_sample or asymptotic, and asymptotic if left out. reference is where the test is specified. Nothing about its guarantee is checked.
+
 ### `tests.t` — Cited analyses
 
 Pooled-variance and Welch t-tests for two means. The compiler checks the null and the sampling plan against each test's contract. The Type I guarantee is cited from the literature and is not checked by Lean: exact under normality and equal variances for the pooled test, a large-sample approximation for Welch.
 
-- `t_test(design: StudyDesign, null: OutcomeNull, alpha: level) -> CitedAnalysis`
+- `t_test(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
   Two-sided pooled-variance t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
   Required null: mean_treatment = mean_control; same model required.
-- `t_test_one_sided(design: StudyDesign, null: OutcomeNull, alpha: level) -> CitedAnalysis`
+- `t_test_one_sided(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
   One-sided pooled-variance t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value.
   Required null: mean_treatment - mean_control <= value; same model required.
-- `welch_test(design: StudyDesign, null: OutcomeNull, alpha: level) -> CitedAnalysis`
+- `welch_test(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
   Two-sided Welch t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
   Required null: mean_treatment = mean_control; same model required.
-- `welch_test_one_sided(design: StudyDesign, null: OutcomeNull, alpha: level) -> CitedAnalysis`
+- `welch_test_one_sided(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
   One-sided Welch t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value.
+  Required null: mean_treatment - mean_control <= value; same model required.
+
+### `tests.mixed_model` — Cited analyses
+
+A test of a treatment contrast from a mixed model for repeated measures, such as the mean difference over all visits. The arm means in the null are the means of that contrast. The compiler checks the null and the sampling plan. The Type I guarantee is cited and is a large-sample approximation that also rests on the missing-data and model assumptions listed with each result.
+
+- `mmrm_test(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
+  Two-sided test of a treatment contrast in a mixed model for repeated measures. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
+  Required null: mean_treatment = mean_control; same model required.
+- `mmrm_test_one_sided(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
+  One-sided test of a treatment contrast in a mixed model for repeated measures. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value.
   Required null: mean_treatment - mean_control <= value; same model required.
 
 ### `tests.survival` — Cited analyses
 
 The log-rank test for two survival curves. The compiler checks the null and the sampling plan against the test's contract. The Type I guarantee is cited from the literature and is a large-sample approximation in the number of events. Proportional hazards is not needed for the error rate; it matters for power.
 
-- `log_rank(design: StudyDesign, null: OutcomeNull, alpha: level) -> CitedAnalysis`
+- `log_rank(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
   Two-sided log-rank test. Its guarantee is cited from the literature and is not checked by Lean. Null: survival_treatment = survival_control at every time.
   Required null: survival_treatment = survival_control at every time; same model required.
+
+### `tests.logistic` — Cited analyses
+
+A Wald or likelihood-ratio test of the treatment coefficient in a logistic regression with covariates. The compiler checks the null and the sampling plan. The Type I guarantee is cited and is a large-sample approximation. The one-sided test supports a zero difference only: a margin on the proportion scale is not a statement about the coefficient.
+
+- `logistic_regression(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
+  Two-sided test of the treatment coefficient in a logistic regression. Its guarantee is cited from the literature and is not checked by Lean. Null: p_treatment = p_control.
+  Required null: p_treatment = p_control; same model required.
+- `logistic_regression_one_sided(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
+  One-sided test of the treatment coefficient in a logistic regression. Its guarantee is cited from the literature and is not checked by Lean. Null: p_treatment - p_control <= 0.
+  Required null: p_treatment - p_control <= 0; same model required.
 
 ### `models.two_arm_binomial` — Models and hypotheses
 
@@ -328,6 +357,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `verified` | Lean proved the guarantee. Evidence grade `proved`. |
 | `conditional` | Lean proved how the parts combine; each part's own guarantee is assumed. Evidence grade `conditional`. |
 | `cited` | The study fits a published method's contract; the guarantee is cited, not machine-checked. Evidence grade `cited`. |
+| `declared` | The author named and vouched for the test or one of its parts. Nothing about that guarantee was checked or cited. Evidence grade `declared`. |
 | `calculated` | A `calculate` request produced numbers. No evidence. |
 | `unresolved_obligation` | A requirement is unmet or a target is missed. No evidence. Not a finding that the claim is false. |
 | `backend_error` | Lean could not be run or failed for a technical reason. No evidence. |
@@ -340,8 +370,9 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `invalid` | The file has an error and nothing was run. |
 | `elaborated` | The file compiles with no open requirement; nothing was run. |
 | `unresolved_obligation` | At least one claim has an unmet requirement. |
-| `cited` | Every claim went through and the weakest is cited. |
-| `conditional` | Every claim went through and the weakest is conditional. |
+| `declared` | Every claim went through; the weakest part anywhere is a declared test. |
+| `cited` | Every claim went through; the weakest part anywhere is cited. |
+| `conditional` | Every claim went through; the weakest part is a proved combination of tests that are themselves provable. |
 | `verified` | Every verified claim was proved; calculations may also be present. |
 | `calculated` | Only calculations were requested. |
 | `stale_source` | The file changed while it was being checked. Run it again. |
@@ -354,6 +385,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `conditional` | combination proved in Lean; the members' own guarantees are assumed | `lean_proof`, `member_guarantees` | `composition` |
 | `cited` | cited from the literature; not machine-checked | `literature` | `contract` |
 | `simulated` | estimated by simulation; not a proof | `simulation` | `contract` |
+| `declared` | declared by the author; not checked and not cited | `author` | `contract` |
 
 ### Evidence source
 
@@ -363,6 +395,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `literature` | a published result |
 | `member_guarantees` | the members' own guarantees, each proved or cited separately |
 | `simulation` | a simulation |
+| `author` | the author's own statement, with no source known to StatClaim |
 
 ### What a machine checked
 
@@ -390,6 +423,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `scope` | Says which null or planning point the claim is about. A condition, not a risk. |
 | `data` | About the supplied data matching the declared study. |
 | `unproved_step` | A mathematical identity that is used but not proved in Lean. |
+| `vouched` | The author vouches for it. StatClaim has no contract or source for it. |
 
 ### `Claim.kind`
 
@@ -447,7 +481,11 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 | `t_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `finite_sample` | 1 per arm, 3 total |
 | `welch_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total |
 | `welch_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total |
+| `mmrm_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total |
+| `mmrm_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total |
 | `log_rank` | 1 | survival | `equal_survival` | equals alpha | `asymptotic` | 1 per arm, 2 total |
+| `logistic_regression` | 1 | binary | `equal_proportions` | equals alpha | `asymptotic` | 2 per arm, 4 total |
+| `logistic_regression_one_sided` | 1 | binary | `proportion_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total |
 
 **`t_test`** (Two-sided pooled-variance t-test) assumes `independent_observations`, `fixed_sample_sizes`, `single_analysis`, `normal_outcomes`, `equal_variances`. References:
 
@@ -473,11 +511,33 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 - Satterthwaite, F. E. (1946). An approximate distribution of estimates of variance components. Biometrics Bulletin 2(6), 110-114.
 - Lehmann, E. L. and Romano, J. P. (2005). Testing Statistical Hypotheses, 3rd ed. Springer. Chapters 5 and 11.
 
+**`mmrm_test`** (Two-sided test of a treatment contrast in a mixed model for repeated measures) assumes `independent_participants`, `fixed_sample_sizes`, `single_analysis`, `missing_at_random`, `correct_mean_model`, `covariance_structure`, `approximately_normal_estimate`. References:
+
+- Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
+- Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
+- Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+
+**`mmrm_test_one_sided`** (One-sided test of a treatment contrast in a mixed model for repeated measures) assumes `independent_participants`, `fixed_sample_sizes`, `single_analysis`, `missing_at_random`, `correct_mean_model`, `covariance_structure`, `approximately_normal_estimate`. References:
+
+- Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
+- Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
+- Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+
 **`log_rank`** (Two-sided log-rank test) assumes `independent_observations`, `independent_censoring`, `prespecified_analysis_time`, `single_analysis`. References:
 
 - Mantel, N. (1966). Evaluation of survival data and two new rank order statistics arising in its consideration. Cancer Chemotherapy Reports 50(3), 163-170.
 - Peto, R. and Peto, J. (1972). Asymptotically efficient rank invariant test procedures. Journal of the Royal Statistical Society A 135(2), 185-207.
 - Fleming, T. R. and Harrington, D. P. (1991). Counting Processes and Survival Analysis. Wiley.
+
+**`logistic_regression`** (Two-sided test of the treatment coefficient in a logistic regression) assumes `independent_participants`, `fixed_sample_sizes`, `single_analysis`, `logit_linear`, `null_is_zero_coefficient`, `enough_events`. References:
+
+- Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal Statistical Society B 20(2), 215-242.
+- Hosmer, D. W., Lemeshow, S. and Sturdivant, R. X. (2013). Applied Logistic Regression, 3rd ed. Wiley.
+
+**`logistic_regression_one_sided`** (One-sided test of the treatment coefficient in a logistic regression) assumes `independent_participants`, `fixed_sample_sizes`, `single_analysis`, `logit_linear`, `null_is_zero_coefficient`, `enough_events`. References:
+
+- Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal Statistical Society B 20(2), 215-242.
+- Hosmer, D. W., Lemeshow, S. and Sturdivant, R. X. (2013). Applied Logistic Regression, 3rd ed. Wiley.
 
 ## Assumptions
 
@@ -497,6 +557,15 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `prespecified_looks` | design | The looks happen at the declared cumulative sample sizes, fixed in advance, and the study stops at the first look that rejects. |
 | `prespecified_order` | design | The tests and their order are fixed in advance, and a test is carried out only if every earlier test in the order rejected. |
 | `prespecified_graph` | design | The tests, their starting shares of the level and the rules for passing a share on are fixed in advance, and a share is passed on only after a rejection. Each test controls its error at every level up to the overall level, not only at one. |
+| `declared_test_is_valid` | vouched | The declared test rejects its true null with probability at most its level. StatClaim has no contract or source for this test. |
+| `independent_participants` | sampling | Participants are independent of one another. Measurements on one participant may be correlated. |
+| `missing_at_random` | sampling | Missing measurements are missing at random given the observed data and the model. |
+| `correct_mean_model` | distribution | The model for the mean, with its covariates, is fixed in advance and correctly specified. |
+| `covariance_structure` | distribution | The covariance between a participant's measurements is correctly specified. An unstructured matrix imposes no structure. |
+| `approximately_normal_estimate` | distribution | Errors are multivariate normal, or the study is large enough for the estimated treatment contrast to be approximately normal. |
+| `logit_linear` | distribution | The log odds of response are linear in the model's covariates, which are fixed in advance. |
+| `null_is_zero_coefficient` | scope | The test is of the treatment coefficient. Under the declared null, treatment has no effect on response given the covariates. |
+| `enough_events` | distribution | There are enough responders and non-responders in each arm for the estimated coefficient to be approximately normal, with no separation. |
 
 ## Limits
 

@@ -1,22 +1,38 @@
 {
   "t_test": {
     "version": 1,
-    "sha256": "953430850b769115bb07b5bb8e7a82e50b9d65465fedfa4973f076fa10947983"
+    "sha256": "ccd9538353d79df0e974a3d59a4c72309bcef03523b98d56fd4e1309fc0ad38d"
   },
   "t_test_one_sided": {
     "version": 1,
-    "sha256": "217d415771b9b1dfb1c3306a2048f5bede81668e6a66fd22db1d483a18d37429"
+    "sha256": "00b4ad99f975ec081074de434c4a3f978ff3e646f52b43a4fb12430a0d5efe3d"
   },
   "welch_test": {
     "version": 1,
-    "sha256": "042e1931df347d59d37eab64f8acf4b6703749a0a3f230e8530d1dfedc091d67"
+    "sha256": "df57873581a535e1780ae506ff2ef53769753ed7f4c60c7b24ce456dd77d53f7"
   },
   "welch_test_one_sided": {
     "version": 1,
-    "sha256": "309fa51e50bff494c86a9c595ffa843ac9b6d353701045e185062f4864a3dc6d"
+    "sha256": "a59897a410b8e5371ff5667159fee242ed9c4a52260bee514bafb3b813c35e63"
+  },
+  "mmrm_test": {
+    "version": 1,
+    "sha256": "d887fc03ef103840ff1bc0f9a626a4aa2736f718b1d6276ea69c7de76bf59117"
+  },
+  "mmrm_test_one_sided": {
+    "version": 1,
+    "sha256": "f87f7c5b4dbf1d8677bb0e2a38aafe52ba15e476895c0b754bb3ea903ce9714a"
   },
   "log_rank": {
     "version": 1,
-    "sha256": "c06006473148cdcd83b631932b3a5f6bbda8e0f206bc4e6a2a7a88fa791fffbd"
+    "sha256": "e0be367cae5e205a6b7e27c5d5783593de806c8c56b0ad7fbb486a760fe2d3ed"
+  },
+  "logistic_regression": {
+    "version": 1,
+    "sha256": "b006ca82e5d9eab8278d753135e8d0a82f9d295a3e26ffb79b4ce660b1c72e22"
+  },
+  "logistic_regression_one_sided": {
+    "version": 1,
+    "sha256": "3b21bbc9fe80c87dcb6477b8fe06e50429b45eed1058d923236c38223b51f20a"
   }
 }

@@ -1,0 +1,28 @@
+# The analyses most trial plans actually name: a mixed model for a repeated
+# continuous endpoint and a logistic regression for a responder endpoint.
+use models.two_arm_continuous
+use models.two_arm_binomial
+use sampling
+use tests.mixed_model
+use tests.logistic
+use multiplicity.fixed_sequence
+
+let measured = two_arm_continuous(n_control=300, n_treatment=300)
+let responders = two_arm_binomial(n_control=300, n_treatment=300)
+
+# Non-inferiority on the mean difference over all visits, margin -50.
+let lung_function = mmrm_test_one_sided(
+    design=fixed(model=measured),
+    null=mean_difference_at_most(model=measured, value=-50),
+    alpha=1/40,
+)
+# Superiority on the proportion of responders.
+let response = logistic_regression_one_sided(
+    design=fixed(model=responders),
+    null=proportion_difference_at_most(model=responders, value=0),
+    alpha=1/40,
+)
+
+let ordered = fixed_sequence(analyses=[lung_function, response], alpha=1/40)
+let overall = verify(familywise(ordered))
+let first = verify(typeI(lung_function))

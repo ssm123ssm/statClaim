@@ -1,6 +1,6 @@
 # Technical reference
 
-New here? Work through the [tutorial](tutorial.html): sixteen lessons with runnable
+New here? Work through the [tutorial](tutorial.html): seventeen lessons with runnable
 files in `examples/tutorial/`.
 
 Start with the [quickstart](quickstart.md), [language reference](catalogue.md),

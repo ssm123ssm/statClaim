@@ -743,3 +743,129 @@ def test_families_and_sequences_nest_in_each_other():
         + "let trial = fixed_sequence(analyses=[endpoints, last], alpha=1/20)\n"
     )
     assert check_derivation(family_derivation(nested, "trial")) == []
+
+
+DECLARED = (
+    FIXED
+    + "use tests.declared\n"
+    + "let null = equal_means(model=study)\n"
+    + "let analysis = declared_test(design=plan, null=null, alpha=1/40, "
+    + 'method="Stratified rank test", reference="Plan, section 9.2")\n'
+)
+
+
+def test_declared_test_is_checked_for_fit_only_and_says_so(tmp_path):
+    record = cited_derivation(DECLARED)
+    assert check_derivation(record) == []
+    assert record["contract"] == "tests.declared/declared_test"
+    guarantee = record["guarantee"]
+    assert guarantee["grade"] == "declared" and guarantee["scope"] == "asymptotic"
+    assert guarantee["method"]["title"] == "Stratified rank test"
+    assert guarantee["given"] == ["declared_test_is_valid"]
+    assert "no contract or source" in record["not_established"]
+    report = run(DECLARED + "let checked = verify(typeI(analysis))\n", tmp_path)
+    value = report["values"]["checked"]
+    assert report["status"] == value["status"] == "declared" and not report["backend_invoked"]
+    evidence = value["evidence"]
+    assert evidence["grade"] == "declared" and evidence["sources"] == ["author"]
+    assert evidence["assumptions"][0]["kind"] == "vouched"
+    assert evidence["references"] == ["Plan, section 9.2"]
+    assert evidence["established_properties"][0].startswith("Declared by the author, not checked")
+
+
+def test_declared_test_fits_any_model_but_still_needs_a_matching_null():
+    binary = (
+        "use models.two_arm_binomial\nuse sampling\nuse tests.declared\n"
+        "let study = two_arm_binomial(n_control=50, n_treatment=50)\n"
+        "let a = declared_test(design=fixed(model=study), null=equal_proportions(model=study), "
+        'alpha=1/20, method="Cochran-Mantel-Haenszel test", scope="finite_sample")\n'
+    )
+    compilation = compile_source(Source(binary))
+    assert compilation.status == "elaborated"
+    assert compilation.program.bindings[-1].value.method.scope == "finite_sample"
+    other = DECLARED.replace(
+        "let null = equal_means(model=study)",
+        "let pilot = two_arm_continuous(n_control=5, n_treatment=5)\n"
+        "let null = equal_means(model=pilot)",
+    )
+    assert codes(other) == ["model_mismatch"]
+    assert codes(DECLARED.replace('method="Stratified rank test"', 'method=" "')) == ["domain"]
+    assert codes(DECLARED.replace("alpha=1/40", 'alpha=1/40, scope="exact"', 1)) == ["domain"]
+    adaptive = DECLARED.replace("fixed(model=study)", "adaptive(model=study)")
+    assert codes(adaptive + "verify typeI(analysis)\n") == ["sampling_scope"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda d: d["guarantee"].update(grade="cited"),
+        lambda d: d["guarantee"]["method"].update(title="Fisher's exact test"),
+        lambda d: d["subject"].update(scope="finite_sample"),
+        lambda d: d["subject"].update(test="t_test"),
+        lambda d: d["subject"].update(references=["a", "b"]),
+        lambda d: d.update(not_established=""),
+    ],
+)
+def test_checker_rejects_an_altered_declared_test(change):
+    record = cited_derivation(DECLARED)
+    change(record)
+    assert check_derivation(record)
+
+
+def test_weakest_part_is_found_through_every_level():
+    from statclaim.language_inspection import weakest_link
+
+    def link(text, name):
+        program = compile_source(Source(text)).program
+        return weakest_link(next(b.value for b in program.bindings if b.name == name))
+
+    assert link(MIXED, "response") == {"grade": "proved", "parts": ["the claim"]}
+    assert link(MIXED, "endpoints") == {"grade": "cited", "parts": ["symptoms"]}
+    assert link(RECYCLING, "trial")["grade"] == "cited"
+    assert "primary: its rule" in link(RECYCLING, "trial")["parts"]
+    declared = (ROOT / "examples/declared_test.stat").read_text()
+    assert link(declared, "endpoints") == {"grade": "declared", "parts": ["pain"]}
+
+
+MODELS = (ROOT / "examples/trial_models.stat").read_text()
+
+
+def test_mixed_model_and_logistic_entries_state_their_own_assumptions(tmp_path):
+    for name in ("lung_function", "response", "ordered"):
+        assert check_derivation(family_derivation(MODELS, name)) == []
+    mmrm = METHODS["mmrm_test_one_sided"]
+    ids = [item.id for item in mmrm.assumptions]
+    assert "missing_at_random" in ids and "independent_participants" in ids
+    # Repeated measures are correlated, so the two-sample independence assumption is absent.
+    assert "independent_observations" not in ids
+    logistic = METHODS["logistic_regression_one_sided"]
+    assert logistic.outcome == "binary" and logistic.null_value == 0
+    assert all(m.scope == "asymptotic" for m in (mmrm, logistic))
+
+
+def test_logistic_regression_fits_the_binary_model_and_a_zero_difference_only():
+    head = (
+        "use models.two_arm_binomial\nuse sampling\nuse tests.logistic\n"
+        "let study = two_arm_binomial(n_control=300, n_treatment=300)\n"
+        "let plan = fixed(model=study)\n"
+    )
+    ok = head + (
+        "let null = equal_proportions(model=study)\n"
+        "let a = logistic_regression(design=plan, null=null, alpha=1/20)\n"
+    )
+    assert codes(ok) == []
+    margin = head + (
+        "let a = logistic_regression_one_sided(design=plan, "
+        "null=proportion_difference_at_most(model=study, value=-1/10), alpha=1/40)\n"
+    )
+    assert codes(margin) == ["hypothesis_mismatch"]
+    wrong_outcome = (
+        FIXED
+        + "use tests.logistic\n"
+        + "let a = logistic_regression(design=plan, null=equal_means(model=study), alpha=1/20)\n"
+    )
+    assert codes(wrong_outcome) == ["hypothesis_mismatch"]
+    # An altered margin is caught by the independent checker too.
+    record = family_derivation(MODELS, "response")
+    record["subject"]["null"]["value"] = "-1/10"
+    assert check_derivation(record)

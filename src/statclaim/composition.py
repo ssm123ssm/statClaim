@@ -31,6 +31,7 @@ MEMBER_GRADES = {
     "proved": "provable in Lean; verify the member's own Type I claim",
     "cited": "cited from the literature; not machine-checked",
     "conditional": "holds if each of its own members' bounds holds; verify its own claim",
+    "declared": "declared by the author; not checked and not cited",
 }
 BRETZ = (
     "Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to "

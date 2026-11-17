@@ -34,7 +34,8 @@ from statclaim.language_syntax import (
     parse,
 )
 from statclaim.methods import METHOD_MODULES, NULL_FORMS, OUTCOMES, methods_for
-from statclaim.methods.core import CitedMethod, Guarantee
+from statclaim.methods.assumptions import DECLARED_VALID
+from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
 from statclaim.planning import (
     CRITERIA,
     MAX_MARGIN_ARM,
@@ -77,10 +78,18 @@ class LevelTestIR:
     """An analysis that a Type I error claim can be requested for."""
 
 
+class NullIR:
+    """A null hypothesis about any kind of two-arm model."""
+
+
 @dataclass(frozen=True)
 class ModelIR(StudyModelIR):
     n_control: int
     n_treatment: int
+
+    @property
+    def outcome(self) -> str:
+        return "binary"
 
 
 @dataclass(frozen=True)
@@ -93,7 +102,7 @@ class OutcomeModelIR(StudyModelIR):
 
 
 @dataclass(frozen=True)
-class OutcomeNullIR:
+class OutcomeNullIR(NullIR):
     """A null hypothesis in one of the forms registered for the model's outcome."""
 
     model: OutcomeModelIR
@@ -112,7 +121,7 @@ class PlanIR:
 
 
 @dataclass(frozen=True)
-class HypothesisIR:
+class HypothesisIR(NullIR):
     model: ModelIR
     predicate: Choice[
         "equal_proportions", "proportion_difference", "proportion_difference_at_most"
@@ -193,7 +202,7 @@ class CitedAnalysisIR(LevelTestIR):
     """An analysis whose guarantee is cited from the literature, not proved in Lean."""
 
     plan: PlanIR
-    hypothesis: OutcomeNullIR
+    hypothesis: NullIR
     alpha: Fraction
     method: CitedMethod
 
@@ -269,8 +278,10 @@ def _component(name: str, analysis: LevelTestIR) -> Component:
             name,
             analysis.alpha,
             method.scope,
-            "cited",
-            f"{method.module}/{method.key} version {method.version}",
+            method.grade,
+            f"declared by the author: {method.title}"
+            if method.grade == "declared"
+            else f"{method.module}/{method.key} version {method.version}",
             analysis.hypothesis.statement,
         )
     return Component(
@@ -602,6 +613,7 @@ class ValueType:
                 PlanIR: "StudyDesign",
                 PlannableIR: "Analysis",
                 LevelTestIR: "Analysis",
+                NullIR: "Hypothesis",
                 FamilyLikeIR: "Family",
                 SequentialIR: "Sequential",
                 StudyModelIR: "Model",
@@ -686,12 +698,18 @@ def normalize(value: object) -> object:
                 result["value"] = str(bound)
             return result
         case CitedAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, method=method):
-            return {
+            result = {
                 "test": method.key,
                 "design": normalize(plan),
                 "null": normalize(hypothesis),
                 "alpha": str(alpha),
             }
+            if method.grade == "declared":
+                # A declared test is described by the file, not by the registry.
+                result.update(
+                    method=method.title, scope=method.scope, references=list(method.references)
+                )
+            return result
         case PlanIR(model=model, stopping=stopping):
             return {"model": normalize(model), "stopping": stopping}
         case HypothesisIR(model=model, predicate=predicate, value=bound):
@@ -924,6 +942,42 @@ def _cited_test(method: CitedMethod) -> Callable:
         return CitedAnalysisIR(design.value, arguments["null"].value, alpha.value, method)
 
     return build
+
+
+def _declared_test(arguments: dict[str, LocatedValue], span: Span) -> CitedAnalysisIR:
+    """A test the author names and vouches for. Nothing about it is checked or cited."""
+    design, null, alpha = arguments["design"], arguments["null"], arguments["alpha"]
+    HypothesisContract((null.value.predicate,), null.value.statement, "").check(
+        "declared_test", arguments
+    )
+    if not 0 < alpha.value < 1:
+        fail("domain", "alpha must lie strictly between 0 and 1 for this test.", alpha.span)
+    title = arguments["method"]
+    if not title.value.strip() or "\n" in title.value or len(title.value) > 200:
+        fail("domain", "method must be one line of at most 200 characters.", title.span)
+    scope = arguments["scope"]
+    if scope.value is not None and scope.value not in SCOPES:
+        fail("domain", f"scope must be one of: {', '.join(SCOPES)}.", scope.span)
+    reference = arguments["reference"]
+    if reference.value is not None and (not reference.value.strip() or "\n" in reference.value):
+        fail("domain", "reference must be one non-empty line.", reference.span)
+    method = CitedMethod(
+        key="declared_test",
+        module="tests.declared",
+        title=title.value.strip(),
+        version=1,
+        outcome=design.value.model.outcome,
+        null=null.value.predicate,
+        relation="at_most",
+        # Without a stated scope, nothing exact is claimed.
+        scope=scope.value or "asymptotic",
+        assumptions=(DECLARED_VALID,),
+        references=(reference.value.strip(),) if reference.value else (),
+        min_per_arm=1,
+        min_total=2,
+        grade="declared",
+    )
+    return CitedAnalysisIR(design.value, null.value, alpha.value, method)
 
 
 def _fisher(alternative: str) -> Callable:
@@ -1527,11 +1581,13 @@ def _cited_contract(method: CitedMethod) -> HypothesisContract:
     """Built from the registry, so the guidance always lists the current alternatives."""
     form = NULL_FORMS[method.null][1]
     others = "; ".join(f"{other.key} takes {other.null}" for other in methods_for(method.outcome))
+    fixed = "" if method.null_value is None else f", with value {method.null_value}"
     return HypothesisContract(
         (method.null,),
-        form.statement.format(value="value"),
-        f"{method.title} supports the null {method.null}. Keep your null if it states your "
-        f"question, and choose the test that supports it. For this outcome: {others}.",
+        form.statement.format(value="value" if method.null_value is None else method.null_value),
+        f"{method.title} supports the null {method.null}{fixed}. Keep your null if it states "
+        f"your question, and choose the test that supports it. For this outcome: {others}.",
+        required_value=method.null_value,
         version=method.version,
     )
 
@@ -1540,13 +1596,21 @@ def _cited_constructor(method: CitedMethod) -> Constructor:
     contract = _cited_contract(method)
     return _constructor(
         method.key,
-        (("design", PlanIR), ("null", OutcomeNullIR), ("alpha", "level")),
+        (("design", PlanIR), ("null", NullIR), ("alpha", "level")),
         "CitedAnalysis",
         _cited_test(method),
         hypothesis_contract=contract,
         documentation=f"{method.title}. Its guarantee is cited from the literature and is "
         f"not checked by Lean. Null: {contract.expected}.",
     )
+
+
+DECLARED_MODULE_SUMMARY = (
+    "A test the author names and vouches for, for analyses StatClaim has no contract for. "
+    "Only its fit to the design is checked: the null and the design must describe the same "
+    "model. Its result has the status 'declared', the weakest, and any plan that contains it "
+    "reports that status."
+)
 
 
 def _outcome_module(outcome) -> "Module":
@@ -1575,7 +1639,29 @@ def _outcome_module(outcome) -> "Module":
 MODULES = {
     module.name: module
     for module in (
-        *(_outcome_module(outcome) for outcome in OUTCOMES.values()),
+        *(_outcome_module(outcome) for outcome in OUTCOMES.values() if not outcome.builtin),
+        Module(
+            "tests.declared",
+            (
+                _constructor(
+                    "declared_test",
+                    (
+                        ("design", PlanIR),
+                        ("null", NullIR),
+                        ("alpha", "level"),
+                        ("method", "string"),
+                        ("scope", "string", True),
+                        ("reference", "string", True),
+                    ),
+                    "CitedAnalysis",
+                    _declared_test,
+                    documentation="A test you name and vouch for, when StatClaim has no "
+                    "contract for the analysis. method says what the test is. scope is "
+                    "finite_sample or asymptotic, and asymptotic if left out. reference is "
+                    "where the test is specified. Nothing about its guarantee is checked.",
+                ),
+            ),
+        ),
         *(
             Module(group.name, tuple(_cited_constructor(method) for method in group.methods))
             for group in METHOD_MODULES

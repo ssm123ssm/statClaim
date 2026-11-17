@@ -244,10 +244,24 @@ COMPOSED_NOT_ESTABLISHED = (
     "The familywise bound below follows from the members' own error bounds, which are "
     "assumed here. Lean checks the combination when you verify the familywise claim."
 )
+DECLARED_NOT_ESTABLISHED = (
+    "The guarantee below is the author's own statement about a test StatClaim has no "
+    "contract or source for. Nothing about it is checked."
+)
 NOT_ESTABLISHED = (
     "No statistical guarantee is established here. Error rates and power are separate "
     "claims, checked by verify(...)."
 )
+
+
+def not_established(guarantee: dict | None) -> str:
+    """What a derivation does not establish, by the grade of any guarantee it carries."""
+    if not guarantee:
+        return NOT_ESTABLISHED
+    return {
+        "conditional": COMPOSED_NOT_ESTABLISHED,
+        "declared": DECLARED_NOT_ESTABLISHED,
+    }.get(guarantee["grade"], CITED_NOT_ESTABLISHED)
 
 
 @dataclass(frozen=True)
@@ -308,11 +322,7 @@ class Derivation:
             "steps": [step.to_dict() for step in self.steps],
             "assumptions": list(self.assumptions),
             "obligations": [obligation.to_dict() for obligation in self.obligations],
-            "not_established": NOT_ESTABLISHED
-            if not self.guarantee
-            else COMPOSED_NOT_ESTABLISHED
-            if self.guarantee["grade"] == "conditional"
-            else CITED_NOT_ESTABLISHED,
+            "not_established": not_established(self.guarantee),
             "subject": self.subject,
         }
 
@@ -397,7 +407,7 @@ def cited_guarantee(analysis: CitedAnalysisIR) -> dict:
     return {
         **analysis.guarantee.to_dict(),
         "sentence": analysis.guarantee.sentence,
-        "grade": "cited",
+        "grade": method.grade,
         "method": method.to_dict(),
         "given": [item.id for item in method.assumptions],
         "references": list(method.references),

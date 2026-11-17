@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Sixteen short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Seventeen short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -975,7 +975,7 @@ the endpoints.</p>
     symptoms: Null rejection probability is at most 1/40 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)
 <span class="ok">verified</span> [primary]: typeI(response)
   Evidence: proved in Lean; guarantee: finite-sample bound
-Program status: conditional</code></pre></div>
+Program status: cited</code></pre></div>
 <p>There are now three statuses for a result that went through, and they are not
 interchangeable:</p>
 <div class="scroll"><table>
@@ -991,8 +991,9 @@ that the union bound then gives 1/20. It took each member's own 1/40 as given. F
 <code>response</code> that is not a leap: the last line verifies it. For
 <code>symptoms</code> it rests on the t-test's cited guarantee and its assumptions, such
 as normal outcomes.</p>
-<p>The file's status is the weakest one in it, so one cited or conditional claim is
-never hidden behind verified ones.</p>
+<p>The file ends with <code>Program status: cited</code>, not conditional. A file reports
+the weakest part anywhere in it, and this family contains a cited test. The family's
+own result says so too: <code>Weakest part: cited from the literature (symptoms)</code>.</p>
 <div class="note"><strong>Large-sample members.</strong> Swap <code>t_test</code> for
 <code>welch_test</code> and the family's guarantee becomes a large-sample approximation
 too. A family is only as exact as its least exact member.</div>
@@ -1040,7 +1041,8 @@ too. A family is only as exact as its least exact member.</div>
   Assumptions:
     The looks happen at the declared cumulative sample sizes, fixed in advance, and the study stops at the first look that rejects.
     interim: Null rejection probability is at most 1/200 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)
-    final: Null rejection probability is at most 9/200 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)</code></pre></div>
+    final: Null rejection probability is at most 9/200 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)
+Program status: cited</code></pre></div>
 <p>The claim is <code>typeI</code>, not <code>familywise</code>: every look tests the same
 null, so rejecting at any look is one kind of error. The status is
 <span class="pill warn">conditional</span>, as in lesson 13. Lean proved that the two
@@ -1126,7 +1128,7 @@ can never spend more than the total.</div>
     response: Null rejection probability is at most 1/20 whenever p_treatment = p_control. (provable in Lean; verify the member's own Type I claim)
 <span class="warn">conditional</span> [primary]: typeI(survival)
 <span class="ok">verified</span> [exact_secondary]: typeI(response)
-Program status: conditional</code></pre></div>
+Program status: cited</code></pre></div>
 <p>Read the three member lines. Each says how far that endpoint's own guarantee goes:
 the survival design is itself conditional on its two looks, the t-test is cited, and
 the Fisher test can be proved, which the last line does. The whole plan is a large-sample
@@ -1253,6 +1255,74 @@ must be rejected in full before the next entry is tested.</div>
     <div class="task"><h4>Try it</h4><p>Change <code>weights</code> to <code>[1/2, 1/2, 1/2]</code>, then make a test pass level to itself, and read the two diagnostics.</p></div>
   </div>
 </section>
+<section class="lesson" id="declared">
+  <p class="eyebrow">Lesson 17</p>
+  <h2>When StatClaim does not know your test</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Real plans name analyses that no tool has a contract for. You can still state the plan: name the test, say where it is specified, and let StatClaim check everything around it. The report will say plainly what was taken on your word.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/17_declared_test.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 17: an analysis StatClaim does not know, declared by name.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.declared
+<span class="k">use</span> tests.t
+<span class="k">use</span> multiplicity.bonferroni
+
+<span class="k">let</span> study = <span class="f">two_arm_continuous</span>(n_control=200, n_treatment=200)
+<span class="k">let</span> plan = <span class="f">fixed</span>(model=study)
+
+<span class="c"># A stratified rank test is not in StatClaim&#x27;s registry, so name it and say</span>
+<span class="c"># where it is specified.</span>
+<span class="k">let</span> pain = <span class="f">declared_test</span>(
+    design=plan,
+    null=<span class="f">equal_means</span>(model=study),
+    alpha=1/40,
+    method=&quot;Van Elteren stratified rank test, stratified by site&quot;,
+    reference=&quot;Statistical analysis plan, section 9.2&quot;,
+)
+<span class="k">let</span> function = <span class="f">t_test</span>(design=plan, null=<span class="f">equal_means</span>(model=study), alpha=1/40)
+
+<span class="k">let</span> endpoints = <span class="f">bonferroni</span>(analyses=[pain, function], alpha=1/20)
+<span class="k">let</span> family = <span class="f">verify</span>(<span class="f">familywise</span>(endpoints))
+<span class="k">let</span> alone = <span class="f">verify</span>(<span class="f">typeI</span>(pain))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>declared_test</code></dt>
+  <dd>A test you name and vouch for. <code>method</code> says what it is and
+  <code>reference</code> says where it is specified. It works with any model and null.</dd>
+  <dt><code>scope</code> (optional)</dt>
+  <dd><code>"finite_sample"</code> or <code>"asymptotic"</code>. If you leave it out,
+  nothing exact is claimed.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="warn">conditional</span> [family]: familywise(endpoints)
+  Weakest part: declared by the author; not checked and not cited (pain)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: large-sample approximation
+  Assumptions:
+    pain: Null rejection probability is at most 1/40 whenever mean_treatment = mean_control. (declared by the author; not checked and not cited)
+    function: Null rejection probability is at most 1/40 whenever mean_treatment = mean_control. (cited from the literature; not machine-checked)
+<span class="bad">declared</span> [alone]: typeI(pain)
+  Evidence: declared by the author; not checked and not cited; guarantee: large-sample approximation
+  Method: Van Elteren stratified rank test, stratified by site (declared_test, version 1)
+  Assumptions:
+    [declared_test_is_valid] The declared test rejects its true null with probability at most its level. StatClaim has no contract or source for this test. (assumed)
+Program status: declared</code></pre></div>
+<p><span class="pill bad">declared</span> is the fourth and weakest status. StatClaim
+checked that the null and the design describe the same study, and nothing else about
+the test.</p>
+<p>The family is still <span class="pill warn">conditional</span>: Lean proved that the two
+levels fit the budget. But a result is only as strong as its weakest part, so the
+family's result names that part, and the file ends with
+<code>Program status: declared</code>. A proved combination cannot make an unchecked
+test look checked.</p>
+<div class="note"><strong>Prefer a known test when there is one.</strong> Mixed models for
+repeated measures (<code>tests.mixed_model</code>) and logistic regression
+(<code>tests.logistic</code>) have cited entries that list their own assumptions, such
+as missing at random. See <code>examples/trial_models.stat</code>. Declare a test only
+when the catalogue has nothing for it.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Any analysis can be stated, by name and reference.</li><li>A declared test is checked for fit only, and is the weakest status.</li><li>Every result and every file names its weakest part.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Replace <code>pain</code> with <code>welch_test</code> and watch the file's status rise to <code>cited</code>. Then run <code>statclaim report</code> and find the "Weakest part" column.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1264,6 +1334,9 @@ must be rejected in full before the next entry is tested.</div>
       <tr><td>Show a treatment is not worse by a margin</td><td><code>tests.difference</code></td><td><code>difference_test</code> with <code>typeI</code>, <code>result</code></td><td>8</td></tr>
       <tr><td>Estimate a difference</td><td><code>estimation</code></td><td><code>difference_interval</code></td><td>8</td></tr>
       <tr><td>Compare two means</td><td><code>models.two_arm_continuous</code>, <code>sampling</code>, <code>tests.t</code></td><td><code>t_test</code>, <code>welch_test</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
+      <tr><td>Analyse repeated measurements</td><td><code>models.two_arm_continuous</code>, <code>tests.mixed_model</code></td><td><code>mmrm_test</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
+      <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
+      <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
@@ -1284,7 +1357,7 @@ must be rejected in full before the next entry is tested.</div>
     <li>Write the file before the data arrive. The assumptions all say "fixed before
     outcomes were observed".</li>
     <li>Read the assumptions under every verified or cited claim. They are yours to defend.</li>
-    <li>Check the status. <em>Verified</em> was proved, <em>conditional</em> assumes its members, <em>cited</em> rests on the literature.</li>
+    <li>Check the status. <em>Verified</em> was proved, <em>conditional</em> assumes its members, <em>cited</em> rests on the literature, <em>declared</em> rests on your word.</li>
     <li>Treat <em>unresolved</em> as a to-do, not a verdict.</li>
     <li>Report verified numbers; explore with calculated ones.</li>
   </ul>

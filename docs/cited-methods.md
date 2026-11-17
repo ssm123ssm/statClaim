@@ -55,13 +55,40 @@ let scope = checked.claim.scope                  # finite_sample or asymptotic
 | `welch_test` | `equal_means` | Large-sample approximation | Finite variances |
 | `welch_test_one_sided` | `mean_difference_at_most` | Large-sample approximation | Finite variances |
 | `log_rank` | `equal_survival` | Large-sample approximation, in the number of events | Independent censoring |
+| `mmrm_test`, `mmrm_test_one_sided` | `equal_means`, `mean_difference_at_most` | Large-sample approximation | Missing at random; correct mean and covariance model |
+| `logistic_regression`, `logistic_regression_one_sided` | `equal_proportions`, a zero difference | Large-sample approximation | Linear log odds; enough events |
 
 The t-tests are in `tests.t`, for `models.two_arm_continuous`. The log-rank test
 is in `tests.survival`, for `models.two_arm_survival`; see `examples/log_rank.stat`.
 Proportional hazards is not among its assumptions: the error rate does not need
 it, though power does.
 
-All assume independent observations, a plan fixed in advance and one analysis.
+The mixed-model tests are in `tests.mixed_model` and test a treatment contrast,
+such as the mean difference over all visits. The logistic tests are in
+`tests.logistic` and use `models.two_arm_binomial`; the one-sided test supports a
+zero difference only. See `examples/trial_models.stat`.
+
+All assume independent participants, a plan fixed in advance and one analysis.
+
+## Declared tests
+
+When no entry fits, name the test yourself:
+
+```stat
+use tests.declared
+let pain = declared_test(
+    design=plan,
+    null=equal_means(model=study),
+    alpha=1/40,
+    method="Van Elteren stratified rank test, stratified by site",
+    reference="Statistical analysis plan, section 9.2",
+)
+```
+
+StatClaim checks that the null and the design describe the same model, and
+nothing about the test's guarantee. The result has status `declared`, the
+weakest, and any result or file that contains the test names it as its weakest
+part. `scope` is `asymptotic` unless you state `"finite_sample"`.
 `claim.guarantee` is `finite_sample` for the pooled tests and `asymptotic` for
 Welch. A file with any cited claim has overall status `cited`.
 

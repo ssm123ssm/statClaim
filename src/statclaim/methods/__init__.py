@@ -5,11 +5,16 @@ and null needs no change outside this package. A new kind of outcome is an entry
 in outcomes.py. See docs/cited-methods.md.
 """
 
-from statclaim.methods import assumptions, survival, t_tests
+from statclaim.methods import assumptions, logistic, mixed_models, survival, t_tests
 from statclaim.methods.core import Assumption, CitedMethod, MethodModule, NullForm, Outcome
 from statclaim.methods.outcomes import OUTCOMES as _OUTCOMES
 
-METHOD_MODULES: tuple[MethodModule, ...] = (t_tests.MODULE, survival.MODULE)
+METHOD_MODULES: tuple[MethodModule, ...] = (
+    t_tests.MODULE,
+    mixed_models.MODULE,
+    survival.MODULE,
+    logistic.MODULE,
+)
 
 OUTCOMES: dict[str, Outcome] = {outcome.key: outcome for outcome in _OUTCOMES}
 # Every null form by its constructor name, with the outcome it belongs to.

@@ -14,6 +14,7 @@ SOURCES = {
     "literature": "a published result",
     "member_guarantees": "the members' own guarantees, each proved or cited separately",
     "simulation": "a simulation",
+    "author": "the author's own statement, with no source known to StatClaim",
 }
 CHECKS = {
     "guarantee": "Lean checked the guarantee itself",
@@ -38,6 +39,7 @@ GRADES = {
     ),
     "cited": Grade("cited from the literature; not machine-checked", ("literature",), "contract"),
     "simulated": Grade("estimated by simulation; not a proof", ("simulation",), "contract"),
+    "declared": Grade("declared by the author; not checked and not cited", ("author",), "contract"),
 }
 # What kind of statement a guarantee is. An approximation is never shown as a bound.
 SCOPES = {
@@ -52,6 +54,7 @@ ASSUMPTION_KINDS = {
     "scope": "Says which null or planning point the claim is about. A condition, not a risk.",
     "data": "About the supplied data matching the declared study.",
     "unproved_step": "A mathematical identity that is used but not proved in Lean.",
+    "vouched": "The author vouches for it. StatClaim has no contract or source for it.",
 }
 
 
@@ -140,6 +143,9 @@ class Outcome:
     summary: str  # one line for the catalogue
     documentation: str
     nulls: tuple[NullForm, ...]
+    # True when the model and null constructors come from a Lean-backed module,
+    # so the language does not generate them from this entry.
+    builtin: bool = False
 
 
 @dataclass(frozen=True)
@@ -164,6 +170,10 @@ class CitedMethod:
     min_total: int
     # For a large-sample guarantee: what has to grow for it to become exact.
     limit: str = "the sample sizes grow"
+    # When set, the null must have exactly this value, such as a zero difference.
+    null_value: Fraction | None = None
+    # cited: from the literature. declared: the author's own statement.
+    grade: str = "cited"
 
     def guarantee(self, alpha: Fraction, null: str) -> Guarantee:
         return Guarantee("type_I_error", self.relation, alpha, null, self.scope, self.limit)

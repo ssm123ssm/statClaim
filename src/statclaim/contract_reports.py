@@ -78,7 +78,10 @@ def explanation_markdown(entry: dict) -> str:
         else:
             method = guarantee["method"]
             lines += [
-                f"Cited from {method['title']} (`{method['key']}`, version "
+                f"Declared by the author as: {method['title']}. StatClaim has no contract "
+                "or source for this test and checked nothing about its guarantee."
+                if guarantee["grade"] == "declared"
+                else f"Cited from {method['title']} (`{method['key']}`, version "
                 f"{method['version']}); not proved in Lean.",
                 "",
             ]
@@ -132,6 +135,7 @@ STATUS_MEANING = {
     "verified": "proved in Lean",
     "conditional": "combination proved in Lean; members assumed",
     "cited": "cited from the literature; not machine-checked",
+    "declared": "declared by the author; not checked and not cited",
 }
 
 
@@ -163,6 +167,7 @@ def study_report(compilation: Compilation, path: str) -> dict:
                 "description": claim["description"],
                 "scope": claim["scope"],
                 "best_status": claim["best_status"],
+                "weakest_link": claim["weakest_link"],
                 "guarantee": claim["guarantee"],
                 "assumptions": claim["assumptions"],
                 "requirements": claim["requirements"],
@@ -210,8 +215,8 @@ def report_markdown(report: dict) -> str:
         "",
         "The strongest status `verify(...)` can give each claim. Nothing was run for this report.",
         "",
-        "| Claim | Kind | Best status | Exact or approximate |",
-        "| --- | --- | --- | --- |",
+        "| Claim | Kind | Best status | Weakest part | Exact or approximate |",
+        "| --- | --- | --- | --- | --- |",
     ]
     for claim in report["claims"]:
         names = f"`{claim['label']}`"
@@ -222,10 +227,11 @@ def report_markdown(report: dict) -> str:
         )
         lines.append(
             f"| {names} | {claim['kind']} | {claim['best_status']}: "
-            f"{STATUS_MEANING[claim['best_status']]} | {scope} |"
+            f"{STATUS_MEANING[claim['best_status']]} | {claim['weakest_link']['grade']}: "
+            f"{', '.join(claim['weakest_link']['parts'])} | {scope} |"
         )
     if not report["claims"]:
-        lines.append("| (none) | | | |")
+        lines.append("| (none) | | | | |")
     lines += ["", "## Assumptions to meet in the real study", ""]
     if report["assumption_register"]:
         lines += [

@@ -90,12 +90,16 @@ verification; a valid specification alone is not a proof.
 Some common tests are supported with a **cited** guarantee instead: StatClaim
 checks that your null and sampling plan fit the test, then lists the published
 guarantee and its assumptions. These are never reported as verified. Each result
-is `verified`, `conditional` or `cited`, and a file reports its weakest status.
+is `verified`, `conditional`, `cited` or `declared`, and a file reports the
+weakest part anywhere in it.
 
 | You want to | Use | Guarantee |
 | --- | --- | --- |
 | Compare two means | `tests.t` | Cited: pooled t-test (exact under normality) or Welch (large-sample) |
 | Compare two survival curves | `tests.survival` | Cited: log-rank test (large-sample) |
+| Analyse repeated measurements | `tests.mixed_model` | Cited: mixed model for repeated measures (large-sample) |
+| Adjust a yes-or-no outcome for covariates | `tests.logistic` | Cited: logistic regression (large-sample) |
+| Use an analysis StatClaim does not know | `tests.declared` | Declared: only its fit to the design is checked |
 | Combine proved and cited tests | `multiplicity.bonferroni` | Conditional: Lean checks the combination, the members are assumed |
 | Test endpoints in a fixed order | `multiplicity.fixed_sequence` | Conditional: Lean checks the hierarchical rule |
 | Recycle the level between endpoints | `multiplicity.graphical` | Cited: the graph is checked, the procedure's guarantee is cited |
@@ -155,7 +159,7 @@ uv run --locked statclaim catalogue
 
 See [quickstart](docs/quickstart.md) for VS Code and result inspection.
 
-Then work through the [tutorial](docs/tutorial.html): sixteen lessons, from a first
+Then work through the [tutorial](docs/tutorial.html): seventeen lessons, from a first
 checked claim to planning and analysing a study. Open the file in a browser;
 the lesson files are in `examples/tutorial/`.
 

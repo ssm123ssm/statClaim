@@ -80,6 +80,8 @@ RESULT_STATUSES = {
     "Evidence grade `conditional`.",
     "cited": "The study fits a published method's contract; the guarantee is cited, not "
     "machine-checked. Evidence grade `cited`.",
+    "declared": "The author named and vouched for the test or one of its parts. Nothing "
+    "about that guarantee was checked or cited. Evidence grade `declared`.",
     "calculated": "A `calculate` request produced numbers. No evidence.",
     "unresolved_obligation": "A requirement is unmet or a target is missed. No evidence. "
     "Not a finding that the claim is false.",
@@ -90,8 +92,10 @@ PROGRAM_STATUSES = {
     "invalid": "The file has an error and nothing was run.",
     "elaborated": "The file compiles with no open requirement; nothing was run.",
     "unresolved_obligation": "At least one claim has an unmet requirement.",
-    "cited": "Every claim went through and the weakest is cited.",
-    "conditional": "Every claim went through and the weakest is conditional.",
+    "declared": "Every claim went through; the weakest part anywhere is a declared test.",
+    "cited": "Every claim went through; the weakest part anywhere is cited.",
+    "conditional": "Every claim went through; the weakest part is a proved combination "
+    "of tests that are themselves provable.",
     "verified": "Every verified claim was proved; calculations may also be present.",
     "calculated": "Only calculations were requested.",
     "stale_source": "The file changed while it was being checked. Run it again.",

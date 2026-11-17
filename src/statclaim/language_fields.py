@@ -23,6 +23,7 @@ from statclaim.language import (
     IntervalIR,
     LocatedValue,
     ModelIR,
+    NullIR,
     ObservationIR,
     OneArmCandidatesIR,
     OneArmModelIR,
@@ -92,7 +93,7 @@ SCHEMAS = {
     },
     CitedAnalysisIR: {
         "design": FieldSpec(PlanIR, attribute="plan"),
-        "null": FieldSpec(OutcomeNullIR, attribute="hypothesis"),
+        "null": FieldSpec(NullIR, attribute="hypothesis"),
         "alpha": FieldSpec(Fraction),
         "guarantee": FieldSpec(Guarantee, description="The cited error-rate statement."),
     },

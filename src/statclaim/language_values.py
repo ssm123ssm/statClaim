@@ -202,7 +202,12 @@ class Evidence:
 
 # The one evidence grade each successful status may carry. A status never
 # overstates its evidence: only a full Lean proof is called verified.
-STATUS_GRADES = {"verified": "proved", "conditional": "conditional", "cited": "cited"}
+STATUS_GRADES = {
+    "verified": "proved",
+    "conditional": "conditional",
+    "cited": "cited",
+    "declared": "declared",
+}
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,24 @@
+# Lesson 17: an analysis StatClaim does not know, declared by name.
+use models.two_arm_continuous
+use sampling
+use tests.declared
+use tests.t
+use multiplicity.bonferroni
+
+let study = two_arm_continuous(n_control=200, n_treatment=200)
+let plan = fixed(model=study)
+
+# A stratified rank test is not in StatClaim's registry, so name it and say
+# where it is specified.
+let pain = declared_test(
+    design=plan,
+    null=equal_means(model=study),
+    alpha=1/40,
+    method="Van Elteren stratified rank test, stratified by site",
+    reference="Statistical analysis plan, section 9.2",
+)
+let function = t_test(design=plan, null=equal_means(model=study), alpha=1/40)
+
+let endpoints = bonferroni(analyses=[pain, function], alpha=1/20)
+let family = verify(familywise(endpoints))
+let alone = verify(typeI(pain))

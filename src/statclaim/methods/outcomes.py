@@ -44,4 +44,30 @@ SURVIVAL = Outcome(
     ),
 )
 
-OUTCOMES = (CONTINUOUS, SURVIVAL)
+# The binary outcome's model and nulls are defined by the Lean-backed module
+# models.two_arm_binomial. This entry lets cited tests refer to them.
+BINARY = Outcome(
+    key="binary",
+    module="models.two_arm_binomial",
+    constructor="two_arm_binomial",
+    summary="Two arms with a yes-or-no outcome.",
+    documentation="Two arms with a yes-or-no outcome, such as response.",
+    nulls=(
+        NullForm("equal_proportions", "p_treatment = p_control", "Null: equal proportions."),
+        NullForm(
+            "proportion_difference",
+            "p_treatment - p_control = {value}",
+            "Null: the difference in proportions equals value.",
+            takes_value=True,
+        ),
+        NullForm(
+            "proportion_difference_at_most",
+            "p_treatment - p_control <= {value}",
+            "Null: the difference in proportions is at most value.",
+            takes_value=True,
+        ),
+    ),
+    builtin=True,
+)
+
+OUTCOMES = (CONTINUOUS, SURVIVAL, BINARY)

@@ -62,3 +62,54 @@ PRESPECIFIED_GRAPH = Assumption(
     "are fixed in advance, and a share is passed on only after a rejection. Each test "
     "controls its error at every level up to the overall level, not only at one.",
 )
+DECLARED_VALID = Assumption(
+    "declared_test_is_valid",
+    "vouched",
+    "The declared test rejects its true null with probability at most its level. "
+    "StatClaim has no contract or source for this test.",
+)
+INDEPENDENT_PARTICIPANTS = Assumption(
+    "independent_participants",
+    "sampling",
+    "Participants are independent of one another. Measurements on one participant may be "
+    "correlated.",
+)
+MISSING_AT_RANDOM = Assumption(
+    "missing_at_random",
+    "sampling",
+    "Missing measurements are missing at random given the observed data and the model.",
+)
+CORRECT_MEAN_MODEL = Assumption(
+    "correct_mean_model",
+    "distribution",
+    "The model for the mean, with its covariates, is fixed in advance and correctly specified.",
+)
+COVARIANCE_STRUCTURE = Assumption(
+    "covariance_structure",
+    "distribution",
+    "The covariance between a participant's measurements is correctly specified. An "
+    "unstructured matrix imposes no structure.",
+)
+APPROXIMATELY_NORMAL_ESTIMATE = Assumption(
+    "approximately_normal_estimate",
+    "distribution",
+    "Errors are multivariate normal, or the study is large enough for the estimated "
+    "treatment contrast to be approximately normal.",
+)
+LOGIT_LINEAR = Assumption(
+    "logit_linear",
+    "distribution",
+    "The log odds of response are linear in the model's covariates, which are fixed in advance.",
+)
+NULL_IS_ZERO_COEFFICIENT = Assumption(
+    "null_is_zero_coefficient",
+    "scope",
+    "The test is of the treatment coefficient. Under the declared null, treatment has no "
+    "effect on response given the covariates.",
+)
+ENOUGH_EVENTS = Assumption(
+    "enough_events",
+    "distribution",
+    "There are enough responders and non-responders in each arm for the estimated "
+    "coefficient to be approximately normal, with no separation.",
+)

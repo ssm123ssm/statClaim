@@ -83,3 +83,15 @@ test('conditional evidence is labelled as a checked combination of assumed membe
   assert.ok(tree.includes('Conditional evidence — combination checked, members assumed'));
   assert.ok(!tree.includes('Checked evidence'));
 });
+
+test('a declared test is labelled as the author\'s word', () => {
+  const declared = { grade: 'declared', certificate: null, established_properties: ['Declared by the author, not checked: level'],
+    required_assumptions: ['Valid'], assumptions: [{ id: 'declared_test_is_valid', kind: 'vouched', text: 'Valid', status: 'assumed' }],
+    method: { key: 'declared_test', version: 1, title: 'Stratified rank test' }, references: [] };
+  const declaredState = { ...state, report: { source: { sha256: 'source' }, requests: [
+    { request_id: 1, operation: 'verify', status: 'declared', value: { status: 'declared', claim, evidence: declared } }] } };
+  const tree = labels(buildClaimsTree(inspection, declaredState, live));
+  assert.ok(tree.includes('verify #1: declared'));
+  assert.ok(tree.includes('Declared by the author — not checked and not cited'));
+  assert.ok(!tree.includes('Checked evidence'));
+});

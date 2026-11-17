@@ -29,6 +29,8 @@ Other files in `playground/`:
 | `interim_look.stat` | An interim analysis with the error level split across looks |
 | `confirmatory_trial.stat` | An interim look and ordered endpoints in one plan |
 | `recycling.stat` | Co-primary endpoints with recycling, gating secondary endpoints |
+| `trial_models.stat` | A mixed model and a logistic regression as cited tests |
+| `declared_test.stat` | An analysis StatClaim does not know, declared by name |
 | `mixed_endpoints.stat` | A proved and a cited test under one error bound |
 
 ## Without Lean

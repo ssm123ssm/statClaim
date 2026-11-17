@@ -38,7 +38,10 @@ def mixed(tmp_path_factory):
 
 def test_mixed_family_is_conditional_and_its_fisher_member_is_verified(mixed):
     report, source = mixed
-    assert report["status"] == "conditional", report["diagnostics"]
+    # The family's own status is conditional, but one member is a cited test,
+    # so the file as a whole is no stronger than cited.
+    assert report["status"] == "cited", report["diagnostics"]
+    assert report["requests"][0]["weakest_link"] == {"grade": "cited", "parts": ["symptoms"]}
     family, primary = report["values"]["family"], report["values"]["primary"]
     assert family["status"] == "conditional" and primary["status"] == "verified"
     evidence = family["evidence"]
@@ -54,7 +57,8 @@ def test_mixed_family_is_conditional_and_its_fisher_member_is_verified(mixed):
     assert "normal_outcomes" in ids and evidence["references"]
     text = render_report(report, source)
     assert "conditional [family]" in text and "verified [primary]" in text
-    assert "Program status: conditional" in text
+    assert "Program status: cited" in text
+    assert "Weakest part: cited from the literature; not machine-checked (symptoms)" in text
 
 
 def test_composition_certificate_replays_and_states_what_it_leaves_assumed(mixed):
@@ -83,7 +87,7 @@ def test_a_cited_member_cannot_be_relabelled_as_proved(mixed, tmp_path):
 def test_large_sample_members_make_the_family_approximate(tmp_path):
     report = check_source(Source(TWO_MEANS, "means.stat"), project=ROOT, output=tmp_path / "run")
     evidence = report["values"]["family"]["evidence"]
-    assert report["status"] == "conditional" and evidence["scope"] == "asymptotic"
+    assert report["status"] == "cited" and evidence["scope"] == "asymptotic"
     assert any("sum of the slacks" in claim for claim in evidence["established_properties"])
 
 
@@ -124,7 +128,7 @@ def test_confirmatory_trial_with_looks_and_a_fixed_sequence(tmp_path):
         "conditional",
         "verified",
     ]
-    assert report["status"] == "conditional"
+    assert report["status"] == "cited"
     bundle = Path(values["overall"]["evidence"]["certificate"]["directory"])
     proof = (bundle / "Proof.lean").read_text()
     assert "fixed_sequence_le_of_levels" in proof and "checked_levels" in proof
@@ -158,3 +162,19 @@ def test_recycling_graph_gating_a_sequence(tmp_path):
     members = json.loads((bundle / "inputs.json").read_text())["members"]
     assert members[0]["quantity"] == "familywise_error" and members[0]["grade"] == "cited"
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
+
+
+def test_declared_member_in_a_proved_combination_makes_the_file_declared(tmp_path):
+    path = ROOT / "examples/declared_test.stat"
+    source = Source(path.read_text(), str(path))
+    report = check_source(source, project=ROOT, output=tmp_path / "run")
+    values = report["values"]
+    assert values["family"]["status"] == "conditional"  # the combination itself is proved
+    assert values["alone"]["status"] == "declared"
+    assert report["status"] == "declared"
+    assert report["requests"][0]["weakest_link"] == {"grade": "declared", "parts": ["pain"]}
+    members = json.loads(
+        (Path(values["family"]["evidence"]["certificate"]["directory"]) / "inputs.json").read_text()
+    )["members"]
+    assert members[0]["grade"] == "declared" and members[0]["basis"].startswith("declared by")
+    assert "Weakest part: declared by the author" in render_report(report, source)

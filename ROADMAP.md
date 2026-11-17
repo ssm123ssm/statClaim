@@ -32,6 +32,8 @@
 - A complete generated language reference.
 - Graphical procedures with recycling (cited), and nesting of combinations.
 - Replication materials: an error-injection evaluation and a re-check of Simon (1989).
+- Cited mixed-model and logistic-regression tests; declared tests for anything else.
+- Every result and file names its weakest part.
 
 ## Direction
 
@@ -43,7 +45,7 @@ and for rules that combine tests. Each claim shows its
 
 ## Next
 
-1. A contract for ANCOVA, which needs covariates in the outcome model.
+1. Planning (power and sample size) for cited tests.
 2. Cited group-sequential boundaries that use the correlation between looks.
 3. A narrower exact interval for a difference of two proportions.
 4. Larger sample sizes and p-values for the test with a margin.

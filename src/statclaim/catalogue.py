@@ -1,6 +1,6 @@
 """Classified public inventory; signatures and fields come from live registries."""
 
-from statclaim.language import MODULES, OPERATIONS, ValueType
+from statclaim.language import DECLARED_MODULE_SUMMARY, MODULES, OPERATIONS, ValueType
 from statclaim.language_fields import SCHEMAS
 from statclaim.methods import ASSUMPTIONS, METHOD_MODULES, METHODS, OUTCOMES
 from statclaim.methods.core import ASSUMPTION_KINDS, CHECKS, GRADES, SCOPES, SOURCES
@@ -97,8 +97,10 @@ MODULE_CLASSES.update(
     {
         outcome.module: ("Models and hypotheses", f"{outcome.summary} Fixes no distribution.")
         for outcome in OUTCOMES.values()
+        if not outcome.builtin
     }
 )
+MODULE_CLASSES["tests.declared"] = ("Declared analyses", DECLARED_MODULE_SUMMARY)
 OBJECT_CLASSES = {
     "Guarantee": (
         "Claims and results",

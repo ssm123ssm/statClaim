@@ -161,6 +161,9 @@ def test_module_constructor_and_builtin_completion_use_registry():
         "tests.difference",
         "tests.t",
         "tests.survival",
+        "tests.mixed_model",
+        "tests.logistic",
+        "tests.declared",
     }
     assert set(complete("use models.")) == {
         "models.two_arm_binomial",

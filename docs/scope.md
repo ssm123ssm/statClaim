@@ -24,6 +24,11 @@ What is supported:
   Beta-posterior rules. Type I error and power are checked for the whole design,
   and the decision for observed counts is checked against the declared rule.
 
+- **Mixed models and logistic regression, cited.** A treatment contrast from a
+  mixed model for repeated measures, and the treatment coefficient of a logistic
+  regression. Both list their own assumptions, such as missing at random.
+- **Declared tests.** Any other analysis can be named and vouched for. Only its
+  fit to the design is checked.
 - **Graphical procedures.** Tests with starting shares of the level and rules
   for passing a share on after a rejection. The contract checks the graph; the
   procedure's guarantee is cited.
@@ -71,6 +76,7 @@ Every piece of evidence states how its guarantee was established:
 | `conditional` | The combination is proved in Lean; each member's own guarantee is assumed. |
 | `cited` | Taken from the literature; not machine-checked. |
 | `simulated` | Estimated by simulation; not a proof. |
+| `declared` | Stated by the author; not checked and not cited. |
 
 A grade is shorthand for two facts, also available separately:
 `evidence.sources` says where the statement comes from (a Lean proof, the
@@ -87,9 +93,14 @@ Welch's is also `asymptotic`. A Bonferroni family with a cited member is
 and `claim.scope`.
 
 Each grade has its own result status, so a status never overstates its evidence:
-`proved` gives `verified`, `conditional` gives `conditional`, and `cited` gives
-`cited`. A file reports the weakest status among its claims. Cited evidence has
-no certificate; a conditional certificate states that the members are assumed.
+`proved` gives `verified`, `conditional` gives `conditional`, `cited` gives
+`cited` and `declared` gives `declared`. Cited and declared evidence have no
+certificate; a conditional certificate states that the members are assumed.
+
+A result is only as strong as its weakest part. A combination's status describes
+its own rule, so each result also names the weakest grade inside it, and a file
+reports the weakest part anywhere in it. A proved combination of cited tests
+makes the file `cited`, and one declared test makes it `declared`.
 
 Certificates record source/toolchain hashes and can be replayed. Trust includes
 the Lean kernel and declared axioms, the pinned dependencies, and the translation

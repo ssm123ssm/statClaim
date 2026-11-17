@@ -247,10 +247,36 @@ def inspect_request(request: RequestIR) -> dict:
 def best_status(claim: ClaimIR) -> str:
     """The strongest status verify(...) can give this claim. Nothing is run."""
     if isinstance(claim.subject, CitedAnalysisIR):
-        return "cited"
+        return claim.subject.method.grade
     if isinstance(claim.subject, ComposedFamilyIR):
         return claim.subject.lower().rules.grade
     return "verified"
+
+
+# From strongest to weakest. A plan is only as strong as its weakest part.
+GRADE_ORDER = ("proved", "conditional", "cited", "declared")
+
+
+def weakest_link(subject: object) -> dict:
+    """The weakest grade anywhere in a claim's subject, and the parts that have it.
+
+    A combination's own rule counts as a part, under the name "its rule".
+    """
+    found: dict[str, list[str]] = {}
+
+    def visit(name: str, item: object) -> None:
+        if isinstance(item, ComposedFamilyIR):
+            found.setdefault(item.lower().rules.grade, []).append(f"{name}: its rule")
+            for member, analysis in item.analyses:
+                visit(member, analysis)
+        elif isinstance(item, CitedAnalysisIR):
+            found.setdefault(item.method.grade, []).append(name)
+        else:
+            found.setdefault("proved", []).append(name)
+
+    visit("the claim", subject)
+    grade = max(found, key=GRADE_ORDER.index)
+    return {"grade": grade, "parts": found[grade]}
 
 
 def inspect_program(compilation: Compilation) -> list[dict]:
@@ -286,6 +312,7 @@ def inspect_program(compilation: Compilation) -> list[dict]:
                 "kind": claim.kind,
                 "scope": claim.scope,
                 "best_status": best_status(claim),
+                "weakest_link": weakest_link(claim.subject),
                 "guarantee": claim.guarantee.to_dict() if claim.guarantee else None,
                 "identified_assumptions": description.get("assumptions")
                 or [identify(text) for text in description["required_assumptions"]],

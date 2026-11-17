@@ -22,9 +22,16 @@ from statclaim.language import (
     TwoStageObservationIR,
 )
 from statclaim.language_compiler import compile_source
-from statclaim.language_inspection import cited_report, inspect_planning, inspect_request
+from statclaim.language_inspection import (
+    GRADE_ORDER,
+    cited_report,
+    inspect_planning,
+    inspect_request,
+    weakest_link,
+)
 from statclaim.language_syntax import Diagnostic, Source, Span
 from statclaim.language_values import (
+    STATUS_GRADES,
     CalculationResult,
     Evidence,
     ExecutionResult,
@@ -53,6 +60,18 @@ from statclaim.report import (
 )
 from statclaim.verification import digest
 
+STATUS_OF_GRADE = {grade: status for status, grade in STATUS_GRADES.items()}
+
+
+def _weakest_line(request: dict) -> list[str]:
+    """Say so when a claim's own status is stronger than the weakest part inside it."""
+    link = request["weakest_link"]
+    own = STATUS_GRADES.get(request["status"])
+    if own is None or GRADE_ORDER.index(link["grade"]) <= GRADE_ORDER.index(own):
+        return []
+    parts = ", ".join(link["parts"])
+    return [f"  Weakest part: {GRADES[link['grade']].label} ({parts})"]
+
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
@@ -60,10 +79,14 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         # The contract checks passed during compilation. No backend runs: the
         # guarantee is the published result, restated with its assumptions.
         report = cited_report(subject)
+        grade = subject.method.grade
+        prefix = (
+            "Declared by the author, not checked" if grade == "declared" else "Cited, not checked"
+        )
         report.update(
-            status="cited",
-            evidence_grade="cited",
-            established_properties=[f"Cited, not checked: {report['target_property']}"],
+            status=grade,
+            evidence_grade=grade,
+            established_properties=[f"{prefix}: {report['target_property']}"],
         )
         return report
     if request.claim.kind in ("meets", "sample_size"):
@@ -224,7 +247,7 @@ def _result_value(
                 or [identify(text) for text in details["required_assumptions"]]
             ),
         )
-    if status == "cited":
+    if status in ("cited", "declared"):
         evidence = Evidence(
             request.claim,
             None,
@@ -354,6 +377,7 @@ def check_source(
                 "claim": request.claim.kind,
                 "subject": request.claim.name,
                 "source": request.span.to_dict(),
+                "weakest_link": weakest_link(request.claim.subject),
                 "status": status,
                 "value": value.to_dict(),
                 "report": result,
@@ -367,18 +391,19 @@ def check_source(
         r["report"]["certificate_issued"] for r in report["requests"]
     )
     statuses = [r["status"] for r in report["requests"]]
-    # A file is only as strong as its weakest claim: one cited claim means the
-    # file as a whole is not verified.
-    report["status"] = (
-        "unresolved_obligation"
-        if "unresolved_obligation" in statuses
-        else "cited"
-        if "cited" in statuses
-        else "conditional"
-        if "conditional" in statuses
-        else "verified"
-        if "verified" in statuses
-        else "calculated"
+    # A file is only as strong as its weakest part. A claim that went through is
+    # counted by the weakest grade anywhere inside it, so a proved combination of
+    # cited or declared tests does not make the file look proved.
+    for request in report["requests"]:
+        if request["status"] in STATUS_GRADES:
+            statuses.append(STATUS_OF_GRADE[request["weakest_link"]["grade"]])
+    report["status"] = next(
+        (
+            status
+            for status in ("unresolved_obligation", "declared", "cited", "conditional", "verified")
+            if status in statuses
+        ),
+        "calculated",
     )
     # Certificates concern the retained snapshot. Do not display their status as
     # verification of a file that was edited while the backend was checking it.
@@ -487,6 +512,7 @@ def render_report(report: dict, source: Source) -> str:
         if status == "not_executed":
             status = request["status"]
         lines.append(f"{status}{label}: {request['claim']}({request['subject']})")
+        lines.extend(_weakest_line(request) if "weakest_link" in request else [])
         if details["certificate_issued"]:
             evidence = request["value"]["evidence"]
             lines.append(
@@ -501,7 +527,7 @@ def render_report(report: dict, source: Source) -> str:
                 lines.append("  References:")
                 lines.extend(f"    {reference}" for reference in details["references"])
             lines.append(f"  Certificate: {details['certificate']['directory']}")
-        elif request["status"] == "cited":
+        elif request["status"] in ("cited", "declared"):
             evidence = request["value"]["evidence"]
             lines.append(
                 f"  Evidence: {GRADES[evidence['grade']].label}; "

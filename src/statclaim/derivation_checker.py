@@ -19,6 +19,7 @@ from statclaim.derivations import (
     CITED_NOT_ESTABLISHED,
     COMPOSED_NOT_ESTABLISHED,
     CONTRACT_IDS,
+    DECLARED_NOT_ESTABLISHED,
     FAMILY_ASSUMPTIONS,
     NOT_ESTABLISHED,
     ONE_SAMPLE_ASSUMPTIONS,
@@ -28,6 +29,7 @@ from statclaim.derivations import (
 )
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
 from statclaim.methods.assumptions import (
+    DECLARED_VALID,
     FIXED_SIZES,
     PRESPECIFIED_FAMILY,
     PRESPECIFIED_GRAPH,
@@ -35,7 +37,7 @@ from statclaim.methods.assumptions import (
     PRESPECIFIED_ORDER,
     SINGLE_ANALYSIS,
 )
-from statclaim.methods.core import Guarantee
+from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
 
 SUPPORTED_NULLS = {
     "two_sided": ["equal_proportions"],
@@ -294,20 +296,60 @@ def _null_statement(null: dict) -> str:
     return form.state(Fraction(null["value"]) if form.takes_value else Fraction(0))
 
 
+def _method(subject: dict) -> CitedMethod | None:
+    """The registry's method, or for a declared test the method the file describes."""
+    test = subject.get("test")
+    if test in METHODS:
+        return METHODS[test]
+    if test != "declared_test":
+        return None
+    title, scope, references = subject["method"], subject["scope"], subject["references"]
+    valid = (
+        isinstance(title, str)
+        and title.strip()
+        and scope in SCOPES
+        and isinstance(references, list)
+        and len(references) <= 1
+    )
+    if not valid:
+        raise ValueError("the declared test is not described properly")
+    return CitedMethod(
+        key="declared_test",
+        module="tests.declared",
+        title=title,
+        version=1,
+        outcome="",
+        null=subject["null"]["predicate"],
+        relation="at_most",
+        scope=scope,
+        assumptions=(DECLARED_VALID,),
+        references=tuple(references),
+        min_per_arm=1,
+        min_total=2,
+        grade="declared",
+    )
+
+
 def _cited_expected(name: str, subject: dict, contract: str):
     """Steps, obligations, assumptions and guarantee for a cited method's contract.
 
     The method registry is data, like the rules. The premises are re-evaluated here.
     """
-    method = METHODS.get(subject["test"])
+    method = _method(subject)
     if method is None or contract != f"{method.module}/{method.key}":
         raise ValueError("the contract does not match the declaration")
     design, null = subject["design"], subject["null"]
     sizes, alpha = _sizes(design["model"]), Fraction(subject["alpha"])
-    expected_model = OUTCOMES[method.outcome].constructor
+    # A declared test fits any model; a cited one fits its own outcome's model.
+    expected_model = (
+        design["model"]["module"]
+        if method.grade == "declared"
+        else OUTCOMES[method.outcome].constructor
+    )
     continuous = all(
         model["module"] == expected_model for model in (design["model"], null["model"])
     )
+    value_ok = method.null_value is None or (Fraction(null.get("value", "0")) == method.null_value)
     enough = min(sizes.values()) >= method.min_per_arm and sum(sizes.values()) >= method.min_total
     steps = [
         (
@@ -324,7 +366,7 @@ def _cited_expected(name: str, subject: dict, contract: str):
                 "statement": _null_statement(null),
                 "supported": [method.null],
             },
-            null["predicate"] == method.null,
+            null["predicate"] == method.null and value_ok,
             (),
         ),
         ("level-interior", {"subject": name, "alpha": subject["alpha"]}, 0 < alpha < 1, ()),
@@ -355,7 +397,7 @@ def _cited_expected(name: str, subject: dict, contract: str):
         guarantee = {
             **statement.to_dict(),
             "sentence": statement.sentence,
-            "grade": "cited",
+            "grade": method.grade,
             "method": method.to_dict(),
             "given": [item.id for item in method.assumptions],
             "references": list(method.references),
@@ -367,6 +409,7 @@ MEMBER_GRADES = {
     "proved": "provable in Lean; verify the member's own Type I claim",
     "cited": "cited from the literature; not machine-checked",
     "conditional": "holds if each of its own members' bounds holds; verify its own claim",
+    "declared": "declared by the author; not checked and not cited",
 }
 
 
@@ -472,8 +515,8 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
                 f" version {GRAPHICAL_METHOD['version']}" if grade == "cited" else ""
             )
             keys.append("design")
-        elif analysis["test"] in METHODS:
-            method = METHODS[analysis["test"]]
+        elif _method(analysis) is not None:
+            method = _method(analysis)
             block_steps, fixed, texts, _ = _cited_expected(
                 member, analysis, f"{method.module}/{method.key}"
             )
@@ -482,8 +525,12 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
             cited_texts += [
                 text for text in texts if text not in cited_texts and text not in discharged
             ]
-            null, grade, scope = _null_statement(analysis["null"]), "cited", method.scope
-            basis = f"{method.module}/{method.key} version {method.version}"
+            null, grade, scope = _null_statement(analysis["null"]), method.grade, method.scope
+            basis = (
+                f"declared by the author: {method.title}"
+                if grade == "declared"
+                else f"{method.module}/{method.key} version {method.version}"
+            )
             keys.append(method.key)
         elif analysis["test"] == "fisher":
             for rule_name, facts, holds in _analysis_expectations(member, analysis):
@@ -638,7 +685,7 @@ def _carried(derivation: dict):
     subject = derivation.get("subject")
     if not isinstance(subject, dict):
         return None
-    if subject.get("test") in METHODS:
+    if _method(subject) is not None:
         return _cited_expected(derivation["name"], subject, derivation["contract"])
     if subject.get("composition") == "conditional":
         return _composed_expected(derivation["name"], subject, derivation["contract"])
@@ -738,9 +785,10 @@ def check_derivation(derivation: dict) -> list[str]:
         if derivation.get("not_established") != (
             NOT_ESTABLISHED
             if not guarantee
-            else COMPOSED_NOT_ESTABLISHED
-            if guarantee["grade"] == "conditional"
-            else CITED_NOT_ESTABLISHED
+            else {
+                "conditional": COMPOSED_NOT_ESTABLISHED,
+                "declared": DECLARED_NOT_ESTABLISHED,
+            }.get(guarantee["grade"], CITED_NOT_ESTABLISHED)
         ):
             problems.append("The statement of what is not established is missing or altered.")
         required, obligation_rules, assumptions = _expected(derivation)
