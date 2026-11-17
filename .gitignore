@@ -32,3 +32,6 @@ memory/
 playground/
 memory*.md
 *_memory.md
+
+# Paper drafts stay local
+statClaim_paper/

@@ -3,7 +3,7 @@
 New here? Work through the [tutorial](tutorial.html): fourteen lessons with runnable
 files in `examples/tutorial/`.
 
-Start with the [quickstart](quickstart.md), [catalogue](catalogue.md),
+Start with the [quickstart](quickstart.md), [language reference](catalogue.md),
 [architecture](architecture.md) and [scope](scope.md).
 
 - [Language](stat-language.md) and [hypothesis contracts](hypothesis-contracts.md)

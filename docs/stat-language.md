@@ -62,6 +62,10 @@ true in the study. Alpha and sample sizes are exact inputs; observations are opt
 
 ## Grammar
 
+The formal grammar, every type, constructor, fixed value, limit and diagnostic
+code are in the generated [language reference](catalogue.md). This section is
+the short version.
+
 The grammar has imports, immutable declarations, and operation calls:
 
 ```text

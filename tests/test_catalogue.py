@@ -47,4 +47,4 @@ def test_cli_catalogue_json_is_pure(capsys, monkeypatch):
     assert main(["catalogue", "--json"]) == 0
     assert len(json.loads(capsys.readouterr().out)["modules"]) == len(MODULES)
     assert main(["catalog"]) == 0
-    assert "# Object and module catalogue" in capsys.readouterr().out
+    assert "# Language reference and catalogue" in capsys.readouterr().out

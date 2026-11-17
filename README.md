@@ -159,7 +159,7 @@ the lesson files are in `examples/tutorial/`.
 
 ## Explore and contribute
 
-- [Object and module catalogue](docs/catalogue.md): classifications, constructors and fields.
+- [Language reference](docs/catalogue.md): grammar, types, constructors, statuses, limits and diagnostic codes.
 - [Architecture](docs/architecture.md): source, compiler, Python execution and Lean.
 - [Scope and trust](docs/scope.md): what is checked and what remains an assumption.
 - [Contributing](CONTRIBUTING.md): setup, tests and useful first contributions.
