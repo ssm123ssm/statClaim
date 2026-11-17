@@ -6,6 +6,7 @@ import tempfile
 from fractions import Fraction
 from pathlib import Path
 
+from statclaim import cited_planning
 from statclaim.composition import composition_claims
 from statclaim.language import (
     LANGUAGE_VERSION,
@@ -100,6 +101,9 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         analysis = (
             subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
         )
+        if isinstance(analysis, CitedAnalysisIR):
+            # verify(...) was refused while compiling: approximate power is a calculation.
+            return cited_planning.run(report, subject)
         if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
             del options["verify"]
             verify = request.operation == "verify"
@@ -443,7 +447,41 @@ def check_source(
     return report
 
 
+def _approximate_lines(details: dict) -> list[str]:
+    """Approximate power of a cited test, with the formula and what it rests on."""
+    calculation = details["calculation"]
+    lines = []
+    if "n_control" in calculation:
+        lines += [
+            f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
+            f"total = {calculation['total_sample_size']}",
+            f"  power ~ {float(calculation['power']['decimal_approximation']):.4f} "
+            f"({cited_planning.APPROXIMATE}); "
+            f"power target met = {str(calculation['power_target_met']).lower()}",
+            f"  rejects when the estimate is {calculation['reject_when']} "
+            f"{float(calculation['critical_estimate']['decimal_approximation']):.4g}; "
+            f"standard error ~ {float(calculation['standard_error']['decimal_approximation']):.4g}",
+            f"  level {calculation['alpha']['fraction']}; requested Type I bound "
+            f"{calculation['maximum_typeI']['fraction']}; Type I target met = "
+            f"{str(calculation['typeI_target_met']).lower()}",
+        ]
+    if "candidates_evaluated" in calculation:
+        lines.append(f"  candidates evaluated = {calculation['candidates_evaluated']}")
+    formula = details["formula"]
+    lines.append(f"  Formula: {formula['title']} ({formula['key']}, version {formula['version']})")
+    lines.append("  Assumptions:")
+    lines.extend(
+        f"    [{item['id']}] {item['text']} ({item['status']})" for item in details["assumptions"]
+    )
+    lines.append("  References:")
+    lines.extend(f"    {reference}" for reference in details["references"])
+    lines.append(f"  decision = {details['decision']}; no formal certificate issued.")
+    return lines
+
+
 def _planning_lines(details: dict) -> list[str]:
+    if details.get("verification_scope") == "cited_planning":
+        return _approximate_lines(details)
     calculation = details["calculation"]
     lines = []
     if "n_control" in calculation:

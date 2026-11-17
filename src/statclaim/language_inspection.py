@@ -1,5 +1,6 @@
 """Pure claim descriptions and inspection data for reports and editor views."""
 
+from statclaim import cited_planning
 from statclaim.composition import DISCHARGED, composition_assumptions
 from statclaim.design import inspect_design
 from statclaim.family import inspect_family
@@ -17,14 +18,16 @@ from statclaim.language import (
     ObservationIR,
     OneSampleObservationIR,
     RequestIR,
+    SizingIR,
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
     VerificationResultIR,
     normalize,
+    planned_analysis,
 )
 from statclaim.language_compiler import Compilation, requirements
-from statclaim.methods.identify import identify
+from statclaim.methods.identify import identify, mark
 from statclaim.planning import (
     RESULT_ASSUMPTIONS,
     TwoStagePlan,
@@ -58,6 +61,8 @@ def inspect_planning(request: RequestIR) -> dict:
     target = subject.target
     feasibility = isinstance(subject, FeasibilityIR)
     analysis = subject.analysis if feasibility else subject.candidates.analysis
+    if isinstance(analysis, CitedAnalysisIR):
+        return cited_planning.describe(subject)
     if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
         if feasibility:
             return margin_report(subject.lower(), verify=request.operation == "verify")
@@ -139,22 +144,16 @@ def cited_report(analysis: CitedAnalysisIR) -> dict:
         "cited", analysis.guarantee.sentence, [item.text for item in method.assumptions]
     )
     report["method"] = method.to_dict()
-    report["assumptions"] = [_marked(item) for item in method.assumptions]
+    report["assumptions"] = [mark(item) for item in method.assumptions]
     report["references"] = list(method.references)
     return report
-
-
-def _marked(assumption) -> dict:
-    """A design assumption is stated by the file itself; the rest cannot be."""
-    status = "declared" if assumption.kind == "design" else "assumed"
-    return {**assumption.to_dict(), "status": status}
 
 
 def _register(family: ComposedFamilyIR, assumptions: dict, references: list) -> None:
     """Add a combination's assumptions, and those of the tests inside it, by id."""
     composition = family.lower()
     own = composition.prespecified
-    assumptions.setdefault(own.id, _marked(own))
+    assumptions.setdefault(own.id, mark(own))
     references += [r for r in composition.rules.references if r not in references]
     for name, _ in family.analyses:
         # The member's own bound is the hypothesis the combination rests on.
@@ -171,7 +170,7 @@ def _register(family: ComposedFamilyIR, assumptions: dict, references: list) -> 
             for item in analysis.method.assumptions:
                 if item.id in DISCHARGED[composition.mode]:
                     continue
-                entry = assumptions.setdefault(item.id, {**_marked(item), "members": []})
+                entry = assumptions.setdefault(item.id, {**mark(item), "members": []})
                 entry["members"].append(name)
             references += [r for r in analysis.method.references if r not in references]
 
@@ -250,6 +249,10 @@ def best_status(claim: ClaimIR) -> str:
         return claim.subject.method.grade
     if isinstance(claim.subject, ComposedFamilyIR):
         return claim.subject.lower().rules.grade
+    if claim.kind in ("meets", "sample_size") and isinstance(
+        planned_analysis(claim.subject), CitedAnalysisIR
+    ):
+        return "calculated"
     return "verified"
 
 
@@ -271,6 +274,8 @@ def weakest_link(subject: object) -> dict:
                 visit(member, analysis)
         elif isinstance(item, CitedAnalysisIR):
             found.setdefault(item.method.grade, []).append(name)
+        elif isinstance(item, (FeasibilityIR, SizingIR)):
+            visit(name, planned_analysis(item))
         else:
             found.setdefault("proved", []).append(name)
 

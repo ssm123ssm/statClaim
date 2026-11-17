@@ -104,6 +104,7 @@ weakest part anywhere in it.
 | Test endpoints in a fixed order | `multiplicity.fixed_sequence` | Conditional: Lean checks the hierarchical rule |
 | Recycle the level between endpoints | `multiplicity.graphical` | Cited: the graph is checked, the procedure's guarantee is cited |
 | Plan interim looks | `designs.group_sequential` | Conditional: Lean checks the split of the error level across looks |
+| Approximate a cited test's power | `planning` | Calculated only: a normal approximation, never verified |
 
 See [cited methods](docs/cited-methods.md) and [evidence grades](docs/scope.md#evidence-grades).
 

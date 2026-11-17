@@ -10,6 +10,7 @@ from statclaim.methods.assumptions import (
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import CitedMethod, MethodModule
+from statclaim.methods.power import TWO_MEANS
 
 LAIRD_WARE = (
     "Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. "
@@ -43,6 +44,7 @@ _COMMON = dict(
     references=(LAIRD_WARE, KENWARD_ROGER, MALLINCKRODT),
     min_per_arm=2,
     min_total=4,
+    power=TWO_MEANS,
 )
 
 MODULE = MethodModule(

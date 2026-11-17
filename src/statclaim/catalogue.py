@@ -2,7 +2,7 @@
 
 from statclaim.language import DECLARED_MODULE_SUMMARY, MODULES, OPERATIONS, ValueType
 from statclaim.language_fields import SCHEMAS
-from statclaim.methods import ASSUMPTIONS, METHOD_MODULES, METHODS, OUTCOMES
+from statclaim.methods import ASSUMPTIONS, METHOD_MODULES, METHODS, OUTCOMES, POWER_FORMULAS
 from statclaim.methods.core import ASSUMPTION_KINDS, CHECKS, GRADES, SCOPES, SOURCES
 from statclaim.reference import (
     DIAGNOSTICS,
@@ -61,7 +61,8 @@ MODULE_CLASSES = {
         "Exact power at a planning point, target checks and a bounded sample-size search "
         "with equal or unequal allocation for the fixed Fisher analysis. "
         "Targets also apply to one-sample tests and two-stage designs. "
-        "A size can be certified as sufficient or as the smallest in the declared range.",
+        "A size can be certified as sufficient or as the smallest in the declared range. "
+        "Cited tests get approximate power from a normal formula, by calculation only.",
     ),
     "estimation": (
         "Analyses and claims",
@@ -131,6 +132,14 @@ OBJECT_CLASSES = {
     ),
     "Rates": ("Planning objects", "Planning point for two arms; an input, not a fact."),
     "Rate": ("Planning objects", "Planning point for a single response rate."),
+    "MeanDifference": (
+        "Planning objects",
+        "Planning point for a continuous outcome: a mean difference and an SD.",
+    ),
+    "HazardRatio": (
+        "Planning objects",
+        "Planning point for a survival outcome: a hazard ratio and a number of events.",
+    ),
     "PowerTarget": ("Planning objects", "Required power at a point and a Type I bound."),
     "Feasibility": ("Planning objects", "One analysis assessed against one target."),
     "Candidates": ("Planning objects", "Finite equal-arm design space for a search."),
@@ -209,6 +218,10 @@ OBJECT_CLASSES = {
         "Evidence and inspection",
         "Calculated error, power and expected sample size of a two-stage policy.",
     ),
+    "ApproximatePowerDetails": (
+        "Evidence and inspection",
+        "Approximate power and critical estimate of a cited test; not a bound.",
+    ),
     "Diagnostic": ("Evidence and inspection", "A diagnostic code, severity and message."),
 }
 CLAIM_TYPES = {"TypeIClaim", "ResultClaim", "FamilywiseClaim", "PlanningClaim", "IntervalClaim"}
@@ -276,8 +289,18 @@ def catalogue() -> dict:
                 "assumptions": [item.id for item in method.assumptions],
                 "references": list(method.references),
                 "minimum_sizes": {"per_arm": method.min_per_arm, "total": method.min_total},
+                "power": method.power.key if method.power else None,
             }
             for method in METHODS.values()
+        ],
+        "power_formulas": [
+            {
+                **formula.to_dict(),
+                "point": formula.point,
+                "assumptions": [item.id for item in formula.assumptions],
+                "references": list(formula.references),
+            }
+            for formula in POWER_FORMULAS.values()
         ],
         "assumptions": [item.to_dict() for item in ASSUMPTIONS.values()],
         "diagnostics": {
@@ -428,7 +451,16 @@ def render_catalogue() -> str:
         "Guarantees taken from the literature. See [cited methods](cited-methods.md).",
         "",
         *_table(
-            ("Constructor", "Version", "Outcome", "Null", "Error rate", "Scope", "Minimum size"),
+            (
+                "Constructor",
+                "Version",
+                "Outcome",
+                "Null",
+                "Error rate",
+                "Scope",
+                "Minimum size",
+                "Power",
+            ),
             (
                 (
                     f"`{m['key']}`",
@@ -438,6 +470,7 @@ def render_catalogue() -> str:
                     "equals alpha" if m["relation"] == "equals" else "at most alpha",
                     f"`{m['scope']}`",
                     f"{m['minimum_sizes']['per_arm']} per arm, {m['minimum_sizes']['total']} total",
+                    f"`{m['power']}`" if m["power"] else "none",
                 )
                 for m in data["cited_methods"]
             ),
@@ -452,6 +485,28 @@ def render_catalogue() -> str:
             *[f"- {reference}" for reference in m["references"]],
             "",
         ]
+    lines += [
+        "### Power formulas",
+        "",
+        "Approximate power for cited tests, by calculation only. See "
+        "[power for cited tests](planning.md#power-for-cited-tests).",
+        "",
+        *_table(
+            ("Formula", "Version", "Planning point", "Assumes"),
+            (
+                (
+                    f"`{f['key']}`",
+                    f["version"],
+                    f"`{f['point']}`",
+                    ", ".join(f"`{a}`" for a in f["assumptions"]),
+                )
+                for f in data["power_formulas"]
+            ),
+        ),
+    ]
+    for f in data["power_formulas"]:
+        lines += [f"**`{f['key']}`** ({f['title']}). References:", ""]
+        lines += [*[f"- {reference}" for reference in f["references"]], ""]
     lines += [
         "## Assumptions",
         "",

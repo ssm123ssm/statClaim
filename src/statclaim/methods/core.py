@@ -4,7 +4,8 @@ Nothing here depends on the language, the compiler or Lean, so a method file can
 be read and reviewed on its own.
 """
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from fractions import Fraction
 
 # How a guarantee was established. A grade is shorthand for two separate facts:
@@ -55,6 +56,8 @@ ASSUMPTION_KINDS = {
     "data": "About the supplied data matching the declared study.",
     "unproved_step": "A mathematical identity that is used but not proved in Lean.",
     "vouched": "The author vouches for it. StatClaim has no contract or source for it.",
+    "approximation": "A simplification used to compute a number, such as a normal "
+    "approximation. Not checkable from a declaration.",
 }
 
 
@@ -125,6 +128,8 @@ class NullForm:
     statement: str  # may contain {value} when the null takes a number
     documentation: str
     takes_value: bool = False
+    # True for a null of the form "difference <= value", tested in one direction.
+    one_sided: bool = False
 
     def state(self, value: Fraction) -> str:
         return self.statement.format(value=value)
@@ -146,6 +151,37 @@ class Outcome:
     # True when the model and null constructors come from a Lean-backed module,
     # so the language does not generate them from this entry.
     builtin: bool = False
+
+
+@dataclass(frozen=True)
+class PowerResult:
+    """Approximate power of a test at one planning point, and what the estimate must pass."""
+
+    power: float
+    critical: float  # the value the estimate must pass for the test to reject
+    direction: str  # "above" or "below": which side of `critical` rejects
+    standard_error: float  # on the analysed scale; for a hazard ratio, of its logarithm
+
+
+@dataclass(frozen=True)
+class PowerFormula:
+    """An approximate power formula for one kind of planning point.
+
+    `function(point, n_control, n_treatment, null_value, alpha, one_sided)` returns a
+    PowerResult. `point` maps the planning point's arguments to floats. Bump `version`
+    whenever the function, assumptions or references change.
+    """
+
+    key: str
+    title: str
+    version: int
+    point: str  # the planning point's constructor, such as "mean_difference"
+    function: Callable[..., PowerResult] = field(repr=False, compare=False)
+    assumptions: tuple[Assumption, ...] = ()
+    references: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict:
+        return {"key": self.key, "version": self.version, "title": self.title}
 
 
 @dataclass(frozen=True)
@@ -174,6 +210,9 @@ class CitedMethod:
     null_value: Fraction | None = None
     # cited: from the literature. declared: the author's own statement.
     grade: str = "cited"
+    # How to approximate the test's power, if it can be. Versioned on its own, since the
+    # Type I guarantee does not depend on it.
+    power: PowerFormula | None = field(default=None, repr=False, compare=False)
 
     def guarantee(self, alpha: Fraction, null: str) -> Guarantee:
         return Guarantee("type_I_error", self.relation, alpha, null, self.scope, self.limit)

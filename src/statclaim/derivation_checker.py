@@ -49,6 +49,13 @@ SUPPORTED_NULLS = {
 SUPPORTED_JOINT_LAWS = ["binomial_marginals"]
 FAMILY_LIMITS = (2, 20)
 ONE_ARM_LIMIT, PER_ARM_LIMIT, STAGE_LIMIT, SEARCH_LIMIT, RATIO_LIMIT = 1000, 500, 200, 120, 10
+CITED_ARM_LIMIT = 100_000
+# The arguments of each kind of planning point a power formula can take.
+POINT_KEYS = {
+    "mean_difference": {"mean_difference", "sd"},
+    "binomial_rates": {"p_control", "p_treatment"},
+    "hazard_ratio": {"hazard_ratio", "events"},
+}
 CRITERIA = ["optimal", "minimax"]
 
 
@@ -105,7 +112,7 @@ def _two_stage_expectations(name: str, analysis: dict) -> list[tuple[str, dict, 
     ]
 
 
-def _search_valid(search: dict) -> bool:
+def _search_valid(search: dict, arm_limit: int = PER_ARM_LIMIT) -> bool:
     if "max_per_arm" in search:
         ratio = (
             1 if search["allocation"] == "equal_arms" else int(search["allocation"].split(":")[1])
@@ -115,7 +122,7 @@ def _search_valid(search: dict) -> bool:
             _whole(low, 1)
             and _whole(high, low)
             and 1 <= ratio <= RATIO_LIMIT
-            and high * ratio <= PER_ARM_LIMIT
+            and high * ratio <= arm_limit
         )
     if "max_n" in search:
         return (
@@ -157,6 +164,92 @@ def _block(name: str, analysis: dict, start: int = 0) -> list[tuple]:
     return steps
 
 
+def _point_valid(point: dict, kind: str, total: int) -> bool:
+    if set(point) != POINT_KEYS[kind]:
+        return False
+    if kind == "mean_difference":
+        return Fraction(point["sd"]) > 0
+    if kind == "binomial_rates":
+        return _probability(point["p_control"]) and _probability(point["p_treatment"])
+    return (
+        Fraction(point["hazard_ratio"]) > 0
+        and _whole(point["events"], 1)
+        and (point["events"] <= total)
+    )
+
+
+def _cited_planning_expected(name: str, subject: dict, search, analysis: dict):
+    """Approximate power for a cited test. The registry's formula is data, like its methods."""
+    method = METHODS[analysis["test"]]
+    formula = method.power
+    if formula is None:
+        raise ValueError("the method has no power formula")
+    inner = f"{name}.analysis"
+    steps, _, test_assumptions, _ = _cited_expected(
+        inner, analysis, f"{method.module}/{method.key}"
+    )
+    used = [len(steps) - 1]
+    target, point = subject["target"], subject["target"]["at"]
+    sizes = _sizes(analysis["design"]["model"])
+    facts = {
+        "subject": name,
+        "method": method.key,
+        "formula": formula.key,
+        "version": formula.version,
+        "point": point,
+    }
+    steps.append(
+        ("power-formula", facts, _point_valid(point, formula.point, sum(sizes.values())), ())
+    )
+    null = analysis["null"]
+    margin = Fraction(null.get("value", "0"))
+    if formula.point == "mean_difference":
+        effect = Fraction(point["mean_difference"])
+    elif formula.point == "binomial_rates":
+        effect = Fraction(point["p_treatment"]) - Fraction(point["p_control"])
+    else:
+        effect = Fraction(point["hazard_ratio"]) - 1
+    outside = effect > margin if NULL_FORMS[null["predicate"]][1].one_sided else effect != 0
+    statement = _null_statement(null)
+    steps.append(("alternative", {"subject": name, "point": point, "null": statement}, outside, ()))
+    minimum, maximum = target["minimum_power"], target["maximum_typeI"]
+    steps.append(
+        (
+            "target-range",
+            {"subject": name, "minimum": minimum, "maximum_typeI": maximum},
+            0 < Fraction(minimum) <= 1 and _probability(maximum),
+            (),
+        )
+    )
+    used += [len(steps) - 3, len(steps) - 2, len(steps) - 1]
+    if search is not None:
+        bounds = {key: value for key, value in search.items() if key != "analysis"}
+        steps.append(
+            (
+                "search-range",
+                {"subject": name, "search": bounds},
+                _search_valid(bounds, CITED_ARM_LIMIT) and formula.point != "hazard_ratio",
+                (),
+            )
+        )
+        used.append(len(steps) - 1)
+    steps.append(("cited-planning-contract", {"subject": name}, True, tuple(used)))
+    obligations = [
+        (
+            "cited-error-budget",
+            {"subject": name, "alpha": analysis["alpha"], "maximum_typeI": maximum},
+            Fraction(analysis["alpha"]) <= Fraction(maximum),
+        ),
+        _sampling_expectation(inner, analysis),
+    ]
+    assumptions = (
+        *test_assumptions,
+        *(item.text for item in formula.assumptions),
+        PLANNING_POINT_ASSUMPTION,
+    )
+    return steps, obligations, assumptions
+
+
 def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ...]]:
     name, claim = derivation["name"], derivation["subject"]
     if derivation["contract"] != f"planning/{claim['kind']}":
@@ -166,6 +259,8 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
     if (search is not None) != (claim["kind"] == "sample_size"):
         raise ValueError("a search accompanies exactly the sample_size claim")
     analysis = subject["analysis"] if search is None else search.get("analysis")
+    if analysis is not None and analysis.get("test") in METHODS:
+        return _cited_planning_expected(name, subject, search, analysis)
     target, inner = subject["target"], f"{name}.analysis"
     steps, used = [], []
     if analysis is not None:

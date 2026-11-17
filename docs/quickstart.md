@@ -31,6 +31,7 @@ Other files in `playground/`:
 | `recycling.stat` | Co-primary endpoints with recycling, gating secondary endpoints |
 | `trial_models.stat` | A mixed model and a logistic regression as cited tests |
 | `declared_test.stat` | An analysis StatClaim does not know, declared by name |
+| `cited_power.stat` | Approximate power for cited tests, by calculation only |
 | `mixed_endpoints.stat` | A proved and a cited test under one error bound |
 
 ## Without Lean

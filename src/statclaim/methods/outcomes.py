@@ -24,6 +24,7 @@ CONTINUOUS = Outcome(
             "Null: mean_treatment - mean_control <= value, in the outcome's units. Zero asks "
             "whether the treatment is better; a negative value is a non-inferiority margin.",
             takes_value=True,
+            one_sided=True,
         ),
     ),
 )
@@ -65,6 +66,7 @@ BINARY = Outcome(
             "p_treatment - p_control <= {value}",
             "Null: the difference in proportions is at most value.",
             takes_value=True,
+            one_sided=True,
         ),
     ),
     builtin=True,

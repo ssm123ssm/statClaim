@@ -48,15 +48,15 @@ let scope = checked.claim.scope                  # finite_sample or asymptotic
 
 ## Supported tests
 
-| Test | Null | Guarantee | Assumes |
-| --- | --- | --- | --- |
-| `t_test` | `equal_means` | Exact level | Normal outcomes, equal variances |
-| `t_test_one_sided` | `mean_difference_at_most` | Level at most alpha | Normal outcomes, equal variances |
-| `welch_test` | `equal_means` | Large-sample approximation | Finite variances |
-| `welch_test_one_sided` | `mean_difference_at_most` | Large-sample approximation | Finite variances |
-| `log_rank` | `equal_survival` | Large-sample approximation, in the number of events | Independent censoring |
-| `mmrm_test`, `mmrm_test_one_sided` | `equal_means`, `mean_difference_at_most` | Large-sample approximation | Missing at random; correct mean and covariance model |
-| `logistic_regression`, `logistic_regression_one_sided` | `equal_proportions`, a zero difference | Large-sample approximation | Linear log odds; enough events |
+| Test | Null | Guarantee | Assumes | Power |
+| --- | --- | --- | --- | --- |
+| `t_test` | `equal_means` | Exact level | Normal outcomes, equal variances | Two means |
+| `t_test_one_sided` | `mean_difference_at_most` | Level at most alpha | Normal outcomes, equal variances | Two means |
+| `welch_test` | `equal_means` | Large-sample approximation | Finite variances | Two means |
+| `welch_test_one_sided` | `mean_difference_at_most` | Large-sample approximation | Finite variances | Two means |
+| `log_rank` | `equal_survival` | Large-sample approximation, in the number of events | Independent censoring | Schoenfeld |
+| `mmrm_test`, `mmrm_test_one_sided` | `equal_means`, `mean_difference_at_most` | Large-sample approximation | Missing at random; correct mean and covariance model | Two means |
+| `logistic_regression`, `logistic_regression_one_sided` | `equal_proportions`, a zero difference | Large-sample approximation | Linear log odds; enough events | Two proportions |
 
 The t-tests are in `tests.t`, for `models.two_arm_continuous`. The log-rank test
 is in `tests.survival`, for `models.two_arm_survival`; see `examples/log_rank.stat`.
@@ -96,8 +96,9 @@ A way of combining tests can be cited too: see graphical procedures in
 [multiple testing](multiple-testing.md#graphical-procedures).
 
 Cited tests can join a Bonferroni family; see
-[multiple testing](multiple-testing.md#families-with-cited-tests). They cannot
-yet be used in a planning search.
+[multiple testing](multiple-testing.md#families-with-cited-tests). The Power column
+names each test's approximate power formula. Power is calculated only, never
+verified; see [power for cited tests](planning.md#power-for-cited-tests).
 
 ## Adding a cited method
 
@@ -119,6 +120,12 @@ To add a test over an existing model and null:
 
 The constructor, its contract and guidance, editor support, catalogue entry,
 derivation and report all follow from the entry.
+
+To give a test approximate power, set its `power` to a `PowerFormula` from
+`methods/power.py`, or add one there: a function of the planning point, the arm
+sizes, the null's value, alpha and the sidedness, with its own assumptions,
+references and version. A formula is versioned separately from the test, since
+the test's error guarantee does not depend on it.
 
 A new kind of endpoint is also data. Add an `Outcome` with its null forms to
 `methods/outcomes.py`, as `SURVIVAL` does. Its model and null constructors then

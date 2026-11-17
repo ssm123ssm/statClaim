@@ -7,6 +7,7 @@ from statclaim.methods.assumptions import (
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import CitedMethod, MethodModule
+from statclaim.methods.power import SCHOENFELD
 
 MANTEL = (
     "Mantel, N. (1966). Evaluation of survival data and two new rank order statistics "
@@ -46,6 +47,7 @@ MODULE = MethodModule(
             references=(MANTEL, PETO, FLEMING_HARRINGTON),
             min_per_arm=1,
             min_total=2,
+            power=SCHOENFELD,
         ),
     ),
 )

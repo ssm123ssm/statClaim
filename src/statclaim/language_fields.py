@@ -19,9 +19,11 @@ from statclaim.language import (
     FamilyIR,
     FeasibilityIR,
     FieldIR,
+    HazardRatioIR,
     HypothesisIR,
     IntervalIR,
     LocatedValue,
+    MeanDifferenceIR,
     ModelIR,
     NullIR,
     ObservationIR,
@@ -42,6 +44,7 @@ from statclaim.language import (
     SequentialIR,
     SizingIR,
     StudyModelIR,
+    TwoArmTestIR,
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
     TwoStageModelIR,
@@ -52,6 +55,7 @@ from statclaim.language import (
 )
 from statclaim.language_syntax import Diagnostic, Span
 from statclaim.language_values import (
+    ApproximatePowerDetails,
     CalculationDetails,
     CalculationResult,
     CertificateReference,
@@ -164,6 +168,14 @@ SCHEMAS = {
     },
     RatesIR: {"p_control": FieldSpec(Fraction), "p_treatment": FieldSpec(Fraction)},
     RateIR: {"value": FieldSpec(Fraction)},
+    MeanDifferenceIR: {
+        "value": FieldSpec(Fraction, description="True mean difference, treatment minus control."),
+        "sd": FieldSpec(Fraction, description="Standard deviation of one participant's outcome."),
+    },
+    HazardRatioIR: {
+        "value": FieldSpec(Fraction, description="True hazard ratio, treatment over control."),
+        "events": FieldSpec(int, description="Expected total number of events."),
+    },
     PowerTargetIR: {
         "at": FieldSpec(PlanningPointIR),
         "minimum": FieldSpec(Fraction, description="Required power at the planning point."),
@@ -171,7 +183,7 @@ SCHEMAS = {
     },
     FeasibilityIR: {"analysis": FieldSpec(PlannableIR), "target": FieldSpec(PowerTargetIR)},
     CandidatesIR: {
-        "analysis": FieldSpec(AnalysisIR),
+        "analysis": FieldSpec(TwoArmTestIR),
         "min_per_arm": FieldSpec(int),
         "max_per_arm": FieldSpec(int),
         "ratio": FieldSpec(int, description="Treated participants per control."),
@@ -284,6 +296,36 @@ SCHEMAS = {
         "candidates_evaluated": FieldSpec(int, optional=True),
         "minimum_sample_size_claim": FieldSpec(str, optional=True),
     },
+    ApproximatePowerDetails: {
+        "n_control": FieldSpec(int, optional=True),
+        "n_treatment": FieldSpec(int, optional=True),
+        "total_sample_size": FieldSpec(int, optional=True),
+        "power": FieldSpec(
+            Fraction,
+            optional=True,
+            description="Approximate power from a normal formula, to six decimals. Not a bound.",
+        ),
+        "power_target_met": FieldSpec(bool),
+        "critical_estimate": FieldSpec(
+            Fraction,
+            optional=True,
+            description="The value the estimate must pass for the test to reject, to six decimals.",
+        ),
+        "reject_when": FieldSpec(
+            str, optional=True, description="above or below the critical estimate."
+        ),
+        "standard_error": FieldSpec(
+            Fraction,
+            optional=True,
+            description="Standard error at the planning point; for a hazard ratio, of its log.",
+        ),
+        "alpha": FieldSpec(Fraction, optional=True, description="The test's declared level."),
+        "typeI_target_met": FieldSpec(
+            bool, optional=True, description="Whether alpha is at most maximum_typeI."
+        ),
+        "formula": FieldSpec(str, optional=True),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+    },
     TwoStageObservationIR: {
         "analysis": FieldSpec(TwoStageAnalysisIR),
         "stage1_responses": FieldSpec(int),
@@ -376,6 +418,8 @@ def details_kind(claim: ClaimIR) -> type:
     analysis = (
         subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
     )
+    if isinstance(analysis, CitedAnalysisIR):
+        return ApproximatePowerDetails
     if isinstance(analysis, OneSampleAnalysisIR):
         return OneSampleDetails
     if isinstance(analysis, TwoStageAnalysisIR):

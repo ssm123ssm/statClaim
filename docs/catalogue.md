@@ -94,6 +94,8 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | --- | --- | --- |
 | Rates | Planning point for two arms; an input, not a fact. | `p_control: exact number`, `p_treatment: exact number` |
 | Rate | Planning point for a single response rate. | `value: exact number` |
+| MeanDifference | Planning point for a continuous outcome: a mean difference and an SD. | `value: exact number`, `sd: exact number` |
+| HazardRatio | Planning point for a survival outcome: a hazard ratio and a number of events. | `value: exact number`, `events: integer` |
 | PowerTarget | Required power at a point and a Type I bound. | `at: PlanningPoint`, `minimum: exact number`, `maximum_typeI: exact number` |
 | Feasibility | One analysis assessed against one target. | `analysis: Analysis`, `target: PowerTarget` |
 | Candidates | Finite equal-arm design space for a search. | `analysis: Analysis`, `min_per_arm: integer`, `max_per_arm: integer`, `ratio: integer` |
@@ -116,6 +118,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | IntervalDetails | Estimate and exact confidence interval endpoints. | `n: integer`, `responses: integer`, `level: exact number`, `estimate: exact number`, `lower: exact number`, `upper: exact number`, `method: string` |
 | StageResultDetails | Decision and error bound for observed two-stage counts. | `n_stage1: integer`, `n_stage2: integer`, `stage1_responses: integer`, `stage2_responses: Option[integer]`, `continued: boolean`, `reject_null: boolean`, `typeI_bound: exact number` |
 | PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: Option[integer]`, `n_stage2: Option[integer]`, `continue_above: Option[integer]`, `reject_above: Option[integer]`, `maximum_sample_size: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `expected_sample_size_null: Option[exact number]`, `expected_sample_size_alternative: Option[exact number]`, `early_stop_probability_null: Option[exact number]`, `criterion: Option[string]`, `candidates_evaluated: Option[integer]` |
+| ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
 Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `PlanningClaim`, all represented by Claim. Exact numbers, strings, booleans and lists are value types. Optional evidence stays optional through field access.
@@ -267,14 +270,18 @@ Hierarchical testing in a fixed order, each test at the full level and only afte
 
 ### `planning` — Study planning
 
-Exact power at a planning point, target checks and a bounded sample-size search with equal or unequal allocation for the fixed Fisher analysis. Targets also apply to one-sample tests and two-stage designs. A size can be certified as sufficient or as the smallest in the declared range.
+Exact power at a planning point, target checks and a bounded sample-size search with equal or unequal allocation for the fixed Fisher analysis. Targets also apply to one-sample tests and two-stage designs. A size can be certified as sufficient or as the smallest in the declared range. Cited tests get approximate power from a normal formula, by calculation only.
 
 - `binomial_rates(p_control: number, p_treatment: number) -> Rates`
   A planning point: one success probability per arm. It is an input for power, not the null and not an established fact.
+- `mean_difference(value: number, sd: number) -> MeanDifference`
+  A planning point for a continuous outcome: the true mean difference, treatment minus control, and the standard deviation of one participant's outcome on the analysed scale. For a mixed model, sd is the effective standard deviation of the contrast. Both are planning inputs.
+- `hazard_ratio(value: number, events: integer) -> HazardRatio`
+  A planning point for a survival outcome: the true hazard ratio, treatment over control, and the expected total number of events. Power depends on the events, not on the arm sizes. Both are planning inputs.
 - `power_target(at: PlanningPoint, minimum: number, maximum_typeI: level) -> PowerTarget`
   Require power of at least minimum at one planning point, and a Type I error bound of at most maximum_typeI under the null. Power at this point is not a guarantee for other alternatives.
 - `meets(analysis: Analysis, target: PowerTarget) -> PlanningClaim`
-  Claim that this analysis meets every component of the target. calculate computes the components; verify must establish all.
+  Claim that this analysis meets every component of the target. calculate computes the components; verify must establish all. For a cited test, calculate gives approximate power and verify is refused.
 - `equal_arm_sizes(analysis: Analysis, min_per_arm: integer, max_per_arm: integer) -> Candidates`
   A finite design space: equal arm sizes within inclusive bounds, keeping the analysis's sampling, null form, test and alpha.
 - `allocated_arm_sizes(analysis: Analysis, min_control: integer, max_control: integer, treatment_per_control: integer) -> Candidates`
@@ -424,6 +431,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `data` | About the supplied data matching the declared study. |
 | `unproved_step` | A mathematical identity that is used but not proved in Lean. |
 | `vouched` | The author vouches for it. StatClaim has no contract or source for it. |
+| `approximation` | A simplification used to compute a number, such as a normal approximation. Not checkable from a declaration. |
 
 ### `Claim.kind`
 
@@ -475,17 +483,17 @@ Verification and calculation run only on explicit execution; the editor plans th
 
 Guarantees taken from the literature. See [cited methods](cited-methods.md).
 
-| Constructor | Version | Outcome | Null | Error rate | Scope | Minimum size |
-| --- | --- | --- | --- | --- | --- | --- |
-| `t_test` | 1 | continuous | `equal_means` | equals alpha | `finite_sample` | 1 per arm, 3 total |
-| `t_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `finite_sample` | 1 per arm, 3 total |
-| `welch_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total |
-| `welch_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total |
-| `mmrm_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total |
-| `mmrm_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total |
-| `log_rank` | 1 | survival | `equal_survival` | equals alpha | `asymptotic` | 1 per arm, 2 total |
-| `logistic_regression` | 1 | binary | `equal_proportions` | equals alpha | `asymptotic` | 2 per arm, 4 total |
-| `logistic_regression_one_sided` | 1 | binary | `proportion_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total |
+| Constructor | Version | Outcome | Null | Error rate | Scope | Minimum size | Power |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `t_test` | 1 | continuous | `equal_means` | equals alpha | `finite_sample` | 1 per arm, 3 total | `normal_two_means` |
+| `t_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `finite_sample` | 1 per arm, 3 total | `normal_two_means` |
+| `welch_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
+| `welch_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
+| `mmrm_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
+| `mmrm_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
+| `log_rank` | 1 | survival | `equal_survival` | equals alpha | `asymptotic` | 1 per arm, 2 total | `schoenfeld_log_rank` |
+| `logistic_regression` | 1 | binary | `equal_proportions` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
+| `logistic_regression_one_sided` | 1 | binary | `proportion_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
 
 **`t_test`** (Two-sided pooled-variance t-test) assumes `independent_observations`, `fixed_sample_sizes`, `single_analysis`, `normal_outcomes`, `equal_variances`. References:
 
@@ -539,6 +547,31 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 - Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal Statistical Society B 20(2), 215-242.
 - Hosmer, D. W., Lemeshow, S. and Sturdivant, R. X. (2013). Applied Logistic Regression, 3rd ed. Wiley.
 
+### Power formulas
+
+Approximate power for cited tests, by calculation only. See [power for cited tests](planning.md#power-for-cited-tests).
+
+| Formula | Version | Planning point | Assumes |
+| --- | --- | --- | --- |
+| `normal_two_means` | 1 | `mean_difference` | `normal_approximation_power`, `planning_standard_deviation` |
+| `schoenfeld_log_rank` | 1 | `hazard_ratio` | `normal_approximation_power`, `proportional_hazards`, `planning_events`, `at_risk_shares` |
+| `normal_two_proportions` | 1 | `binomial_rates` | `normal_approximation_power`, `unadjusted_proportions` |
+
+**`normal_two_means`** (Difference of two means, normal approximation with a known standard deviation). References:
+
+- Chow, S.-C., Shao, J. and Wang, H. (2008). Sample Size Calculations in Clinical Research, 2nd ed. Chapman and Hall/CRC. Chapter 3.
+- Julious, S. A. (2004). Sample sizes for clinical trials with normal data. Statistics in Medicine 23(12), 1921-1986.
+
+**`schoenfeld_log_rank`** (Log-rank test, Schoenfeld's formula in the number of events). References:
+
+- Schoenfeld, D. (1981). The asymptotic properties of nonparametric tests for comparing survival distributions. Biometrika 68(1), 316-319.
+- Schoenfeld, D. A. (1983). Sample-size formula for the proportional-hazards regression model. Biometrics 39(2), 499-503.
+
+**`normal_two_proportions`** (Difference of two proportions, normal approximation). References:
+
+- Fleiss, J. L., Levin, B. and Paik, M. C. (2003). Statistical Methods for Rates and Proportions, 3rd ed. Wiley. Chapter 4.
+- R Core Team. power.prop.test, in the stats package of R.
+
 ## Assumptions
 
 Assumptions of the cited methods and of combinations, by id. The exact modules' assumptions are classified in `methods/identify.py`.
@@ -566,6 +599,12 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `logit_linear` | distribution | The log odds of response are linear in the model's covariates, which are fixed in advance. |
 | `null_is_zero_coefficient` | scope | The test is of the treatment coefficient. Under the declared null, treatment has no effect on response given the covariates. |
 | `enough_events` | distribution | There are enough responders and non-responders in each arm for the estimated coefficient to be approximately normal, with no separation. |
+| `normal_approximation_power` | approximation | Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. |
+| `planning_standard_deviation` | scope | The standard deviation is a planning input, not an established fact. It is the standard deviation of one participant's outcome on the analysed scale; for a mixed model, the effective standard deviation of the contrast. |
+| `unadjusted_proportions` | approximation | Power is for an unadjusted comparison of two proportions. Covariates in the analysis model change it. |
+| `proportional_hazards` | distribution | The hazard ratio is constant over time. The log-rank test's error rate does not need this; its power formula does. |
+| `planning_events` | scope | The number of events is a planning input, not an established fact. Power depends on the events, not on the arm sizes. |
+| `at_risk_shares` | approximation | Each arm's share of the participants at risk stays close to its share at randomisation, as when the hazard ratio is near 1. |
 
 ## Limits
 
@@ -574,6 +613,7 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | Analyses in a family, or looks in a sequential design | 2 to 20 |
 | Participants per arm, exact test with a margin | up to 120 |
 | Participants per arm, Fisher planning search | up to 500 |
+| Participants per arm, cited-test planning search | up to 100000 |
 | Allocation ratio in a planning search | 1 to 10 |
 | Participants, one-sample binomial test | up to 1000 |
 | Participants per stage, two-stage design | up to 200 |
@@ -607,6 +647,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `model_mismatch` | error | The design and the null are declared over different models. |
 | `hypothesis_mismatch` | error | The test does not support the declared null. Not a finding that the null is false. |
 | `alternative_in_null` | error | The planning point lies inside the null. |
+| `no_power_formula` | error | A cited or declared test with no power formula is planned. |
 | `planning_point` | error | The planning point does not fit the analysis. |
 | `rule_mismatch` | error | A stopping rule does not fit the two-stage design. |
 | `sampling_contract` | error | A joint law is given where none applies, or is not supported. |

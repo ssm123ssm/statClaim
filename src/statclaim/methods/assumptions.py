@@ -113,3 +113,43 @@ ENOUGH_EVENTS = Assumption(
     "There are enough responders and non-responders in each arm for the estimated "
     "coefficient to be approximately normal, with no separation.",
 )
+
+# Assumptions of the approximate power formulas in power.py. Power is a calculation,
+# so these concern how the number was obtained, not the test's error rate.
+NORMAL_APPROXIMATION_POWER = Assumption(
+    "normal_approximation_power",
+    "approximation",
+    "Power comes from a normal approximation to the test statistic, with its variance at "
+    "the planning values. It is an approximation, not a bound.",
+)
+PLANNING_SD = Assumption(
+    "planning_standard_deviation",
+    "scope",
+    "The standard deviation is a planning input, not an established fact. It is the "
+    "standard deviation of one participant's outcome on the analysed scale; for a mixed "
+    "model, the effective standard deviation of the contrast.",
+)
+UNADJUSTED_PROPORTIONS = Assumption(
+    "unadjusted_proportions",
+    "approximation",
+    "Power is for an unadjusted comparison of two proportions. Covariates in the analysis "
+    "model change it.",
+)
+PROPORTIONAL_HAZARDS = Assumption(
+    "proportional_hazards",
+    "distribution",
+    "The hazard ratio is constant over time. The log-rank test's error rate does not need "
+    "this; its power formula does.",
+)
+PLANNING_EVENTS = Assumption(
+    "planning_events",
+    "scope",
+    "The number of events is a planning input, not an established fact. Power depends on "
+    "the events, not on the arm sizes.",
+)
+AT_RISK_SHARES = Assumption(
+    "at_risk_shares",
+    "approximation",
+    "Each arm's share of the participants at risk stays close to its share at "
+    "randomisation, as when the hazard ratio is near 1.",
+)

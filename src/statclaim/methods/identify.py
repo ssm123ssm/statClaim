@@ -34,6 +34,12 @@ RECOGNISED = [
 STATUS = {"design": "declared", "scope": "condition"}
 
 
+def mark(assumption) -> dict:
+    """A structured assumption with its status: design ones are stated by the file itself,
+    scope ones say which null or planning point a claim is about, the rest are assumed."""
+    return {**assumption.to_dict(), "status": STATUS.get(assumption.kind, "assumed")}
+
+
 def identify(text: str) -> dict:
     """The id, kind and status of one assumption sentence; id None if unrecognised."""
     for pattern, identifier, kind in RECOGNISED:

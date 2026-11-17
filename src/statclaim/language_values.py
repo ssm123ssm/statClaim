@@ -129,6 +129,10 @@ class PolicyDetails(PlanningDetails):
     """Calculated operating characteristics of a complete two-stage policy."""
 
 
+class ApproximatePowerDetails(PlanningDetails):
+    """Approximate power of a cited test from a normal formula. Never a bound."""
+
+
 @dataclass(frozen=True)
 class PendingField:
     request_id: int

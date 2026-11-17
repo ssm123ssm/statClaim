@@ -1,0 +1,23 @@
+# Lesson 18: approximate power for a cited test.
+use models.two_arm_continuous
+use sampling
+use tests.mixed_model
+use planning
+
+let study = two_arm_continuous(n_control=300, n_treatment=300)
+let plan = fixed(model=study)
+
+# Non-inferiority: the new treatment may be worse by at most 4 points.
+let analysis = mmrm_test_one_sided(
+    design=plan,
+    null=mean_difference_at_most(model=study, value=-4),
+    alpha=1/40,
+)
+
+# We expect no true difference, and a standard deviation of 15 for the contrast.
+let expected = mean_difference(value=0, sd=15)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/40)
+let power = calculate(meets(analysis=analysis, target=target))
+
+let sizes = equal_arm_sizes(analysis=analysis, min_per_arm=50, max_per_arm=1000)
+let needed = calculate(smallest_sample_size(candidates=sizes, target=target))

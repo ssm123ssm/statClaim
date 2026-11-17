@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Seventeen short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Eighteen short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1323,6 +1323,75 @@ when the catalogue has nothing for it.</div>
     <div class="task"><h4>Try it</h4><p>Replace <code>pain</code> with <code>welch_test</code> and watch the file's status rise to <code>cited</code>. Then run <code>statclaim report</code> and find the "Weakest part" column.</p></div>
   </div>
 </section>
+<section class="lesson" id="cited-power">
+  <p class="eyebrow">Lesson 18</p>
+  <h2>Power for a cited test</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Lesson 7 found an exact sample size for Fisher&#x27;s test. For a mixed model, a t-test or a log-rank test, StatClaim can give an approximate power from a published formula. It is a calculation: useful for planning, never evidence.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/18_cited_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 18: approximate power for a cited test.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.mixed_model
+<span class="k">use</span> planning
+
+<span class="k">let</span> study = <span class="f">two_arm_continuous</span>(n_control=300, n_treatment=300)
+<span class="k">let</span> plan = <span class="f">fixed</span>(model=study)
+
+<span class="c"># Non-inferiority: the new treatment may be worse by at most 4 points.</span>
+<span class="k">let</span> analysis = <span class="f">mmrm_test_one_sided</span>(
+    design=plan,
+    null=<span class="f">mean_difference_at_most</span>(model=study, value=-4),
+    alpha=1/40,
+)
+
+<span class="c"># We expect no true difference, and a standard deviation of 15 for the contrast.</span>
+<span class="k">let</span> expected = <span class="f">mean_difference</span>(value=0, sd=15)
+<span class="k">let</span> target = <span class="f">power_target</span>(at=expected, minimum=4/5, maximum_typeI=1/40)
+<span class="k">let</span> power = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=analysis, target=target))
+
+<span class="k">let</span> sizes = <span class="f">equal_arm_sizes</span>(analysis=analysis, min_per_arm=50, max_per_arm=1000)
+<span class="k">let</span> needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=sizes, target=target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>mean_difference</code></dt>
+  <dd>The planning point for a continuous outcome: the true difference, treatment minus
+  control, and the standard deviation of one participant&#x27;s outcome. For a mixed model,
+  use the effective standard deviation of the contrast. Both are your inputs.</dd>
+  <dt><code>calculate(meets(...))</code></dt>
+  <dd>The same claim as in lesson 7. For a cited test only <code>calculate</code> is
+  allowed: <code>verify</code> is refused, because no proof or cited theorem covers an
+  approximate power.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [power]: meets(analysis)
+  arm sizes = (300, 300); total = 600
+  power ~ 0.9042 (normal approximation, not a bound); power target met = true
+  rejects when the estimate is above -1.6; standard error ~ 1.225
+  level 1/40; requested Type I bound 1/40; Type I target met = true
+  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 1)
+  Assumptions:
+    [missing_at_random] Missing measurements are missing at random given the observed data and the model. (assumed)
+    ...
+    [normal_approximation_power] Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. (assumed)
+    [planning_standard_deviation] The standard deviation is a planning input, not an established fact. ... (condition)
+<span class="calc">calculated</span> [needed]: sample_size(sizes)
+  arm sizes = (221, 221); total = 442
+  power ~ 0.8004 (normal approximation, not a bound); power target met = true
+  rejects when the estimate is above -1.203; standard error ~ 1.427
+Program status: calculated</code></pre></div>
+<p>The second line of each result is the power. The third is the value the estimate must
+pass for the test to reject, here -1.6 points with 300 per arm. A plan usually states
+both, so you can compare them with the plan.</p>
+<p>The assumptions are the test&#x27;s own, from lesson 12, followed by the formula&#x27;s.
+Missing at random still matters; so does the standard deviation you typed in.</p>
+<div class="note"><strong>Two-sided tests.</strong> The formula uses alpha/2 and ignores
+rejections in the wrong direction, as R does by default. For a log-rank test, declare
+the point with <code>hazard_ratio(value=..., events=...)</code>: its power depends on the
+number of events, and it assumes proportional hazards, which its error rate does not.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Cited tests have approximate power, by calculation only.</li><li>The report gives the value the estimate must pass.</li><li>The formula adds its own assumptions to the test&#x27;s.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Change <code>calculate</code> to <code>verify</code> in the line for <code>power</code> and read the message. Then set <code>value=-5</code> in <code>expected</code>: the point is inside the null, and the file is refused.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1340,6 +1409,7 @@ when the catalogue has nothing for it.</div>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
+      <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>
       <tr><td>Test endpoints in a fixed order</td><td><code>multiplicity.fixed_sequence</code></td><td><code>fixed_sequence</code> with <code>familywise</code></td><td>15</td></tr>
       <tr><td>Recycle the level after a rejection</td><td><code>multiplicity.graphical</code></td><td><code>graphical</code> with <code>familywise</code> (cited)</td><td>16</td></tr>

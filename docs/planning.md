@@ -230,11 +230,79 @@ A posterior threshold is a decision rule. Its Type I error and power are
 separate claims about the whole policy, and are checked the same way.
 See [policies](policies.md) for the model and its limits.
 
+## Power for cited tests
+
+A [cited test](cited-methods.md) has no exact power, but most have an approximate
+one from a published formula. `calculate` gives it; `verify` is refused, since no
+proof or cited theorem covers an approximate power.
+
+```stat
+use models.two_arm_continuous
+use sampling
+use tests.mixed_model
+use planning
+
+let study = two_arm_continuous(n_control=440, n_treatment=440)
+let analysis = mmrm_test_one_sided(
+    design=fixed(model=study),
+    null=mean_difference_at_most(model=study, value=-50),
+    alpha=1/40,
+)
+let target = power_target(at=mean_difference(value=-10, sd=167), minimum=9/10,
+    maximum_typeI=1/40)
+let power = calculate(meets(analysis=analysis, target=target))
+```
+
+```text
+calculated [power]: meets(analysis)
+  arm sizes = (440, 440); total = 880
+  power ~ 0.9444 (normal approximation, not a bound); power target met = true
+  rejects when the estimate is above -27.93; standard error ~ 11.26
+```
+
+The status is always `calculated`. The report also lists the test's assumptions,
+the formula's own and the formula's references.
+
+Planning points:
+
+| Outcome | Point | Formula |
+| --- | --- | --- |
+| Continuous | `mean_difference(value=..., sd=...)` | Difference of two means with a known SD |
+| Yes-or-no | `binomial_rates(p_control=..., p_treatment=...)` | Two proportions: pooled variance under the null, unpooled at the point |
+| Survival | `hazard_ratio(value=..., events=...)` | Schoenfeld's formula in the number of events |
+
+- `sd` is the standard deviation of one participant's outcome on the analysed
+  scale. For a mixed model, give the effective SD of the contrast.
+- The margin comes from the declared null. The point must lie outside it.
+- `hazard_ratio` is treatment over control. Power depends on the events, not on
+  the arm sizes, and it assumes proportional hazards. The log-rank test's error
+  rate does not.
+
+What is calculated:
+
+- Power uses the normal approximation throughout, with no noncentral t. With 400
+  per arm it is at most 0.001 above R's `power.t.test`. For two proportions it
+  equals R's `power.prop.test`.
+- A one-sided test is at `alpha`. A two-sided test is at `alpha/2` and ignores
+  rejections in the direction away from the point, as R does by default.
+- `calculation.critical_estimate` is the value the estimate must pass to reject:
+  the margin plus z × SE. `calculation.reject_when` says above or below. Plans
+  often state this value, so it checks their arithmetic too.
+- `maximum_typeI` is compared with the test's `alpha`. The test's guarantee is
+  cited, not proved.
+
+`equal_arm_sizes` and `allocated_arm_sizes` accept a cited test, up to 100,000
+per arm. `calculate(smallest_sample_size(...))` returns the first size in the
+range that reaches the target. It is not offered for `hazard_ratio`.
+
+A test without a formula, such as a declared test, gets `no_power_formula`. See
+`examples/cited_power.stat`.
+
 ## What is checked
 
 | Result | Meaning |
 | --- | --- |
-| `calculate(...)` | Exact fractions computed in Python. Not proof evidence. |
+| `calculate(...)` | Exact fractions computed in Python, or for a cited test an approximate power. Not proof evidence. |
 | `verify(...)` | Lean recomputes the rejection probability from the formal definitions and checks the requested bounds. No calculated value is trusted. |
 
 Published fields include `calculation.power`, `power_target_met`,

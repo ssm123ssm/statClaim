@@ -8,6 +8,7 @@ listed, and the grammar's examples are run through the real parser.
 from statclaim.composition import MAX_MEMBERS
 from statclaim.planning import (
     CRITERIA,
+    MAX_CITED_ARM,
     MAX_MARGIN_ARM,
     MAX_ONE_ARM,
     MAX_PER_ARM,
@@ -134,6 +135,7 @@ LIMITS = {
     "Analyses in a family, or looks in a sequential design": f"2 to {MAX_MEMBERS}",
     "Participants per arm, exact test with a margin": f"up to {MAX_MARGIN_ARM}",
     "Participants per arm, Fisher planning search": f"up to {MAX_PER_ARM}",
+    "Participants per arm, cited-test planning search": f"up to {MAX_CITED_ARM}",
     "Allocation ratio in a planning search": f"1 to {MAX_RATIO}",
     "Participants, one-sample binomial test": f"up to {MAX_ONE_ARM}",
     "Participants per stage, two-stage design": f"up to {MAX_STAGE}",
@@ -177,6 +179,7 @@ DIAGNOSTICS = {
         "The test does not support the declared null. Not a finding that the null is false.",
     ),
     "alternative_in_null": ("error", "The planning point lies inside the null."),
+    "no_power_formula": ("error", "A cited or declared test with no power formula is planned."),
     "planning_point": ("error", "The planning point does not fit the analysis."),
     "rule_mismatch": ("error", "A stopping rule does not fit the two-stage design."),
     "sampling_contract": ("error", "A joint law is given where none applies, or is not supported."),

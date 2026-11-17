@@ -34,6 +34,7 @@
 - Replication materials: an error-injection evaluation and a re-check of Simon (1989).
 - Cited mixed-model and logistic-regression tests; declared tests for anything else.
 - Every result and file names its weakest part.
+- Approximate power and sample-size search for cited tests, by calculation only.
 
 ## Direction
 
@@ -45,14 +46,13 @@ and for rules that combine tests. Each claim shows its
 
 ## Next
 
-1. Planning (power and sample size) for cited tests.
-2. Cited group-sequential boundaries that use the correlation between looks.
-3. A narrower exact interval for a difference of two proportions.
-4. Larger sample sizes and p-values for the test with a margin.
-5. Assurance and precision targets for planning.
-6. More adaptive designs: several interim looks, efficacy stopping, allocation.
-7. A formalized Beta posterior, so posterior rules need no stated closed form.
-8. A versioned extension API for community modules.
+1. Cited group-sequential boundaries that use the correlation between looks.
+2. A narrower exact interval for a difference of two proportions.
+3. Larger sample sizes and p-values for the test with a margin.
+4. Assurance and precision targets for planning.
+5. More adaptive designs: several interim looks, efficacy stopping, allocation.
+6. A formalized Beta posterior, so posterior rules need no stated closed form.
+7. A versioned extension API for community modules.
 
 Planning principles: scientific inputs stay explicit; a sufficient sample size
 and the smallest one are separate claims; composing verified parts never

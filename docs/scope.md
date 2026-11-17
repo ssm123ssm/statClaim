@@ -48,6 +48,10 @@ What is supported:
 - **Two means, cited.** Pooled-variance and Welch t-tests, two-sided or
   one-sided with a margin. The contract is checked; the guarantee is cited from
   the literature and not proved. See [cited methods](cited-methods.md).
+- **Power for cited tests, calculated.** Approximate power and the value the
+  estimate must pass, from a normal formula, and a sample-size search. Status
+  `calculated`, never verified. See
+  [power for cited tests](planning.md#power-for-cited-tests).
 
 Error bounds for single-arm designs cover every rate at or below the null rate.
 Power is always at one declared planning point. The posterior rule's closed

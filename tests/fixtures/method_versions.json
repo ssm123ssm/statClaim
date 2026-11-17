@@ -34,5 +34,17 @@
   "logistic_regression_one_sided": {
     "version": 1,
     "sha256": "3b21bbc9fe80c87dcb6477b8fe06e50429b45eed1058d923236c38223b51f20a"
+  },
+  "power:normal_two_means": {
+    "version": 1,
+    "sha256": "ba3f19f08013cebca9396e37c60d0499bdaab8463552a2e79ffac6d82e1d637b"
+  },
+  "power:schoenfeld_log_rank": {
+    "version": 1,
+    "sha256": "f31cc034f07ed4abfe8e72c7d45ced5de39170ff95b28159276058af85b6170a"
+  },
+  "power:normal_two_proportions": {
+    "version": 1,
+    "sha256": "943dc1d3d8d950eee015c528f67a6145607696d4c770a6228c72763d5939ef70"
   }
 }

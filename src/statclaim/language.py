@@ -38,6 +38,7 @@ from statclaim.methods.assumptions import DECLARED_VALID
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
 from statclaim.planning import (
     CRITERIA,
+    MAX_CITED_ARM,
     MAX_MARGIN_ARM,
     MAX_ONE_ARM,
     MAX_PER_ARM,
@@ -60,6 +61,10 @@ LANGUAGE_VERSION = "0.11.0"
 
 class PlannableIR:
     """An analysis that planning targets can be assessed against."""
+
+
+class TwoArmTestIR(PlannableIR):
+    """A two-arm analysis whose arm sizes a planning search can vary."""
 
 
 class CandidateSpaceIR:
@@ -149,7 +154,7 @@ class HypothesisIR(NullIR):
 
 
 @dataclass(frozen=True)
-class AnalysisIR(PlannableIR, LevelTestIR):
+class AnalysisIR(TwoArmTestIR, LevelTestIR):
     plan: PlanIR
     hypothesis: HypothesisIR
     alpha: Fraction
@@ -198,8 +203,11 @@ class AnalysisIR(PlannableIR, LevelTestIR):
 
 
 @dataclass(frozen=True)
-class CitedAnalysisIR(LevelTestIR):
-    """An analysis whose guarantee is cited from the literature, not proved in Lean."""
+class CitedAnalysisIR(TwoArmTestIR, LevelTestIR):
+    """An analysis whose guarantee is cited from the literature, not proved in Lean.
+
+    Its power, when its method has a formula, is an approximate calculation only.
+    """
 
     plan: PlanIR
     hypothesis: NullIR
@@ -330,6 +338,22 @@ class RatesIR(PlanningPointIR):
 @dataclass(frozen=True)
 class RateIR(PlanningPointIR):
     value: Fraction
+
+
+@dataclass(frozen=True)
+class MeanDifferenceIR(PlanningPointIR):
+    """A true mean difference, treatment minus control, and one participant's SD."""
+
+    value: Fraction
+    sd: Fraction
+
+
+@dataclass(frozen=True)
+class HazardRatioIR(PlanningPointIR):
+    """A true hazard ratio, treatment over control, and the expected number of events."""
+
+    value: Fraction
+    events: int
 
 
 @dataclass(frozen=True)
@@ -483,7 +507,7 @@ class FeasibilityIR:
 class CandidatesIR(CandidateSpaceIR):
     """Equal-arm designs sharing the analysis's test, null form, alpha and sampling."""
 
-    analysis: AnalysisIR
+    analysis: "AnalysisIR | CitedAnalysisIR"
     min_per_arm: int
     max_per_arm: int
     ratio: int = 1
@@ -612,6 +636,7 @@ class ValueType:
                 bool: "boolean",
                 PlanIR: "StudyDesign",
                 PlannableIR: "Analysis",
+                TwoArmTestIR: "Analysis",
                 LevelTestIR: "Analysis",
                 NullIR: "Hypothesis",
                 FamilyLikeIR: "Family",
@@ -763,6 +788,10 @@ def normalize(value: object) -> object:
             return {"p_control": str(control), "p_treatment": str(treatment)}
         case RateIR(value=rate):
             return {"response_rate": str(rate)}
+        case MeanDifferenceIR(value=difference, sd=sd):
+            return {"mean_difference": str(difference), "sd": str(sd)}
+        case HazardRatioIR(value=ratio, events=events):
+            return {"hazard_ratio": str(ratio), "events": events}
         case PowerTargetIR(at=point, minimum=minimum, maximum_typeI=maximum):
             return {
                 "at": normalize(point),
@@ -1278,6 +1307,22 @@ def _rates(arguments: dict[str, LocatedValue], span: Span) -> RatesIR:
     )
 
 
+def _mean_difference(arguments: dict[str, LocatedValue], span: Span) -> MeanDifferenceIR:
+    sd = arguments["sd"]
+    if sd.value <= 0:
+        fail("domain", "sd must be positive.", sd.span)
+    return MeanDifferenceIR(arguments["value"].value, sd.value)
+
+
+def _hazard_ratio(arguments: dict[str, LocatedValue], span: Span) -> HazardRatioIR:
+    ratio, events = arguments["value"], arguments["events"]
+    if ratio.value <= 0:
+        fail("domain", "A hazard ratio must be positive.", ratio.span)
+    if events.value < 1:
+        fail("domain", "events must be a positive integer.", events.span)
+    return HazardRatioIR(ratio.value, events.value)
+
+
 def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTargetIR:
     return PowerTargetIR(
         arguments["at"].value,
@@ -1286,9 +1331,59 @@ def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTarget
     )
 
 
-def _check_point(analysis: PlannableIR, target: LocatedValue) -> None:
+# How to write the planning point each kind of power formula takes.
+POINT_SIGNATURES = {
+    "mean_difference": (MeanDifferenceIR, "mean_difference(value=..., sd=...)"),
+    "binomial_rates": (RatesIR, "binomial_rates(p_control=..., p_treatment=...)"),
+    "hazard_ratio": (HazardRatioIR, "hazard_ratio(value=..., events=...)"),
+}
+
+
+def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: Span) -> None:
+    """A cited test can be planned only with a power formula, at that formula's kind of point."""
+    method, point = analysis.method, target.value.at
+    if method.power is None:
+        others = ", ".join(m.key for m in methods_for(method.outcome) if m.power) or "none"
+        fail(
+            "no_power_formula",
+            f"{method.key} has no power formula, so its power cannot be calculated. Tests "
+            f"for this outcome with one: {others}.",
+            where,
+        )
+    kind, signature = POINT_SIGNATURES[method.power.point]
+    if not isinstance(point, kind):
+        fail("planning_point", f"Plan {method.key} at {signature}.", target.span)
+    model = analysis.plan.model
+    if isinstance(point, HazardRatioIR) and point.events > model.n_control + model.n_treatment:
+        fail(
+            "planning_point",
+            f"events cannot exceed the {model.n_control + model.n_treatment} participants "
+            "in the design.",
+            target.span,
+        )
+    null = analysis.hypothesis
+    if isinstance(point, MeanDifferenceIR):
+        effect = point.value
+    elif isinstance(point, RatesIR):
+        effect = point.p_treatment - point.p_control
+    else:
+        effect = point.value - 1  # a hazard ratio of 1 is no effect
+    one_sided = NULL_FORMS[null.predicate][1].one_sided
+    if (effect <= null.value) if one_sided else (effect == 0):
+        fail(
+            "alternative_in_null",
+            f"The planning point satisfies the analysis's null ({null.statement}). "
+            "Power is assessed at an alternative; choose a point outside the null.",
+            target.span,
+        )
+
+
+def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> None:
     """The planning point must belong to the analysis's parameter space, outside its null."""
     point = target.value.at
+    if isinstance(analysis, CitedAnalysisIR):
+        _check_cited_point(analysis, target, where)
+        return
     if isinstance(analysis, (TwoStageAnalysisIR, OneSampleAnalysisIR)):
         if not isinstance(point, RateIR):
             fail(
@@ -1326,12 +1421,19 @@ def _check_point(analysis: PlannableIR, target: LocatedValue) -> None:
 
 def _meets(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     analysis = arguments["analysis"]
-    _check_point(analysis.value, arguments["target"])
+    _check_point(analysis.value, arguments["target"], analysis.span)
     return ClaimIR(
         "meets",
         FeasibilityIR(analysis.value, arguments["target"].value),
         analysis.name or "<expression>",
     )
+
+
+def _arm_limit(analysis: TwoArmTestIR) -> int:
+    """The largest arm a search may reach: exact tests are slower to evaluate."""
+    if isinstance(analysis, CitedAnalysisIR):
+        return MAX_CITED_ARM
+    return MAX_MARGIN_ARM if analysis.alternative == "margin" else MAX_PER_ARM
 
 
 def _candidates(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
@@ -1340,7 +1442,7 @@ def _candidates(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
         fail("domain", "min_per_arm must be a positive integer.", low.span)
     if high.value < low.value:
         fail("domain", "max_per_arm must be at least min_per_arm.", high.span)
-    limit = MAX_MARGIN_ARM if arguments["analysis"].value.alternative == "margin" else MAX_PER_ARM
+    limit = _arm_limit(arguments["analysis"].value)
     if high.value > limit:
         fail("domain", f"max_per_arm is currently limited to {limit} for this analysis.", high.span)
     return CandidatesIR(arguments["analysis"].value, low.value, high.value)
@@ -1423,7 +1525,7 @@ def _allocated(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
         fail("domain", "min_control must be a positive integer.", low.span)
     if high.value < low.value:
         fail("domain", "max_control must be at least min_control.", high.span)
-    limit = MAX_MARGIN_ARM if arguments["analysis"].value.alternative == "margin" else MAX_PER_ARM
+    limit = _arm_limit(arguments["analysis"].value)
     if high.value * ratio.value > limit:
         fail(
             "domain",
@@ -1439,6 +1541,7 @@ def _sizing(minimal: bool) -> Callable:
         if (
             minimal
             and isinstance(candidates.value, CandidatesIR)
+            and isinstance(candidates.value.analysis, AnalysisIR)
             and candidates.value.analysis.alternative == "margin"
         ):
             fail(
@@ -1456,7 +1559,15 @@ def _sizing(minimal: bool) -> Callable:
                 "selected design's error and power.",
                 candidates.span,
             )
-        _check_point(candidates.value.analysis, arguments["target"])
+        _check_point(candidates.value.analysis, arguments["target"], candidates.span)
+        if isinstance(arguments["target"].value.at, HazardRatioIR):
+            fail(
+                "unsupported_claim",
+                "Log-rank power depends on the number of events, not on the arm sizes, so a "
+                "search over arm sizes does not apply. Calculate meets(...) for a number "
+                "of events instead.",
+                arguments["target"].span,
+            )
         return ClaimIR(
             "sample_size",
             SizingIR(candidates.value, arguments["target"].value, minimal),
@@ -1555,15 +1666,31 @@ def _two_stage_test(arguments: dict[str, LocatedValue], span: Span) -> TwoStageA
     )
 
 
+def planned_analysis(subject: object) -> object:
+    """The analysis a planning claim is about."""
+    if isinstance(subject, FeasibilityIR):
+        return subject.analysis
+    return subject.candidates.analysis
+
+
+def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    claim = arguments["claim"]
+    if claim.value.kind in ("meets", "sample_size") and isinstance(
+        planned_analysis(claim.value.subject), CitedAnalysisIR
+    ):
+        fail(
+            "unsupported_claim",
+            "The power of a cited test is a normal approximation, with no proof or cited "
+            "theorem behind it, so it cannot be verified. Use calculate(...) instead.",
+            claim.span,
+        )
+    return claim.value
+
+
 # Always available, with the same argument checking as module constructors.
 # Their builders validate claims only; evaluate records execution slots below.
 OPERATIONS = {
-    "verify": _constructor(
-        "verify",
-        (("claim", ClaimIR),),
-        "VerificationResult",
-        lambda args, span: args["claim"].value,
-    ),
+    "verify": _constructor("verify", (("claim", ClaimIR),), "VerificationResult", _verification),
     "calculate": _constructor(
         "calculate", (("claim", ClaimIR),), "CalculationResult", _calculation
     ),
@@ -1842,6 +1969,25 @@ MODULES = {
                     "It is an input for power, not the null and not an established fact.",
                 ),
                 _constructor(
+                    "mean_difference",
+                    (("value", "number"), ("sd", "number")),
+                    "MeanDifference",
+                    _mean_difference,
+                    documentation="A planning point for a continuous outcome: the true mean "
+                    "difference, treatment minus control, and the standard deviation of one "
+                    "participant's outcome on the analysed scale. For a mixed model, sd is the "
+                    "effective standard deviation of the contrast. Both are planning inputs.",
+                ),
+                _constructor(
+                    "hazard_ratio",
+                    (("value", "number"), ("events", "integer")),
+                    "HazardRatio",
+                    _hazard_ratio,
+                    documentation="A planning point for a survival outcome: the true hazard "
+                    "ratio, treatment over control, and the expected total number of events. "
+                    "Power depends on the events, not on the arm sizes. Both are planning inputs.",
+                ),
+                _constructor(
                     "power_target",
                     (("at", PlanningPointIR), ("minimum", "number"), ("maximum_typeI", "level")),
                     "PowerTarget",
@@ -1856,12 +2002,13 @@ MODULES = {
                     "PlanningClaim",
                     _meets,
                     documentation="Claim that this analysis meets every component of the "
-                    "target. calculate computes the components; verify must establish all.",
+                    "target. calculate computes the components; verify must establish all. "
+                    "For a cited test, calculate gives approximate power and verify is refused.",
                 ),
                 _constructor(
                     "equal_arm_sizes",
                     (
-                        ("analysis", AnalysisIR),
+                        ("analysis", TwoArmTestIR),
                         ("min_per_arm", "integer"),
                         ("max_per_arm", "integer"),
                     ),
@@ -1873,7 +2020,7 @@ MODULES = {
                 _constructor(
                     "allocated_arm_sizes",
                     (
-                        ("analysis", AnalysisIR),
+                        ("analysis", TwoArmTestIR),
                         ("min_control", "integer"),
                         ("max_control", "integer"),
                         ("treatment_per_control", "integer"),

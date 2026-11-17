@@ -184,6 +184,25 @@ RULES = {
         "alternative, target-range and, for a search, search-range rules hold.",
         "{subject}: the target can be assessed for this analysis.",
     ),
+    "power-formula": Rule(
+        "The method has a power formula, and the planning point is the kind that formula "
+        "takes, with valid values.",
+        "{subject}: {method} has the power formula {formula} (version {version}) for this "
+        "planning point.",
+    ),
+    "cited-planning-contract": Rule(
+        "The cited-contract, power-formula, alternative, target-range and, for a search, "
+        "search-range rules hold.",
+        "{subject}: approximate power can be calculated for this cited analysis.",
+    ),
+    "cited-error-budget": Rule(
+        "The test's level is at most the requested error bound.",
+        "{subject}: the level {alpha} is within the requested error bound {maximum_typeI}.",
+        obligation="{subject}: the level {alpha} exceeds the requested error bound "
+        "{maximum_typeI}. The cited guarantee is at the test's level only. This is not "
+        "evidence that the actual error exceeds the request.",
+        code="typeI_target_not_established",
+    ),
     "error-budget": Rule(
         "The analysis's level is at most the requested error bound.",
         "{subject}: the level {alpha} is within the requested error bound {maximum_typeI}.",
@@ -687,6 +706,62 @@ def derive_two_stage(name: str, analysis: TwoStageAnalysisIR) -> Derivation:
     )
 
 
+def derive_cited_planning(name: str, claim: ClaimIR, analysis: CitedAnalysisIR) -> Derivation:
+    """Approximate power for a cited test: its contract fits and it has a power formula."""
+    subject, method = claim.subject, analysis.method
+    target, inner = subject.target, f"{name}.analysis"
+    search = None if isinstance(subject, FeasibilityIR) else subject.candidates
+    formula, point = method.power, normalize(subject.target.at)
+    builder = _Builder()
+    used = [
+        _cited_steps(builder, inner, analysis),
+        builder.apply(
+            "power-formula",
+            {
+                "subject": name,
+                "method": method.key,
+                "formula": formula.key,
+                "version": formula.version,
+                "point": point,
+            },
+        ),
+        builder.apply(
+            "alternative",
+            {"subject": name, "point": point, "null": analysis.hypothesis.statement},
+        ),
+        builder.apply(
+            "target-range",
+            {
+                "subject": name,
+                "minimum": str(target.minimum),
+                "maximum_typeI": str(target.maximum_typeI),
+            },
+        ),
+    ]
+    if search is not None:
+        bounds = {key: value for key, value in normalize(search).items() if key != "analysis"}
+        used.append(builder.apply("search-range", {"subject": name, "search": bounds}))
+    final = builder.apply("cited-planning-contract", {"subject": name}, tuple(used))
+    builder.settle(
+        "cited-error-budget",
+        {"subject": name, "alpha": str(analysis.alpha), "maximum_typeI": str(target.maximum_typeI)},
+        analysis.alpha <= target.maximum_typeI,
+    )
+    _sampling(builder, inner, analysis)
+    return Derivation(
+        name,
+        f"planning/{claim.kind}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        (
+            *(item.text for item in (*method.assumptions, *formula.assumptions)),
+            PLANNING_POINT_ASSUMPTION,
+        ),
+        tuple(builder.obligations),
+        normalize(claim),
+    )
+
+
 def derive_planning(name: str, claim: ClaimIR) -> Derivation:
     """A planning claim: its analysis fits, and the target can be assessed for it."""
     subject = claim.subject
@@ -694,6 +769,8 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
     analysis = subject.analysis if search is None else None
     if isinstance(search, (CandidatesIR, OneArmCandidatesIR)):
         analysis = search.analysis
+    if isinstance(analysis, CitedAnalysisIR):
+        return derive_cited_planning(name, claim, analysis)
     target, inner = subject.target, f"{name}.analysis"
     builder = _Builder()
     used: list[int] = []

@@ -12,7 +12,7 @@ from statclaim.language_compiler import compile_source
 from statclaim.language_runner import check_source, render_report
 from statclaim.language_syntax import Source
 from statclaim.language_values import Evidence, VerificationResult
-from statclaim.methods import ASSUMPTIONS, METHODS
+from statclaim.methods import ASSUMPTIONS, METHODS, versions
 from statclaim.methods.core import SCOPES
 from statclaim.verification import digest
 
@@ -51,12 +51,12 @@ def test_every_method_states_scope_assumptions_and_references():
 def test_changing_a_method_requires_a_new_version():
     """Evidence records the method version, so a silent change would mislead."""
     recorded = json.loads((ROOT / "tests/fixtures/method_versions.json").read_text())
-    current = {
-        key: {"version": method.version, "sha256": digest(repr(method).encode())}
-        for key, method in METHODS.items()
-    }
+    current = versions()
+    # The method hashes are recomputed here too, independently of versions().
+    for key, method in METHODS.items():
+        assert current[key]["sha256"] == digest(repr(method).encode())
     assert current == recorded, (
-        "A cited method changed. Bump its version, then run "
+        "A cited method or power formula changed. Bump its version, then run "
         "'uv run python scripts/update_method_versions.py'."
     )
 
