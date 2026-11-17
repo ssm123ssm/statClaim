@@ -32,6 +32,25 @@ differently, so the table cannot drift from the software.
 
 To add a scenario, append a `Scenario` to `SCENARIOS` and rerun.
 
+## Re-checking Simon (1989)
+
+`simon1989.json` holds the 102 two-stage designs tabulated by Simon (1989).
+`simon.py` asks three questions of each and writes
+[simon_results.md](simon_results.md):
+
+1. Does it meet its stated Type I error and power, in exact arithmetic?
+2. Does an exhaustive search of designs up to 120 participants return it?
+3. Can Lean prove its error bound for every response rate at or below the null,
+   and its power at the alternative?
+
+```sh
+uv run python replication/simon.py          # questions 1 and 2, about 3 minutes
+uv run python replication/simon.py --lean   # also question 3, about 20 minutes
+```
+
+The Lean run needs the Lean setup from the quickstart. It records each
+certificate in `simon_proofs.json` and resumes where it stopped.
+
 ## Worked designs
 
 | File | Shows |

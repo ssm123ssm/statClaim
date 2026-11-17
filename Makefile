@@ -87,6 +87,7 @@ editor-check:
 .PHONY: replication
 replication:
 	uv run --locked python replication/evaluate.py
+	uv run --locked python replication/simon.py
 
 .PHONY: catalogue-check repository-check editor-package
 catalogue-check:
