@@ -17,8 +17,9 @@ from statclaim.reference import (
 MODULE_CLASSES = {
     "models.two_arm_binomial": (
         "Models and hypotheses",
-        "Two independent binomial arms; equality, difference and inequality nulls; "
-        "observations and the Type I and result claims shared by two-arm analyses.",
+        "Two independent binomial arms, in one call or from an assignment and an outcome; "
+        "equality, difference and inequality nulls; observations and the Type I and result "
+        "claims shared by two-arm analyses.",
     ),
     "sampling": (
         "Study designs",
@@ -107,13 +108,25 @@ OBJECT_CLASSES = {
         "Claims and results",
         "An error-rate statement: quantity, relation, bound, null and scope.",
     ),
-    "Model": ("Core statistical objects", "Sampling model and arm sizes."),
+    "Assignment": (
+        "Core statistical objects",
+        "How participants reach the two arms: the arm sizes. Shared by outcomes on the "
+        "same participants.",
+    ),
+    "Outcome": (
+        "Core statistical objects",
+        "What is measured on each participant: its kind and which direction is better.",
+    ),
+    "Model": (
+        "Core statistical objects",
+        "Two binomial arms: an assignment and a binary outcome.",
+    ),
     "StudyDesign": ("Core statistical objects", "Model with a stopping rule."),
     "Hypothesis": ("Core statistical objects", "A null restriction, not an assertion of truth."),
     "Analysis": ("Core statistical objects", "Design, compatible null and exact alpha."),
     "OutcomeModel": (
         "Core statistical objects",
-        "Two arms with a continuous, survival or other registered outcome.",
+        "Two arms: an assignment and a continuous, survival or other registered outcome.",
     ),
     "OutcomeNull": ("Core statistical objects", "A null restriction for such a model."),
     "CitedAnalysis": (

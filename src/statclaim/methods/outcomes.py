@@ -1,7 +1,8 @@
 """Kinds of two-arm outcome and the null hypotheses that can be stated about each.
 
 To support a new kind of endpoint, add an Outcome here and list it in OUTCOMES.
-Its model and null constructors then exist in .stat files; no compiler change.
+Its model, its outcome piece ("<key>_outcome") and its null constructors then exist
+in .stat files; no compiler change.
 """
 
 from statclaim.methods.core import NullForm, Outcome

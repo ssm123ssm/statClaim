@@ -10,19 +10,26 @@ from statclaim.family import load_family
 from statclaim.language import (
     MODULES,
     AnalysisIR,
+    AssignmentIR,
     Constructor,
     FamilyIR,
     ModelIR,
     Module,
+    OutcomeIR,
     Parameter,
     elaborate,
     module_catalog,
+    two_arm_model,
 )
 from statclaim.language_runner import check_source, render_report
 from statclaim.language_syntax import Source, parse
 from statclaim.verification import VerificationError, design_payload, family_payload
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def binomial(n_control, n_treatment):
+    return two_arm_model(AssignmentIR(n_control, n_treatment), OutcomeIR("binary"))
 
 
 def source(name="fisher.stat"):
@@ -63,7 +70,7 @@ def test_module_registry_extends_vocabulary_without_parser_changes(monkeypatch):
     code = source().text + "use example.reuse\nlet copied = copy_model(study)\n"
     program, diagnostics = elaborate(Source(code))
     assert diagnostics == []
-    assert program.bindings[-1].value == ModelIR(100, 100)
+    assert program.bindings[-1].value == binomial(100, 100)
     assert "copy_model(model) -> Model" in module_catalog()[-1]["constructors"]
 
 
@@ -146,7 +153,7 @@ let model = two_arm_binomial(
 """
     program, diagnostics = elaborate(Source(code))
     assert diagnostics == []
-    assert program.bindings[0].value == ModelIR(4, 8)
+    assert program.bindings[0].value == binomial(4, 8)
 
 
 def test_invalid_observation_points_to_the_count():

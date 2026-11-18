@@ -1,6 +1,6 @@
 # The statistical file-language prototype
 
-Language version `0.11.0` provides a small declaration grammar over the existing
+Language version `0.12.0` provides a small declaration grammar over the existing
 statistical objects and Lean backend. Claims, verification results, and calculation
 results are first-class values. The statistical language is the researcher-facing
 interface; the Lean and TOML interfaces remain supported.
@@ -102,7 +102,7 @@ escapes. Rational denominators must be nonzero; levels must be in `[0,1]`.
 
 | Module | Constructors and claims |
 | --- | --- |
-| `models.two_arm_binomial` | `two_arm_binomial(n_control, n_treatment)`, `equal_proportions(model)`, `proportion_difference(model, value)`, `proportion_difference_at_most(model, value)` |
+| `models.two_arm_binomial` | `two_arm_binomial(n_control, n_treatment)`, `assignment(n_control, n_treatment)`, `binary_outcome([better])`, `two_arm(assignment, outcome)`, `equal_proportions(model)`, `proportion_difference(model, value)`, `proportion_difference_at_most(model, value)` |
 | `sampling` | `fixed(model)`, `adaptive(model)` |
 | `tests.fisher` | `fisher(design, null, alpha)`, `observe(analysis, control_successes, treatment_successes)`, `typeI(analysis)`, `result(observation)` |
 | `multiplicity.bonferroni` | `bonferroni(analyses, alpha, joint_law)`, `familywise(family)` |
@@ -119,6 +119,25 @@ The supported binomial model descriptions are matched structurally by their size
 Reusing a model or plan reuses its distributional specification. It does not prove
 that real observations follow it or introduce independence between outcomes.
 General equivalence of arbitrary future models is outside this prototype.
+
+## Models from an assignment and an outcome
+
+A two-arm model has two pieces: an assignment, which says how participants reach
+the arms, and an outcome, which says what is measured on each participant. The
+one-call constructors are shorthand:
+
+```text
+let arms = assignment(n_control=120, n_treatment=120)
+let responders = two_arm(assignment=arms, outcome=binary_outcome(better="higher"))
+let scores = two_arm(assignment=arms, outcome=continuous_outcome(better="lower"))
+```
+
+`two_arm(assignment=arms, outcome=continuous_outcome())` is the same model as
+`two_arm_continuous(n_control=120, n_treatment=120)`, with the same claims and
+evidence. A shared assignment states the arm sizes once, and a change to it is
+reported against every model, analysis and claim built on it. Sharing does not
+assume that the outcomes are independent. Read the pieces back as
+`scores.assignment` and `scores.outcome`. See `examples/shared_assignment.stat`.
 
 ## First-class claims and execution results
 

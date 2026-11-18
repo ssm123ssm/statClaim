@@ -56,7 +56,7 @@ from statclaim.planning import (
     TwoStageRule,
 )
 
-LANGUAGE_VERSION = "0.11.0"
+LANGUAGE_VERSION = "0.12.0"
 
 
 class PlannableIR:
@@ -88,26 +88,71 @@ class NullIR:
 
 
 @dataclass(frozen=True)
-class ModelIR(StudyModelIR):
+class AssignmentIR:
+    """How participants reach the two arms. Today: the two arm sizes.
+
+    Later design declarations, such as the unit of randomisation or strata, belong here.
+    """
+
     n_control: int
     n_treatment: int
-    # "higher" or "lower": which direction of the outcome is better, when declared.
-    better: str | None = None
-
-    @property
-    def outcome(self) -> str:
-        return "binary"
 
 
 @dataclass(frozen=True)
-class OutcomeModelIR(StudyModelIR):
-    """Two arms with an outcome of a registered kind; no distribution is fixed."""
+class OutcomeIR:
+    """What is measured on each participant: its kind, and which direction is better."""
 
-    outcome: str
-    n_control: int
-    n_treatment: int
+    kind: str  # a key of OUTCOMES
     # "higher" or "lower": which direction of the outcome is better, when declared.
     better: str | None = None
+
+
+@dataclass(frozen=True)
+class TwoArmModelIR(StudyModelIR):
+    """Two arms, built from an assignment and an outcome. No distribution is fixed."""
+
+    assignment: AssignmentIR
+    measured: OutcomeIR
+
+    @property
+    def n_control(self) -> int:
+        return self.assignment.n_control
+
+    @property
+    def n_treatment(self) -> int:
+        return self.assignment.n_treatment
+
+    @property
+    def better(self) -> str | None:
+        return self.measured.better
+
+    @property
+    def outcome(self) -> str:
+        return self.measured.kind
+
+
+@dataclass(frozen=True)
+class ModelIR(TwoArmModelIR):
+    """Two arms with a yes-or-no outcome: the Lean-backed binomial model."""
+
+    def __post_init__(self):
+        if self.measured.kind != "binary":
+            raise ValueError("The binomial model needs a binary outcome.")
+
+
+@dataclass(frozen=True)
+class OutcomeModelIR(TwoArmModelIR):
+    """Two arms with an outcome of a registered kind other than binary."""
+
+    def __post_init__(self):
+        if self.measured.kind == "binary":
+            raise ValueError("A binary outcome gives the binomial model.")
+
+
+def two_arm_model(assignment: AssignmentIR, measured: OutcomeIR) -> TwoArmModelIR:
+    """The same pieces always give the same model, however a file spells them."""
+    kind = ModelIR if measured.kind == "binary" else OutcomeModelIR
+    return kind(assignment, measured)
 
 
 @dataclass(frozen=True)
@@ -736,6 +781,10 @@ def normalize(value: object) -> object:
         case OutcomeModelIR(outcome=outcome, n_control=nc, n_treatment=nt, better=better):
             result = {"module": OUTCOMES[outcome].constructor, "n_control": nc, "n_treatment": nt}
             return {**result, "better": better} if better else result
+        case AssignmentIR(n_control=nc, n_treatment=nt):
+            return {"n_control": nc, "n_treatment": nt}
+        case OutcomeIR(kind=kind, better=better):
+            return {"outcome": kind, **({"better": better} if better else {})}
         case OutcomeNullIR(model=model, predicate=predicate, value=bound):
             result = {"predicate": predicate, "model": normalize(model)}
             if NULL_FORMS[predicate][1].takes_value:
@@ -929,25 +978,34 @@ def fail(code: str, message: str, span: Span) -> None:
     raise LanguageError(Diagnostic(code, message, span))
 
 
-def _sizes_and_better(arguments: dict[str, LocatedValue]) -> tuple[int, int, str | None]:
+def _assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
     for name in ("n_control", "n_treatment"):
         if arguments[name].value <= 0:
             fail("domain", f"{name} must be a positive integer.", arguments[name].span)
-    better = arguments["better"]
-    if better.value not in (None, "higher", "lower"):
-        fail("domain", 'better must be "higher" or "lower".', better.span)
-    return arguments["n_control"].value, arguments["n_treatment"].value, better.value
+    return AssignmentIR(arguments["n_control"].value, arguments["n_treatment"].value)
 
 
-def _model(arguments: dict[str, LocatedValue], span: Span) -> ModelIR:
-    return ModelIR(*_sizes_and_better(arguments))
-
-
-def _outcome_model(outcome) -> Callable:
-    def build(arguments: dict[str, LocatedValue], span: Span) -> OutcomeModelIR:
-        return OutcomeModelIR(outcome.key, *_sizes_and_better(arguments))
+def _outcome_piece(kind: str) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> OutcomeIR:
+        better = arguments["better"]
+        if better.value not in (None, "higher", "lower"):
+            fail("domain", 'better must be "higher" or "lower".', better.span)
+        return OutcomeIR(kind, better.value)
 
     return build
+
+
+def _model_from_sizes(kind: str) -> Callable:
+    """The one-call spelling: the same assignment and outcome as two_arm(...)."""
+
+    def build(arguments: dict[str, LocatedValue], span: Span) -> TwoArmModelIR:
+        return two_arm_model(_assignment(arguments, span), _outcome_piece(kind)(arguments, span))
+
+    return build
+
+
+def _two_arm(arguments: dict[str, LocatedValue], span: Span) -> TwoArmModelIR:
+    return two_arm_model(arguments["assignment"].value, arguments["outcome"].value)
 
 
 def _check_direction(form, model, span: Span) -> None:
@@ -1800,6 +1858,49 @@ DECLARED_MODULE_SUMMARY = (
 )
 
 
+# Shared by every two-arm model module, so a file that loads several gets one copy.
+ASSIGNMENT = _constructor(
+    "assignment",
+    (("n_control", "integer"), ("n_treatment", "integer")),
+    "Assignment",
+    _assignment,
+    documentation="How participants are assigned to the two arms: today, the two arm "
+    "sizes. One assignment can be shared by several outcomes measured on the same "
+    "participants.",
+)
+TWO_ARM = _constructor(
+    "two_arm",
+    (("assignment", AssignmentIR), ("outcome", OutcomeIR)),
+    "Model",
+    _two_arm,
+    documentation="A two-arm model from an assignment and an outcome. A binary outcome "
+    "gives the binomial model; any other outcome gives an OutcomeModel. The same pieces "
+    "give the same model as the one-call constructors, such as two_arm_continuous.",
+)
+
+
+def outcome_constructor_name(kind: str) -> str:
+    return f"{kind}_outcome"
+
+
+def _outcome_piece_constructor(outcome) -> Constructor:
+    return _constructor(
+        outcome_constructor_name(outcome.key),
+        (("better", "string", True),),
+        "Outcome",
+        _outcome_piece(outcome.key),
+        documentation=f"The {outcome.key} outcome measured on each participant. Combine "
+        f"it with an assignment in two_arm(...). {BETTER_DOCUMENTATION}",
+    )
+
+
+def _shorthand_note(outcome) -> str:
+    return (
+        f"Shorthand for two_arm(assignment=assignment(n_control, n_treatment), "
+        f"outcome={outcome_constructor_name(outcome.key)}(better))."
+    )
+
+
 def _outcome_module(outcome) -> "Module":
     nulls = tuple(
         _constructor(
@@ -1815,11 +1916,12 @@ def _outcome_module(outcome) -> "Module":
         outcome.constructor,
         (("n_control", "integer"), ("n_treatment", "integer"), ("better", "string", True)),
         "OutcomeModel",
-        _outcome_model(outcome),
+        _model_from_sizes(outcome.key),
         documentation=f"{outcome.documentation} The model fixes no distribution; each test "
-        f"states the one it assumes. {BETTER_DOCUMENTATION}",
+        f"states the one it assumes. {_shorthand_note(outcome)} {BETTER_DOCUMENTATION}",
     )
-    return Module(outcome.module, (model, *nulls, TYPE_I))
+    pieces = (ASSIGNMENT, _outcome_piece_constructor(outcome), TWO_ARM)
+    return Module(outcome.module, (model, *pieces, *nulls, TYPE_I))
 
 
 # Extending this registry adds vocabulary and typed builders; parsing is unchanged.
@@ -1864,9 +1966,15 @@ MODULES = {
                         ("better", "string", True),
                     ),
                     "Model",
-                    _model,
-                    documentation="Two independent binomial arms. " + BETTER_DOCUMENTATION,
+                    _model_from_sizes("binary"),
+                    documentation="Two independent binomial arms. "
+                    + _shorthand_note(OUTCOMES["binary"])
+                    + " "
+                    + BETTER_DOCUMENTATION,
                 ),
+                ASSIGNMENT,
+                _outcome_piece_constructor(OUTCOMES["binary"]),
+                TWO_ARM,
                 _constructor(
                     "equal_proportions",
                     (("model", ModelIR),),

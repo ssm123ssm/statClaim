@@ -155,10 +155,10 @@ references and version. A formula is versioned separately from the test, since
 the test's error guarantee does not depend on it.
 
 A new kind of endpoint is also data. Add an `Outcome` with its null forms to
-`methods/outcomes.py`, as `SURVIVAL` does. Its model and null constructors then
-exist in `.stat` files. `survival.py` is the complete example. Outcomes that
-need more than two arm sizes to describe, such as covariates, are not covered
-yet; open an issue first.
+`methods/outcomes.py`, as `SURVIVAL` does. Its model, its outcome piece (such as
+`survival_outcome`) and its null constructors then exist in `.stat` files.
+`survival.py` is the complete example. Covariates are not covered yet; open an
+issue first.
 
 Each entry is trusted, not proved, so it needs a published source and statistical
 review. After a reviewed change to an entry, raise its `version`. A test fails

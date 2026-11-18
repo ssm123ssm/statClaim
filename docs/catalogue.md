@@ -61,11 +61,13 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Model | Sampling model and arm sizes. | `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
+| Assignment | How participants reach the two arms: the arm sizes. Shared by outcomes on the same participants. | `n_control: integer`, `n_treatment: integer` |
+| Outcome | What is measured on each participant: its kind and which direction is better. | `kind: string`, `better: Option[string]` |
+| Model | Two binomial arms: an assignment and a binary outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | StudyDesign | Model with a stopping rule. | `model: Model`, `stopping: string` |
 | Hypothesis | A null restriction, not an assertion of truth. | `model: Model`, `predicate: string`, `value: exact number`, `statement: string` |
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
-| OutcomeModel | Two arms with a continuous, survival or other registered outcome. | `outcome: string`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
+| OutcomeModel | Two arms: an assignment and a continuous, survival or other registered outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
 | CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
@@ -132,7 +134,13 @@ Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `Pla
 Two arms with a continuous outcome; equal-means and mean-difference nulls. Fixes no distribution.
 
 - `two_arm_continuous(n_control: integer, n_treatment: integer, better?: string) -> OutcomeModel`
-  Two arms with a continuous outcome, such as a change in blood pressure. The model fixes no distribution; each test states the one it assumes. better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+  Two arms with a continuous outcome, such as a change in blood pressure. The model fixes no distribution; each test states the one it assumes. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=continuous_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+- `assignment(n_control: integer, n_treatment: integer) -> Assignment`
+  How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
+- `continuous_outcome(better?: string) -> Outcome`
+  The continuous outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+- `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
+  A two-arm model from an assignment and an outcome. A binary outcome gives the binomial model; any other outcome gives an OutcomeModel. The same pieces give the same model as the one-call constructors, such as two_arm_continuous.
 - `equal_means(model: OutcomeModel) -> OutcomeNull`
   Null: the two arm means are equal.
 - `mean_difference_at_most(model: OutcomeModel, value: number) -> OutcomeNull`
@@ -146,7 +154,13 @@ Two arms with a continuous outcome; equal-means and mean-difference nulls. Fixes
 Two arms with a time-to-event outcome, possibly censored; equal-survival null. Fixes no distribution.
 
 - `two_arm_survival(n_control: integer, n_treatment: integer, better?: string) -> OutcomeModel`
-  Two arms followed for the time until an event, such as death or relapse. Some participants may be censored: followed without the event being seen. The model fixes no distribution; each test states the one it assumes. better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+  Two arms followed for the time until an event, such as death or relapse. Some participants may be censored: followed without the event being seen. The model fixes no distribution; each test states the one it assumes. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=survival_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+- `assignment(n_control: integer, n_treatment: integer) -> Assignment`
+  How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
+- `survival_outcome(better?: string) -> Outcome`
+  The survival outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+- `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
+  A two-arm model from an assignment and an outcome. A binary outcome gives the binomial model; any other outcome gives an OutcomeModel. The same pieces give the same model as the one-call constructors, such as two_arm_continuous.
 - `equal_survival(model: OutcomeModel) -> OutcomeNull`
   Null: the two arms have the same distribution of time to the event.
 - `typeI(analysis: Analysis) -> TypeIClaim`
@@ -207,10 +221,16 @@ A Wald or likelihood-ratio test of the treatment coefficient in a logistic regre
 
 ### `models.two_arm_binomial` — Models and hypotheses
 
-Two independent binomial arms; equality, difference and inequality nulls; observations and the Type I and result claims shared by two-arm analyses.
+Two independent binomial arms, in one call or from an assignment and an outcome; equality, difference and inequality nulls; observations and the Type I and result claims shared by two-arm analyses.
 
 - `two_arm_binomial(n_control: integer, n_treatment: integer, better?: string) -> Model`
-  Two independent binomial arms. better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+  Two independent binomial arms. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=binary_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+- `assignment(n_control: integer, n_treatment: integer) -> Assignment`
+  How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
+- `binary_outcome(better?: string) -> Outcome`
+  The binary outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+- `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
+  A two-arm model from an assignment and an outcome. A binary outcome gives the binomial model; any other outcome gives an OutcomeModel. The same pieces give the same model as the one-call constructors, such as two_arm_continuous.
 - `equal_proportions(model: Model) -> Hypothesis`
   Null: p_treatment = p_control. This declares a restriction under which a guarantee is requested, not that the null is true.
 - `proportion_difference(model: Model, value: number) -> Hypothesis`

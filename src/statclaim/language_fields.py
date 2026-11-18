@@ -9,6 +9,7 @@ from fractions import Fraction
 
 from statclaim.language import (
     AnalysisIR,
+    AssignmentIR,
     CalculationResultIR,
     CandidatesIR,
     CandidateSpaceIR,
@@ -31,6 +32,7 @@ from statclaim.language import (
     OneArmModelIR,
     OneSampleAnalysisIR,
     OneSampleObservationIR,
+    OutcomeIR,
     OutcomeModelIR,
     OutcomeNullIR,
     PlanIR,
@@ -81,19 +83,25 @@ class FieldSpec:
     description: str = ""
 
 
+BETTER = FieldSpec(str, optional=True, description="higher or lower, when declared.")
+# A two-arm model's pieces, and the fields of the one-call constructors.
+TWO_ARM_FIELDS = {
+    "assignment": FieldSpec(AssignmentIR),
+    "outcome": FieldSpec(OutcomeIR, attribute="measured"),
+    "n_control": FieldSpec(int),
+    "n_treatment": FieldSpec(int),
+    "better": BETTER,
+}
+
 SCHEMAS = {
-    ModelIR: {
-        "n_control": FieldSpec(int),
-        "n_treatment": FieldSpec(int),
-        "better": FieldSpec(str, optional=True, description="higher or lower, when declared."),
+    AssignmentIR: {"n_control": FieldSpec(int), "n_treatment": FieldSpec(int)},
+    OutcomeIR: {
+        "kind": FieldSpec(str, description="binary, continuous, survival, ..."),
+        "better": BETTER,
     },
+    ModelIR: TWO_ARM_FIELDS,
     PlanIR: {"model": FieldSpec(StudyModelIR), "stopping": FieldSpec(str)},
-    OutcomeModelIR: {
-        "outcome": FieldSpec(str, description="continuous, survival, ..."),
-        "n_control": FieldSpec(int),
-        "n_treatment": FieldSpec(int),
-        "better": FieldSpec(str, optional=True, description="higher or lower, when declared."),
-    },
+    OutcomeModelIR: TWO_ARM_FIELDS,
     OutcomeNullIR: {
         "model": FieldSpec(OutcomeModelIR),
         "predicate": FieldSpec(str),

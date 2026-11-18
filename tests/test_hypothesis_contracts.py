@@ -9,12 +9,14 @@ import pytest
 from statclaim.language import (
     MODULES,
     AnalysisIR,
+    AssignmentIR,
     HypothesisIR,
     LocatedValue,
-    ModelIR,
+    OutcomeIR,
     PlanIR,
     elaborate,
     module_catalog,
+    two_arm_model,
 )
 from statclaim.language_compiler import compile_source
 from statclaim.language_contracts import FISHER_CONTRACT, HypothesisContract
@@ -144,7 +146,7 @@ def test_contracts_are_registry_metadata_and_can_describe_other_supported_nulls(
     assert constructor.hypothesis_contract is FISHER_CONTRACT
     catalog = next(m for m in module_catalog() if m["module"] == "tests.fisher")
     assert catalog["contracts"]["fisher"]["supported_predicates"] == ["equal_proportions"]
-    model = ModelIR(100, 100)
+    model = two_arm_model(AssignmentIR(100, 100), OutcomeIR("binary"))
     plan = PlanIR(model, "fixed")
     null = HypothesisIR(model, "proportion_difference", Fraction(1, 10))
     span = Span("test.stat", 1, 1, 1, 2)
