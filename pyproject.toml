@@ -13,6 +13,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Mathematics",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -46,6 +47,7 @@ include = [
     "/examples",
     "/docs",
     "/tests",
+    "/replication",
     "/README.md",
     "/ROADMAP.md",
     "/LICENSE",

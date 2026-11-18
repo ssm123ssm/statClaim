@@ -36,17 +36,30 @@ Other files in `playground/`:
 
 ## Without Lean
 
-Checking contracts, explanations, reports and cited claims needs only Python
-3.12 or newer. Install the package and work in any folder:
+Checking contracts, explanations, reports, cited claims and approximate power
+needs only Python 3.12 or newer. Install the package and work in any folder:
 
 ```sh
 pip install statclaim
 statclaim check my_study.stat
-statclaim explain my_study.stat
+statclaim report my_study.stat
 ```
 
-Proved and conditional claims need Lean; use Codespaces or the local setup
-below. `statclaim doctor` reports what your installation can do.
+The package contains the program only. The example files are in the
+[`examples/`](../examples) folder of the repository, and in the source archive
+on PyPI. Download one, such as `examples/t_test.stat`, to start from it.
+
+Proved and conditional claims need Lean, which lives in a checkout of the
+repository. Without one, such a claim stays open with a message that says so.
+`statclaim doctor` reports what your installation can do; outside a checkout
+it says that Lean was not checked and exits with code 1.
+
+To add Lean, clone the repository and run `make setup` in it. You can then
+keep working in your own folder and point at the checkout:
+
+```sh
+statclaim check my_study.stat --project path/to/statClaim
+```
 
 ## Local VS Code
 

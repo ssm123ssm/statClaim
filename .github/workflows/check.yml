@@ -17,6 +17,19 @@ jobs:
       - run: uv sync --locked
       - run: make python-check catalogue-check repository-check
       - run: uv build
+  wheel:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+      - run: uv build --wheel --out-dir dist
+      - run: uv run --locked python scripts/check_install.py dist/statclaim-*.whl --python ${{ matrix.python }}
   replicate:
     runs-on: ubuntu-latest
     timeout-minutes: 20

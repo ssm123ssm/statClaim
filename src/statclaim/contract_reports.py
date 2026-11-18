@@ -136,6 +136,7 @@ STATUS_MEANING = {
     "conditional": "combination proved in Lean; members assumed",
     "cited": "cited from the literature; not machine-checked",
     "declared": "declared by the author; not checked and not cited",
+    "calculated": "calculated only: an approximation, never verified",
 }
 
 

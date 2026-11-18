@@ -146,3 +146,38 @@ def test_verify_command_maps_backend_options(monkeypatch, capsys, tmp_path):
         == 0
     )
     assert json.loads(capsys.readouterr().out)["status"] == "verified"
+
+
+def test_doctor_outside_a_checkout_never_runs_lean(tmp_path, capsys, monkeypatch):
+    """Outside a checkout, running lake could start a toolchain download."""
+    import subprocess
+
+    real = subprocess.run
+
+    def only_uv(command, *args, **kwargs):
+        assert "lake" not in command[0], "doctor ran lake outside a checkout"
+        return real(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", only_uv)
+    assert main(["doctor", "--project", str(tmp_path)]) == 1
+    out = capsys.readouterr().out
+    assert "is not a StatClaim checkout" in out and "make setup" in out
+    assert "Ready without Lean" in out
+
+
+def test_doctor_in_a_checkout_without_lake_says_it_is_missing(capsys, monkeypatch):
+    import shutil
+
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    assert main(["doctor", "--project", str(ROOT)]) == 1
+    out = capsys.readouterr().out
+    assert "Lean: MISSING" in out and "uv: not found" in out
+
+
+@pytest.mark.parametrize("path", sorted((ROOT / "examples").rglob("*.stat")), ids=lambda p: p.stem)
+def test_report_renders_every_example_without_lean(path, capsys):
+    """statclaim report needs no Lean and must work on every example."""
+    code = main(["report", str(path)])
+    out = capsys.readouterr().out
+    assert code in (0, 1, 2), out  # 2: the example is invalid on purpose
+    assert out.startswith("# Study contract report")

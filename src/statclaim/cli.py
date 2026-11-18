@@ -16,32 +16,57 @@ from statclaim.language_syntax import Source
 from statclaim.report import test_design, verify_design, verify_design_only, verify_family
 from statclaim.verification import VerificationError, recheck_certificate
 
+# The files that mark a StatClaim checkout, where the Lean backend lives.
+CHECKOUT_FILES = ("lean-toolchain", "lakefile.toml", "StatClaim.lean")
+SETUP = (
+    "Proved and conditional claims need Lean, which lives in a StatClaim checkout: "
+    "'git clone https://github.com/ssm123ssm/statClaim', run 'make setup' in it, then run "
+    "statclaim there or pass --project. See docs/quickstart.md."
+)
 
-def doctor() -> int:
-    """Report what this installation can do. Lean is needed only for proofs."""
+
+def doctor(project: Path) -> int:
+    """Report what this installation can do. Lean is needed only for proofs.
+
+    Lean is checked only inside a checkout: elsewhere, running lake could start a
+    toolchain download.
+    """
     print(f"StatClaim {__version__}; Python {sys.version.split()[0]}")
     print("Ready without Lean: compile, explain, report, impact, and cited claims.")
-    healthy = True
-    for executable, arguments in (("uv", ["--version"]), ("lake", ["env", "lean", "--version"])):
-        if not shutil.which(executable):
-            print(f"MISSING: {executable}")
-            healthy = False
-            continue
+    uv = shutil.which("uv")
+    if uv:
+        result = subprocess.run([uv, "--version"], capture_output=True, text=True, check=False)
+        print((result.stdout + result.stderr).strip())
+    else:
+        print("uv: not found. It is needed only to work in a checkout.")
+    project = project.resolve()
+    if not all((project / name).is_file() for name in CHECKOUT_FILES):
+        print(f"Lean: not checked. {project} is not a StatClaim checkout.")
+        healthy = False
+    elif not shutil.which("lake"):
+        print("Lean: MISSING. 'lake' is not on PATH; install elan, then run 'make setup'.")
+        healthy = False
+    else:
         try:
             result = subprocess.run(
-                [executable, *arguments], capture_output=True, text=True, timeout=60, check=False
+                ["lake", "env", "lean", "--version"],
+                cwd=project,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
             )
-        except (OSError, subprocess.TimeoutExpired) as error:
-            print(f"ERROR: {executable}: {error}")
+            print((result.stdout + result.stderr).strip())
+            healthy = result.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            print(
+                "Lean: 'lake env lean --version' did not finish in 60 seconds. Run "
+                f"'make setup' in {project} first; it downloads the pinned Lean and Mathlib."
+            )
             healthy = False
-            continue
-        print((result.stdout + result.stderr).strip())
-        healthy = healthy and result.returncode == 0
     if not healthy:
-        print(
-            "Proved and conditional claims need Lean: clone the repository and run "
-            "'make setup'. See docs/quickstart.md."
-        )
+        print(SETUP)
     print("Environment check only; no statistical theorem was checked in this command.")
     return 0 if healthy else 1
 
@@ -57,7 +82,12 @@ def main(argv: list[str] | None = None) -> int:
     # Legacy TOML commands are registered without help text, which keeps them
     # working while leaving them out of the command list.
     commands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
-    commands.add_parser("doctor", help="Check Python, uv, and the local Lean toolchain")
+    doctor_command = commands.add_parser(
+        "doctor", help="Check Python, uv, and the Lean toolchain of a checkout"
+    )
+    doctor_command.add_argument(
+        "--project", type=Path, default=Path.cwd(), help="StatClaim checkout to check for Lean"
+    )
     commands.add_parser("lsp", help="Start the stdio language server (no proof execution)")
     inspect = commands.add_parser("inspect")
     inspect.add_argument("design", type=Path)
@@ -148,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
 
         return run_stdio()
     if options.command == "doctor":
-        return doctor()
+        return doctor(options.project)
     try:
         if options.command in ("catalogue", "catalog"):
             from statclaim.catalogue import catalogue, render_catalogue

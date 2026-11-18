@@ -94,6 +94,12 @@ replicate-lean:
 replicate-update:
 	uv run --locked python replication/run.py --update
 
+.PHONY: install-check
+install-check:
+	rm -rf dist/install-check
+	uv build --wheel --out-dir dist/install-check
+	uv run --locked python scripts/check_install.py dist/install-check/statclaim-*.whl
+
 .PHONY: catalogue-check repository-check editor-package
 catalogue-check:
 	uv run --locked python scripts/update_catalogue.py --check
