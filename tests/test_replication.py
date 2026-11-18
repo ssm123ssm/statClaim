@@ -53,3 +53,40 @@ def test_simon_data_and_published_results_agree_with_the_software():
     proofs = json.loads((ROOT / "replication/simon_proofs.json").read_text())
     assert len(proofs) == 102
     assert all(item["status"] == "verified" and item["certificate_id"] for item in proofs.values())
+
+
+def replication_module(name):
+    spec = importlib.util.spec_from_file_location(name, ROOT / f"replication/{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_power_cross_check_is_current_and_within_tolerance():
+    power = replication_module("power")
+    rows = power.run()
+    assert rows and all(row["within_tolerance"] for row in rows)
+    assert (ROOT / "replication/power_results.md").read_text() == power.render(rows), (
+        "Rerun 'uv run python replication/power.py'."
+    )
+
+
+def test_every_replication_step_names_a_script_and_its_pinned_outputs():
+    run = replication_module("run")
+    for step in run.STEPS:
+        assert (ROOT / "replication" / step.script).is_file(), step
+        assert all((ROOT / "replication" / name).is_file() for name in step.outputs), step
+    # A Python-only replication never needs Lean; the Lean steps are separate.
+    assert any(step.lean for step in run.STEPS)
+    assert {step.script for step in run.STEPS if not step.lean} >= {
+        "evaluate.py",
+        "simon.py",
+        "power.py",
+    }
+
+
+def test_worked_designs_without_lean_have_their_recorded_statuses(capsys, monkeypatch):
+    examples = replication_module("examples")
+    monkeypatch.setattr("sys.argv", ["examples.py"])
+    assert examples.main() == 0
+    assert "DIFFERS" not in capsys.readouterr().out

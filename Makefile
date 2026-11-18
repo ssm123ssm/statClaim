@@ -84,10 +84,15 @@ editor-check:
 	npm --prefix extensions/vscode run test:unit
 	npm --prefix extensions/vscode test
 
-.PHONY: replication
-replication:
-	uv run --locked python replication/evaluate.py
-	uv run --locked python replication/simon.py
+.PHONY: replicate replicate-lean replicate-update
+replicate:
+	uv run --locked python replication/run.py
+
+replicate-lean:
+	uv run --locked python replication/run.py --lean
+
+replicate-update:
+	uv run --locked python replication/run.py --update
 
 .PHONY: catalogue-check repository-check editor-package
 catalogue-check:

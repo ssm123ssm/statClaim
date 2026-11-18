@@ -3,6 +3,7 @@
     uv run python replication/simon.py           # exact calculation and optimality; no Lean
     uv run python replication/simon.py --check   # fail if simon_results.md is out of date
     uv run python replication/simon.py --lean    # also prove each design in Lean (slow)
+    uv run python replication/simon.py --fresh   # prove all again; compare with simon_proofs.json
 
 Three questions are asked of each of the 102 designs:
   1. Does it meet its stated Type I error and power? (exact arithmetic)
@@ -103,6 +104,10 @@ def optimality(design: dict, size: float) -> dict:
         "better_design_exists": better,
         "best": {**best, "expected_size": best_size},
     }
+
+
+def proof_key(design: dict) -> str:
+    return f"{design['kind']} p0={design['p0']} p1={design['p1']} {label(design)}"
 
 
 def prove(design: dict, directory: Path) -> dict:
@@ -226,7 +231,39 @@ def render(rows: list[dict], proofs: dict | None) -> str:
     return "\n".join(lines)
 
 
+def fresh() -> int:
+    """Prove every design again, ignoring earlier certificates, and compare with the pinned file.
+
+    The new results go to a temporary file; simon_proofs.json is not changed.
+    """
+    pinned = json.loads((HERE / "simon_proofs.json").read_text())
+    path = Path(tempfile.gettempdir()) / "statclaim-simon-proofs-fresh.json"
+    print(f"Writing fresh proofs to {path}", flush=True)
+    proofs = {}
+    with tempfile.TemporaryDirectory() as directory:
+        for index, design in enumerate(DATA["designs"]):
+            key = proof_key(design)
+            proofs[key] = prove(design, Path(directory) / f"design-{index:03d}")
+            path.write_text(json.dumps(proofs, indent=1) + "\n")
+            print(f"{index + 1}/{len(DATA['designs'])} {key}: {proofs[key]['status']}", flush=True)
+    differ = [
+        key
+        for key in sorted(pinned.keys() | proofs.keys())
+        if (pinned.get(key) or {}).get("status") != (proofs.get(key) or {}).get("status")
+        or (pinned.get(key) or {}).get("established") != (proofs.get(key) or {}).get("established")
+    ]
+    verified = sum(item["status"] == "verified" for item in proofs.values())
+    print(f"{verified} of {len(proofs)} designs verified afresh.")
+    if differ:
+        print(f"Differ from simon_proofs.json: {', '.join(differ)}")
+        return 1
+    print("Statuses and proved statements match simon_proofs.json.")
+    return 0
+
+
 def main() -> int:
+    if "--fresh" in sys.argv:
+        return fresh()
     rows = run()
     proofs = None
     proof_file = HERE / "simon_proofs.json"
@@ -234,7 +271,7 @@ def main() -> int:
         proofs = json.loads(proof_file.read_text()) if proof_file.exists() else {}
         with tempfile.TemporaryDirectory() as directory:
             for index, design in enumerate(DATA["designs"]):
-                key = f"{design['kind']} p0={design['p0']} p1={design['p1']} {label(design)}"
+                key = proof_key(design)
                 if proofs.get(key, {}).get("status") == "verified":
                     continue
                 proofs[key] = prove(design, Path(directory) / f"design-{index:03d}")
