@@ -67,6 +67,19 @@ let plan = fixed(model=study)
 let null = mean_difference_at_most(model=study, value=-1/10)
 let analysis = mmrm_test_one_sided(design=plan, null=null, alpha=1/40)
 """
+# The same continuous study, with its design declared on the model's pieces.
+PIECES = """use models.two_arm_continuous
+use sampling
+use tests.t
+let arms = {assignment}
+let study = two_arm(assignment=arms, outcome=continuous_outcome({outcome}))
+let plan = fixed(model=study)
+let null = equal_means(model=study)
+let analysis = t_test(design=plan, null=null, alpha=1/20)
+"""
+CLINICS = (
+    "cluster_assignment(clusters_control=10, clusters_treatment=10, n_control=200, n_treatment=200)"
+)
 PER_PROTOCOL = """use models.two_arm_binomial
 use sampling
 use tests.difference
@@ -502,6 +515,53 @@ verify typeI(analysis)
         note="The register lists that higher values are taken to be better, marked assumed. "
         'Declaring better="lower" makes this a rejection.',
     ),
+    # ---- Several values per participant, or clusters assigned instead of participants
+    Scenario(
+        "repeated_measures_declared",
+        "Unit of analysis",
+        "Three measurements on each of 100 participants per arm are declared as such, but the "
+        "analysis is a t-test, which counts every measurement as a separate participant.",
+        PIECES.format(
+            assignment="assignment(n_control=100, n_treatment=100)", outcome="measurements=3"
+        ),
+        "rejected",
+        "unit_mismatch",
+    ),
+    Scenario(
+        "repeated_measures_as_participants",
+        "Unit of analysis",
+        "Three measurements on each of 100 participants per arm are declared as 300 "
+        "independent observations per arm.",
+        CONTINUOUS.replace("n_control=60, n_treatment=60", "n_control=300, n_treatment=300")
+        + "verify typeI(analysis)\n",
+        "surfaced",
+        surfaces="independent_observations",
+        note="Nothing in the file says that observations share participants. The register "
+        "lists independent observations as assumed. Declaring the outcome's measurements "
+        "makes this a rejection.",
+    ),
+    Scenario(
+        "cluster_randomised_declared",
+        "Unit of analysis",
+        "Ten clinics per arm are randomised and the file says so, but the analysis is a "
+        "t-test on participants, as if each had been randomised alone.",
+        PIECES.format(assignment=CLINICS, outcome=""),
+        "rejected",
+        "unit_mismatch",
+    ),
+    Scenario(
+        "cluster_randomised_undeclared",
+        "Unit of analysis",
+        "Ten clinics per arm are randomised, but the file declares 200 participants per arm "
+        "and a t-test on participants.",
+        CONTINUOUS.replace("n_control=60, n_treatment=60", "n_control=200, n_treatment=200")
+        + "verify typeI(analysis)\n",
+        "surfaced",
+        surfaces="independent_observations",
+        note="Nothing in the file says that clinics were randomised. The register lists "
+        "independent observations as assumed. Declaring cluster_assignment(...) makes this a "
+        "rejection.",
+    ),
     # ---- How the study is run, which a declaration does not show
     Scenario(
         "endpoint_chosen_after_interim",
@@ -514,18 +574,6 @@ verify typeI(analysis)
         note="A verified test of the chosen endpoint does not cover the choice. The report's "
         "justification lists that the analysis was chosen before outcomes were observed: the "
         "statement the study broke.",
-    ),
-    Scenario(
-        "repeated_measures_as_participants",
-        "Study conduct",
-        "Three measurements on each of 100 participants per arm are declared as 300 "
-        "independent observations per arm.",
-        CONTINUOUS.replace("n_control=60, n_treatment=60", "n_control=300, n_treatment=300")
-        + "verify typeI(analysis)\n",
-        "surfaced",
-        surfaces="independent_observations",
-        note="The file cannot show that observations share participants. The register lists "
-        "independent observations as assumed.",
     ),
     Scenario(
         "per_protocol_population",

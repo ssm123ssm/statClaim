@@ -29,6 +29,8 @@ from statclaim.derivations import (
 )
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
 from statclaim.methods.assumptions import (
+    ACCOUNTS_FOR,
+    CONTRADICTED_BY,
     DECLARED_VALID,
     FIXED_SIZES,
     HIGHER_IS_BETTER,
@@ -83,6 +85,50 @@ def _direction_assumed(null: dict) -> tuple:
     if favours is None or null["model"].get("better"):
         return ()
     return (HIGHER_IS_BETTER if favours == "higher" else LOWER_IS_BETTER,)
+
+
+def _describe_design(measurements: int, clusters: tuple | None) -> str:
+    """Worded independently of derivations.describe_design, and compared with it."""
+    parts = [f"{measurements} measurements per participant"] if measurements > 1 else []
+    if clusters:
+        parts.append(f"{clusters[0]} and {clusters[1]} clusters randomised")
+    return "; ".join(parts)
+
+
+def _features(model: dict) -> list[str]:
+    """Declared design features, read from the serialized model."""
+    return [
+        *(["repeated_measures"] if model.get("measurements", 1) > 1 else []),
+        *(["clusters"] if "clusters_control" in model else []),
+    ]
+
+
+def _design_facts(name: str, model: dict, method: CitedMethod) -> tuple | None:
+    """The declared-design step a method's contract needs, or None for a plain design."""
+    features = _features(model)
+    if not features:
+        return None
+    clusters = (
+        (model["clusters_control"], model["clusters_treatment"])
+        if "clusters_control" in model
+        else None
+    )
+    ids = [item.id for item in method.assumptions]
+    facts = {
+        "subject": name,
+        "design": _describe_design(model.get("measurements", 1), clusters),
+        "features": features,
+        "assumptions": ids,
+    }
+    holds = not any(set(ids) & set(CONTRADICTED_BY[feature]) for feature in features)
+    return ("declared-design", facts, holds, ())
+
+
+def _vouched(model: dict, method: CitedMethod) -> tuple:
+    """What a declared test must do for the declared design, taken on the author's word."""
+    if method.grade != "declared":
+        return ()
+    return tuple(ACCOUNTS_FOR[feature] for feature in _features(model))
 
 
 def _whole(value, minimum: int) -> bool:
@@ -381,6 +427,8 @@ def _statement(null: dict) -> str:
 def _analysis_expectations(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
     """(rule, facts, premise holds) for the three premises of the analysis contract."""
     design, null = analysis["design"], analysis["null"]
+    if _features(design["model"]) or _features(null["model"]):
+        raise ValueError("an exact two-arm test cannot take clusters or repeated measurements")
     alternative = analysis.get("alternative", "two_sided")
     supported = SUPPORTED_NULLS[alternative]
     null_ok = null["predicate"] in supported and (
@@ -506,9 +554,12 @@ def _cited_expected(name: str, subject: dict, contract: str):
             enough,
             (),
         ),
-        ("cited-contract", {"subject": name}, True, (0, 1, 2, 3)),
     ]
+    design_step = _design_facts(name, design["model"], method)
+    steps += [design_step] if design_step else []
+    steps.append(("cited-contract", {"subject": name}, True, (0, 1, 2, 3)))
     fixed = _sampling_expectation(name, subject)
+    extra = (*_direction_assumed(null), *_vouched(design["model"], method))
     guarantee = None
     if fixed[2]:
         statement = Guarantee(
@@ -524,10 +575,10 @@ def _cited_expected(name: str, subject: dict, contract: str):
             "sentence": statement.sentence,
             "grade": method.grade,
             "method": method.to_dict(),
-            "given": [item.id for item in (*method.assumptions, *_direction_assumed(null))],
+            "given": [item.id for item in (*method.assumptions, *extra)],
             "references": list(method.references),
         }
-    texts = tuple(item.text for item in (*method.assumptions, *_direction_assumed(null)))
+    texts = tuple(item.text for item in (*method.assumptions, *extra))
     return steps, [fixed], texts, guarantee
 
 

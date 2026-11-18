@@ -71,6 +71,7 @@ for _method in METHODS.values():
 ASSUMPTIONS: dict[str, Assumption] = {
     value.id: value for value in vars(assumptions).values() if isinstance(value, Assumption)
 }
+ASSUMPTIONS.update({value.id: value for value in assumptions.ACCOUNTS_FOR.values()})
 for _item in (*METHODS.values(), *POWER_FORMULAS.values()):
     for _assumption in _item.assumptions:
         if ASSUMPTIONS.setdefault(_assumption.id, _assumption) != _assumption:

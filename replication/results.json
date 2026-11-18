@@ -489,6 +489,58 @@
     "note": "The register lists that higher values are taken to be better, marked assumed. Declaring better=\"lower\" makes this a rejection."
   },
   {
+    "key": "repeated_measures_declared",
+    "category": "Unit of analysis",
+    "error": "Three measurements on each of 100 participants per arm are declared as such, but the analysis is a t-test, which counts every measurement as a separate participant.",
+    "expected": "rejected",
+    "expected_code": "unit_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "unit_mismatch"
+    ],
+    "message": "t_test assumes independent observations, but the outcome is measured 3 times on each participant, and measurements on one participant are correlated. The test would overstate the evidence. Use a test for repeated measurements (mmrm_test, mmrm_test_one_sided), or declare one value per participant, such as the final visit or the mean, as an outcome with one measurement.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "repeated_measures_as_participants",
+    "category": "Unit of analysis",
+    "error": "Three measurements on each of 100 participants per arm are declared as 300 independent observations per arm.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "Observations are independent within and between the two arms. (assumed)",
+    "as_expected": true,
+    "note": "Nothing in the file says that observations share participants. The register lists independent observations as assumed. Declaring the outcome's measurements makes this a rejection."
+  },
+  {
+    "key": "cluster_randomised_declared",
+    "category": "Unit of analysis",
+    "error": "Ten clinics per arm are randomised and the file says so, but the analysis is a t-test on participants, as if each had been randomised alone.",
+    "expected": "rejected",
+    "expected_code": "unit_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "unit_mismatch"
+    ],
+    "message": "t_test assumes independent observations, but the assignment randomises whole clusters (10 control and 10 treatment clusters), and participants in one cluster tend to be alike. The test would overstate the evidence. No test with a contract accounts for clustering yet. Name one that does, such as a mixed model with a random effect for cluster or a test on cluster-level summaries, with declared_test(...).",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "cluster_randomised_undeclared",
+    "category": "Unit of analysis",
+    "error": "Ten clinics per arm are randomised, but the file declares 200 participants per arm and a t-test on participants.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "Observations are independent within and between the two arms. (assumed)",
+    "as_expected": true,
+    "note": "Nothing in the file says that clinics were randomised. The register lists independent observations as assumed. Declaring cluster_assignment(...) makes this a rejection."
+  },
+  {
     "key": "endpoint_chosen_after_interim",
     "category": "Study conduct",
     "error": "The endpoint analysed was chosen after an interim comparison of two candidates; the file declares only the chosen one.",
@@ -499,18 +551,6 @@
     "message": "The analysis and its level are chosen before outcomes are observed. (listed in the justification)",
     "as_expected": true,
     "note": "A verified test of the chosen endpoint does not cover the choice. The report's justification lists that the analysis was chosen before outcomes were observed: the statement the study broke."
-  },
-  {
-    "key": "repeated_measures_as_participants",
-    "category": "Study conduct",
-    "error": "Three measurements on each of 100 participants per arm are declared as 300 independent observations per arm.",
-    "expected": "surfaced",
-    "expected_code": null,
-    "outcome": "surfaced",
-    "codes": [],
-    "message": "Observations are independent within and between the two arms. (assumed)",
-    "as_expected": true,
-    "note": "The file cannot show that observations share participants. The register lists independent observations as assumed."
   },
   {
     "key": "per_protocol_population",

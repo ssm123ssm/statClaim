@@ -70,6 +70,12 @@ RULES = {
         "{subject}: arm sizes ({n_control}, {n_treatment}) meet the method's minimum of "
         "{min_per_arm} per arm and {min_total} in total.",
     ),
+    "declared-design": Rule(
+        "No assumption of the method is contradicted by the declared design: several "
+        "measurements per participant contradict independent observations, and randomisation "
+        "by cluster contradicts independent participants.",
+        "{subject}: the declared design ({design}) contradicts none of the method's assumptions.",
+    ),
     "cited-contract": Rule(
         "The same-model, supported-null, level-interior and enough-data rules hold.",
         "{subject}: the design, the null and the level fit this cited method.",
@@ -382,6 +388,36 @@ def _direction(model) -> dict:
     return {"better": model.better} if model.better else {}
 
 
+def describe_design(measurements: int, clusters: tuple[int, int] | None) -> str:
+    """The declared design features in words. derivation_checker words them the same way."""
+    parts = [f"{measurements} measurements per participant"] if measurements > 1 else []
+    if clusters:
+        parts.append(f"{clusters[0]} and {clusters[1]} clusters randomised")
+    return "; ".join(parts)
+
+
+def _declared_design(builder: _Builder, name: str, analysis: CitedAnalysisIR) -> None:
+    """Recorded only when the model declares a feature a test's assumptions could contradict."""
+    model = analysis.plan.model
+    if not model.features:
+        return
+    assignment = model.assignment
+    clusters = (
+        (assignment.clusters_control, assignment.clusters_treatment)
+        if assignment.clustered
+        else None
+    )
+    builder.apply(
+        "declared-design",
+        {
+            "subject": name,
+            "design": describe_design(model.measured.measurements, clusters),
+            "features": list(model.features),
+            "assumptions": [item.id for item in analysis.method.assumptions],
+        },
+    )
+
+
 def _analysis_steps(builder: _Builder, name: str, analysis: AnalysisIR) -> int:
     plan, null = analysis.plan, analysis.hypothesis
     used = (
@@ -469,6 +505,7 @@ def _cited_steps(builder: _Builder, name: str, analysis: CitedAnalysisIR) -> int
             },
         ),
     )
+    _declared_design(builder, name, analysis)
     return builder.apply("cited-contract", {"subject": name}, used)
 
 

@@ -38,6 +38,7 @@ CONTINUOUS = Outcome(
             favours="lower",
         ),
     ),
+    repeatable=True,
 )
 
 SURVIVAL = Outcome(

@@ -162,6 +162,8 @@ class Outcome:
     # True when the model and null constructors come from a Lean-backed module,
     # so the language does not generate them from this entry.
     builtin: bool = False
+    # True when a file may declare several measurements of it on each participant.
+    repeatable: bool = False
 
 
 @dataclass(frozen=True)

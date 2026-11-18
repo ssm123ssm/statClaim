@@ -131,6 +131,36 @@ LOWER_IS_BETTER = Assumption(
     "model to have this checked.",
 )
 
+# What a file can declare about its design, and the assumptions each feature contradicts.
+# A test that rests on a contradicted assumption is refused for that design. The ids
+# include independent_binomial_arms, the Lean-backed tests' assumption (identify.py).
+CONTRADICTED_BY = {
+    # Measurements on one participant are correlated, so they are not independent
+    # observations, and they are not separate binomial trials.
+    "repeated_measures": ("independent_observations", "independent_binomial_arms"),
+    # Participants in one cluster tend to be alike, so they are not independent.
+    "clusters": (
+        "independent_observations",
+        "independent_participants",
+        "independent_binomial_arms",
+    ),
+}
+# A declared test is taken on the author's word, so each feature adds what it must do.
+ACCOUNTS_FOR = {
+    "repeated_measures": Assumption(
+        "accounts_for_repeated_measures",
+        "vouched",
+        "The declared test accounts for the several measurements on each participant, "
+        "which may be correlated.",
+    ),
+    "clusters": Assumption(
+        "accounts_for_clusters",
+        "vouched",
+        "The declared test accounts for randomisation by cluster: participants in one "
+        "cluster may be correlated.",
+    ),
+}
+
 # Assumptions of the approximate power formulas in power.py. Power is a calculation,
 # so these concern how the number was obtained, not the test's error rate.
 NORMAL_APPROXIMATION_POWER = Assumption(

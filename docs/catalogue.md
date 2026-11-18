@@ -137,8 +137,10 @@ Two arms with a continuous outcome; equal-means and mean-difference nulls. Fixes
   Two arms with a continuous outcome, such as a change in blood pressure. The model fixes no distribution; each test states the one it assumes. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=continuous_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `assignment(n_control: integer, n_treatment: integer) -> Assignment`
   How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
-- `continuous_outcome(better?: string) -> Outcome`
-  The continuous outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused.
+- `continuous_outcome(better?: string, measurements?: integer) -> Outcome`
+  The continuous outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption. measurements is how many times the outcome is measured on each participant, 1 if left out. With more than one, tests that take one value per participant are refused.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
   A two-arm model from an assignment and an outcome. A binary outcome gives the binomial model; any other outcome gives an OutcomeModel. The same pieces give the same model as the one-call constructors, such as two_arm_continuous.
 - `equal_means(model: OutcomeModel) -> OutcomeNull`
@@ -157,6 +159,8 @@ Two arms with a time-to-event outcome, possibly censored; equal-survival null. F
   Two arms followed for the time until an event, such as death or relapse. Some participants may be censored: followed without the event being seen. The model fixes no distribution; each test states the one it assumes. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=survival_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `assignment(n_control: integer, n_treatment: integer) -> Assignment`
   How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused.
 - `survival_outcome(better?: string) -> Outcome`
   The survival outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
@@ -227,6 +231,8 @@ Two independent binomial arms, in one call or from an assignment and an outcome;
   Two independent binomial arms. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=binary_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `assignment(n_control: integer, n_treatment: integer) -> Assignment`
   How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused.
 - `binary_outcome(better?: string) -> Outcome`
   The binary outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
@@ -631,6 +637,8 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `proportional_hazards` | distribution | The hazard ratio is constant over time. The log-rank test's error rate does not need this; its power formula does. |
 | `planning_events` | scope | The number of events is a planning input, not an established fact. Power depends on the events, not on the arm sizes. |
 | `at_risk_shares` | approximation | Each arm's share of the participants at risk stays close to its share at randomisation, as when the hazard ratio is near 1. |
+| `accounts_for_repeated_measures` | vouched | The declared test accounts for the several measurements on each participant, which may be correlated. |
+| `accounts_for_clusters` | vouched | The declared test accounts for randomisation by cluster: participants in one cluster may be correlated. |
 
 ## Limits
 
@@ -675,6 +683,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `alternative_in_null` | error | The planning point lies inside the null. |
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
 | `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
+| `unit_mismatch` | error | The test assumes independent participants or observations, but the declared design randomises clusters or measures each participant several times. |
 | `planning_point` | error | The planning point does not fit the analysis. |
 | `rule_mismatch` | error | A stopping rule does not fit the two-stage design. |
 | `sampling_contract` | error | A joint law is given where none applies, or is not supported. |

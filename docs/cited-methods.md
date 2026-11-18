@@ -71,6 +71,19 @@ zero difference only. See `examples/trial_models.stat`.
 
 All assume independent participants, a plan fixed in advance and one analysis.
 
+## Clusters and repeated measurements
+
+A model can declare that whole clusters were randomised (`cluster_assignment`)
+or that the outcome is measured several times on each participant
+(`continuous_outcome(measurements=3)`). Each declaration contradicts named
+assumptions, listed in `CONTRADICTED_BY` in `methods/assumptions.py`: repeated
+measurements contradict `independent_observations`, and clusters also contradict
+`independent_participants`. A test that rests on a contradicted assumption is
+refused with `unit_mismatch`. So the mixed-model tests take repeated
+measurements, and no cited test takes clusters yet. A declared test takes
+either, and lists what it must account for as an assumption the author vouches
+for.
+
 ## Which direction is better
 
 A one-sided null takes a side. `mean_difference_at_most` asks whether the

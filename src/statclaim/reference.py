@@ -191,6 +191,11 @@ DIAGNOSTICS = {
         "error",
         "A one-sided null asks about the direction the model's better= does not call better.",
     ),
+    "unit_mismatch": (
+        "error",
+        "The test assumes independent participants or observations, but the declared design "
+        "randomises clusters or measures each participant several times.",
+    ),
     "planning_point": ("error", "The planning point does not fit the analysis."),
     "rule_mismatch": ("error", "A stopping rule does not fit the two-stage design."),
     "sampling_contract": ("error", "A joint law is given where none applies, or is not supported."),

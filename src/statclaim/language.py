@@ -34,7 +34,13 @@ from statclaim.language_syntax import (
     parse,
 )
 from statclaim.methods import METHOD_MODULES, NULL_FORMS, OUTCOMES, methods_for
-from statclaim.methods.assumptions import DECLARED_VALID, HIGHER_IS_BETTER, LOWER_IS_BETTER
+from statclaim.methods.assumptions import (
+    ACCOUNTS_FOR,
+    CONTRADICTED_BY,
+    DECLARED_VALID,
+    HIGHER_IS_BETTER,
+    LOWER_IS_BETTER,
+)
 from statclaim.methods.core import SCOPES, Assumption, CitedMethod, Guarantee
 from statclaim.planning import (
     CRITERIA,
@@ -89,22 +95,32 @@ class NullIR:
 
 @dataclass(frozen=True)
 class AssignmentIR:
-    """How participants reach the two arms. Today: the two arm sizes.
+    """How participants reach the two arms: the arm sizes, and whether whole clusters,
+    such as clinics, were assigned instead of single participants.
 
-    Later design declarations, such as the unit of randomisation or strata, belong here.
+    Later design declarations, such as strata, belong here.
     """
 
     n_control: int
     n_treatment: int
+    # Numbers of clusters per arm when clusters were randomised; None when participants were.
+    clusters_control: int | None = None
+    clusters_treatment: int | None = None
+
+    @property
+    def clustered(self) -> bool:
+        return self.clusters_control is not None
 
 
 @dataclass(frozen=True)
 class OutcomeIR:
-    """What is measured on each participant: its kind, and which direction is better."""
+    """What is measured on each participant: its kind, which direction is better, and how
+    many times it is measured."""
 
     kind: str  # a key of OUTCOMES
     # "higher" or "lower": which direction of the outcome is better, when declared.
     better: str | None = None
+    measurements: int = 1
 
 
 @dataclass(frozen=True)
@@ -129,6 +145,14 @@ class TwoArmModelIR(StudyModelIR):
     @property
     def outcome(self) -> str:
         return self.measured.kind
+
+    @property
+    def features(self) -> tuple[str, ...]:
+        """Declared design features that can contradict a test's assumptions."""
+        return (
+            *(("repeated_measures",) if self.measured.measurements > 1 else ()),
+            *(("clusters",) if self.assignment.clustered else ()),
+        )
 
 
 @dataclass(frozen=True)
@@ -269,8 +293,14 @@ class CitedAnalysisIR(TwoArmTestIR, LevelTestIR):
 
     @property
     def assumptions(self) -> tuple[Assumption, ...]:
-        """The method's assumptions, and the direction of benefit when the file leaves it out."""
-        return (*self.method.assumptions, *direction_assumptions(self.hypothesis))
+        """The method's assumptions, the direction of benefit when the file leaves it out,
+        and for a declared test, what it must do for the declared design."""
+        vouched = (
+            tuple(ACCOUNTS_FOR[feature] for feature in self.plan.model.features)
+            if self.method.grade == "declared"
+            else ()
+        )
+        return (*self.method.assumptions, *direction_assumptions(self.hypothesis), *vouched)
 
 
 def direction_assumptions(null: "NullIR") -> tuple[Assumption, ...]:
@@ -775,16 +805,25 @@ def normalize(value: object) -> object:
     match value:
         case Fraction():
             return str(value)
-        case ModelIR(n_control=nc, n_treatment=nt, better=better):
-            result = {"module": "two_arm_binomial", "n_control": nc, "n_treatment": nt}
-            return {**result, "better": better} if better else result
-        case OutcomeModelIR(outcome=outcome, n_control=nc, n_treatment=nt, better=better):
-            result = {"module": OUTCOMES[outcome].constructor, "n_control": nc, "n_treatment": nt}
-            return {**result, "better": better} if better else result
-        case AssignmentIR(n_control=nc, n_treatment=nt):
-            return {"n_control": nc, "n_treatment": nt}
-        case OutcomeIR(kind=kind, better=better):
-            return {"outcome": kind, **({"better": better} if better else {})}
+        case TwoArmModelIR(assignment=assignment, measured=measured):
+            # Only what a file declared beyond the arm sizes is written, so a model keeps
+            # the same record however it is spelled and whatever was added later.
+            return {
+                "module": OUTCOMES[measured.kind].constructor,
+                **normalize(assignment),
+                **{key: value for key, value in normalize(measured).items() if key != "outcome"},
+            }
+        case AssignmentIR(n_control=nc, n_treatment=nt, clusters_control=cc):
+            result = {"n_control": nc, "n_treatment": nt}
+            if cc is not None:
+                result.update(clusters_control=cc, clusters_treatment=value.clusters_treatment)
+            return result
+        case OutcomeIR(kind=kind, better=better, measurements=measurements):
+            return {
+                "outcome": kind,
+                **({"better": better} if better else {}),
+                **({"measurements": measurements} if measurements > 1 else {}),
+            }
         case OutcomeNullIR(model=model, predicate=predicate, value=bound):
             result = {"predicate": predicate, "model": normalize(model)}
             if NULL_FORMS[predicate][1].takes_value:
@@ -985,14 +1024,91 @@ def _assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
     return AssignmentIR(arguments["n_control"].value, arguments["n_treatment"].value)
 
 
+def _cluster_assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
+    sizes = _assignment(arguments, span)
+    for arm in ("control", "treatment"):
+        clusters, size = arguments[f"clusters_{arm}"], arguments[f"n_{arm}"].value
+        if not 1 <= clusters.value <= size:
+            fail(
+                "domain",
+                f"clusters_{arm} must be a positive integer no larger than n_{arm} ({size}).",
+                clusters.span,
+            )
+    return AssignmentIR(
+        sizes.n_control,
+        sizes.n_treatment,
+        arguments["clusters_control"].value,
+        arguments["clusters_treatment"].value,
+    )
+
+
 def _outcome_piece(kind: str) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> OutcomeIR:
         better = arguments["better"]
         if better.value not in (None, "higher", "lower"):
             fail("domain", 'better must be "higher" or "lower".', better.span)
-        return OutcomeIR(kind, better.value)
+        measurements = arguments.get("measurements")
+        count = 1 if measurements is None or measurements.value is None else measurements.value
+        if count < 1:
+            fail("domain", "measurements must be a positive integer.", measurements.span)
+        return OutcomeIR(kind, better.value, count)
 
     return build
+
+
+# Lean-backed two-arm analyses rest on independent binomial arms (methods/identify.py).
+BINOMIAL_ASSUMPTIONS = ("independent_binomial_arms",)
+PLAIN_ASSUMPTIONS = {
+    "independent_observations": "independent observations",
+    "independent_participants": "independent participants",
+    "independent_binomial_arms": "two independent binomial samples, one value per participant",
+}
+
+
+def _design_remedy(feature: str, model) -> str:
+    if feature == "clusters":
+        return (
+            "No test with a contract accounts for clustering yet. Name one that does, such as "
+            "a mixed model with a random effect for cluster or a test on cluster-level "
+            "summaries, with declared_test(...)."
+        )
+    fitting = [
+        m.key
+        for m in methods_for(model.outcome)
+        if not {a.id for a in m.assumptions} & set(CONTRADICTED_BY[feature])
+    ]
+    tests = f"a test for repeated measurements ({', '.join(fitting)})" if fitting else None
+    summary = (
+        "declare one value per participant, such as the final visit or the mean, as an "
+        "outcome with one measurement"
+    )
+    return f"Use {tests}, or {summary}." if tests else f"{summary.capitalize()}."
+
+
+def check_design(model, assumptions: tuple[str, ...], test: str, span: Span) -> None:
+    """Refuse a test whose assumptions the declared design contradicts."""
+    for feature in getattr(model, "features", ()):
+        contradicted = [a for a in assumptions if a in CONTRADICTED_BY[feature]]
+        if not contradicted:
+            continue
+        assumed = PLAIN_ASSUMPTIONS.get(contradicted[0], contradicted[0])
+        if feature == "clusters":
+            design = (
+                f"the assignment randomises whole clusters ({model.assignment.clusters_control} "
+                f"control and {model.assignment.clusters_treatment} treatment clusters), and "
+                "participants in one cluster tend to be alike"
+            )
+        else:
+            design = (
+                f"the outcome is measured {model.measured.measurements} times on each "
+                "participant, and measurements on one participant are correlated"
+            )
+        fail(
+            "unit_mismatch",
+            f"{test} assumes {assumed}, but {design}. The test would overstate the evidence. "
+            f"{_design_remedy(feature, model)}",
+            span,
+        )
 
 
 def _model_from_sizes(kind: str) -> Callable:
@@ -1068,6 +1184,7 @@ def _cited_test(method: CitedMethod) -> Callable:
             )
         if not 0 < alpha.value < 1:
             fail("domain", "alpha must lie strictly between 0 and 1 for this test.", alpha.span)
+        check_design(model, tuple(a.id for a in method.assumptions), method.key, design.span)
         return CitedAnalysisIR(design.value, arguments["null"].value, alpha.value, method)
 
     return build
@@ -1112,6 +1229,8 @@ def _declared_test(arguments: dict[str, LocatedValue], span: Span) -> CitedAnaly
 def _fisher(alternative: str) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> AnalysisIR:
         plan, hypothesis = arguments["design"].value, arguments["null"].value
+        test = "fisher" if alternative == "two_sided" else "fisher_one_sided"
+        check_design(plan.model, BINOMIAL_ASSUMPTIONS, test, arguments["design"].span)
         return AnalysisIR(plan, hypothesis, arguments["alpha"].value, alternative)
 
     return build
@@ -1140,6 +1259,7 @@ def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> Analysis
         fail("domain", "The margin must lie strictly between -1 and 1.", null.span)
     if alpha.value == 0:
         fail("domain", "alpha must be positive for this test.", alpha.span)
+    check_design(plan.model, BINOMIAL_ASSUMPTIONS, "difference_test", arguments["design"].span)
     if max(plan.model.n_control, plan.model.n_treatment) > MAX_MARGIN_ARM:
         fail(
             "domain",
@@ -1590,6 +1710,7 @@ def _interval(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
 
 def _difference_interval(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     model, level = arguments["model"], arguments["level"]
+    check_design(model.value, BINOMIAL_ASSUMPTIONS, "difference_interval", model.span)
     for name, size in (
         ("control_successes", model.value.n_control),
         ("treatment_successes", model.value.n_treatment),
@@ -1868,6 +1989,22 @@ ASSIGNMENT = _constructor(
     "sizes. One assignment can be shared by several outcomes measured on the same "
     "participants.",
 )
+CLUSTER_ASSIGNMENT = _constructor(
+    "cluster_assignment",
+    (
+        ("clusters_control", "integer"),
+        ("clusters_treatment", "integer"),
+        ("n_control", "integer"),
+        ("n_treatment", "integer"),
+    ),
+    "Assignment",
+    _cluster_assignment,
+    documentation="Whole clusters, such as clinics or schools, are assigned to the arms, and "
+    "everyone in a cluster gets the same arm. clusters_control and clusters_treatment count "
+    "the clusters; n_control and n_treatment count the participants. Sites in a trial that "
+    "randomises participants are not clusters: use assignment(...) there. Tests that assume "
+    "independent participants are refused.",
+)
 TWO_ARM = _constructor(
     "two_arm",
     (("assignment", AssignmentIR), ("outcome", OutcomeIR)),
@@ -1883,14 +2020,22 @@ def outcome_constructor_name(kind: str) -> str:
     return f"{kind}_outcome"
 
 
+MEASUREMENTS_DOCUMENTATION = (
+    "measurements is how many times the outcome is measured on each participant, 1 if left "
+    "out. With more than one, tests that take one value per participant are refused."
+)
+
+
 def _outcome_piece_constructor(outcome) -> Constructor:
+    repeated = (("measurements", "integer", True),) if outcome.repeatable else ()
     return _constructor(
         outcome_constructor_name(outcome.key),
-        (("better", "string", True),),
+        (("better", "string", True), *repeated),
         "Outcome",
         _outcome_piece(outcome.key),
         documentation=f"The {outcome.key} outcome measured on each participant. Combine "
-        f"it with an assignment in two_arm(...). {BETTER_DOCUMENTATION}",
+        f"it with an assignment in two_arm(...). {BETTER_DOCUMENTATION}"
+        + (f" {MEASUREMENTS_DOCUMENTATION}" if outcome.repeatable else ""),
     )
 
 
@@ -1920,7 +2065,7 @@ def _outcome_module(outcome) -> "Module":
         documentation=f"{outcome.documentation} The model fixes no distribution; each test "
         f"states the one it assumes. {_shorthand_note(outcome)} {BETTER_DOCUMENTATION}",
     )
-    pieces = (ASSIGNMENT, _outcome_piece_constructor(outcome), TWO_ARM)
+    pieces = (ASSIGNMENT, CLUSTER_ASSIGNMENT, _outcome_piece_constructor(outcome), TWO_ARM)
     return Module(outcome.module, (model, *pieces, *nulls, TYPE_I))
 
 
@@ -1973,6 +2118,7 @@ MODULES = {
                     + BETTER_DOCUMENTATION,
                 ),
                 ASSIGNMENT,
+                CLUSTER_ASSIGNMENT,
                 _outcome_piece_constructor(OUTCOMES["binary"]),
                 TWO_ARM,
                 _constructor(

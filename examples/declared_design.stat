@@ -1,0 +1,34 @@
+# Two designs a test's independence assumption can contradict, declared on the model.
+use models.two_arm_continuous
+use sampling
+use tests.mixed_model
+use tests.declared
+
+# A symptom score measured at three visits on each of 150 participants per arm.
+# A t-test here would be refused: it takes one value per participant.
+let arms = assignment(n_control=150, n_treatment=150)
+let visits = two_arm(assignment=arms, outcome=continuous_outcome(better="lower", measurements=3))
+let symptoms = mmrm_test(
+    design=fixed(model=visits),
+    null=equal_means(model=visits),
+    alpha=1/20,
+)
+
+# Twelve clinics per arm are randomised, with 240 participants per arm in all.
+# No test with a contract accounts for clustering yet, so the analysis is declared.
+let clinics = cluster_assignment(
+    clusters_control=12,
+    clusters_treatment=12,
+    n_control=240,
+    n_treatment=240,
+)
+let practice = two_arm(assignment=clinics, outcome=continuous_outcome(better="higher"))
+let adherence = declared_test(
+    design=fixed(model=practice),
+    null=equal_means(model=practice),
+    alpha=1/20,
+    method="Linear mixed model with a random intercept for clinic",
+)
+
+let repeated = verify(typeI(symptoms))
+let clustered = verify(typeI(adherence))

@@ -139,6 +139,21 @@ reported against every model, analysis and claim built on it. Sharing does not
 assume that the outcomes are independent. Read the pieces back as
 `scores.assignment` and `scores.outcome`. See `examples/shared_assignment.stat`.
 
+The pieces also declare a design that a test's assumptions can contradict:
+
+```text
+let visits = two_arm(assignment=arms, outcome=continuous_outcome(measurements=3))
+let clinics = cluster_assignment(clusters_control=12, clusters_treatment=12,
+                                 n_control=240, n_treatment=240)
+```
+
+A test that takes one value per participant is refused for `visits`, and a test
+that assumes independent participants is refused for a model built on
+`clinics`, both with `unit_mismatch`. The message names a test that fits, or
+suggests `declared_test(...)`. Sites in a trial that randomises participants
+are not clusters. See `examples/declared_design.stat` and
+[cited methods](cited-methods.md#clusters-and-repeated-measurements).
+
 ## First-class claims and execution results
 
 The built-in operations are available without an additional import:

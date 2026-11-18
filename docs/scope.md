@@ -131,8 +131,11 @@ assumptions. It says nothing about how the study is run. Three examples:
 
 Declare what you can, so that it can be checked. For example, `better="lower"`
 on a model has the direction of a one-sided null checked; left out, the
-direction is listed as an assumption. `replication/results.md` lists such cases
-with what StatClaim reports for each.
+direction is listed as an assumption. Declaring the three measurements with
+`continuous_outcome(measurements=3)`, or randomised clinics with
+`cluster_assignment(...)`, turns the third example into a refusal of any test
+that assumes independent observations. `replication/results.md` lists such
+cases with what StatClaim reports for each.
 
 ## Related work
 

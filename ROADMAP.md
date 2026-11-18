@@ -37,6 +37,8 @@
 - Approximate power and sample-size search for cited tests, by calculation only.
 - Two-arm models built from an assignment and an outcome; outcomes on the same
   participants can share one assignment.
+- Randomisation by cluster and repeated measurements declared on the model, and
+  tests whose independence assumptions they contradict refused.
 
 ## Direction
 
@@ -48,8 +50,8 @@ and for rules that combine tests. Each claim shows its
 
 ## Next
 
-1. Design declarations on the assignment, starting with the unit of randomisation
-   and strata, checked against the analysis.
+1. Tests that account for clustering or repeated binary measurements, and strata
+   on the assignment once a covariate-adjusted analysis reads them.
 2. Cited group-sequential boundaries that use the correlation between looks.
 3. A narrower exact interval for a difference of two proportions.
 4. Larger sample sizes and p-values for the test with a margin.

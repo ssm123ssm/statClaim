@@ -44,11 +44,16 @@ class HypothesisContract:
                 Diagnostic("model_mismatch", message, argument.span, related=related)
             )
         if design.model != null.model:
+            sizes = (design.model.n_control, design.model.n_treatment)
+            other = (null.model.n_control, null.model.n_treatment)
+            difference = (
+                f"The analysis design has arm sizes {sizes}, while the null's model has {other}. "
+                if sizes != other
+                else "The two models have the same arm sizes but differ in their assignment "
+                "or outcome. "
+            )
             message = (
-                f"{name}: the null belongs to a different model. "
-                f"The analysis design has arm sizes ({design.model.n_control}, "
-                f"{design.model.n_treatment}), while the null's model has "
-                f"({null.model.n_control}, {null.model.n_treatment}). "
+                f"{name}: the null belongs to a different model. {difference}"
                 "Declare the intended null for the design's model. "
                 "Matching a null form alone does not make different models compatible."
             )
