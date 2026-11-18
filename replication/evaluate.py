@@ -20,13 +20,15 @@ from statclaim.contract_reports import study_report  # noqa: E402
 from statclaim.language_compiler import compile_source  # noqa: E402
 from statclaim.language_runner import check_source  # noqa: E402
 from statclaim.language_syntax import Source  # noqa: E402
+from statclaim.methods.identify import identify  # noqa: E402
 
 ORDER = ("rejected", "unresolved", "calculated", "surfaced", "invisible")
 MEANING = {
     "rejected": "The file is invalid, with a diagnostic at the cause.",
     "unresolved": "The file is valid but the claim is refused until a requirement is met.",
     "calculated": "An exact calculation shows that the stated target is not met.",
-    "surfaced": "Nothing is flagged, but the report lists the assumption that is violated.",
+    "surfaced": "Nothing is flagged, but the report lists the assumption that is violated, "
+    "for a claim or in a justification.",
     "invisible": "Nothing is flagged and nothing in the report points at the problem.",
 }
 
@@ -63,8 +65,19 @@ def observe(scenario: Scenario) -> dict:
             "codes": [missed[0]["decision"]],
             "message": _numbers(missed[0]["calculation"]),
         }
-    register = study_report(compilation, source.path)["assumption_register"]
-    listed = next((item for item in register if item["id"] == scenario.surfaces), None)
+    report = study_report(compilation, source.path)
+    # The claims' assumption register, then the assumptions the justifications list.
+    listed = next(
+        (item for item in report["assumption_register"] if item["id"] == scenario.surfaces),
+        None,
+    ) or next(
+        (
+            {**identify(text), "status": "listed in the justification"}
+            for text in report["assumptions"]
+            if identify(text)["id"] == scenario.surfaces
+        ),
+        None,
+    )
     if scenario.surfaces and listed:
         return {
             "outcome": "surfaced",

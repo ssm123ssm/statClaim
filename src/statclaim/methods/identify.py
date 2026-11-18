@@ -21,7 +21,8 @@ RECOGNISED = [
     (r"supplied counts? describes? the declared", "data_match_declaration", "data"),
     (r"^Stage sizes and the interim and final rules", "prespecified_stages", "design"),
     (r"set of analyses and their levels are chosen before", "prespecified_family", "design"),
-    (r"analysis and its level are chosen before", "prespecified_design", "design"),
+    # Choosing the analysis in advance is a different promise from fixing the sizes.
+    (r"analysis and its level are chosen before", "prespecified_analysis", "design"),
     (r"fixed before", "prespecified_design", "design"),
     (r"independent with one common response rate", "independent_common_rate", "sampling"),
     (

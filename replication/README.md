@@ -23,7 +23,7 @@ fails if any output differs from the pinned one. CI runs it on every push. It ru
 
 ## Error-injection evaluation
 
-`scenarios.py` holds 33 scenarios. Each takes a valid study file and injects one
+`scenarios.py` holds 39 scenarios. Each takes a valid study file and injects one
 common specification error. `evaluate.py` runs them and writes what StatClaim
 reports to [results.md](results.md) and `results.json`.
 
@@ -34,12 +34,15 @@ Each scenario ends in one of five outcomes:
 | rejected | The file is invalid, with a diagnostic at the cause. |
 | unresolved | The file is valid but the claim is refused until a requirement is met. |
 | calculated | An exact calculation shows that the stated target is not met. |
-| surfaced | Nothing is flagged, but the report lists the assumption that is violated. |
+| surfaced | Nothing is flagged, but the report lists the assumption that is violated, for a claim or in a justification. |
 | invisible | Nothing is flagged and nothing in the report points at the problem. |
 
 The last two are the limits of the approach, and they are part of the result.
 StatClaim reads a declaration. It cannot see that a file says "fixed" when the
-data were checked along the way, or that an outcome is not normal.
+data were checked along the way, that an outcome is not normal, that an endpoint
+was chosen after an interim look, or that participants were excluded after
+randomisation. Where the file can declare a fact, such as which direction of
+the outcome is better, StatClaim checks it.
 
 A scenario states its expected outcome. The run fails if any scenario behaves
 differently, so the table cannot drift from the software. To add a scenario,

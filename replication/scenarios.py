@@ -8,7 +8,8 @@ Outcomes, from strongest to weakest:
   rejected    the file is invalid, with a diagnostic at the cause
   unresolved  the file is valid but the claim is refused until a requirement is met
   calculated  an exact calculation shows that the stated target is not met
-  surfaced    nothing is flagged, but the report lists the assumption that is violated
+  surfaced    nothing is flagged, but the report lists the assumption that is violated,
+              for a claim or in a justification
   invisible   nothing is flagged and nothing in the report points at the problem
 """
 
@@ -49,6 +50,30 @@ let study = two_arm_binomial(n_control={n}, n_treatment={n})
 let analysis = fisher(design=fixed(model=study), null=equal_proportions(model=study), alpha=1/20)
 let expected = binomial_rates(p_control=1/10, p_treatment=2/5)
 let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20)
+"""
+LOGISTIC = """use models.two_arm_binomial
+use sampling
+use tests.logistic
+let study = two_arm_binomial(n_control=600, n_treatment=600)
+let plan = fixed(model=study)
+let null = proportion_difference_at_most(model=study, value=-3/100)
+let analysis = logistic_regression_one_sided(design=plan, null=null, alpha=1/40)
+"""
+SYMPTOMS = """use models.two_arm_continuous
+use sampling
+use tests.mixed_model
+let study = two_arm_continuous(n_control=200, n_treatment=200{better})
+let plan = fixed(model=study)
+let null = mean_difference_at_most(model=study, value=-1/10)
+let analysis = mmrm_test_one_sided(design=plan, null=null, alpha=1/40)
+"""
+PER_PROTOCOL = """use models.two_arm_binomial
+use sampling
+use tests.difference
+let study = two_arm_binomial(n_control=96, n_treatment=96)
+let plan = fixed(model=study)
+let null = proportion_difference_at_most(model=study, value=-1/10)
+let analysis = difference_test(design=plan, null=null, alpha=1/40)
 """
 POSTERIOR = """use designs.two_stage
 use planning
@@ -443,5 +468,73 @@ verify typeI(analysis)
         BINARY + "verify typeI(analysis)\n",
         "invisible",
         note="StatClaim checks the declared study, not its agreement with another document.",
+    ),
+    # ---- What the outcome means
+    Scenario(
+        "risk_margin_logistic",
+        "Meaning",
+        "A non-inferiority margin on the risk difference is given to a one-sided logistic "
+        "regression.",
+        LOGISTIC,
+        "rejected",
+        "hypothesis_mismatch",
+        note="The logistic test is of a coefficient. A margin on the risk difference is a "
+        "different question, and a rule that combines an odds-ratio threshold with a "
+        "risk-difference margin cannot be stated.",
+    ),
+    Scenario(
+        "lower_is_better_wrong_way",
+        "Meaning",
+        "A score where lower is better is declared so, but its null asks whether the "
+        "treatment's scores are higher.",
+        SYMPTOMS.format(better=', better="lower"'),
+        "rejected",
+        "direction_mismatch",
+    ),
+    Scenario(
+        "lower_is_better_undeclared",
+        "Meaning",
+        "A score where lower is better is tested with a null that asks whether the "
+        "treatment's scores are higher, and the file does not say which direction is better.",
+        SYMPTOMS.format(better="") + "verify typeI(analysis)\n",
+        "surfaced",
+        surfaces="higher_is_better",
+        note="The register lists that higher values are taken to be better, marked assumed. "
+        'Declaring better="lower" makes this a rejection.',
+    ),
+    # ---- How the study is run, which a declaration does not show
+    Scenario(
+        "endpoint_chosen_after_interim",
+        "Study conduct",
+        "The endpoint analysed was chosen after an interim comparison of two candidates; "
+        "the file declares only the chosen one.",
+        BINARY + "verify typeI(analysis)\n",
+        "surfaced",
+        surfaces="prespecified_analysis",
+        note="A verified test of the chosen endpoint does not cover the choice. The report's "
+        "justification lists that the analysis was chosen before outcomes were observed: the "
+        "statement the study broke.",
+    ),
+    Scenario(
+        "repeated_measures_as_participants",
+        "Study conduct",
+        "Three measurements on each of 100 participants per arm are declared as 300 "
+        "independent observations per arm.",
+        CONTINUOUS.replace("n_control=60, n_treatment=60", "n_control=300, n_treatment=300")
+        + "verify typeI(analysis)\n",
+        "surfaced",
+        surfaces="independent_observations",
+        note="The file cannot show that observations share participants. The register lists "
+        "independent observations as assumed.",
+    ),
+    Scenario(
+        "per_protocol_population",
+        "Study conduct",
+        "Participants excluded after randomisation are left out and only the remaining "
+        "numbers are declared, although the question is about everyone randomised.",
+        PER_PROTOCOL + "verify typeI(analysis)\n",
+        "invisible",
+        note="Nothing in the file describes the exclusions or the population the question is "
+        "about. The guarantee holds for the declared numbers.",
     ),
 )

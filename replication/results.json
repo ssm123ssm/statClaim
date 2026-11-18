@@ -446,5 +446,82 @@
     "message": "",
     "as_expected": true,
     "note": "StatClaim checks the declared study, not its agreement with another document."
+  },
+  {
+    "key": "risk_margin_logistic",
+    "category": "Meaning",
+    "error": "A non-inferiority margin on the risk difference is given to a one-sided logistic regression.",
+    "expected": "rejected",
+    "expected_code": "hypothesis_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "hypothesis_mismatch"
+    ],
+    "message": "logistic_regression_one_sided: hypothesis contract mismatch.",
+    "as_expected": true,
+    "note": "The logistic test is of a coefficient. A margin on the risk difference is a different question, and a rule that combines an odds-ratio threshold with a risk-difference margin cannot be stated."
+  },
+  {
+    "key": "lower_is_better_wrong_way",
+    "category": "Meaning",
+    "error": "A score where lower is better is declared so, but its null asks whether the treatment's scores are higher.",
+    "expected": "rejected",
+    "expected_code": "direction_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "direction_mismatch",
+      "dependency"
+    ],
+    "message": "mean_difference_at_most asks whether the treatment's outcome is higher, but the model declares better=\"lower\". Use mean_difference_at_least(...) to ask whether the treatment's outcome is lower.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
+    "key": "lower_is_better_undeclared",
+    "category": "Meaning",
+    "error": "A score where lower is better is tested with a null that asks whether the treatment's scores are higher, and the file does not say which direction is better.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better=\"higher\" on the model to have this checked. (assumed)",
+    "as_expected": true,
+    "note": "The register lists that higher values are taken to be better, marked assumed. Declaring better=\"lower\" makes this a rejection."
+  },
+  {
+    "key": "endpoint_chosen_after_interim",
+    "category": "Study conduct",
+    "error": "The endpoint analysed was chosen after an interim comparison of two candidates; the file declares only the chosen one.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "The analysis and its level are chosen before outcomes are observed. (listed in the justification)",
+    "as_expected": true,
+    "note": "A verified test of the chosen endpoint does not cover the choice. The report's justification lists that the analysis was chosen before outcomes were observed: the statement the study broke."
+  },
+  {
+    "key": "repeated_measures_as_participants",
+    "category": "Study conduct",
+    "error": "Three measurements on each of 100 participants per arm are declared as 300 independent observations per arm.",
+    "expected": "surfaced",
+    "expected_code": null,
+    "outcome": "surfaced",
+    "codes": [],
+    "message": "Observations are independent within and between the two arms. (assumed)",
+    "as_expected": true,
+    "note": "The file cannot show that observations share participants. The register lists independent observations as assumed."
+  },
+  {
+    "key": "per_protocol_population",
+    "category": "Study conduct",
+    "error": "Participants excluded after randomisation are left out and only the remaining numbers are declared, although the question is about everyone randomised.",
+    "expected": "invisible",
+    "expected_code": null,
+    "outcome": "invisible",
+    "codes": [],
+    "message": "",
+    "as_expected": true,
+    "note": "Nothing in the file describes the exclusions or the population the question is about. The guarantee holds for the declared numbers."
   }
 ]
