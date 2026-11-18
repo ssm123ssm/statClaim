@@ -49,7 +49,7 @@ def approximate_power(analysis: CitedAnalysisIR, point, n_control: int, n_treatm
         n_treatment,
         float(null.value),
         float(analysis.alpha),
-        NULL_FORMS[null.predicate][1].one_sided,
+        NULL_FORMS[null.predicate][1].favours or "both",
     )
 
 
@@ -84,8 +84,7 @@ def evaluate(analysis: CitedAnalysisIR, target: PowerTargetIR, sizes: tuple[int,
 
 def assumptions(analysis: CitedAnalysisIR) -> list[dict]:
     """The test's own assumptions, then the formula's, then the planning point's."""
-    method = analysis.method
-    items = [mark(item) for item in (*method.assumptions, *method.power.assumptions)]
+    items = [mark(item) for item in (*analysis.assumptions, *analysis.method.power.assumptions)]
     return [*items, identify(PLANNING_POINT)]
 
 

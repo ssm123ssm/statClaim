@@ -277,6 +277,8 @@ Planning points:
 - `hazard_ratio` is treatment over control. Power depends on the events, not on
   the arm sizes, and it assumes proportional hazards. The log-rank test's error
   rate does not.
+- For an outcome where lower is better, with `mean_difference_at_least`, the
+  test rejects when the estimate is below the margin minus z × SE.
 
 What is calculated:
 

@@ -41,8 +41,14 @@ for _module in METHOD_MODULES:
     for _method in _module.methods:
         if _method.key in METHODS or _method.module != _module.name:
             raise ValueError(f"Method {_method.key!r} is duplicated or names the wrong module.")
-        if NULL_FORMS.get(_method.null, (None,))[0] is not OUTCOMES.get(_method.outcome):
-            raise ValueError(f"Method {_method.key!r} names a null its outcome does not have.")
+        for _null in _method.nulls:
+            if NULL_FORMS.get(_null, (None,))[0] is not OUTCOMES.get(_method.outcome):
+                raise ValueError(f"Method {_method.key!r} names a null its outcome does not have.")
+        if _method.mirrored_null and {NULL_FORMS[n][1].favours for n in _method.nulls} != {
+            "higher",
+            "lower",
+        }:
+            raise ValueError(f"Method {_method.key!r}: a mirrored null must face the other way.")
         METHODS[_method.key] = _method
 
 # The planning point each outcome's power formulas take.
@@ -79,13 +85,19 @@ def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+def method_content(method: CitedMethod) -> str:
+    """What a method's version vouches for. A mirrored null counts only when it is set."""
+    mirror = f" mirrored_null={method.mirrored_null!r}" if method.mirrored_null else ""
+    return repr(method) + mirror
+
+
 def versions() -> dict:
     """Each entry's version and a hash of its content, for tests/fixtures/method_versions.json.
 
     A power formula's hash covers its function's source and the methods that use it.
     """
     recorded = {
-        key: {"version": method.version, "sha256": _sha256(repr(method))}
+        key: {"version": method.version, "sha256": _sha256(method_content(method))}
         for key, method in METHODS.items()
     }
     for key, formula in POWER_FORMULAS.items():

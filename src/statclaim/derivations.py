@@ -52,8 +52,10 @@ RULES = {
         "{subject}: the null and the design describe the same study model.",
     ),
     "supported-null": Rule(
-        "The null's form, and its margin where the analysis fixes one, is supported.",
+        "The null's form, its margin where the analysis fixes one, and its direction where "
+        "the model declares which direction is better, are supported.",
         "{subject}: the declared null ({statement}) is supported by this analysis.",
+        version=2,
     ),
     "level-range": Rule(
         "The level is a number between 0 and 1.",
@@ -375,6 +377,11 @@ def _sizes(model) -> dict:
     return {"n_control": model.n_control, "n_treatment": model.n_treatment}
 
 
+def _direction(model) -> dict:
+    """The declared better direction, recorded so the checker can compare it with the null."""
+    return {"better": model.better} if model.better else {}
+
+
 def _analysis_steps(builder: _Builder, name: str, analysis: AnalysisIR) -> int:
     plan, null = analysis.plan, analysis.hypothesis
     used = (
@@ -389,6 +396,7 @@ def _analysis_steps(builder: _Builder, name: str, analysis: AnalysisIR) -> int:
                 "predicate": null.predicate,
                 "statement": null.statement,
                 "supported": list(analysis.contract.supported_predicates),
+                **_direction(null.model),
             },
         ),
         builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
@@ -428,7 +436,7 @@ def cited_guarantee(analysis: CitedAnalysisIR) -> dict:
         "sentence": analysis.guarantee.sentence,
         "grade": method.grade,
         "method": method.to_dict(),
-        "given": [item.id for item in method.assumptions],
+        "given": [item.id for item in analysis.assumptions],
         "references": list(method.references),
     }
 
@@ -446,7 +454,8 @@ def _cited_steps(builder: _Builder, name: str, analysis: CitedAnalysisIR) -> int
                 "subject": name,
                 "predicate": null.predicate,
                 "statement": null.statement,
-                "supported": [method.null],
+                "supported": list(method.nulls),
+                **_direction(null.model),
             },
         ),
         builder.apply("level-interior", {"subject": name, "alpha": str(analysis.alpha)}),
@@ -472,7 +481,7 @@ def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:
         f"{method.module}/{method.key}",
         builder.steps[final].conclusion,
         tuple(builder.steps),
-        tuple(item.text for item in method.assumptions),
+        tuple(item.text for item in analysis.assumptions),
         tuple(builder.obligations),
         normalize(analysis),
         # An open obligation means the guarantee does not apply yet.
@@ -499,7 +508,7 @@ def _assumption_parts(family: ComposedFamilyIR) -> tuple[list[str], list[str], l
         elif isinstance(analysis, CitedAnalysisIR):
             cited += [
                 item.text
-                for item in analysis.method.assumptions
+                for item in analysis.assumptions
                 if item.text not in cited and item.id not in DISCHARGED[composition.mode]
             ]
     return own, nested, cited
@@ -754,7 +763,7 @@ def derive_cited_planning(name: str, claim: ClaimIR, analysis: CitedAnalysisIR) 
         builder.steps[final].conclusion,
         tuple(builder.steps),
         (
-            *(item.text for item in (*method.assumptions, *formula.assumptions)),
+            *(item.text for item in (*analysis.assumptions, *formula.assumptions)),
             PLANNING_POINT_ASSUMPTION,
         ),
         tuple(builder.obligations),

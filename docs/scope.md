@@ -129,8 +129,10 @@ assumptions. It says nothing about how the study is run. Three examples:
   of 100 participants, declared as 300 per arm, get a cited t-test. The listed
   assumption that observations are independent is the one that fails.
 
-Declare what you can, so that it can be checked. `replication/results.md` lists
-such cases with what StatClaim reports for each.
+Declare what you can, so that it can be checked. For example, `better="lower"`
+on a model has the direction of a one-sided null checked; left out, the
+direction is listed as an assumption. `replication/results.md` lists such cases
+with what StatClaim reports for each.
 
 ## Related work
 

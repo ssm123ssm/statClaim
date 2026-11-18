@@ -58,6 +58,8 @@ ASSUMPTION_KINDS = {
     "vouched": "The author vouches for it. StatClaim has no contract or source for it.",
     "approximation": "A simplification used to compute a number, such as a normal "
     "approximation. Not checkable from a declaration.",
+    "meaning": "About what the declared quantities mean, such as which direction of the "
+    "outcome is better. Checked only when the file declares it.",
 }
 
 
@@ -128,8 +130,17 @@ class NullForm:
     statement: str  # may contain {value} when the null takes a number
     documentation: str
     takes_value: bool = False
-    # True for a null of the form "difference <= value", tested in one direction.
-    one_sided: bool = False
+    # For a one-sided null, the direction a rejection favours the treatment in: "higher"
+    # for "difference <= value", "lower" for "difference >= value". None if two-sided.
+    favours: str | None = None
+
+    def __post_init__(self):
+        if self.favours not in (None, "higher", "lower"):
+            raise ValueError(f"Unknown direction {self.favours!r}.")
+
+    @property
+    def one_sided(self) -> bool:
+        return self.favours is not None
 
     def state(self, value: Fraction) -> str:
         return self.statement.format(value=value)
@@ -167,9 +178,11 @@ class PowerResult:
 class PowerFormula:
     """An approximate power formula for one kind of planning point.
 
-    `function(point, n_control, n_treatment, null_value, alpha, one_sided)` returns a
-    PowerResult. `point` maps the planning point's arguments to floats. Bump `version`
-    whenever the function, assumptions or references change.
+    `function(point, n_control, n_treatment, null_value, alpha, side)` returns a
+    PowerResult. `point` maps the planning point's arguments to floats; `side` is "higher"
+    or "lower" for a one-sided test (the direction that favours the treatment) and
+    "both" for a two-sided one. Bump `version` whenever the function, assumptions or
+    references change.
     """
 
     key: str
@@ -208,11 +221,19 @@ class CitedMethod:
     limit: str = "the sample sizes grow"
     # When set, the null must have exactly this value, such as a zero difference.
     null_value: Fraction | None = None
+    # A second null form the test supports: the same test in the other direction, for an
+    # outcome where lower is better. Part of the entry's hash when set; see versions().
+    mirrored_null: str | None = field(default=None, repr=False, compare=False)
     # cited: from the literature. declared: the author's own statement.
     grade: str = "cited"
     # How to approximate the test's power, if it can be. Versioned on its own, since the
     # Type I guarantee does not depend on it.
     power: PowerFormula | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def nulls(self) -> tuple[str, ...]:
+        """Every null form the test supports."""
+        return (self.null, *((self.mirrored_null,) if self.mirrored_null else ()))
 
     def guarantee(self, alpha: Fraction, null: str) -> Guarantee:
         return Guarantee("type_I_error", self.relation, alpha, null, self.scope, self.limit)

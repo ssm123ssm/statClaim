@@ -141,10 +141,10 @@ def cited_report(analysis: CitedAnalysisIR) -> dict:
     """Describe a cited guarantee. Nothing is calculated, proved or certified."""
     method = analysis.method
     report = planning_report(
-        "cited", analysis.guarantee.sentence, [item.text for item in method.assumptions]
+        "cited", analysis.guarantee.sentence, [item.text for item in analysis.assumptions]
     )
     report["method"] = method.to_dict()
-    report["assumptions"] = [mark(item) for item in method.assumptions]
+    report["assumptions"] = [mark(item) for item in analysis.assumptions]
     report["references"] = list(method.references)
     return report
 
@@ -167,7 +167,7 @@ def _register(family: ComposedFamilyIR, assumptions: dict, references: list) -> 
         if isinstance(analysis, ComposedFamilyIR):
             _register(analysis, assumptions, references)
         elif isinstance(analysis, CitedAnalysisIR):
-            for item in analysis.method.assumptions:
+            for item in analysis.assumptions:
                 if item.id in DISCHARGED[composition.mode]:
                     continue
                 entry = assumptions.setdefault(item.id, {**mark(item), "members": []})

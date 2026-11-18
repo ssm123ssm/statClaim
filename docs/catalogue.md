@@ -61,11 +61,11 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Model | Sampling model and arm sizes. | `n_control: integer`, `n_treatment: integer` |
+| Model | Sampling model and arm sizes. | `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | StudyDesign | Model with a stopping rule. | `model: Model`, `stopping: string` |
 | Hypothesis | A null restriction, not an assertion of truth. | `model: Model`, `predicate: string`, `value: exact number`, `statement: string` |
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
-| OutcomeModel | Two arms with a continuous, survival or other registered outcome. | `outcome: string`, `n_control: integer`, `n_treatment: integer` |
+| OutcomeModel | Two arms with a continuous, survival or other registered outcome. | `outcome: string`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
 | CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
@@ -131,20 +131,22 @@ Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `Pla
 
 Two arms with a continuous outcome; equal-means and mean-difference nulls. Fixes no distribution.
 
-- `two_arm_continuous(n_control: integer, n_treatment: integer) -> OutcomeModel`
-  Two arms with a continuous outcome, such as a change in blood pressure. The model fixes no distribution; each test states the one it assumes.
+- `two_arm_continuous(n_control: integer, n_treatment: integer, better?: string) -> OutcomeModel`
+  Two arms with a continuous outcome, such as a change in blood pressure. The model fixes no distribution; each test states the one it assumes. better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `equal_means(model: OutcomeModel) -> OutcomeNull`
   Null: the two arm means are equal.
 - `mean_difference_at_most(model: OutcomeModel, value: number) -> OutcomeNull`
-  Null: mean_treatment - mean_control <= value, in the outcome's units. Zero asks whether the treatment is better; a negative value is a non-inferiority margin.
+  Null: mean_treatment - mean_control <= value, in the outcome's units. Zero asks whether the treatment is better; a negative value is a non-inferiority margin. This direction suits an outcome where higher is better.
+- `mean_difference_at_least(model: OutcomeModel, value: number) -> OutcomeNull`
+  Null: mean_treatment - mean_control >= value, for an outcome where lower is better. Zero asks whether the treatment is better (lower); a positive value is a non-inferiority margin.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
 ### `models.two_arm_survival` — Models and hypotheses
 
 Two arms with a time-to-event outcome, possibly censored; equal-survival null. Fixes no distribution.
 
-- `two_arm_survival(n_control: integer, n_treatment: integer) -> OutcomeModel`
-  Two arms followed for the time until an event, such as death or relapse. Some participants may be censored: followed without the event being seen. The model fixes no distribution; each test states the one it assumes.
+- `two_arm_survival(n_control: integer, n_treatment: integer, better?: string) -> OutcomeModel`
+  Two arms followed for the time until an event, such as death or relapse. Some participants may be censored: followed without the event being seen. The model fixes no distribution; each test states the one it assumes. better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `equal_survival(model: OutcomeModel) -> OutcomeNull`
   Null: the two arms have the same distribution of time to the event.
 - `typeI(analysis: Analysis) -> TypeIClaim`
@@ -164,14 +166,14 @@ Pooled-variance and Welch t-tests for two means. The compiler checks the null an
   Two-sided pooled-variance t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
   Required null: mean_treatment = mean_control; same model required.
 - `t_test_one_sided(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
-  One-sided pooled-variance t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value.
-  Required null: mean_treatment - mean_control <= value; same model required.
+  One-sided pooled-variance t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value or mean_treatment - mean_control >= value.
+  Required null: mean_treatment - mean_control <= value or mean_treatment - mean_control >= value; same model required.
 - `welch_test(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
   Two-sided Welch t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
   Required null: mean_treatment = mean_control; same model required.
 - `welch_test_one_sided(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
-  One-sided Welch t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value.
-  Required null: mean_treatment - mean_control <= value; same model required.
+  One-sided Welch t-test. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value or mean_treatment - mean_control >= value.
+  Required null: mean_treatment - mean_control <= value or mean_treatment - mean_control >= value; same model required.
 
 ### `tests.mixed_model` — Cited analyses
 
@@ -181,8 +183,8 @@ A test of a treatment contrast from a mixed model for repeated measures, such as
   Two-sided test of a treatment contrast in a mixed model for repeated measures. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
   Required null: mean_treatment = mean_control; same model required.
 - `mmrm_test_one_sided(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
-  One-sided test of a treatment contrast in a mixed model for repeated measures. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value.
-  Required null: mean_treatment - mean_control <= value; same model required.
+  One-sided test of a treatment contrast in a mixed model for repeated measures. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment - mean_control <= value or mean_treatment - mean_control >= value.
+  Required null: mean_treatment - mean_control <= value or mean_treatment - mean_control >= value; same model required.
 
 ### `tests.survival` — Cited analyses
 
@@ -207,7 +209,8 @@ A Wald or likelihood-ratio test of the treatment coefficient in a logistic regre
 
 Two independent binomial arms; equality, difference and inequality nulls; observations and the Type I and result claims shared by two-arm analyses.
 
-- `two_arm_binomial(n_control: integer, n_treatment: integer) -> Model`
+- `two_arm_binomial(n_control: integer, n_treatment: integer, better?: string) -> Model`
+  Two independent binomial arms. better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `equal_proportions(model: Model) -> Hypothesis`
   Null: p_treatment = p_control. This declares a restriction under which a guarantee is requested, not that the null is true.
 - `proportion_difference(model: Model, value: number) -> Hypothesis`
@@ -432,6 +435,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `unproved_step` | A mathematical identity that is used but not proved in Lean. |
 | `vouched` | The author vouches for it. StatClaim has no contract or source for it. |
 | `approximation` | A simplification used to compute a number, such as a normal approximation. Not checkable from a declaration. |
+| `meaning` | About what the declared quantities mean, such as which direction of the outcome is better. Checked only when the file declares it. |
 
 ### `Claim.kind`
 
@@ -486,11 +490,11 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 | Constructor | Version | Outcome | Null | Error rate | Scope | Minimum size | Power |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `t_test` | 1 | continuous | `equal_means` | equals alpha | `finite_sample` | 1 per arm, 3 total | `normal_two_means` |
-| `t_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `finite_sample` | 1 per arm, 3 total | `normal_two_means` |
+| `t_test_one_sided` | 2 | continuous | `mean_difference_at_most` or `mean_difference_at_least` | at most alpha | `finite_sample` | 1 per arm, 3 total | `normal_two_means` |
 | `welch_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
-| `welch_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
+| `welch_test_one_sided` | 2 | continuous | `mean_difference_at_most` or `mean_difference_at_least` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
 | `mmrm_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
-| `mmrm_test_one_sided` | 1 | continuous | `mean_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
+| `mmrm_test_one_sided` | 2 | continuous | `mean_difference_at_most` or `mean_difference_at_least` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
 | `log_rank` | 1 | survival | `equal_survival` | equals alpha | `asymptotic` | 1 per arm, 2 total | `schoenfeld_log_rank` |
 | `logistic_regression` | 1 | binary | `equal_proportions` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
 | `logistic_regression_one_sided` | 1 | binary | `proportion_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
@@ -553,9 +557,9 @@ Approximate power for cited tests, by calculation only. See [power for cited tes
 
 | Formula | Version | Planning point | Assumes |
 | --- | --- | --- | --- |
-| `normal_two_means` | 1 | `mean_difference` | `normal_approximation_power`, `planning_standard_deviation` |
-| `schoenfeld_log_rank` | 1 | `hazard_ratio` | `normal_approximation_power`, `proportional_hazards`, `planning_events`, `at_risk_shares` |
-| `normal_two_proportions` | 1 | `binomial_rates` | `normal_approximation_power`, `unadjusted_proportions` |
+| `normal_two_means` | 2 | `mean_difference` | `normal_approximation_power`, `planning_standard_deviation` |
+| `schoenfeld_log_rank` | 2 | `hazard_ratio` | `normal_approximation_power`, `proportional_hazards`, `planning_events`, `at_risk_shares` |
+| `normal_two_proportions` | 2 | `binomial_rates` | `normal_approximation_power`, `unadjusted_proportions` |
 
 **`normal_two_means`** (Difference of two means, normal approximation with a known standard deviation). References:
 
@@ -599,6 +603,8 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `logit_linear` | distribution | The log odds of response are linear in the model's covariates, which are fixed in advance. |
 | `null_is_zero_coefficient` | scope | The test is of the treatment coefficient. Under the declared null, treatment has no effect on response given the covariates. |
 | `enough_events` | distribution | There are enough responders and non-responders in each arm for the estimated coefficient to be approximately normal, with no separation. |
+| `higher_is_better` | meaning | Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. |
+| `lower_is_better` | meaning | Lower values of the outcome are better: the one-sided null asks whether the treatment's are lower. The file does not say so; declare better="lower" on the model to have this checked. |
 | `normal_approximation_power` | approximation | Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. |
 | `planning_standard_deviation` | scope | The standard deviation is a planning input, not an established fact. It is the standard deviation of one participant's outcome on the analysed scale; for a mixed model, the effective standard deviation of the contrast. |
 | `unadjusted_proportions` | approximation | Power is for an unadjusted comparison of two proportions. Covariates in the analysis model change it. |
@@ -648,6 +654,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `hypothesis_mismatch` | error | The test does not support the declared null. Not a finding that the null is false. |
 | `alternative_in_null` | error | The planning point lies inside the null. |
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
+| `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
 | `planning_point` | error | The planning point does not fit the analysis. |
 | `rule_mismatch` | error | A stopping rule does not fit the two-stage design. |
 | `sampling_contract` | error | A joint law is given where none applies, or is not supported. |

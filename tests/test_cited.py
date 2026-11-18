@@ -52,9 +52,11 @@ def test_changing_a_method_requires_a_new_version():
     """Evidence records the method version, so a silent change would mislead."""
     recorded = json.loads((ROOT / "tests/fixtures/method_versions.json").read_text())
     current = versions()
-    # The method hashes are recomputed here too, independently of versions().
+    # The method hashes are recomputed here too, independently of versions(). A mirrored
+    # null is part of the contract, so it is part of the hash when set.
     for key, method in METHODS.items():
-        assert current[key]["sha256"] == digest(repr(method).encode())
+        mirror = f" mirrored_null={method.mirrored_null!r}" if method.mirrored_null else ""
+        assert current[key]["sha256"] == digest((repr(method) + mirror).encode())
     assert current == recorded, (
         "A cited method or power formula changed. Bump its version, then run "
         "'uv run python scripts/update_method_versions.py'."

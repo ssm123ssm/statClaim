@@ -22,9 +22,19 @@ CONTINUOUS = Outcome(
             "mean_difference_at_most",
             "mean_treatment - mean_control <= {value}",
             "Null: mean_treatment - mean_control <= value, in the outcome's units. Zero asks "
-            "whether the treatment is better; a negative value is a non-inferiority margin.",
+            "whether the treatment is better; a negative value is a non-inferiority margin. "
+            "This direction suits an outcome where higher is better.",
             takes_value=True,
-            one_sided=True,
+            favours="higher",
+        ),
+        NullForm(
+            "mean_difference_at_least",
+            "mean_treatment - mean_control >= {value}",
+            "Null: mean_treatment - mean_control >= value, for an outcome where lower is "
+            "better. Zero asks whether the treatment is better (lower); a positive value is a "
+            "non-inferiority margin.",
+            takes_value=True,
+            favours="lower",
         ),
     ),
 )
@@ -66,7 +76,7 @@ BINARY = Outcome(
             "p_treatment - p_control <= {value}",
             "Null: the difference in proportions is at most value.",
             takes_value=True,
-            one_sided=True,
+            favours="higher",
         ),
     ),
     builtin=True,

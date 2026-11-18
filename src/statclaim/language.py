@@ -34,8 +34,8 @@ from statclaim.language_syntax import (
     parse,
 )
 from statclaim.methods import METHOD_MODULES, NULL_FORMS, OUTCOMES, methods_for
-from statclaim.methods.assumptions import DECLARED_VALID
-from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
+from statclaim.methods.assumptions import DECLARED_VALID, HIGHER_IS_BETTER, LOWER_IS_BETTER
+from statclaim.methods.core import SCOPES, Assumption, CitedMethod, Guarantee
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
@@ -91,6 +91,8 @@ class NullIR:
 class ModelIR(StudyModelIR):
     n_control: int
     n_treatment: int
+    # "higher" or "lower": which direction of the outcome is better, when declared.
+    better: str | None = None
 
     @property
     def outcome(self) -> str:
@@ -104,6 +106,8 @@ class OutcomeModelIR(StudyModelIR):
     outcome: str
     n_control: int
     n_treatment: int
+    # "higher" or "lower": which direction of the outcome is better, when declared.
+    better: str | None = None
 
 
 @dataclass(frozen=True)
@@ -217,6 +221,19 @@ class CitedAnalysisIR(TwoArmTestIR, LevelTestIR):
     @property
     def guarantee(self) -> Guarantee:
         return self.method.guarantee(self.alpha, self.hypothesis.statement)
+
+    @property
+    def assumptions(self) -> tuple[Assumption, ...]:
+        """The method's assumptions, and the direction of benefit when the file leaves it out."""
+        return (*self.method.assumptions, *direction_assumptions(self.hypothesis))
+
+
+def direction_assumptions(null: "NullIR") -> tuple[Assumption, ...]:
+    """A one-sided null takes a side. If the model does not declare it, it is assumed."""
+    favours = NULL_FORMS[null.predicate][1].favours if null.predicate in NULL_FORMS else None
+    if favours is None or null.model.better is not None:
+        return ()
+    return (HIGHER_IS_BETTER if favours == "higher" else LOWER_IS_BETTER,)
 
 
 class FamilyLikeIR:
@@ -713,10 +730,12 @@ def normalize(value: object) -> object:
     match value:
         case Fraction():
             return str(value)
-        case ModelIR(n_control=nc, n_treatment=nt):
-            return {"module": "two_arm_binomial", "n_control": nc, "n_treatment": nt}
-        case OutcomeModelIR(outcome=outcome, n_control=nc, n_treatment=nt):
-            return {"module": OUTCOMES[outcome].constructor, "n_control": nc, "n_treatment": nt}
+        case ModelIR(n_control=nc, n_treatment=nt, better=better):
+            result = {"module": "two_arm_binomial", "n_control": nc, "n_treatment": nt}
+            return {**result, "better": better} if better else result
+        case OutcomeModelIR(outcome=outcome, n_control=nc, n_treatment=nt, better=better):
+            result = {"module": OUTCOMES[outcome].constructor, "n_control": nc, "n_treatment": nt}
+            return {**result, "better": better} if better else result
         case OutcomeNullIR(model=model, predicate=predicate, value=bound):
             result = {"predicate": predicate, "model": normalize(model)}
             if NULL_FORMS[predicate][1].takes_value:
@@ -910,23 +929,45 @@ def fail(code: str, message: str, span: Span) -> None:
     raise LanguageError(Diagnostic(code, message, span))
 
 
+def _sizes_and_better(arguments: dict[str, LocatedValue]) -> tuple[int, int, str | None]:
+    for name in ("n_control", "n_treatment"):
+        if arguments[name].value <= 0:
+            fail("domain", f"{name} must be a positive integer.", arguments[name].span)
+    better = arguments["better"]
+    if better.value not in (None, "higher", "lower"):
+        fail("domain", 'better must be "higher" or "lower".', better.span)
+    return arguments["n_control"].value, arguments["n_treatment"].value, better.value
+
+
 def _model(arguments: dict[str, LocatedValue], span: Span) -> ModelIR:
-    for name, argument in arguments.items():
-        if argument.value <= 0:
-            fail("domain", f"{name} must be a positive integer.", argument.span)
-    return ModelIR(arguments["n_control"].value, arguments["n_treatment"].value)
+    return ModelIR(*_sizes_and_better(arguments))
 
 
 def _outcome_model(outcome) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> OutcomeModelIR:
-        for name, argument in arguments.items():
-            if argument.value <= 0:
-                fail("domain", f"{name} must be a positive integer.", argument.span)
-        return OutcomeModelIR(
-            outcome.key, arguments["n_control"].value, arguments["n_treatment"].value
-        )
+        return OutcomeModelIR(outcome.key, *_sizes_and_better(arguments))
 
     return build
+
+
+def _check_direction(form, model, span: Span) -> None:
+    """A one-sided null must favour the treatment in the direction the model calls better."""
+    if form.favours is None or model.better is None or form.favours == model.better:
+        return
+    outcome = OUTCOMES[model.outcome]
+    mirror = next((f for f in outcome.nulls if f.favours == model.better), None)
+    remedy = (
+        f"Use {mirror.key}(...) to ask whether the treatment's outcome is {model.better}."
+        if mirror
+        else "No null for this outcome asks the other way. State the complementary outcome "
+        "instead, such as alive rather than dead, for which higher is better."
+    )
+    fail(
+        "direction_mismatch",
+        f"{form.key} asks whether the treatment's outcome is {form.favours}, but the model "
+        f'declares better="{model.better}". {remedy}',
+        span,
+    )
 
 
 def _outcome_null(outcome, form) -> Callable:
@@ -939,6 +980,7 @@ def _outcome_null(outcome, form) -> Callable:
                 f"{model.value.outcome}.",
                 model.span,
             )
+        _check_direction(form, model.value, span)
         value = arguments["value"].value if form.takes_value else Fraction(0)
         return OutcomeNullIR(model.value, form.key, value)
 
@@ -1022,6 +1064,7 @@ def _difference(predicate: str) -> Callable:
         bound = arguments["value"]
         if not -1 <= bound.value <= 1:
             fail("domain", "A proportion-difference value must lie in [-1, 1].", bound.span)
+        _check_direction(NULL_FORMS[predicate][1], arguments["model"].value, span)
         # This alias is backed by proportionDifference_zero_iff in the Lean model.
         canonical = (
             "equal_proportions"
@@ -1368,8 +1411,13 @@ def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: S
         effect = point.p_treatment - point.p_control
     else:
         effect = point.value - 1  # a hazard ratio of 1 is no effect
-    one_sided = NULL_FORMS[null.predicate][1].one_sided
-    if (effect <= null.value) if one_sided else (effect == 0):
+    favours = NULL_FORMS[null.predicate][1].favours
+    outside = {
+        "higher": effect > null.value,
+        "lower": effect < null.value,
+        None: effect != 0,
+    }[favours]
+    if not outside:
         fail(
             "alternative_in_null",
             f"The planning point satisfies the analysis's null ({null.statement}). "
@@ -1706,14 +1754,20 @@ TYPE_I = _constructor(
 
 def _cited_contract(method: CitedMethod) -> HypothesisContract:
     """Built from the registry, so the guidance always lists the current alternatives."""
-    form = NULL_FORMS[method.null][1]
-    others = "; ".join(f"{other.key} takes {other.null}" for other in methods_for(method.outcome))
+    value = "value" if method.null_value is None else method.null_value
+    statements = " or ".join(
+        NULL_FORMS[null][1].statement.format(value=value) for null in method.nulls
+    )
+    others = "; ".join(
+        f"{other.key} takes {' or '.join(other.nulls)}" for other in methods_for(method.outcome)
+    )
     fixed = "" if method.null_value is None else f", with value {method.null_value}"
     return HypothesisContract(
-        (method.null,),
-        form.statement.format(value="value" if method.null_value is None else method.null_value),
-        f"{method.title} supports the null {method.null}{fixed}. Keep your null if it states "
-        f"your question, and choose the test that supports it. For this outcome: {others}.",
+        method.nulls,
+        statements,
+        f"{method.title} supports the null {' or '.join(method.nulls)}{fixed}. Keep your null "
+        f"if it states your question, and choose the test that supports it. For this "
+        f"outcome: {others}.",
         required_value=method.null_value,
         version=method.version,
     )
@@ -1731,6 +1785,12 @@ def _cited_constructor(method: CitedMethod) -> Constructor:
         f"not checked by Lean. Null: {contract.expected}.",
     )
 
+
+BETTER_DOCUMENTATION = (
+    'better is "higher" or "lower": which direction of the outcome is better. When given, '
+    "a one-sided null must ask whether the treatment is better in that direction. When "
+    "left out, a one-sided null's direction is listed as an assumption."
+)
 
 DECLARED_MODULE_SUMMARY = (
     "A test the author names and vouches for, for analyses StatClaim has no contract for. "
@@ -1753,11 +1813,11 @@ def _outcome_module(outcome) -> "Module":
     )
     model = _constructor(
         outcome.constructor,
-        (("n_control", "integer"), ("n_treatment", "integer")),
+        (("n_control", "integer"), ("n_treatment", "integer"), ("better", "string", True)),
         "OutcomeModel",
         _outcome_model(outcome),
         documentation=f"{outcome.documentation} The model fixes no distribution; each test "
-        "states the one it assumes.",
+        f"states the one it assumes. {BETTER_DOCUMENTATION}",
     )
     return Module(outcome.module, (model, *nulls, TYPE_I))
 
@@ -1798,9 +1858,14 @@ MODULES = {
             (
                 _constructor(
                     "two_arm_binomial",
-                    (("n_control", "integer"), ("n_treatment", "integer")),
+                    (
+                        ("n_control", "integer"),
+                        ("n_treatment", "integer"),
+                        ("better", "string", True),
+                    ),
                     "Model",
                     _model,
+                    documentation="Two independent binomial arms. " + BETTER_DOCUMENTATION,
                 ),
                 _constructor(
                     "equal_proportions",

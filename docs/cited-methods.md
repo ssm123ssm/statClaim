@@ -21,7 +21,8 @@ No Lean installation is needed to check this file. See `examples/t_test.stat`.
 ## What is checked
 
 - The null fits the test: `equal_means` for a two-sided test,
-  `mean_difference_at_most` for a one-sided or non-inferiority test.
+  `mean_difference_at_most` for a one-sided or non-inferiority test, or
+  `mean_difference_at_least` where lower values are better.
 - The null and the design are declared over the same model.
 - The design is `fixed`. With `adaptive`, the claim stays unresolved.
 - There are enough participants to estimate the variance.
@@ -51,11 +52,11 @@ let scope = checked.claim.scope                  # finite_sample or asymptotic
 | Test | Null | Guarantee | Assumes | Power |
 | --- | --- | --- | --- | --- |
 | `t_test` | `equal_means` | Exact level | Normal outcomes, equal variances | Two means |
-| `t_test_one_sided` | `mean_difference_at_most` | Level at most alpha | Normal outcomes, equal variances | Two means |
+| `t_test_one_sided` | `mean_difference_at_most` or `_at_least` | Level at most alpha | Normal outcomes, equal variances | Two means |
 | `welch_test` | `equal_means` | Large-sample approximation | Finite variances | Two means |
-| `welch_test_one_sided` | `mean_difference_at_most` | Large-sample approximation | Finite variances | Two means |
+| `welch_test_one_sided` | `mean_difference_at_most` or `_at_least` | Large-sample approximation | Finite variances | Two means |
 | `log_rank` | `equal_survival` | Large-sample approximation, in the number of events | Independent censoring | Schoenfeld |
-| `mmrm_test`, `mmrm_test_one_sided` | `equal_means`, `mean_difference_at_most` | Large-sample approximation | Missing at random; correct mean and covariance model | Two means |
+| `mmrm_test`, `mmrm_test_one_sided` | `equal_means`, `mean_difference_at_most` or `_at_least` | Large-sample approximation | Missing at random; correct mean and covariance model | Two means |
 | `logistic_regression`, `logistic_regression_one_sided` | `equal_proportions`, a zero difference | Large-sample approximation | Linear log odds; enough events | Two proportions |
 
 The t-tests are in `tests.t`, for `models.two_arm_continuous`. The log-rank test
@@ -69,6 +70,32 @@ such as the mean difference over all visits. The logistic tests are in
 zero difference only. See `examples/trial_models.stat`.
 
 All assume independent participants, a plan fixed in advance and one analysis.
+
+## Which direction is better
+
+A one-sided null takes a side. `mean_difference_at_most` asks whether the
+treatment's outcome is higher; `mean_difference_at_least` asks whether it is
+lower. Say which direction is better on the model, and StatClaim checks that the
+null faces the same way:
+
+```stat
+let study = two_arm_continuous(n_control=400, n_treatment=400, better="lower")
+let symptoms = mmrm_test_one_sided(
+    design=fixed(model=study),
+    null=mean_difference_at_least(model=study, value=1/10),
+    alpha=1/40,
+)
+```
+
+Here `mean_difference_at_most` would be refused with `direction_mismatch`. If you
+leave `better` out, the result lists the direction among its assumptions, as
+`higher_is_better` or `lower_is_better`, marked assumed.
+See `examples/lower_is_better.stat`.
+
+For a yes-or-no outcome, every one-sided null asks whether the treatment's rate
+is higher. Where a lower rate is better, as for death, state the complementary
+outcome instead, such as alive. `better="lower"` with a one-sided binary null is
+refused with that advice.
 
 ## Declared tests
 

@@ -30,7 +30,6 @@ LEHMANN_ROMANO = (
 _POOLED = dict(
     outcome="continuous",
     module="tests.t",
-    version=1,
     scope="finite_sample",
     assumptions=(INDEPENDENT, FIXED_SIZES, SINGLE_ANALYSIS, NORMAL, EQUAL_VARIANCES),
     references=(STUDENT, FISHER, LEHMANN_ROMANO),
@@ -42,7 +41,6 @@ _POOLED = dict(
 _WELCH = dict(
     outcome="continuous",
     module="tests.t",
-    version=1,
     scope="asymptotic",
     assumptions=(INDEPENDENT, FIXED_SIZES, SINGLE_ANALYSIS, FINITE_VARIANCE),
     references=(WELCH, SATTERTHWAITE, LEHMANN_ROMANO),
@@ -61,20 +59,25 @@ MODULE = MethodModule(
         CitedMethod(
             key="t_test",
             title="Two-sided pooled-variance t-test",
+            version=1,
             null="equal_means",
             relation="equals",
             **_POOLED,
         ),
+        # Version 2: also tests the other direction, for an outcome where lower is better.
         CitedMethod(
             key="t_test_one_sided",
             title="One-sided pooled-variance t-test",
+            version=2,
             null="mean_difference_at_most",
+            mirrored_null="mean_difference_at_least",
             relation="at_most",
             **_POOLED,
         ),
         CitedMethod(
             key="welch_test",
             title="Two-sided Welch t-test",
+            version=1,
             null="equal_means",
             relation="equals",
             **_WELCH,
@@ -82,7 +85,9 @@ MODULE = MethodModule(
         CitedMethod(
             key="welch_test_one_sided",
             title="One-sided Welch t-test",
+            version=2,
             null="mean_difference_at_most",
+            mirrored_null="mean_difference_at_least",
             relation="at_most",
             **_WELCH,
         ),

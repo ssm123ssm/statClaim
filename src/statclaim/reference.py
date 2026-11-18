@@ -187,6 +187,10 @@ DIAGNOSTICS = {
     ),
     "alternative_in_null": ("error", "The planning point lies inside the null."),
     "no_power_formula": ("error", "A cited or declared test with no power formula is planned."),
+    "direction_mismatch": (
+        "error",
+        "A one-sided null asks about the direction the model's better= does not call better.",
+    ),
     "planning_point": ("error", "The planning point does not fit the analysis."),
     "rule_mismatch": ("error", "A stopping rule does not fit the two-stage design."),
     "sampling_contract": ("error", "A joint law is given where none applies, or is not supported."),

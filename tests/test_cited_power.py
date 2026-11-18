@@ -48,10 +48,21 @@ def no_backend(monkeypatch):
 
 
 # Values from the normal formulas, computed by hand from the formulas in the docs.
-# (formula, point, n_control, n_treatment, null value, alpha, one-sided,
+# (formula, point, n_control, n_treatment, null value, alpha, side,
 #  power, critical estimate, direction)
 PINNED = [
-    (two_means, {"value": -10, "sd": 167}, 440, 440, -50, 0.025, True, 0.944387, -27.9325, "above"),
+    (
+        two_means,
+        {"value": -10, "sd": 167},
+        440,
+        440,
+        -50,
+        0.025,
+        "higher",
+        0.944387,
+        -27.9325,
+        "above",
+    ),
     (
         two_means,
         {"value": -10, "sd": 167},
@@ -59,15 +70,37 @@ PINNED = [
         440,
         -50,
         0.0125,
-        True,
+        "higher",
         0.905116,
         -24.7637,
         "above",
     ),
-    (two_means, {"value": 50, "sd": 188}, 500, 500, 0, 0.0125, True, 0.975221, 26.6506, "above"),
-    (two_means, {"value": 0, "sd": 3}, 440, 440, -0.75, 0.025, True, 0.959780, -0.35358, "above"),
-    (two_means, {"value": -3, "sd": 12}, 400, 400, 0, 0.05, False, 0.942438, -1.66309, "below"),
-    (two_means, {"value": 5, "sd": 10}, 40, 80, 0, 0.05, False, 0.733037, 3.79545, "above"),
+    (
+        two_means,
+        {"value": 50, "sd": 188},
+        500,
+        500,
+        0,
+        0.0125,
+        "higher",
+        0.975221,
+        26.6506,
+        "above",
+    ),
+    (
+        two_means,
+        {"value": 0, "sd": 3},
+        440,
+        440,
+        -0.75,
+        0.025,
+        "higher",
+        0.959780,
+        -0.35358,
+        "above",
+    ),
+    (two_means, {"value": -3, "sd": 12}, 400, 400, 0, 0.05, "both", 0.942438, -1.66309, "below"),
+    (two_means, {"value": 5, "sd": 10}, 40, 80, 0, 0.05, "both", 0.733037, 3.79545, "above"),
     (
         two_proportions,
         {"p_control": 0.3, "p_treatment": 0.5},
@@ -75,7 +108,7 @@ PINNED = [
         100,
         0,
         0.05,
-        False,
+        "both",
         0.828109,
         0.135790,
         "above",
@@ -87,7 +120,7 @@ PINNED = [
         120,
         0,
         0.05,
-        False,
+        "both",
         0.805681,
         -0.137042,
         "below",
@@ -99,7 +132,7 @@ PINNED = [
         200,
         0,
         0.05,
-        False,
+        "both",
         0.80505,
         0.780424,
         "below",
@@ -111,7 +144,7 @@ PINNED = [
         200,
         0,
         0.05,
-        False,
+        "both",
         0.553239,
         1.46162,
         "above",
@@ -121,8 +154,8 @@ PINNED = [
 
 @pytest.mark.parametrize("case", PINNED, ids=lambda case: f"{case[0].__name__}-{case[7]}")
 def test_formulas_give_the_pinned_normal_values(case):
-    formula, point, nc, nt, null_value, alpha, one_sided, power, critical, direction = case
-    result = formula(point, nc, nt, null_value, alpha, one_sided)
+    formula, point, nc, nt, null_value, alpha, side, power, critical, direction = case
+    result = formula(point, nc, nt, null_value, alpha, side)
     assert result.power == pytest.approx(power, abs=1e-6)
     assert result.critical == pytest.approx(critical, rel=1e-5)
     assert result.direction == direction
@@ -133,7 +166,7 @@ def test_two_means_matches_the_textbook_expression():
     normal = NormalDist()
     se = 167 * math.sqrt(2 / 440)
     expected = normal.cdf(40 / se - normal.inv_cdf(1 - 0.025))
-    assert two_means({"value": -10, "sd": 167}, 440, 440, -50, 0.025, True).power == expected
+    assert two_means({"value": -10, "sd": 167}, 440, 440, -50, 0.025, "higher").power == expected
 
 
 def test_r_values_agree_within_the_stated_tolerance():
@@ -146,14 +179,14 @@ def test_r_values_agree_within_the_stated_tolerance():
     fixture = json.loads((ROOT / "tests/fixtures/power_r.json").read_text())
     assert fixture["cases"]
     for case in fixture["cases"]:
-        one_sided = case["alternative"] == "one.sided"
+        side = "higher" if case["alternative"] == "one.sided" else "both"
         if case["function"] == "power.t.test":
             point = {"value": case["delta"], "sd": case["sd"]}
-            result = two_means(point, case["n"], case["n"], 0, case["alpha"], one_sided)
+            result = two_means(point, case["n"], case["n"], 0, case["alpha"], side)
             assert 0 <= result.power - case["power"] < 0.001, case
         else:
             point = {"p_control": case["p1"], "p_treatment": case["p2"]}
-            result = two_proportions(point, case["n"], case["n"], 0, case["alpha"], one_sided)
+            result = two_proportions(point, case["n"], case["n"], 0, case["alpha"], side)
             assert result.power == pytest.approx(case["power"], abs=1e-9), case
 
 

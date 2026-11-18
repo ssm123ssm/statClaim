@@ -28,7 +28,6 @@ MALLINCKRODT = (
 
 _COMMON = dict(
     module="tests.mixed_model",
-    version=1,
     outcome="continuous",
     scope="asymptotic",
     limit="the number of participants grows",
@@ -58,6 +57,7 @@ MODULE = MethodModule(
         CitedMethod(
             key="mmrm_test",
             title="Two-sided test of a treatment contrast in a mixed model for repeated measures",
+            version=1,
             null="equal_means",
             relation="equals",
             **_COMMON,
@@ -65,7 +65,10 @@ MODULE = MethodModule(
         CitedMethod(
             key="mmrm_test_one_sided",
             title="One-sided test of a treatment contrast in a mixed model for repeated measures",
+            # Version 2: also tests the other direction, for an outcome where lower is better.
+            version=2,
             null="mean_difference_at_most",
+            mirrored_null="mean_difference_at_least",
             relation="at_most",
             **_COMMON,
         ),

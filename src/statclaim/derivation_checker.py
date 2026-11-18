@@ -31,6 +31,8 @@ from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
 from statclaim.methods.assumptions import (
     DECLARED_VALID,
     FIXED_SIZES,
+    HIGHER_IS_BETTER,
+    LOWER_IS_BETTER,
     PRESPECIFIED_FAMILY,
     PRESPECIFIED_GRAPH,
     PRESPECIFIED_LOOKS,
@@ -57,6 +59,30 @@ POINT_KEYS = {
     "hazard_ratio": {"hazard_ratio", "events"},
 }
 CRITERIA = ["optimal", "minimax"]
+
+
+def _favours(null: dict) -> str | None:
+    """The direction a one-sided null favours the treatment in, from the registry's data."""
+    entry = NULL_FORMS.get(null["predicate"])
+    return entry[1].favours if entry else None
+
+
+def _direction_ok(null: dict) -> bool:
+    better, favours = null["model"].get("better"), _favours(null)
+    return better is None or favours is None or favours == better
+
+
+def _direction_facts(null: dict) -> dict:
+    better = null["model"].get("better")
+    return {"better": better} if better else {}
+
+
+def _direction_assumed(null: dict) -> tuple:
+    """A one-sided null on a model that does not say which direction is better."""
+    favours = _favours(null)
+    if favours is None or null["model"].get("better"):
+        return ()
+    return (HIGHER_IS_BETTER if favours == "higher" else LOWER_IS_BETTER,)
 
 
 def _whole(value, minimum: int) -> bool:
@@ -209,7 +235,9 @@ def _cited_planning_expected(name: str, subject: dict, search, analysis: dict):
         effect = Fraction(point["p_treatment"]) - Fraction(point["p_control"])
     else:
         effect = Fraction(point["hazard_ratio"]) - 1
-    outside = effect > margin if NULL_FORMS[null["predicate"]][1].one_sided else effect != 0
+    outside = {"higher": effect > margin, "lower": effect < margin, None: effect != 0}[
+        _favours(null)
+    ]
     statement = _null_statement(null)
     steps.append(("alternative", {"subject": name, "point": point, "null": statement}, outside, ()))
     minimum, maximum = target["minimum_power"], target["maximum_typeI"]
@@ -378,8 +406,9 @@ def _analysis_expectations(name: str, analysis: dict) -> list[tuple[str, dict, b
                 "predicate": null["predicate"],
                 "statement": _statement(null),
                 "supported": supported,
+                **_direction_facts(null),
             },
-            null_ok,
+            null_ok and _direction_ok(null),
         ),
         ("level-range", {"subject": name, "alpha": analysis["alpha"]}, 0 <= alpha <= 1),
     ]
@@ -459,9 +488,10 @@ def _cited_expected(name: str, subject: dict, contract: str):
                 "subject": name,
                 "predicate": null["predicate"],
                 "statement": _null_statement(null),
-                "supported": [method.null],
+                "supported": list(method.nulls),
+                **_direction_facts(null),
             },
-            null["predicate"] == method.null and value_ok,
+            null["predicate"] in method.nulls and value_ok and _direction_ok(null),
             (),
         ),
         ("level-interior", {"subject": name, "alpha": subject["alpha"]}, 0 < alpha < 1, ()),
@@ -494,10 +524,11 @@ def _cited_expected(name: str, subject: dict, contract: str):
             "sentence": statement.sentence,
             "grade": method.grade,
             "method": method.to_dict(),
-            "given": [item.id for item in method.assumptions],
+            "given": [item.id for item in (*method.assumptions, *_direction_assumed(null))],
             "references": list(method.references),
         }
-    return steps, [fixed], tuple(item.text for item in method.assumptions), guarantee
+    texts = tuple(item.text for item in (*method.assumptions, *_direction_assumed(null)))
+    return steps, [fixed], texts, guarantee
 
 
 MEMBER_GRADES = {

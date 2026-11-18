@@ -15,6 +15,7 @@ cited [error]: familywise(procedure)
     [single_analysis] The test is run once, on the complete data. (declared)
     [normal_outcomes] Outcomes in each arm are normally distributed. (assumed)
     [equal_variances] The two arms have the same variance. (assumed)
+    [higher_is_better] Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. (assumed)
   References:
     Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604.
     Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761.
@@ -84,7 +85,7 @@ calculated [power]: meets(analysis)
   power ~ 0.8074 (normal approximation, not a bound); power target met = true
   rejects when the estimate is above 0.2772; standard error ~ 0.1414
   level 1/20; requested Type I bound 1/20; Type I target met = true
-  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 1)
+  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 2)
   Assumptions:
     [independent_observations] Observations are independent within and between the two arms. (assumed)
     [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)

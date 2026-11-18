@@ -114,6 +114,23 @@ ENOUGH_EVENTS = Assumption(
     "coefficient to be approximately normal, with no separation.",
 )
 
+# The direction of benefit, listed when a one-sided null is used and the model does not
+# declare which direction is better. Declaring it with better= has it checked instead.
+HIGHER_IS_BETTER = Assumption(
+    "higher_is_better",
+    "meaning",
+    "Higher values of the outcome are better: the one-sided null asks whether the "
+    'treatment\'s are higher. The file does not say so; declare better="higher" on the '
+    "model to have this checked.",
+)
+LOWER_IS_BETTER = Assumption(
+    "lower_is_better",
+    "meaning",
+    "Lower values of the outcome are better: the one-sided null asks whether the "
+    'treatment\'s are lower. The file does not say so; declare better="lower" on the '
+    "model to have this checked.",
+)
+
 # Assumptions of the approximate power formulas in power.py. Power is a calculation,
 # so these concern how the number was obtained, not the test's error rate.
 NORMAL_APPROXIMATION_POWER = Assumption(

@@ -1,0 +1,22 @@
+# An outcome where lower is better, such as a symptom score. Declaring it lets
+# StatClaim check that the one-sided null asks the right way round.
+use models.two_arm_continuous
+use sampling
+use tests.mixed_model
+use planning
+
+let study = two_arm_continuous(n_control=400, n_treatment=400, better="lower")
+let plan = fixed(model=study)
+
+# Non-inferiority: the new treatment's score may be higher by at most 0.1.
+# mean_difference_at_most here would be refused: it asks whether scores are higher.
+let symptoms = mmrm_test_one_sided(
+    design=plan,
+    null=mean_difference_at_least(model=study, value=1/10),
+    alpha=1/40,
+)
+let error = verify(typeI(symptoms))
+
+# Power if the treatments are truly equal and the contrast's SD is 0.5.
+let target = power_target(at=mean_difference(value=0, sd=1/2), minimum=4/5, maximum_typeI=1/40)
+let power = calculate(meets(analysis=symptoms, target=target))

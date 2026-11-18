@@ -82,12 +82,17 @@ class FieldSpec:
 
 
 SCHEMAS = {
-    ModelIR: {"n_control": FieldSpec(int), "n_treatment": FieldSpec(int)},
+    ModelIR: {
+        "n_control": FieldSpec(int),
+        "n_treatment": FieldSpec(int),
+        "better": FieldSpec(str, optional=True, description="higher or lower, when declared."),
+    },
     PlanIR: {"model": FieldSpec(StudyModelIR), "stopping": FieldSpec(str)},
     OutcomeModelIR: {
         "outcome": FieldSpec(str, description="continuous, survival, ..."),
         "n_control": FieldSpec(int),
         "n_treatment": FieldSpec(int),
+        "better": FieldSpec(str, optional=True, description="higher or lower, when declared."),
     },
     OutcomeNullIR: {
         "model": FieldSpec(OutcomeModelIR),
