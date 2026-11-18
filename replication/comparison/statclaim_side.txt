@@ -1,0 +1,114 @@
+StatClaim 0.1.0 on the comparison designs.
+
+== graph.stat
+cited [error]: familywise(procedure)
+  Evidence: cited from the literature; not machine-checked; guarantee: finite-sample bound
+  Method: Graphical multiple testing procedure (graphical, version 1)
+  Probability of rejecting any true member null is at most 1/40 whenever any subset of the member nulls is true.
+  Assumptions:
+    [prespecified_graph] The tests, their starting shares of the level and the rules for passing a share on are fixed in advance, and a share is passed on only after a rejection. Each test controls its error at every level up to the overall level, not only at one. (declared)
+    [member_guarantee:first] first: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -5. (cited from the literature; not machine-checked) (assumed)
+    [member_guarantee:second] second: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -5. (cited from the literature; not machine-checked) (assumed)
+    [member_guarantee:third] third: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= 0. (cited from the literature; not machine-checked) (assumed)
+    [independent_observations] Observations are independent within and between the two arms. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [normal_outcomes] Outcomes in each arm are normally distributed. (assumed)
+    [equal_variances] The two arms have the same variance. (assumed)
+  References:
+    Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604.
+    Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761.
+    Student (1908). The probable error of a mean. Biometrika 6(1), 1-25.
+    Fisher, R. A. (1925). Applications of 'Student's' distribution. Metron 5, 90-104.
+    Lehmann, E. L. and Romano, J. P. (2005). Testing Statistical Hypotheses, 3rd ed. Springer. Chapters 5 and 11.
+Program status: cited
+
+== graph.stat, a row of transitions summing to 1.3
+graph.stat:18:9: error [graph_definition]: Row 1 of transitions sums to 13/10, more than 1.
+          [0, 7/10, 6/10],
+          ^^^^^^^^^^^^^^^
+graph.stat:24:31: error [dependency]: 'procedure' depends on an invalid declaration.
+  let error = verify(familywise(procedure))
+                                ^^^^^^^^^
+Program status: invalid
+
+== graph.stat, weights summing to 1.1
+graph.stat:16:13: error [graph_definition]: The weights sum to 11/10, more than 1.
+      weights=[3/5, 1/2, 0],
+              ^^^^^^^^^^^^^
+graph.stat:24:31: error [dependency]: 'procedure' depends on an invalid declaration.
+  let error = verify(familywise(procedure))
+                                ^^^^^^^^^
+Program status: invalid
+
+== graph.stat, a test passing level to itself
+graph.stat:18:9: error [graph_definition]: A test cannot pass its level to itself.
+          [1/5, 4/5, 0],
+          ^^^^^^^^^^^^^
+graph.stat:24:31: error [dependency]: 'procedure' depends on an invalid declaration.
+  let error = verify(familywise(procedure))
+                                ^^^^^^^^^
+Program status: invalid
+
+== graph.stat, one test declared at half the level
+graph.stat:15:14: error [sequence_level]: third has alpha 1/80. In a graph, declare every test at the overall level 1/40; the weights say what share each starts with.
+      analyses=[first, second, third],
+               ^^^^^^^^^^^^^^^^^^^^^^
+graph.stat:24:31: error [dependency]: 'procedure' depends on an invalid declaration.
+  let error = verify(familywise(procedure))
+                                ^^^^^^^^^
+Program status: invalid
+
+== sequential.stat
+conditional [error]: typeI(trial)
+  Weakest part: cited from the literature; not machine-checked (interim, final)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: finite-sample bound
+  The look levels sum to 1/40, which does not exceed the overall error bound 1/40.
+  If the test at each look rejects the true null with probability at most its level, the probability of rejecting it at any look is at most 1/40, whatever the dependence between looks. This split is conservative: it does not use the correlation between looks.
+  Not checked here: each look's own error bound, listed as an assumption.
+  Assumptions:
+    The looks happen at the declared cumulative sample sizes, fixed in advance, and the study stops at the first look that rejects.
+    interim: Null rejection probability is at most 3/2000 whenever mean_treatment - mean_control <= 0. (cited from the literature; not machine-checked)
+    final: Null rejection probability is at most 47/2000 whenever mean_treatment - mean_control <= 0. (cited from the literature; not machine-checked)
+  References:
+    Student (1908). The probable error of a mean. Biometrika 6(1), 1-25.
+    Fisher, R. A. (1925). Applications of 'Student's' distribution. Metron 5, 90-104.
+    Lehmann, E. L. and Romano, J. P. (2005). Testing Statistical Hypotheses, 3rd ed. Springer. Chapters 5 and 11.
+Program status: cited
+
+== two_arm_power.stat
+calculated [power]: meets(analysis)
+  arm sizes = (100, 100); total = 200
+  power ~ 0.8074 (normal approximation, not a bound); power target met = true
+  rejects when the estimate is above 0.2772; standard error ~ 0.1414
+  level 1/20; requested Type I bound 1/20; Type I target met = true
+  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 1)
+  Assumptions:
+    [independent_observations] Observations are independent within and between the two arms. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [finite_variance] Outcomes in each arm are identically distributed with finite, positive variance. (assumed)
+    [normal_approximation_power] Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. (assumed)
+    [planning_standard_deviation] The standard deviation is a planning input, not an established fact. It is the standard deviation of one participant's outcome on the analysed scale; for a mixed model, the effective standard deviation of the contrast. (condition)
+    [planning_point_is_input] The planning point is an input for planning, not an established fact. (condition)
+  References:
+    Welch, B. L. (1947). The generalization of 'Student's' problem when several different population variances are involved. Biometrika 34(1-2), 28-35.
+    Satterthwaite, F. E. (1946). An approximate distribution of estimates of variance components. Biometrics Bulletin 2(6), 110-114.
+    Lehmann, E. L. and Romano, J. P. (2005). Testing Statistical Hypotheses, 3rd ed. Springer. Chapters 5 and 11.
+    Chow, S.-C., Shao, J. and Wang, H. (2008). Sample Size Calculations in Clinical Research, 2nd ed. Chapman and Hall/CRC. Chapter 3.
+    Julious, S. A. (2004). Sample sizes for clinical trials with normal data. Statistics in Medicine 23(12), 1921-1986.
+  decision = target_met; no formal certificate issued.
+cited [error]: typeI(analysis)
+  Evidence: cited from the literature; not machine-checked; guarantee: large-sample approximation
+  Method: Two-sided Welch t-test (welch_test, version 1)
+  Null rejection probability approaches 1/20 in the limit as the sample sizes grow, whenever mean_treatment = mean_control. No bound is claimed at the declared sample sizes.
+  Assumptions:
+    [independent_observations] Observations are independent within and between the two arms. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [finite_variance] Outcomes in each arm are identically distributed with finite, positive variance. (assumed)
+  References:
+    Welch, B. L. (1947). The generalization of 'Student's' problem when several different population variances are involved. Biometrika 34(1-2), 28-35.
+    Satterthwaite, F. E. (1946). An approximate distribution of estimates of variance components. Biometrics Bulletin 2(6), 110-114.
+    Lehmann, E. L. and Romano, J. P. (2005). Testing Statistical Hypotheses, 3rd ed. Springer. Chapters 5 and 11.
+Program status: cited

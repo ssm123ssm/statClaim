@@ -1,0 +1,12 @@
+# 100 per arm, a true difference of 0.4 standard deviations, two-sided 5%. The same
+# design as declaredesign_two_arm.R, whose estimator is a Welch-type difference in means.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use planning
+
+let study = two_arm_continuous(n_control=100, n_treatment=100)
+let analysis = welch_test(design=fixed(model=study), null=equal_means(model=study), alpha=1/20)
+let target = power_target(at=mean_difference(value=2/5, sd=1), minimum=4/5, maximum_typeI=1/20)
+let power = calculate(meets(analysis=analysis, target=target))
+let error = verify(typeI(analysis))

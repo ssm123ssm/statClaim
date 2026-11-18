@@ -1,0 +1,53 @@
+# Cross-checks against R packages
+
+These scripts show what established R packages compute for designs StatClaim also
+checks. The tools have different aims, so this is a record of what each reports, not
+a ranking. The scripts need R and are not part of `make replicate`. Each writes a
+pinned output beside it, ending with the R session (without locale or time zone).
+
+Install the packages into any library, then point R at it:
+
+```sh
+Rscript -e 'install.packages(c("clinfun", "gsDesign", "graphicalMCP", "DeclareDesign", "jsonlite"), lib = "path/to/library")'
+R_LIBS=path/to/library Rscript replication/comparison/simon_clinfun.R
+```
+
+Run every script from the repository root. Versions used: R 4.6.1, clinfun 1.1.6,
+gsDesign 3.11.0, graphicalMCP 0.3.0, DeclareDesign 2.0.0. gMCP was not used: it
+needs Java.
+
+| Script | Output | What it compares |
+| --- | --- | --- |
+| `simon_clinfun.R` | `simon_clinfun.txt` | `clinfun::ph2simon` against StatClaim's re-check of the 102 designs of Simon (1989): the selected designs, the early-stopping probability and the expected sample size |
+| `graph_graphicalMCP.R` | `graph_graphicalMCP.txt` | Rejections, adjusted p-values and simulated power for a graph with recycling, and how invalid graphs are refused |
+| `group_sequential_gsDesign.R` | `group_sequential_gsDesign.txt` | Boundaries that use the correlation between looks against StatClaim's union-bound split of the level |
+| `power_base_r.R` | `power_base_r.txt` | Base R's `power.t.test` and `power.prop.test`; writes `tests/fixtures/power_r.json`, which `replication/power.py` compares with StatClaim |
+| `declaredesign_two_arm.R` | `declaredesign_two_arm.txt` | DeclareDesign's simulated diagnosands for a two-arm design |
+
+StatClaim's side of the same designs is `graph.stat`, `sequential.stat` and
+`two_arm_power.stat`. `statclaim_side.py` runs them, and four invalid variants of the
+graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup.
+
+## Results
+
+- **Simon (1989).** clinfun selects all 102 tabulated designs with a maximum of 120
+  participants. Its early-stopping probabilities and expected sizes agree with
+  StatClaim's exact values in every case. Both differ from four printed
+  early-stopping probabilities in Simon's tables (see `../simon_results.md`).
+- **Graphs.** graphicalMCP tests a graph against p-values: it gives rejections,
+  adjusted p-values and power by simulation. StatClaim checks the declared graph
+  before any data exist and cites the procedure's familywise bound. Both refuse a row
+  of transitions that sums to more than 1, weights that sum to more than 1 and a test
+  that passes its level to itself. StatClaim also refuses a test declared at less
+  than the overall level.
+- **Group-sequential.** StatClaim's split is a union bound. With O'Brien-Fleming
+  type spending over two looks, its true Type I error is 0.0240 against a bound of
+  0.025, and its final boundary is z = 1.987 against gsDesign's 1.969. Power falls
+  from 0.900 to 0.897. With Pocock type spending the true error is 0.0216 and power
+  falls to 0.877.
+- **Power.** For two proportions StatClaim matches `power.prop.test` to six
+  decimals. For two means it is above `power.t.test` by less than 0.001 at 400 per
+  arm or more, since it uses the normal distribution, not the noncentral t.
+- **DeclareDesign.** For 100 per arm and a difference of 0.4 standard deviations,
+  2,000 simulations give power 0.81 (standard error 0.009), bias 0.002 and coverage
+  0.96. StatClaim's normal approximation gives 0.807; `power.t.test` gives 0.804.

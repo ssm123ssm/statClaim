@@ -1,0 +1,31 @@
+Base R power values written to tests/fixtures/power_r.json
+StatClaim's values for the same cases are in replication/power_results.md
+
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "cases": [
+    {"function": "power.t.test", "n": 440, "delta": 40, "sd": 167, "alpha": 0.025, "alternative": "one.sided", "power": 0.943949178193},
+    {"function": "power.t.test", "n": 440, "delta": 40, "sd": 167, "alpha": 0.0125, "alternative": "one.sided", "power": 0.904254678434},
+    {"function": "power.t.test", "n": 500, "delta": 50, "sd": 188, "alpha": 0.0125, "alternative": "one.sided", "power": 0.974911823480},
+    {"function": "power.t.test", "n": 440, "delta": 0.75, "sd": 3, "alpha": 0.025, "alternative": "one.sided", "power": 0.959427103427},
+    {"function": "power.t.test", "n": 400, "delta": 3, "sd": 12, "alpha": 0.05, "alternative": "two.sided", "power": 0.941944881228},
+    {"function": "power.prop.test", "n": 100, "p1": 0.3, "p2": 0.5, "alpha": 0.05, "alternative": "two.sided", "power": 0.828109402720},
+    {"function": "power.prop.test", "n": 100, "p1": 0.3, "p2": 0.5, "alpha": 0.025, "alternative": "one.sided", "power": 0.828109402720},
+    {"function": "power.prop.test", "n": 500, "p1": 0.4, "p2": 0.48, "alpha": 0.025, "alternative": "one.sided", "power": 0.722468797587},
+    {"function": "power.prop.test", "n": 50, "p1": 0.1, "p2": 0.4, "alpha": 0.05, "alternative": "two.sided", "power": 0.945578590768}
+  ]
+}
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

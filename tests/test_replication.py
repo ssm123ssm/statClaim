@@ -90,3 +90,13 @@ def test_worked_designs_without_lean_have_their_recorded_statuses(capsys, monkey
     monkeypatch.setattr("sys.argv", ["examples.py"])
     assert examples.main() == 0
     assert "DIFFERS" not in capsys.readouterr().out
+
+
+def test_comparison_designs_compile_as_recorded():
+    """The StatClaim side of the R cross-checks stays valid."""
+    from statclaim.language_compiler import compile_source
+    from statclaim.language_syntax import Source
+
+    for name in ("graph.stat", "sequential.stat", "two_arm_power.stat"):
+        path = ROOT / "replication/comparison" / name
+        assert compile_source(Source(path.read_text(), str(path))).status == "elaborated", name

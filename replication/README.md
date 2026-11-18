@@ -83,3 +83,9 @@ with `Rscript tests/fixtures/power_r.R`. R is not needed to replicate.
 `examples.py` runs each and compares the file's status and every request's status
 with those it records. Run `statclaim report <file>` on any of them for its
 assumption table.
+
+## Cross-checks against R packages
+
+`comparison/` holds optional scripts that run clinfun, graphicalMCP, gsDesign,
+DeclareDesign and base R on the same designs, with their pinned outputs. They need
+R and are not part of `make replicate`. See [comparison/README.md](comparison/README.md).

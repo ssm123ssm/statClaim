@@ -1,0 +1,24 @@
+# Three one-sided tests. Two start with half the level and none with the rest; a
+# rejected test passes its whole level on, in the cycle first -> second -> third -> first.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use multiplicity.graphical
+
+let study = two_arm_continuous(n_control=300, n_treatment=300)
+let plan = fixed(model=study)
+let first = t_test_one_sided(design=plan, null=mean_difference_at_most(model=study, value=-5), alpha=1/40)
+let second = t_test_one_sided(design=plan, null=mean_difference_at_most(model=study, value=-5), alpha=1/40)
+let third = t_test_one_sided(design=plan, null=mean_difference_at_most(model=study, value=0), alpha=1/40)
+
+let procedure = graphical(
+    analyses=[first, second, third],
+    weights=[1/2, 1/2, 0],
+    transitions=[
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 0, 0],
+    ],
+    alpha=1/40,
+)
+let error = verify(familywise(procedure))
