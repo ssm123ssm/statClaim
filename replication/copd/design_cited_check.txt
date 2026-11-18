@@ -1,0 +1,62 @@
+cited [primary_error]: familywise(co_primary)
+  Evidence: cited from the literature; not machine-checked; guarantee: large-sample approximation
+  Method: Graphical multiple testing procedure (graphical, version 1)
+  Probability of rejecting any true member null is at most 1/40 in the limit as each member's sample size or number of events grows, whenever any subset of the member nulls is true. No bound is claimed at the declared sample sizes.
+  Assumptions:
+    [prespecified_graph] The tests, their starting shares of the level and the rules for passing a share on are fixed in advance, and a share is passed on only after a rejection. Each test controls its error at every level up to the overall level, not only at one. (declared)
+    [member_guarantee:trough_fev1_ni] trough_fev1_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -50. (cited from the literature; not machine-checked) (assumed)
+    [member_guarantee:peak_fev1_ni] peak_fev1_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -50. (cited from the literature; not machine-checked) (assumed)
+    [member_guarantee:peak_fev1_sup] peak_fev1_sup: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= 0. (cited from the literature; not machine-checked) (assumed)
+    [independent_participants] Participants are independent of one another. Measurements on one participant may be correlated. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [missing_at_random] Missing measurements are missing at random given the observed data and the model. (assumed)
+    [correct_mean_model] The model for the mean, with its covariates, is fixed in advance and correctly specified. (assumed)
+    [covariance_structure] The covariance between a participant's measurements is correctly specified. An unstructured matrix imposes no structure. (assumed)
+    [approximately_normal_estimate] Errors are multivariate normal, or the study is large enough for the estimated treatment contrast to be approximately normal. (assumed)
+    [higher_is_better] Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. (assumed)
+  References:
+    Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604.
+    Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761.
+    Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
+    Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
+    Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+conditional [overall_error]: familywise(trial)
+  Weakest part: cited from the literature; not machine-checked (co_primary: its rule, trough_fev1_ni, peak_fev1_ni, peak_fev1_sup, inspiratory_capacity_ni, onset_of_action_sup, tdi_ni, emsci_ni)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: large-sample approximation
+  Every test in the sequence uses the full level 1/40.
+  If each test rejects its own true null with probability at most that level, and a test is carried out only when every earlier test rejected (every null of an earlier entry that holds several), the probability of rejecting any true null is at most 1/40, for every configuration of true and false nulls and any dependence between tests.
+  If a test's bound holds only up to a slack, the familywise bound holds up to the largest slack. With large-sample tests the bound is therefore approached as the sample sizes grow; none is claimed at the declared sizes.
+  Not checked here: each test's own error bound, listed as an assumption.
+  Assumptions:
+    The tests and their order are fixed in advance, and a test is carried out only if every earlier test in the order rejected.
+    co_primary: Probability of rejecting any true member null is at most 1/40 whenever any subset of the member nulls is true. (cited from the literature; not machine-checked)
+    inspiratory_capacity_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -50. (cited from the literature; not machine-checked)
+    onset_of_action_sup: Null rejection probability is at most 1/40 whenever p_treatment - p_control <= 0. (cited from the literature; not machine-checked)
+    tdi_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -1. (cited from the literature; not machine-checked)
+    emsci_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -1/10. (cited from the literature; not machine-checked)
+  References:
+    Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604.
+    Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761.
+    Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
+    Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
+    Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+    Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal Statistical Society B 20(2), 215-242.
+    Hosmer, D. W., Lemeshow, S. and Sturdivant, R. X. (2013). Applied Logistic Regression, 3rd ed. Wiley.
+cited [onset_error]: typeI(onset_of_action_sup)
+  Evidence: cited from the literature; not machine-checked; guarantee: large-sample approximation
+  Method: One-sided test of the treatment coefficient in a logistic regression (logistic_regression_one_sided, version 1)
+  Null rejection probability is at most 1/40 in the limit as the numbers of responders and non-responders grow, whenever p_treatment - p_control <= 0. No bound is claimed at the declared sample sizes.
+  Assumptions:
+    [independent_participants] Participants are independent of one another. Measurements on one participant may be correlated. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [logit_linear] The log odds of response are linear in the model's covariates, which are fixed in advance. (assumed)
+    [null_is_zero_coefficient] The test is of the treatment coefficient. Under the declared null, treatment has no effect on response given the covariates. (condition)
+    [enough_events] There are enough responders and non-responders in each arm for the estimated coefficient to be approximately normal, with no separation. (assumed)
+    [higher_is_better] Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. (assumed)
+  References:
+    Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal Statistical Society B 20(2), 215-242.
+    Hosmer, D. W., Lemeshow, S. and Sturdivant, R. X. (2013). Applied Logistic Regression, 3rd ed. Wiley.
+Program status: cited
+These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.

@@ -1,0 +1,94 @@
+# NCT03162055 (study D5970C00002): glycopyrronium/formoterol (GFF) versus
+# umeclidinium/vilanterol (UV) in COPD. Statistical analysis plan, edition 2.0,
+# 8 June 2018. The whole multiplicity structure of sections 4.2.6.3 and 4.2.7.1.
+#
+# Each analysis is declared by name, with the plan's section as its reference.
+# StatClaim checks nothing about these tests themselves.
+use models.two_arm_continuous
+use models.two_arm_binomial
+use sampling
+use tests.declared
+use multiplicity.graphical
+use multiplicity.fixed_sequence
+
+# About 440 per arm are expected in the per-protocol set, 500 in the full set.
+let per_protocol = two_arm_continuous(n_control=440, n_treatment=440)
+let full_set = two_arm_continuous(n_control=500, n_treatment=500)
+let full_set_binary = two_arm_binomial(n_control=500, n_treatment=500)
+
+# Co-primary hypotheses (section 4.1.1). Non-inferiority uses the per-protocol
+# set with a margin of -50 mL; superiority uses the full set.
+let trough_fev1_ni = declared_test(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-50),
+    alpha=1/40,
+    method="Mixed model for repeated measures, treatment contrast over 24 weeks",
+    reference="Statistical analysis plan edition 2.0, section 4.2.6.1",
+)
+let peak_fev1_ni = declared_test(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-50),
+    alpha=1/40,
+    method="Mixed model for repeated measures, treatment contrast over 24 weeks",
+    reference="Statistical analysis plan edition 2.0, section 4.2.6.2",
+)
+let peak_fev1_sup = declared_test(
+    design=fixed(model=full_set),
+    null=mean_difference_at_most(model=full_set, value=0),
+    alpha=1/40,
+    method="Mixed model for repeated measures, treatment contrast over 24 weeks",
+    reference="Statistical analysis plan edition 2.0, section 4.2.6.2",
+)
+
+# Section 4.2.6.3: 1.25% each to the two non-inferiority tests, recycled
+# trough NI -> peak NI -> peak superiority -> trough NI.
+let co_primary = graphical(
+    analyses=[trough_fev1_ni, peak_fev1_ni, peak_fev1_sup],
+    weights=[1/2, 1/2, 0],
+    transitions=[
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 0, 0],
+    ],
+    alpha=1/40,
+)
+
+# Section 4.2.7.1: secondary endpoints in this order at one-sided 2.5%.
+let inspiratory_capacity_ni = declared_test(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-50),
+    alpha=1/40,
+    method="Mixed model for repeated measures, treatment contrast over 24 weeks",
+    reference="Statistical analysis plan edition 2.0, section 4.2.7.2",
+)
+let onset_of_action_sup = declared_test(
+    design=fixed(model=full_set_binary),
+    null=proportion_difference_at_most(model=full_set_binary, value=0),
+    alpha=1/40,
+    method="Logistic regression, treatment coefficient",
+    reference="Statistical analysis plan edition 2.0, section 4.2.7.3",
+)
+let tdi_ni = declared_test(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-1),
+    alpha=1/40,
+    method="Mixed model for repeated measures, treatment contrast over 24 weeks",
+    reference="Statistical analysis plan edition 2.0, section 4.2.7.4",
+)
+let emsci_ni = declared_test(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-1/10),
+    alpha=1/40,
+    method="Mixed model for repeated measures, treatment contrast over 24 weeks",
+    reference="Statistical analysis plan edition 2.0, section 4.2.7.5",
+)
+
+# "Should all 3 null hypotheses relating to the co-primary endpoints be rejected
+# then testing will proceed to the secondary endpoints."
+let trial = fixed_sequence(
+    analyses=[co_primary, inspiratory_capacity_ni, onset_of_action_sup, tdi_ni, emsci_ni],
+    alpha=1/40,
+)
+
+let primary_error = verify(familywise(co_primary))
+let overall_error = verify(familywise(trial))

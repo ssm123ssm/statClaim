@@ -1,0 +1,76 @@
+# NCT03162055 (study D5970C00002): the four power statements of section 1.3 of
+# the statistical analysis plan, edition 2.0, 8 June 2018.
+#
+# Each result is approximate power from a normal formula, with status
+# calculated. The plan's continuous endpoints are analysed with a mixed model
+# for repeated measures, so the standard deviations are the plan's effective
+# SDs of the 24-week contrast.
+use models.two_arm_continuous
+use sampling
+use tests.mixed_model
+use planning
+
+# About 440 per arm are expected in the per-protocol set, 500 in the full set.
+let per_protocol = two_arm_continuous(n_control=440, n_treatment=440)
+let full_set = two_arm_continuous(n_control=500, n_treatment=500)
+
+# 1. Trough FEV1, non-inferiority, margin -50 mL, one-sided 2.5%:
+#    "around 94% power", "must be above -28 mL". True difference -10 mL and an
+#    effective SD of 167 mL (a per-visit SD of 200 mL with correlation 0.6).
+let trough_ni_2_5 = mmrm_test_one_sided(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-50),
+    alpha=1/40,
+)
+let trough_point = mean_difference(value=-10, sd=167)
+let trough_2_5 = calculate(meets(
+    analysis=trough_ni_2_5,
+    target=power_target(at=trough_point, minimum=94/100, maximum_typeI=1/40),
+))
+
+# 2. The same test at one-sided 1.25%: "power would be 90%", "must be above
+#    -24.5 mL".
+let trough_ni_1_25 = mmrm_test_one_sided(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-50),
+    alpha=1/80,
+)
+let trough_1_25 = calculate(meets(
+    analysis=trough_ni_1_25,
+    target=power_target(at=trough_point, minimum=9/10, maximum_typeI=1/80),
+))
+
+# 3. Peak FEV1, superiority, full set of 500 per arm, one-sided 1.25%:
+#    "at least 97% power", with an effective SD of 188 mL and a true
+#    difference of 50 mL.
+let peak_sup = mmrm_test_one_sided(
+    design=fixed(model=full_set),
+    null=mean_difference_at_most(model=full_set, value=0),
+    alpha=1/80,
+)
+let peak = calculate(meets(
+    analysis=peak_sup,
+    target=power_target(
+        at=mean_difference(value=50, sd=188),
+        minimum=97/100,
+        maximum_typeI=1/80,
+    ),
+))
+
+# 4. TDI focal score, non-inferiority with a margin of -0.75 units: "power ...
+#    would remain at least 90%", assuming no difference and an SD of 3 units.
+#    The plan does not state the level here; the secondary endpoints are
+#    tested at one-sided 2.5% (section 4.2.7.1).
+let tdi_ni = mmrm_test_one_sided(
+    design=fixed(model=per_protocol),
+    null=mean_difference_at_most(model=per_protocol, value=-3/4),
+    alpha=1/40,
+)
+let tdi = calculate(meets(
+    analysis=tdi_ni,
+    target=power_target(
+        at=mean_difference(value=0, sd=3),
+        minimum=9/10,
+        maximum_typeI=1/40,
+    ),
+))

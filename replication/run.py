@@ -2,7 +2,8 @@
 
 uv run python replication/run.py           # Python only; make replicate
 uv run python replication/run.py --lean    # also re-prove in Lean; make replicate-lean
-uv run python replication/run.py --update  # regenerate the pinned outputs; make replicate-update
+uv run python replication/run.py --update  # rewrite the outputs that need no Lean; make
+                                           # replicate-update
 
 Every step runs even if an earlier one fails. The run fails if any step does.
 """
@@ -37,8 +38,24 @@ STEPS = (
     ),
     Step("Power for cited tests against base R", "power.py", outputs=("power_results.md",)),
     Step("Worked designs without Lean", "examples.py"),
+    Step(
+        "Case study: a COPD trial's plan, reports and power",
+        "copd.py",
+        outputs=(
+            "copd/design_cited_report.md",
+            "copd/design_declared_report.md",
+            "copd/power_check.txt",
+        ),
+    ),
     Step("Simon (1989): every design proved again in Lean", "simon.py", ("--fresh",), lean=True),
     Step("Worked designs with Lean", "examples.py", ("--lean",), lean=True),
+    Step(
+        "Case study: a COPD trial's plan, every claim with Lean",
+        "copd.py",
+        ("--lean",),
+        outputs=("copd/design_cited_check.txt", "copd/design_declared_check.txt"),
+        lean=True,
+    ),
 )
 
 
@@ -52,7 +69,8 @@ def main() -> int:
     if update and lean:
         print("--update regenerates the Python outputs only; run --lean separately.")
         return 2
-    steps = [s for s in STEPS if (s.outputs if update else lean or not s.lean)]
+    # --update rewrites the Python-only outputs; a Lean step's script rewrites its own.
+    steps = [s for s in STEPS if (s.outputs and not s.lean if update else lean or not s.lean)]
     failed, start = [], time.monotonic()
     for step in steps:
         print(f"== {step.title}", flush=True)

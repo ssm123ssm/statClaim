@@ -1,0 +1,42 @@
+cited [primary_error]: familywise(co_primary)
+  Weakest part: declared by the author; not checked and not cited (trough_fev1_ni, peak_fev1_ni, peak_fev1_sup)
+  Evidence: cited from the literature; not machine-checked; guarantee: large-sample approximation
+  Method: Graphical multiple testing procedure (graphical, version 1)
+  Probability of rejecting any true member null is at most 1/40 in the limit as each member's sample size or number of events grows, whenever any subset of the member nulls is true. No bound is claimed at the declared sample sizes.
+  Assumptions:
+    [prespecified_graph] The tests, their starting shares of the level and the rules for passing a share on are fixed in advance, and a share is passed on only after a rejection. Each test controls its error at every level up to the overall level, not only at one. (declared)
+    [member_guarantee:trough_fev1_ni] trough_fev1_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -50. (declared by the author; not checked and not cited) (assumed)
+    [member_guarantee:peak_fev1_ni] peak_fev1_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -50. (declared by the author; not checked and not cited) (assumed)
+    [member_guarantee:peak_fev1_sup] peak_fev1_sup: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= 0. (declared by the author; not checked and not cited) (assumed)
+    [declared_test_is_valid] The declared test rejects its true null with probability at most its level. StatClaim has no contract or source for this test. (assumed)
+    [higher_is_better] Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. (assumed)
+  References:
+    Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604.
+    Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761.
+    Statistical analysis plan edition 2.0, section 4.2.6.1
+    Statistical analysis plan edition 2.0, section 4.2.6.2
+conditional [overall_error]: familywise(trial)
+  Weakest part: declared by the author; not checked and not cited (trough_fev1_ni, peak_fev1_ni, peak_fev1_sup, inspiratory_capacity_ni, onset_of_action_sup, tdi_ni, emsci_ni)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: large-sample approximation
+  Every test in the sequence uses the full level 1/40.
+  If each test rejects its own true null with probability at most that level, and a test is carried out only when every earlier test rejected (every null of an earlier entry that holds several), the probability of rejecting any true null is at most 1/40, for every configuration of true and false nulls and any dependence between tests.
+  If a test's bound holds only up to a slack, the familywise bound holds up to the largest slack. With large-sample tests the bound is therefore approached as the sample sizes grow; none is claimed at the declared sizes.
+  Not checked here: each test's own error bound, listed as an assumption.
+  Assumptions:
+    The tests and their order are fixed in advance, and a test is carried out only if every earlier test in the order rejected.
+    co_primary: Probability of rejecting any true member null is at most 1/40 whenever any subset of the member nulls is true. (cited from the literature; not machine-checked)
+    inspiratory_capacity_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -50. (declared by the author; not checked and not cited)
+    onset_of_action_sup: Null rejection probability is at most 1/40 whenever p_treatment - p_control <= 0. (declared by the author; not checked and not cited)
+    tdi_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -1. (declared by the author; not checked and not cited)
+    emsci_ni: Null rejection probability is at most 1/40 whenever mean_treatment - mean_control <= -1/10. (declared by the author; not checked and not cited)
+  References:
+    Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604.
+    Burman, C.-F., Sonesson, C. and Guilbaud, O. (2009). A recycling framework for the construction of Bonferroni-based multiple tests. Statistics in Medicine 28(5), 739-761.
+    Statistical analysis plan edition 2.0, section 4.2.6.1
+    Statistical analysis plan edition 2.0, section 4.2.6.2
+    Statistical analysis plan edition 2.0, section 4.2.7.2
+    Statistical analysis plan edition 2.0, section 4.2.7.3
+    Statistical analysis plan edition 2.0, section 4.2.7.4
+    Statistical analysis plan edition 2.0, section 4.2.7.5
+Program status: declared
+These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.

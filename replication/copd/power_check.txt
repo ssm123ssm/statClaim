@@ -1,0 +1,101 @@
+calculated [trough_2_5]: meets(trough_ni_2_5)
+  arm sizes = (440, 440); total = 880
+  power ~ 0.9444 (normal approximation, not a bound); power target met = true
+  rejects when the estimate is above -27.93; standard error ~ 11.26
+  level 1/40; requested Type I bound 1/40; Type I target met = true
+  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 2)
+  Assumptions:
+    [independent_participants] Participants are independent of one another. Measurements on one participant may be correlated. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [missing_at_random] Missing measurements are missing at random given the observed data and the model. (assumed)
+    [correct_mean_model] The model for the mean, with its covariates, is fixed in advance and correctly specified. (assumed)
+    [covariance_structure] The covariance between a participant's measurements is correctly specified. An unstructured matrix imposes no structure. (assumed)
+    [approximately_normal_estimate] Errors are multivariate normal, or the study is large enough for the estimated treatment contrast to be approximately normal. (assumed)
+    [higher_is_better] Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. (assumed)
+    [normal_approximation_power] Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. (assumed)
+    [planning_standard_deviation] The standard deviation is a planning input, not an established fact. It is the standard deviation of one participant's outcome on the analysed scale; for a mixed model, the effective standard deviation of the contrast. (condition)
+    [planning_point_is_input] The planning point is an input for planning, not an established fact. (condition)
+  References:
+    Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
+    Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
+    Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+    Chow, S.-C., Shao, J. and Wang, H. (2008). Sample Size Calculations in Clinical Research, 2nd ed. Chapman and Hall/CRC. Chapter 3.
+    Julious, S. A. (2004). Sample sizes for clinical trials with normal data. Statistics in Medicine 23(12), 1921-1986.
+  decision = target_met; no formal certificate issued.
+calculated [trough_1_25]: meets(trough_ni_1_25)
+  arm sizes = (440, 440); total = 880
+  power ~ 0.9051 (normal approximation, not a bound); power target met = true
+  rejects when the estimate is above -24.76; standard error ~ 11.26
+  level 1/80; requested Type I bound 1/80; Type I target met = true
+  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 2)
+  Assumptions:
+    [independent_participants] Participants are independent of one another. Measurements on one participant may be correlated. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [missing_at_random] Missing measurements are missing at random given the observed data and the model. (assumed)
+    [correct_mean_model] The model for the mean, with its covariates, is fixed in advance and correctly specified. (assumed)
+    [covariance_structure] The covariance between a participant's measurements is correctly specified. An unstructured matrix imposes no structure. (assumed)
+    [approximately_normal_estimate] Errors are multivariate normal, or the study is large enough for the estimated treatment contrast to be approximately normal. (assumed)
+    [higher_is_better] Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. (assumed)
+    [normal_approximation_power] Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. (assumed)
+    [planning_standard_deviation] The standard deviation is a planning input, not an established fact. It is the standard deviation of one participant's outcome on the analysed scale; for a mixed model, the effective standard deviation of the contrast. (condition)
+    [planning_point_is_input] The planning point is an input for planning, not an established fact. (condition)
+  References:
+    Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
+    Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
+    Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+    Chow, S.-C., Shao, J. and Wang, H. (2008). Sample Size Calculations in Clinical Research, 2nd ed. Chapman and Hall/CRC. Chapter 3.
+    Julious, S. A. (2004). Sample sizes for clinical trials with normal data. Statistics in Medicine 23(12), 1921-1986.
+  decision = target_met; no formal certificate issued.
+calculated [peak]: meets(peak_sup)
+  arm sizes = (500, 500); total = 1000
+  power ~ 0.9752 (normal approximation, not a bound); power target met = true
+  rejects when the estimate is above 26.65; standard error ~ 11.89
+  level 1/80; requested Type I bound 1/80; Type I target met = true
+  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 2)
+  Assumptions:
+    [independent_participants] Participants are independent of one another. Measurements on one participant may be correlated. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [missing_at_random] Missing measurements are missing at random given the observed data and the model. (assumed)
+    [correct_mean_model] The model for the mean, with its covariates, is fixed in advance and correctly specified. (assumed)
+    [covariance_structure] The covariance between a participant's measurements is correctly specified. An unstructured matrix imposes no structure. (assumed)
+    [approximately_normal_estimate] Errors are multivariate normal, or the study is large enough for the estimated treatment contrast to be approximately normal. (assumed)
+    [higher_is_better] Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. (assumed)
+    [normal_approximation_power] Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. (assumed)
+    [planning_standard_deviation] The standard deviation is a planning input, not an established fact. It is the standard deviation of one participant's outcome on the analysed scale; for a mixed model, the effective standard deviation of the contrast. (condition)
+    [planning_point_is_input] The planning point is an input for planning, not an established fact. (condition)
+  References:
+    Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
+    Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
+    Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+    Chow, S.-C., Shao, J. and Wang, H. (2008). Sample Size Calculations in Clinical Research, 2nd ed. Chapman and Hall/CRC. Chapter 3.
+    Julious, S. A. (2004). Sample sizes for clinical trials with normal data. Statistics in Medicine 23(12), 1921-1986.
+  decision = target_met; no formal certificate issued.
+calculated [tdi]: meets(tdi_ni)
+  arm sizes = (440, 440); total = 880
+  power ~ 0.9598 (normal approximation, not a bound); power target met = true
+  rejects when the estimate is above -0.3536; standard error ~ 0.2023
+  level 1/40; requested Type I bound 1/40; Type I target met = true
+  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 2)
+  Assumptions:
+    [independent_participants] Participants are independent of one another. Measurements on one participant may be correlated. (assumed)
+    [fixed_sample_sizes] Arm sizes are fixed before observing outcomes. (declared)
+    [single_analysis] The test is run once, on the complete data. (declared)
+    [missing_at_random] Missing measurements are missing at random given the observed data and the model. (assumed)
+    [correct_mean_model] The model for the mean, with its covariates, is fixed in advance and correctly specified. (assumed)
+    [covariance_structure] The covariance between a participant's measurements is correctly specified. An unstructured matrix imposes no structure. (assumed)
+    [approximately_normal_estimate] Errors are multivariate normal, or the study is large enough for the estimated treatment contrast to be approximately normal. (assumed)
+    [higher_is_better] Higher values of the outcome are better: the one-sided null asks whether the treatment's are higher. The file does not say so; declare better="higher" on the model to have this checked. (assumed)
+    [normal_approximation_power] Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. (assumed)
+    [planning_standard_deviation] The standard deviation is a planning input, not an established fact. It is the standard deviation of one participant's outcome on the analysed scale; for a mixed model, the effective standard deviation of the contrast. (condition)
+    [planning_point_is_input] The planning point is an input for planning, not an established fact. (condition)
+  References:
+    Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
+    Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
+    Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+    Chow, S.-C., Shao, J. and Wang, H. (2008). Sample Size Calculations in Clinical Research, 2nd ed. Chapman and Hall/CRC. Chapter 3.
+    Julious, S. A. (2004). Sample sizes for clinical trials with normal data. Statistics in Medicine 23(12), 1921-1986.
+  decision = target_met; no formal certificate issued.
+Program status: calculated

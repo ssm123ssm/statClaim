@@ -100,3 +100,12 @@ def test_comparison_designs_compile_as_recorded():
     for name in ("graph.stat", "sequential.stat", "two_arm_power.stat"):
         path = ROOT / "replication/comparison" / name
         assert compile_source(Source(path.read_text(), str(path))).status == "elaborated", name
+
+
+def test_copd_case_study_is_current_without_lean():
+    copd = replication_module("copd")
+    for name, text in copd.outputs(lean=False).items():
+        assert (ROOT / "replication/copd" / name).read_text() == text, (
+            f"Rerun 'uv run python replication/copd.py' ({name})."
+        )
+    assert "Program status: calculated" in copd.outputs(lean=False)["power_check.txt"]

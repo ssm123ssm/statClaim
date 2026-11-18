@@ -18,8 +18,10 @@ fails if any output differs from the pinned one. CI runs it on every push. It ru
 | Simon (1989): exact values and optimality | `simon.py` | `simon_results.md`, `simon_results.json` | about 3 min |
 | Power for cited tests against base R | `power.py` | `power_results.md` | under 1 s |
 | Worked designs without Lean | `examples.py` | statuses recorded in the script | under 1 s |
+| Case study: a COPD trial's plan, reports and power | `copd.py` | `copd/*_report.md`, `copd/power_check.txt` | under 1 s |
 | Lean only: every Simon design proved again | `simon.py --fresh` | statuses in `simon_proofs.json` | about 8 min |
 | Lean only: worked designs with Lean | `examples.py --lean` | statuses recorded in the script | under 1 min |
+| Lean only: the COPD case study, every claim | `copd.py --lean` | `copd/*_check.txt` | about 20 s |
 
 ## Error-injection evaluation
 
@@ -86,6 +88,13 @@ with `Rscript tests/fixtures/power_r.R`. R is not needed to replicate.
 `examples.py` runs each and compares the file's status and every request's status
 with those it records. Run `statclaim report <file>` on any of them for its
 assumption table.
+
+## Case study: a confirmatory COPD trial
+
+`copd/` encodes the statistical analysis plan of a phase III COPD trial
+(NCT03162055): three co-primary hypotheses with recycling, four secondary
+endpoints in a fixed order, and the plan's four power statements, which
+StatClaim reproduces. See [copd/README.md](copd/README.md).
 
 ## Cross-checks against R packages
 
