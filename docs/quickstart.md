@@ -33,6 +33,8 @@ Other files in `playground/`:
 | `declared_test.stat` | An analysis StatClaim does not know, declared by name |
 | `cited_power.stat` | Approximate power for cited tests, by calculation only |
 | `lower_is_better.stat` | An outcome where lower is better, declared and checked |
+| `shared_assignment.stat` | Two outcomes on the same participants, sharing one assignment |
+| `declared_design.stat` | Repeated measurements and randomised clinics, declared and checked |
 | `mixed_endpoints.stat` | A proved and a cited test under one error bound |
 
 ## Without Lean

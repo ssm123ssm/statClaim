@@ -1,0 +1,24 @@
+# Lesson 19: one trial, two outcomes, one assignment.
+use models.two_arm_binomial
+use models.two_arm_continuous
+use sampling
+use tests.fisher
+use tests.t
+use multiplicity.bonferroni
+
+# How participants reach the arms, stated once.
+let arms = assignment(n_control=120, n_treatment=120)
+
+# What is measured on each participant, and which direction is better.
+let responders = two_arm(assignment=arms, outcome=binary_outcome(better="higher"))
+let scores = two_arm(assignment=arms, outcome=continuous_outcome(better="lower"))
+
+let response = fisher(
+    design=fixed(model=responders),
+    null=equal_proportions(model=responders),
+    alpha=1/40,
+)
+let symptoms = t_test(design=fixed(model=scores), null=equal_means(model=scores), alpha=1/40)
+
+let endpoints = bonferroni(analyses=[response, symptoms], alpha=1/20)
+let family = verify(familywise(endpoints))

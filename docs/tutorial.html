@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1392,6 +1392,155 @@ number of events, and it assumes proportional hazards, which its error rate does
     <div class="task"><h4>Try it</h4><p>Change <code>calculate</code> to <code>verify</code> in the line for <code>power</code> and read the message. Then set <code>value=-5</code> in <code>expected</code>: the point is inside the null, and the file is refused.</p></div>
   </div>
 </section>
+<section class="lesson" id="pieces">
+  <p class="eyebrow">Lesson 19</p>
+  <h2>One trial, several outcomes</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>So far each model was one call with its arm sizes. A model has two pieces: an assignment, which says how participants reach the arms, and an outcome, which says what is measured on each of them. Outcomes measured on the same participants can share one assignment, so the arm sizes are written once.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/19_shared_assignment.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 19: one trial, two outcomes, one assignment.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> tests.t
+<span class="k">use</span> multiplicity.bonferroni
+
+<span class="c"># How participants reach the arms, stated once.</span>
+<span class="k">let</span> arms = <span class="f">assignment</span>(n_control=120, n_treatment=120)
+
+<span class="c"># What is measured on each participant, and which direction is better.</span>
+<span class="k">let</span> responders = <span class="f">two_arm</span>(assignment=arms, outcome=<span class="f">binary_outcome</span>(better=&quot;higher&quot;))
+<span class="k">let</span> scores = <span class="f">two_arm</span>(assignment=arms, outcome=<span class="f">continuous_outcome</span>(better=&quot;lower&quot;))
+
+<span class="k">let</span> response = <span class="f">fisher</span>(
+    design=<span class="f">fixed</span>(model=responders),
+    null=<span class="f">equal_proportions</span>(model=responders),
+    alpha=1/40,
+)
+<span class="k">let</span> symptoms = <span class="f">t_test</span>(design=<span class="f">fixed</span>(model=scores), null=<span class="f">equal_means</span>(model=scores), alpha=1/40)
+
+<span class="k">let</span> endpoints = <span class="f">bonferroni</span>(analyses=[response, symptoms], alpha=1/20)
+<span class="k">let</span> family = <span class="f">verify</span>(<span class="f">familywise</span>(endpoints))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>assignment</code></dt>
+  <dd>The arm sizes. It says nothing about what is measured.</dd>
+  <dt><code>binary_outcome</code>, <code>continuous_outcome</code></dt>
+  <dd>What is measured on each participant and, if you say so, which direction is
+  better. <code>survival_outcome</code> is the third kind.</dd>
+  <dt><code>two_arm</code></dt>
+  <dd>Puts the two pieces together into the model that designs and nulls use.
+  <code>two_arm(assignment=arms, outcome=continuous_outcome())</code> is the same model as
+  <code>two_arm_continuous(n_control=120, n_treatment=120)</code>, with the same claims
+  and evidence.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="warn">conditional</span> [family]: familywise(endpoints)
+  Weakest part: cited from the literature; not machine-checked (symptoms)
+  Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: finite-sample bound
+  ...
+Program status: cited</code></pre></div>
+<p>The result is the one lesson 13 gave for the same two endpoints. What changed is
+where the sizes live. Change the treatment arm to 150 in <code>arms</code>, save the
+copy as <code>bigger.stat</code>, and ask what the edit affects, as in lesson 6:</p>
+<div class="scroll output"><pre><code>$ statclaim impact examples/tutorial/19_shared_assignment.stat bigger.stat
+## Declarations
+
+- `arms`: changed directly
+- `responders`: affected through a dependency
+- `scores`: affected through a dependency
+- `response`: affected through a dependency
+- `symptoms`: affected through a dependency
+- `endpoints`: affected through a dependency
+
+## Claims affected
+
+- `verify familywise(endpoints)`: must be re-run: its subject changed</code></pre></div>
+<p>One edit reaches both models, both analyses and the family. With two one-call models,
+you would have had to change both, and nothing would have told you if you missed one.</p>
+<div class="note"><strong>Sharing is not independence.</strong> Two outcomes on the same
+participants are usually related. Bonferroni allows any dependence between them, so
+sharing an assignment assumes nothing new.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>A two-arm model is an assignment and an outcome.</li><li>The one-call constructors are shorthand for the same model.</li><li>A shared assignment states the sizes once, and an edit to it reaches every claim built on it.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Replace <code>scores</code> with <code>two_arm_continuous(n_control=120, n_treatment=120, better="lower")</code> and confirm the result does not change. Then read <code>scores.assignment.n_control</code> and <code>scores.outcome.better</code> in a <code>let</code>.</p></div>
+  </div>
+</section>
+<section class="lesson" id="unit">
+  <p class="eyebrow">Lesson 20</p>
+  <h2>Clusters and repeated measurements</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Most tests assume that each participant gives one independent value. Two common designs break that: measuring each participant several times, and randomising whole clinics. Declare either one on the model, and StatClaim refuses the tests whose assumptions it contradicts.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/20_clusters_and_visits.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 20: designs that break a test&#x27;s independence assumption.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.mixed_model
+<span class="k">use</span> tests.declared
+
+<span class="c"># A symptom score at three visits for each of 150 participants per arm.</span>
+<span class="k">let</span> arms = <span class="f">assignment</span>(n_control=150, n_treatment=150)
+<span class="k">let</span> visits = <span class="f">two_arm</span>(assignment=arms, outcome=<span class="f">continuous_outcome</span>(measurements=3))
+<span class="k">let</span> symptoms = <span class="f">mmrm_test</span>(design=<span class="f">fixed</span>(model=visits), null=<span class="f">equal_means</span>(model=visits), alpha=1/20)
+
+<span class="c"># Twelve clinics per arm are randomised, 240 participants per arm in all.</span>
+<span class="k">let</span> clinics = <span class="f">cluster_assignment</span>(
+    clusters_control=12,
+    clusters_treatment=12,
+    n_control=240,
+    n_treatment=240,
+)
+<span class="k">let</span> practice = <span class="f">two_arm</span>(assignment=clinics, outcome=<span class="f">continuous_outcome</span>())
+<span class="k">let</span> adherence = <span class="f">declared_test</span>(
+    design=<span class="f">fixed</span>(model=practice),
+    null=<span class="f">equal_means</span>(model=practice),
+    alpha=1/20,
+    method=&quot;Linear mixed model with a random intercept for clinic&quot;,
+)
+
+<span class="k">let</span> repeated = <span class="f">verify</span>(<span class="f">typeI</span>(symptoms))
+<span class="k">let</span> clustered = <span class="f">verify</span>(<span class="f">typeI</span>(adherence))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>measurements=3</code></dt>
+  <dd>The outcome is measured three times on each participant. Only
+  <code>continuous_outcome</code> takes it for now.</dd>
+  <dt><code>cluster_assignment</code></dt>
+  <dd>Whole clusters are randomised, and everyone in a cluster gets the same arm. It counts
+  the clusters and the participants in each arm. Sites in a trial that randomises
+  participants one by one are not clusters: use <code>assignment</code> there.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">cited</span> [repeated]: typeI(symptoms)
+  Method: Two-sided test of a treatment contrast in a mixed model for repeated measures (mmrm_test, version 1)
+  Assumptions:
+    [independent_participants] Participants are independent of one another. Measurements on one participant may be correlated. (assumed)
+    ...
+<span class="bad">declared</span> [clustered]: typeI(adherence)
+  Method: Linear mixed model with a random intercept for clinic (declared_test, version 1)
+  Assumptions:
+    [declared_test_is_valid] The declared test rejects its true null with probability at most its level. StatClaim has no contract or source for this test. (assumed)
+    [accounts_for_clusters] The declared test accounts for randomisation by cluster: participants in one cluster may be correlated. (assumed)
+Program status: declared</code></pre></div>
+<p>Now use <code>t_test</code> for <code>symptoms</code>, with <code>use tests.t</code>:</p>
+<div class="scroll output"><pre><code>20_clusters_and_visits.stat:10:30: <span class="bad">error [unit_mismatch]</span>: t_test assumes independent
+observations, but the outcome is measured 3 times on each participant, and measurements
+on one participant are correlated. The test would overstate the evidence. Use a test for
+repeated measurements (mmrm_test, mmrm_test_one_sided), or declare one value per
+participant, such as the final visit or the mean, as an outcome with one measurement.
+Program status: invalid</code></pre></div>
+<p>Behind the message is a short table of which declared design contradicts which
+assumption: repeated measurements contradict independent observations, and clusters
+also contradict independent participants. The mixed model assumes only that participants
+are independent, so it passes. The t-test assumes independent observations, so it is
+refused. No test with a contract accounts for clustering yet, so the clinic trial uses a
+declared test, and its result lists what the test must do, on your word.</p>
+<div class="note"><strong>Left out, neither design can be seen.</strong> A file that
+declares 450 observations per arm, instead of 150 participants measured three times,
+gets a cited t-test, and the report only lists "observations are independent" as
+assumed. Declare what you know, so that it can be checked.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Repeated measurements are declared on the outcome, randomised clusters on the assignment.</li><li>A test whose assumptions the design contradicts is refused with <code>unit_mismatch</code>.</li><li>A declared test takes either design and lists what it must account for.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>In the clinic trial, replace the declared test with <code>t_test</code>, adding <code>use tests.t</code>, and read the message. Then build the trial with <code>assignment(n_control=240, n_treatment=240)</code> instead and see the t-test accepted: the file no longer says that clinics were randomised.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1403,7 +1552,9 @@ number of events, and it assumes proportional hazards, which its error rate does
       <tr><td>Show a treatment is not worse by a margin</td><td><code>tests.difference</code></td><td><code>difference_test</code> with <code>typeI</code>, <code>result</code></td><td>8</td></tr>
       <tr><td>Estimate a difference</td><td><code>estimation</code></td><td><code>difference_interval</code></td><td>8</td></tr>
       <tr><td>Compare two means</td><td><code>models.two_arm_continuous</code>, <code>sampling</code>, <code>tests.t</code></td><td><code>t_test</code>, <code>welch_test</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
-      <tr><td>Analyse repeated measurements</td><td><code>models.two_arm_continuous</code>, <code>tests.mixed_model</code></td><td><code>mmrm_test</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
+      <tr><td>Analyse repeated measurements</td><td><code>models.two_arm_continuous</code>, <code>tests.mixed_model</code></td><td><code>mmrm_test</code> with <code>typeI</code> (cited)</td><td>17, 20</td></tr>
+      <tr><td>State arm sizes once for several outcomes</td><td>any two-arm model module</td><td><code>assignment</code>, <code>two_arm</code></td><td>19</td></tr>
+      <tr><td>Declare repeated measurements or randomised clusters</td><td>any two-arm model module</td><td><code>continuous_outcome(measurements=...)</code>, <code>cluster_assignment</code></td><td>20</td></tr>
       <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
       <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
