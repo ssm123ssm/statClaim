@@ -42,6 +42,7 @@ from statclaim.language_values import (
 )
 from statclaim.methods.core import GRADES, SCOPES
 from statclaim.methods.identify import identify
+from statclaim.reference import SCOPE_NOTE
 from statclaim.report import (
     run_binomial_result,
     run_composition,
@@ -641,6 +642,8 @@ def render_report(report: dict, source: Source) -> str:
                 f"decision = {details['decision']}; no formal certificate issued."
             )
     lines.append(f"Program status: {report['status']}")
+    if any(request["status"] in STATUS_GRADES for request in report["requests"]):
+        lines.append(SCOPE_NOTE)
     if report["status"] == "elaborated":
         lines.append("Structural checks passed; no Lean proof or certificate was produced.")
     if report.get("run_directory"):

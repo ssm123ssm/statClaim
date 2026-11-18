@@ -11,6 +11,9 @@ const GRADES = {
   declared: 'declared by the author; not checked and not cited'
 };
 const SCOPES = { finite_sample: 'finite-sample bound', asymptotic: 'large-sample approximation' };
+// Mirrors SCOPE_NOTE in reference.py: what any evidence covers, and what it cannot.
+const SCOPE_NOTE = 'Concerns the study as declared, under the listed assumptions; ' +
+  'says nothing about how the study is run';
 
 function evidenceNodes(value, historical = false) {
   const evidence = value?.evidence;
@@ -19,6 +22,7 @@ function evidenceNodes(value, historical = false) {
       ? 'Declared by the author — not checked and not cited' : 'Cited guarantee — not machine-checked';
     return [group(historical ? 'Historical unchecked guarantee — previous snapshot only' : title, [
       leaf(`Evidence grade: ${GRADES[evidence.grade] || 'unknown'}`),
+      leaf(SCOPE_NOTE),
       ...(evidence.method ? [leaf(`Method: ${evidence.method.title} (version ${evidence.method.version})`)] : []),
       group('Cited properties', evidence.established_properties.map(text => leaf(text))),
       group('Required assumptions — declared by this file, or assumed',
@@ -32,6 +36,7 @@ function evidenceNodes(value, historical = false) {
     ? 'Conditional evidence — combination checked, members assumed' : 'Checked evidence';
   return [group(historical ? 'Historical evidence — previous snapshot only' : title, [
     leaf(`Evidence grade: ${GRADES[evidence.grade] || 'unknown'}`),
+    leaf(SCOPE_NOTE),
     leaf(`Certificate: ${certificate.certificate_id}`, { certificate: certificate.file }),
     leaf(`Certificate SHA-256: ${certificate.sha256}`),
     group('Established properties', evidence.established_properties.map(text => leaf(text))),

@@ -197,6 +197,11 @@ def report_markdown(report: dict) -> str:
         "This report covers compatibility of the declarations. It is not a proof of any "
         "statistical guarantee. Claims below are established only by `verify(...)`.",
         "",
+        "Even a verified claim concerns the study as declared in this file, under the "
+        "listed assumptions. It says nothing about how the study is run: an endpoint chosen "
+        "after seeing data, participants excluded after randomisation, or repeated "
+        "measurements counted as separate participants are invisible unless declared.",
+        "",
         "## Summary",
         "",
         "| Declaration | Contract | Unresolved obligations | Independently checked |",

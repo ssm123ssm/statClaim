@@ -112,6 +112,26 @@ from statistical intent to the formal statement. CI audits Lean sources and
 axioms and tests modified certificates. Read the statement and assumptions;
 passing tests alone cannot establish that a new method models the intended study.
 
+## What a verified claim does not cover
+
+Every status concerns the study as declared in the file, under the listed
+assumptions. It says nothing about how the study is run. Three examples:
+
+- **An endpoint chosen after seeing data.** A file that declares only the
+  endpoint finally reported gets a verified test of that endpoint. The choice
+  made after an interim comparison is not in the file, so it is not checked. The
+  listed assumption "the analysis and its level are chosen before outcomes are
+  observed" is the one that fails.
+- **Participants excluded after randomisation.** A per-protocol analysis
+  declared with the remaining numbers is verified for those numbers. It says
+  nothing about the population that was randomised.
+- **Repeated measurements counted as participants.** Three measurements on each
+  of 100 participants, declared as 300 per arm, get a cited t-test. The listed
+  assumption that observations are independent is the one that fails.
+
+Declare what you can, so that it can be checked. `replication/results.md` lists
+such cases with what StatClaim reports for each.
+
 ## Related work
 
 - [StatWhy](https://arxiv.org/abs/2405.17492) verifies annotated hypothesis-testing

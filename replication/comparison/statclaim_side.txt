@@ -22,6 +22,7 @@ cited [error]: familywise(procedure)
     Fisher, R. A. (1925). Applications of 'Student's' distribution. Metron 5, 90-104.
     Lehmann, E. L. and Romano, J. P. (2005). Testing Statistical Hypotheses, 3rd ed. Springer. Chapters 5 and 11.
 Program status: cited
+These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.
 
 == graph.stat, a row of transitions summing to 1.3
 graph.stat:18:9: error [graph_definition]: Row 1 of transitions sums to 13/10, more than 1.
@@ -75,6 +76,7 @@ conditional [error]: typeI(trial)
     Fisher, R. A. (1925). Applications of 'Student's' distribution. Metron 5, 90-104.
     Lehmann, E. L. and Romano, J. P. (2005). Testing Statistical Hypotheses, 3rd ed. Springer. Chapters 5 and 11.
 Program status: cited
+These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.
 
 == two_arm_power.stat
 calculated [power]: meets(analysis)
@@ -112,3 +114,4 @@ cited [error]: typeI(analysis)
     Satterthwaite, F. E. (1946). An approximate distribution of estimates of variance components. Biometrics Bulletin 2(6), 110-114.
     Lehmann, E. L. and Romano, J. P. (2005). Testing Statistical Hypotheses, 3rd ed. Springer. Chapters 5 and 11.
 Program status: cited
+These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.

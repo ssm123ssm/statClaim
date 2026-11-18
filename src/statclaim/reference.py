@@ -75,10 +75,17 @@ VALUE_TYPES = {
     "Reading a field of an absent value gives an absent value.",
 }
 
+# Shown with every result that carries evidence: what any status covers, and what it cannot.
+SCOPE_NOTE = (
+    "These results concern the study as declared in this file, under the listed "
+    "assumptions. They say nothing about how the study is run."
+)
+
 RESULT_STATUSES = {
-    "verified": "Lean proved the guarantee. Evidence grade `proved`.",
+    "verified": "Lean proved the guarantee for the procedure as declared, under the listed "
+    "assumptions. It says nothing about how the study is run. Evidence grade `proved`.",
     "conditional": "Lean proved how the parts combine; each part's own guarantee is assumed. "
-    "Evidence grade `conditional`.",
+    "Like every status, it concerns the study as declared. Evidence grade `conditional`.",
     "cited": "The study fits a published method's contract; the guarantee is cited, not "
     "machine-checked. Evidence grade `cited`.",
     "declared": "The author named and vouched for the test or one of its parts. Nothing "

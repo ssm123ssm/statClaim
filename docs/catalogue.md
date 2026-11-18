@@ -361,8 +361,8 @@ Verification and calculation run only on explicit execution; the editor plans th
 
 | Status | Meaning |
 | --- | --- |
-| `verified` | Lean proved the guarantee. Evidence grade `proved`. |
-| `conditional` | Lean proved how the parts combine; each part's own guarantee is assumed. Evidence grade `conditional`. |
+| `verified` | Lean proved the guarantee for the procedure as declared, under the listed assumptions. It says nothing about how the study is run. Evidence grade `proved`. |
+| `conditional` | Lean proved how the parts combine; each part's own guarantee is assumed. Like every status, it concerns the study as declared. Evidence grade `conditional`. |
 | `cited` | The study fits a published method's contract; the guarantee is cited, not machine-checked. Evidence grade `cited`. |
 | `declared` | The author named and vouched for the test or one of its parts. Nothing about that guarantee was checked or cited. Evidence grade `declared`. |
 | `calculated` | A `calculate` request produced numbers. No evidence. |
