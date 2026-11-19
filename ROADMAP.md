@@ -42,7 +42,8 @@
 - Randomisation tests of the sharp null, proved in Lean once for every design,
   by participant or by cluster, under declared complete, stratified or blocked
   randomisation, with exact or Monte Carlo p-values.
-- A cited t-test on cluster-level summaries for cluster-randomised trials.
+- A cited t-test on cluster-level means or proportions for cluster-randomised trials.
+- Randomisation tests as members of families, fixed sequences and graphs.
 
 ## Direction
 
@@ -54,7 +55,7 @@ and for rules that combine tests. Each claim shows its
 
 ## Next
 
-1. Cluster-level tests for binary outcomes, repeated binary measurements, and strata
+1. Repeated binary measurements, and strata
    on the assignment once a covariate-adjusted analysis reads them.
 2. Cited group-sequential boundaries that use the correlation between looks.
 3. A narrower exact interval for a difference of two proportions.

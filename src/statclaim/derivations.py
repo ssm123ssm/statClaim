@@ -507,7 +507,23 @@ def derive_analysis(name: str, analysis: AnalysisIR) -> Derivation:
 
 def derive_randomisation(name: str, analysis: RandomisationAnalysisIR) -> Derivation:
     """Why the randomisation test's contract holds. Its guarantee is proved, not carried."""
-    builder, plan, null = _Builder(), analysis.plan, analysis.hypothesis
+    builder = _Builder()
+    final = _randomisation_steps(builder, name, analysis)
+    _sampling(builder, name, analysis)
+    return Derivation(
+        name,
+        RANDOMISATION_CONTRACT_ID,
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        randomisation_assumptions(analysis.lower()),
+        tuple(builder.obligations),
+        normalize(analysis),
+    )
+
+
+def _randomisation_steps(builder: _Builder, name: str, analysis: RandomisationAnalysisIR) -> int:
+    """The randomisation test's premises and its contract rule; returns the rule's step."""
+    plan, null = analysis.plan, analysis.hypothesis
     test = analysis.lower()
     used = (
         builder.apply(
@@ -551,17 +567,7 @@ def derive_randomisation(name: str, analysis: RandomisationAnalysisIR) -> Deriva
             "can-reject", {"subject": name, "splits": str(test.splits), "alpha": str(test.alpha)}
         ),
     )
-    final = builder.apply("randomisation-contract", {"subject": name}, used)
-    _sampling(builder, name, analysis)
-    return Derivation(
-        name,
-        RANDOMISATION_CONTRACT_ID,
-        builder.steps[final].conclusion,
-        tuple(builder.steps),
-        randomisation_assumptions(test),
-        tuple(builder.obligations),
-        normalize(analysis),
-    )
+    return builder.apply("randomisation-contract", {"subject": name}, used)
 
 
 def cited_guarantee(analysis: CitedAnalysisIR) -> dict:
@@ -702,6 +708,8 @@ def _composed_steps(builder: _Builder, name: str, family: ComposedFamilyIR, pend
             members.append(
                 _cited_steps(builder, member, analysis)
                 if isinstance(analysis, CitedAnalysisIR)
+                else _randomisation_steps(builder, member, analysis)
+                if isinstance(analysis, RandomisationAnalysisIR)
                 else _analysis_steps(builder, member, analysis)
             )
             inner.append(_fixed(member, analysis))

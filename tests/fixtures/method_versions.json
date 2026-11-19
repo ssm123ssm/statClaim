@@ -39,6 +39,10 @@
     "version": 1,
     "sha256": "6357efdf7a63e1503fef3f9bc3a6c7231b447d9bfb85f300adedffe8fac3e4b1"
   },
+  "cluster_proportion_t_test": {
+    "version": 1,
+    "sha256": "b93ce5b11e3f697968f21d234a60cdebf08b88f7acc8b36795372bc47c493893"
+  },
   "power:normal_two_means": {
     "version": 2,
     "sha256": "0f211c668749f42d620e006598341f1db1fbe4c8d739e3563f6791e64a1e8b78"

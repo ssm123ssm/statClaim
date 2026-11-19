@@ -8,6 +8,7 @@ user's review and are marked "to verify".
 from statclaim.methods.assumptions import (
     FIXED_SIZES,
     INDEPENDENT_CLUSTERS,
+    NORMAL_CLUSTER_PROPORTIONS,
     NORMAL_CLUSTER_SUMMARIES,
     SINGLE_ANALYSIS,
 )
@@ -26,10 +27,10 @@ HAYES_MOULTON = (
 MODULE = MethodModule(
     "tests.cluster",
     "The t-test on cluster-level summaries for a cluster-randomised trial: one value per "
-    "cluster, with the clusters as the sample size. It needs cluster_assignment and at least "
-    "four clusters per arm. The Type I guarantee is cited, exact if the cluster summaries are "
-    "normal with a common variance, and not checked by Lean. For a proved analysis, use "
-    "randomisation_test.",
+    "cluster, a mean or a proportion of responders, with the clusters as the sample size. It "
+    "needs cluster_assignment and at least four clusters per arm. The Type I guarantee is "
+    "cited, exact if the cluster summaries are normal with a common variance, and not checked "
+    "by Lean. For a proved analysis, use randomisation_test.",
     (
         CitedMethod(
             key="cluster_t_test",
@@ -49,6 +50,28 @@ MODULE = MethodModule(
             references=(DONNER_KLAR, HAYES_MOULTON),
             # Counted in clusters. With fewer, a cluster-level analysis has little power and
             # the normality of summaries cannot be judged.
+            min_per_arm=4,
+            min_total=8,
+            unit="cluster",
+        ),
+        # The same test on each cluster's proportion of responders. Its null compares the
+        # mean cluster proportions, which equal the arms' response rates under the model.
+        CitedMethod(
+            key="cluster_proportion_t_test",
+            module="tests.cluster",
+            title="Two-sided t-test on cluster proportions",
+            version=1,
+            outcome="binary",
+            null="equal_proportions",
+            relation="equals",
+            scope="finite_sample",
+            assumptions=(
+                INDEPENDENT_CLUSTERS,
+                FIXED_SIZES,
+                SINGLE_ANALYSIS,
+                NORMAL_CLUSTER_PROPORTIONS,
+            ),
+            references=(DONNER_KLAR, HAYES_MOULTON),
             min_per_arm=4,
             min_total=8,
             unit="cluster",

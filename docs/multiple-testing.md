@@ -127,7 +127,7 @@ provides completion, diagnostics and claim inspection; a REPL remains future wor
 ## Families with cited tests
 
 `bonferroni` also takes [cited tests](cited-methods.md), one-sided Fisher
-analyses and the exact test with a margin, alone or mixed. `joint_law` is optional and is left out here:
+analyses, the exact test with a margin and randomisation tests, alone or mixed. `joint_law` is optional and is left out here:
 
 ```stat
 let endpoints = bonferroni(analyses=[response, symptoms], alpha=1/20)

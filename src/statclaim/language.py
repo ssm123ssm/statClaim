@@ -465,6 +465,15 @@ def _component(name: str, analysis: LevelTestIR) -> Component:
             inner.guarantee.null,
             "familywise_error",
         )
+    if isinstance(analysis, RandomisationAnalysisIR):
+        return Component(
+            name,
+            analysis.alpha,
+            "finite_sample",
+            "proved",
+            "tests.randomisation/randomisation_test",
+            analysis.hypothesis.statement,
+        )
     if isinstance(analysis, CitedAnalysisIR):
         method = analysis.method
         return Component(
@@ -1532,19 +1541,20 @@ def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> Analysis
 
 
 def _members(
-    argument: LocatedValue, what: str, *, combinations: bool = True
+    argument: LocatedValue, what: str, *, combinations: bool = True, randomisation: bool = True
 ) -> list[tuple[str, object]]:
     """Named, distinct analyses for a family, a sequence, a graph or a design's looks.
 
     With combinations=True an entry may also be a whole design with looks, a
-    family, a sequence or a graph.
+    family, a sequence or a graph. With randomisation=True an entry may be a
+    randomisation test.
     """
     items = argument.value
     allowed = (
         (AnalysisIR, CitedAnalysisIR, ComposedFamilyIR, FamilyIR)
         if combinations
         else (AnalysisIR, CitedAnalysisIR)
-    )
+    ) + ((RandomisationAnalysisIR,) if randomisation else ())
     if not 2 <= len(items) <= MAX_ENDPOINTS:
         fail("family_size", f"This needs between 2 and {MAX_ENDPOINTS} {what}.", argument.span)
     members = []
@@ -1553,10 +1563,17 @@ def _members(
             fail(
                 "type",
                 "Each entry must be a named analysis: an exact two-arm test"
+                + (", a randomisation test" if randomisation else "")
                 + (
                     ", a cited test, or a named design, family, sequence or graph."
                     if combinations
                     else " or a cited test."
+                )
+                + (
+                    ""
+                    if randomisation
+                    else " A randomisation test counts splits of one fixed set of units, so it "
+                    "cannot be a look of a sequential design."
                 ),
                 item.span,
             )
@@ -1613,7 +1630,7 @@ def _test_key(analysis: LevelTestIR) -> str:
 
 
 def _sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
-    looks = _members(arguments["looks"], "looks", combinations=False)
+    looks = _members(arguments["looks"], "looks", combinations=False, randomisation=False)
     first = looks[0][1]
     previous = None
     for name, look in looks:

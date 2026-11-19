@@ -600,3 +600,53 @@ def test_drawn_payloads_and_proofs():
     assert "MeasureTheory.Measure.pi (fun _ : Fin (draws + 1)" in proof
     with pytest.raises(ValueError):
         RandomisationTest(40, 20, Fraction(1, 20), "participant", "x", 20, 20, draws=0)
+
+
+FAMILY_USES = "use multiplicity.bonferroni\nuse multiplicity.fixed_sequence\n"
+FAMILY_USES += "use designs.group_sequential\nuse multiplicity.graphical\n"
+MEMBERS = (
+    ARMS
+    + STUDY
+    + "let response = two_arm(assignment=arms, outcome=binary_outcome())\n"
+    + "let primary = randomisation_test(design=fixed(model=study), null=no_effect(model=study), "
+    "alpha={alpha}, draws=9999)\n" + "let secondary = fisher(design=fixed(model=response), "
+    "null=equal_proportions(model=response), alpha={alpha})\n"
+)
+
+
+@pytest.mark.parametrize(
+    "combination,alpha",
+    [
+        ("bonferroni(analyses=[primary, secondary], alpha=1/20)", "1/40"),
+        ("fixed_sequence(analyses=[primary, secondary], alpha=1/20)", "1/20"),
+        (
+            "graphical(analyses=[primary, secondary], weights=[1, 0], "
+            "transitions=[[0, 1], [1, 0]], alpha=1/20)",
+            "1/20",
+        ),
+    ],
+)
+def test_a_randomisation_test_can_join_families_sequences_and_graphs(combination, alpha):
+    text = MEMBERS.format(alpha=alpha) + f"let family = {combination}\nverify familywise(family)\n"
+    compilation = compile_source(Source(USES + FAMILY_USES + text, "study.stat"))
+    assert not compilation.diagnostics
+    assert all(check_derivation(d.to_dict()) == [] for d in compilation.derivations)
+    record = next(d for d in compilation.derivations if d.name == "family").to_dict()
+    member = next(m for m in record["guarantee"]["members"] if m["name"] == "primary")
+    assert member["grade"] == "proved"
+    assert member["basis"] == "tests.randomisation/randomisation_test"
+    # Its steps sit inside the family's derivation, so a change to its design is caught.
+    altered = copy.deepcopy(record)
+    del altered["subject"]["analyses"][0]["analysis"]["design"]["model"]["randomisation"]
+    assert check_derivation(altered) != []
+
+
+def test_a_randomisation_test_cannot_be_a_look():
+    text = (
+        MEMBERS.format(alpha="1/40")
+        + "let late = randomisation_test(design=fixed(model=study), null=no_effect(model=study), "
+        "alpha=1/40, draws=9999)\n"
+        + "let looks = alpha_spending(looks=[primary, late], alpha=1/20)\n"
+    )
+    (diagnostic, *_) = compile_source(Source(USES + FAMILY_USES + text, "s.stat")).diagnostics
+    assert diagnostic.code == "type" and "cannot be a look" in diagnostic.message

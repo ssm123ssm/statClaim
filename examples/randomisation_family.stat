@@ -1,0 +1,31 @@
+# A proved randomisation test as the primary analysis of a trial with two endpoints.
+use models.two_arm_binomial
+use models.two_arm_continuous
+use sampling
+use tests.randomisation
+use tests.fisher
+use multiplicity.fixed_sequence
+
+# 120 participants randomised in permuted blocks of four.
+let arms = assignment(n_control=60, n_treatment=60, randomisation="blocked", block_size=4)
+let pain = two_arm(assignment=arms, outcome=continuous_outcome(better="lower"))
+let relief = two_arm(assignment=arms, outcome=binary_outcome(better="higher"))
+
+# Primary: a randomisation test of the sharp null, with 9,999 random draws.
+let primary = randomisation_test(
+    design=fixed(model=pain),
+    null=no_effect(model=pain),
+    alpha=1/20,
+    draws=9999,
+)
+
+# Secondary, tested only if the primary rejects: Fisher's exact test.
+let secondary = fisher(
+    design=fixed(model=relief),
+    null=equal_proportions(model=relief),
+    alpha=1/20,
+)
+
+let order = fixed_sequence(analyses=[primary, secondary], alpha=1/20)
+let trial = verify(familywise(order))
+let first = verify(typeI(primary))

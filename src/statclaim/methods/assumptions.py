@@ -85,6 +85,13 @@ NORMAL_CLUSTER_SUMMARIES = Assumption(
     "Each cluster's summary, such as its mean outcome, is normally distributed with the same "
     "variance in both arms. Clusters of very different sizes make this doubtful.",
 )
+NORMAL_CLUSTER_PROPORTIONS = Assumption(
+    "normal_cluster_proportions",
+    "distribution",
+    "Each cluster's proportion of responders is close enough to normally distributed, with "
+    "the same variance in both arms, for a t-test. Small clusters, rare or very common "
+    "responses, and clusters of very different sizes make this doubtful.",
+)
 MISSING_AT_RANDOM = Assumption(
     "missing_at_random",
     "sampling",

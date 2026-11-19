@@ -236,11 +236,14 @@ A Wald or likelihood-ratio test of the treatment coefficient in a logistic regre
 
 ### `tests.cluster` — Cited analyses
 
-The t-test on cluster-level summaries for a cluster-randomised trial: one value per cluster, with the clusters as the sample size. It needs cluster_assignment and at least four clusters per arm. The Type I guarantee is cited, exact if the cluster summaries are normal with a common variance, and not checked by Lean. For a proved analysis, use randomisation_test.
+The t-test on cluster-level summaries for a cluster-randomised trial: one value per cluster, a mean or a proportion of responders, with the clusters as the sample size. It needs cluster_assignment and at least four clusters per arm. The Type I guarantee is cited, exact if the cluster summaries are normal with a common variance, and not checked by Lean. For a proved analysis, use randomisation_test.
 
 - `cluster_t_test(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
   Two-sided t-test on cluster-level summaries. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
   Required null: mean_treatment = mean_control; same model required.
+- `cluster_proportion_t_test(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
+  Two-sided t-test on cluster proportions. Its guarantee is cited from the literature and is not checked by Lean. Null: p_treatment = p_control.
+  Required null: p_treatment = p_control; same model required.
 
 ### `models.two_arm_binomial` — Models and hypotheses
 
@@ -565,6 +568,7 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 | `logistic_regression` | 1 | binary | `equal_proportions` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
 | `logistic_regression_one_sided` | 1 | binary | `proportion_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
 | `cluster_t_test` | 1 | continuous | `equal_means` | equals alpha | `finite_sample` | 4 clusters per arm, 8 total | none |
+| `cluster_proportion_t_test` | 1 | binary | `equal_proportions` | equals alpha | `finite_sample` | 4 clusters per arm, 8 total | none |
 
 **`t_test`** (Two-sided pooled-variance t-test) assumes `independent_observations`, `fixed_sample_sizes`, `single_analysis`, `normal_outcomes`, `equal_variances`. References:
 
@@ -623,6 +627,11 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 - Donner, A. and Klar, N. (2000). Design and Analysis of Cluster Randomization Trials in Health Research. Arnold, London. [to verify]
 - Hayes, R. J. and Moulton, L. H. (2017). Cluster Randomised Trials, 2nd ed. Chapman and Hall/CRC, Boca Raton. [to verify]
 
+**`cluster_proportion_t_test`** (Two-sided t-test on cluster proportions) assumes `independent_clusters`, `fixed_sample_sizes`, `single_analysis`, `normal_cluster_proportions`. References:
+
+- Donner, A. and Klar, N. (2000). Design and Analysis of Cluster Randomization Trials in Health Research. Arnold, London. [to verify]
+- Hayes, R. J. and Moulton, L. H. (2017). Cluster Randomised Trials, 2nd ed. Chapman and Hall/CRC, Boca Raton. [to verify]
+
 ### Power formulas
 
 Approximate power for cited tests, by calculation only. See [power for cited tests](planning.md#power-for-cited-tests).
@@ -670,6 +679,7 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `independent_participants` | sampling | Participants are independent of one another. Measurements on one participant may be correlated. |
 | `independent_clusters` | sampling | Clusters are independent of one another. Participants in one cluster may be correlated. |
 | `normal_cluster_summaries` | distribution | Each cluster's summary, such as its mean outcome, is normally distributed with the same variance in both arms. Clusters of very different sizes make this doubtful. |
+| `normal_cluster_proportions` | distribution | Each cluster's proportion of responders is close enough to normally distributed, with the same variance in both arms, for a t-test. Small clusters, rare or very common responses, and clusters of very different sizes make this doubtful. |
 | `missing_at_random` | sampling | Missing measurements are missing at random given the observed data and the model. |
 | `correct_mean_model` | distribution | The model for the mean, with its covariates, is fixed in advance and correctly specified. |
 | `covariance_structure` | distribution | The covariance between a participant's measurements is correctly specified. An unstructured matrix imposes no structure. |

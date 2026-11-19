@@ -89,7 +89,9 @@ assumes `independent_clusters`, which clusters do not contradict, and normal
 cluster summaries with a common variance. It needs `cluster_assignment` and at
 least four clusters per arm; on participants it is refused with
 `unit_mismatch`. Its references (Donner and Klar 2000; Hayes and Moulton 2017)
-are marked "to verify" until reviewed. For a proved analysis of the same trial,
+are marked "to verify" until reviewed. `cluster_proportion_t_test` is the same
+test on each cluster's proportion of responders, for a binary outcome, with
+`equal_proportions` as its null. For a proved analysis of the same trial,
 use `randomisation_test` ([language guide](stat-language.md#randomisation-tests)).
 See `examples/cluster_trial.stat`.
 

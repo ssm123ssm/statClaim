@@ -28,10 +28,12 @@ What is supported:
   null has Type I error at most alpha for any statistic fixed in advance,
   whatever the outcomes. One Lean theorem covers every design. The p-value counts
   every possible assignment, or compares the observed one with a declared number
-  of random draws (Monte Carlo); both are proved.
+  of random draws (Monte Carlo); both are proved. The test can be a member of a
+  family, a fixed sequence or a graph.
 
-- **Cluster-randomised trials, cited.** A t-test on one summary per cluster,
-  with the clusters as the sample size and at least four per arm. It assumes
+- **Cluster-randomised trials, cited.** A t-test on one summary per cluster, a
+  mean or a proportion of responders, with the clusters as the sample size and at
+  least four per arm. It assumes
   independent clusters, which randomising clusters does not contradict. Its
   references await review.
 - **Mixed models and logistic regression, cited.** A treatment contrast from a

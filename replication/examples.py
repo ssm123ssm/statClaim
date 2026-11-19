@@ -30,6 +30,7 @@ EXAMPLES = (
     ("examples/randomisation.stat", True, "verified", ("verified", "verified")),
     ("examples/cluster_trial.stat", True, "cited", ("cited", "verified")),
     ("examples/stratified_randomisation.stat", True, "verified", ("verified", "verified")),
+    ("examples/randomisation_family.stat", True, "conditional", ("conditional", "verified")),
 )
 
 

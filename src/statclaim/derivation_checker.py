@@ -875,6 +875,15 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
             null, grade, scope = _statement(analysis["null"]), "proved", "finite_sample"
             basis = CONTRACT_IDS[analysis.get("alternative", "two_sided")]
             keys.append(basis.split("/")[1])
+        elif analysis["test"] == "randomisation":
+            if sequential:
+                raise ValueError("a randomisation test cannot be a look")
+            block_steps = _randomisation_expected(member, analysis)
+            steps += [(r, f, h, tuple(start + u for u in uses)) for r, f, h, uses in block_steps]
+            inner_obligations.append(_sampling_expectation(member, analysis))
+            null, grade, scope = SHARP_NULL.statement, "proved", "finite_sample"
+            basis = RANDOMISATION_CONTRACT_ID
+            keys.append("randomisation_test")
         else:
             raise ValueError("a member's analysis cannot be combined")
         finals.append(offset + len(steps) - 1)

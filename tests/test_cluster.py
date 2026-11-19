@@ -142,9 +142,32 @@ def test_the_unit_mismatch_message_names_the_tests_that_fit():
         "alpha=1/20)\n"
     )
     (diagnostic,) = compiled(fisher).diagnostics
-    # No cited test takes a binary outcome by cluster; the proved one does.
-    assert "cluster_t_test" not in diagnostic.message
-    assert "Use randomisation_test" in diagnostic.message
+    # For a binary outcome the fitting cited test is the one on cluster proportions.
+    assert "Use cluster_proportion_t_test" in diagnostic.message
+    assert "cluster_t_test," not in diagnostic.message
+    assert "randomisation_test" in diagnostic.message
+
+
+BINARY = (
+    "let study = two_arm(assignment=arms, outcome=binary_outcome())\n"
+    "let analysis = cluster_proportion_t_test(design=fixed(model=study), "
+    "null=equal_proportions(model=study), alpha=1/20)\n"
+)
+
+
+def test_a_binary_outcome_by_cluster_gets_the_proportion_test():
+    method = METHODS["cluster_proportion_t_test"]
+    assert method.unit == "cluster" and method.outcome == "binary"
+    assert "normal_cluster_proportions" in {a.id for a in method.assumptions}
+    compilation = compiled(CLINICS.format(c=6) + BINARY + "verify typeI(analysis)\n")
+    assert not compilation.diagnostics
+    record = derivation(compilation)
+    assert check_derivation(record) == []
+    assert record["steps"][3]["rule"] == "enough-clusters"
+    assert [claim["best_status"] for claim in inspect_program(compilation)] == ["cited"]
+    individual = "let arms = assignment(n_control=120, n_treatment=120)\n" + BINARY
+    assert [d.code for d in compiled(individual).diagnostics] == ["unit_mismatch"]
+    assert [d.code for d in compiled(CLINICS.format(c=3) + BINARY).diagnostics] == ["domain"]
 
 
 def test_a_family_with_a_cluster_level_member_is_checked():

@@ -211,6 +211,11 @@ draws, with the draws' independence stated as a product of uniform laws. Too
 few draws to reach the level, such as 18 at 1/20, are refused with
 `never_rejects`. See `examples/randomisation.stat`.
 
+A randomisation test can be a member of a Bonferroni family, a fixed sequence or
+a graph, like any exact test: Lean checks the combination, and the member's own
+bound is proved separately. It cannot be a look of a sequential design. See
+`examples/randomisation_family.stat`.
+
 ## First-class claims and execution results
 
 The built-in operations are available without an additional import:
