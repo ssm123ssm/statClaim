@@ -179,6 +179,35 @@ ACCOUNTS_FOR = {
     ),
 }
 
+# Who is analysed, as an assignment can declare with population=. A randomisation test
+# needs everyone randomised, so per_protocol contradicts it; other tests take either, and
+# their claims say which population the bound covers.
+POPULATIONS = {
+    "randomised": "Everyone randomised, analysed in the arm they were assigned to (intention "
+    "to treat). Turns a randomisation test's analysed_as_randomised into a declaration.",
+    "per_protocol": "Participants excluded after randomisation are left out; the arm sizes "
+    "count those analysed. A randomisation test is refused; other claims say they cover this "
+    "population only.",
+}
+RANDOMISED_POPULATION = Assumption(
+    "randomised_population",
+    "scope",
+    "The bound covers the randomised population: everyone randomised, analysed in the arm "
+    "they were assigned to, as the assignment declares.",
+)
+PER_PROTOCOL_POPULATION = Assumption(
+    "per_protocol_population",
+    "scope",
+    "The bound covers the per-protocol population only, as the assignment declares: "
+    "participants excluded after randomisation are left out. Randomisation does not make the "
+    "arms' remaining groups comparable, so a difference between them need not be caused by "
+    "treatment.",
+)
+POPULATION_COVERED = {
+    "randomised": RANDOMISED_POPULATION,
+    "per_protocol": PER_PROTOCOL_POPULATION,
+}
+
 # Assumptions of the approximate power formulas in power.py. Power is a calculation,
 # so these concern how the number was obtained, not the test's error rate.
 NORMAL_APPROXIMATION_POWER = Assumption(

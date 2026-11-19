@@ -80,13 +80,14 @@ let analysis = t_test(design=plan, null=null, alpha=1/20)
 CLINICS = (
     "cluster_assignment(clusters_control=10, clusters_treatment=10, n_control=200, n_treatment=200)"
 )
+# The analysed numbers after exclusions, with the population the file says it analyses.
 PER_PROTOCOL = """use models.two_arm_binomial
 use sampling
-use tests.difference
-let study = two_arm_binomial(n_control=96, n_treatment=96)
-let plan = fixed(model=study)
-let null = proportion_difference_at_most(model=study, value=-1/10)
-let analysis = difference_test(design=plan, null=null, alpha=1/40)
+use tests.randomisation
+let arms = assignment(n_control=96, n_treatment=96, randomisation="complete", {population})
+let study = two_arm(assignment=arms, outcome=binary_outcome())
+let null = no_effect(model=study)
+let analysis = randomisation_test(design=fixed(model=study), null=null, alpha=1/40, draws=9999)
 """
 POSTERIOR = """use designs.two_stage
 use planning
@@ -591,11 +592,13 @@ verify typeI(analysis)
     Scenario(
         "per_protocol_population",
         "Study conduct",
-        "Participants excluded after randomisation are left out and only the remaining "
-        "numbers are declared, although the question is about everyone randomised.",
-        PER_PROTOCOL + "verify typeI(analysis)\n",
-        "invisible",
-        note="Nothing in the file describes the exclusions or the population the question is "
-        "about. The guarantee holds for the declared numbers.",
+        "Participants excluded after randomisation are left out of a randomisation test, "
+        "whose level rests on analysing everyone randomised.",
+        PER_PROTOCOL.format(population='population="per_protocol"') + "verify typeI(analysis)\n",
+        "rejected",
+        "population_mismatch",
+        note="The file states who is analysed. Without population=..., the exclusions stay "
+        "invisible: nothing in the file describes them, and the guarantee holds for the "
+        "declared numbers.",
     ),
 )

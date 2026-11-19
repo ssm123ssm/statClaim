@@ -64,6 +64,18 @@ GROUPED = (
     "numbers per arm was equally likely, independently between strata and blocks, as the "
     "assignment declares. With clusters, the units are the clusters."
 )
+# With population="randomised" the file states who is analysed, so AS_RANDOMISED and
+# AS_DRAWN split into that declaration and what is still assumed: how the p-value counts.
+POPULATION = (
+    "Every randomised unit is analysed, in the arm it was assigned to: the randomised "
+    "population, as the assignment declares."
+)
+COUNTS_EVERY_SPLIT = "The p-value counts every split, not a random sample of splits."
+COUNTS_DRAWS = (
+    "The p-value compares the observed assignment with the declared number of assignments "
+    "drawn independently and uniformly at random, with replacement, and counts the observed "
+    "one among them."
+)
 ASSUMPTIONS = (RANDOMISED, PRESPECIFIED, AS_RANDOMISED, SHARP_NULL)
 THEOREMS = ["checked_sizes", "checked_law", "checked_splits", "checked_attainable", "checked_typeI"]
 GROUPED_THEOREMS = [
@@ -157,6 +169,8 @@ class RandomisationTest:
     block_size: int | None = None
     # Assignments drawn at random for a Monte Carlo p-value; None when every one is counted.
     draws: int | None = None
+    # "randomised" when the assignment declares that everyone randomised is analysed.
+    population: str | None = None
 
     def __post_init__(self):
         validate_alpha(self.alpha)
@@ -176,6 +190,11 @@ class RandomisationTest:
             type(self.draws) is int and 1 <= self.draws <= MAX_DRAWS
         ):
             raise ValueError(f"draws must be a whole number from 1 to {MAX_DRAWS}.")
+        if self.population not in (None, "randomised"):
+            raise ValueError(
+                "A randomisation test analyses every randomised unit, in the arm it was "
+                "assigned to."
+            )
         if not self.can_reject:
             raise ValueError("The test can never reject at this level.")
         if not isinstance(self.module, str) or not re.fullmatch(r"[a-z_]+", self.module):
@@ -250,6 +269,8 @@ def randomisation_payload(test: RandomisationTest) -> dict:
     }
     if test.draws is not None:
         payload["analysis"]["draws"] = test.draws
+    if test.population is not None:
+        payload["design"]["population"] = test.population
     if test.grouped:
         design = payload["design"]
         design["randomisation"] = test.scheme
@@ -274,6 +295,7 @@ def parse_randomisation_payload(payload: dict) -> RandomisationTest:
         tuple(tuple(stratum) for stratum in design.get("strata", ())),
         design.get("block_size"),
         analysis.get("draws"),
+        design.get("population"),
     )
     if payload != randomisation_payload(test):
         raise ValueError("Bound randomisation-test inputs are inconsistent.")
@@ -281,14 +303,13 @@ def parse_randomisation_payload(payload: dict) -> RandomisationTest:
 
 
 def randomisation_assumptions(test: RandomisationTest) -> tuple[str, ...]:
-    """How units were randomised, the prespecified analysis, how the p-value counts, and
-    the null. A design's assumptions depend only on its scheme and on draws."""
-    return (
-        GROUPED if test.grouped else RANDOMISED,
-        PRESPECIFIED,
-        AS_DRAWN if test.draws else AS_RANDOMISED,
-        SHARP_NULL,
-    )
+    """How units were randomised, the prespecified analysis, who is analysed and how the
+    p-value counts, and the null. They depend only on the scheme, draws and population."""
+    randomised = GROUPED if test.grouped else RANDOMISED
+    if test.population == "randomised":
+        counted = COUNTS_DRAWS if test.draws else COUNTS_EVERY_SPLIT
+        return (randomised, PRESPECIFIED, POPULATION, counted, SHARP_NULL)
+    return (randomised, PRESPECIFIED, AS_DRAWN if test.draws else AS_RANDOMISED, SHARP_NULL)
 
 
 def randomisation_theorems(test: RandomisationTest) -> list[str]:

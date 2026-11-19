@@ -30,6 +30,7 @@ from statclaim.language_inspection import (
     inspect_planning,
     inspect_request,
     weakest_link,
+    with_population,
 )
 from statclaim.language_syntax import Diagnostic, Source, Span
 from statclaim.language_values import (
@@ -371,6 +372,7 @@ def check_source(
             status = "unresolved_obligation"
         else:
             result = _run_request(request, project, directory / f"request-{index:03d}", timeout)
+            result = with_population(result, request.claim.subject)
             status = result["status"]
             if request.operation == "calculate":
                 status = "calculated" if result["decision"] is not None else "unresolved_obligation"

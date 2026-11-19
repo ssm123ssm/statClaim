@@ -16,8 +16,19 @@ RECOGNISED = [
     # The randomisation test (statclaim.randomisation).
     (r"^Every split of the randomised units", "complete_randomisation", "design"),
     (r"^Within each stratum or block, every split", "stratified_randomisation", "design"),
+    # With population="randomised" the file states who is analysed.
+    (
+        r"^Every randomised unit is analysed.*the assignment declares",
+        "analysed_as_randomised",
+        "design",
+    ),
     (r"^Every randomised unit is analysed.*drawn independently", "analysed_with_draws", "data"),
     (r"^Every randomised unit is analysed", "analysed_as_randomised", "data"),
+    (r"^The p-value counts every split", "counts_every_split", "data"),
+    (r"^The p-value compares the observed assignment", "analysed_with_draws", "data"),
+    # Which population a bound covers, when the assignment declares it (assumptions.py).
+    (r"^The bound covers the randomised population", "randomised_population", "scope"),
+    (r"^The bound covers the per-protocol population", "per_protocol_population", "scope"),
     (r"null that treatment changes no participant's outcome", "bound_under_null", "scope"),
     (r"posterior rule is the binomial-sum form", "posterior_closed_form", "unproved_step"),
     (r"planning point", "planning_point_is_input", "scope"),
@@ -43,7 +54,8 @@ STATUS = {"design": "declared", "scope": "condition"}
 
 def mark(assumption) -> dict:
     """A structured assumption with its status: design ones are stated by the file itself,
-    scope ones say which null or planning point a claim is about, the rest are assumed."""
+    scope ones say which null, population or planning point a claim is about, the rest are
+    assumed."""
     return {**assumption.to_dict(), "status": STATUS.get(assumption.kind, "assumed")}
 
 

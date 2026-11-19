@@ -569,13 +569,16 @@
   {
     "key": "per_protocol_population",
     "category": "Study conduct",
-    "error": "Participants excluded after randomisation are left out and only the remaining numbers are declared, although the question is about everyone randomised.",
-    "expected": "invisible",
-    "expected_code": null,
-    "outcome": "invisible",
-    "codes": [],
-    "message": "",
+    "error": "Participants excluded after randomisation are left out of a randomisation test, whose level rests on analysing everyone randomised.",
+    "expected": "rejected",
+    "expected_code": "population_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "population_mismatch",
+      "dependency"
+    ],
+    "message": "randomisation_test needs every randomised unit analysed, in the arm it was assigned to: its level comes from how exactly those units were randomised. The assignment declares population=\"per_protocol\", which leaves out units excluded after randomisation, so the units analysed were not randomised as a set. Analyse everyone randomised and declare population=\"randomised\"; for a per-protocol analysis, use another test, such as fisher, whose claim says it covers the per-protocol population only.",
     "as_expected": true,
-    "note": "Nothing in the file describes the exclusions or the population the question is about. The guarantee holds for the declared numbers."
+    "note": "The file states who is analysed. Without population=..., the exclusions stay invisible: nothing in the file describes them, and the guarantee holds for the declared numbers."
   }
 ]

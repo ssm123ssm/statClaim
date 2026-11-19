@@ -26,6 +26,7 @@ from statclaim.language import (
     VerificationResultIR,
     normalize,
     planned_analysis,
+    population_conditions,
 )
 from statclaim.language_compiler import Compilation, requirements
 from statclaim.methods.identify import identify, mark
@@ -194,7 +195,36 @@ def composed_report(family: ComposedFamilyIR) -> dict:
     return report
 
 
+def with_population(report: dict, subject: object) -> dict:
+    """Add which population the claim's bounds cover, when an assignment declares it.
+
+    These are conditions on what the claim is about, listed with its assumptions. They are
+    not part of any certificate: Lean's theorem is the same for either population.
+    """
+    conditions = [
+        item
+        for item in population_conditions(subject)
+        if item.text not in report.get("required_assumptions", ())
+    ]
+    if not conditions or "required_assumptions" not in report:
+        return report
+    report = {
+        **report,
+        "required_assumptions": [
+            *report["required_assumptions"],
+            *(item.text for item in conditions),
+        ],
+    }
+    if report.get("assumptions"):
+        report["assumptions"] = [*report["assumptions"], *(mark(item) for item in conditions)]
+    return report
+
+
 def inspect_request(request: RequestIR) -> dict:
+    return with_population(_inspect(request), request.claim.subject)
+
+
+def _inspect(request: RequestIR) -> dict:
     subject = request.claim.subject
     if request.claim.kind in ("meets", "sample_size"):
         return inspect_planning(request)

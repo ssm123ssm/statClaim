@@ -110,6 +110,12 @@ RULES = {
         "{subject}: {draws} drawn assignments give a smallest p-value of {smallest}, within "
         "the level {alpha}.",
     ),
+    "randomised-population": Rule(
+        "The assignment declares that every randomised unit is analysed, in the arm it was "
+        "assigned to.",
+        "{subject}: every randomised {unit} is analysed, in the arm it was assigned to, as "
+        "the assignment declares.",
+    ),
     "randomisation-contract": Rule(
         "The same-model, supported-null, level-range and declared-randomisation rules hold, "
         "and can-reject, or can-reject-drawn when the p-value uses drawn assignments.",
@@ -567,6 +573,13 @@ def _randomisation_steps(builder: _Builder, name: str, analysis: RandomisationAn
             "can-reject", {"subject": name, "splits": str(test.splits), "alpha": str(test.alpha)}
         ),
     )
+    if test.population is not None:
+        # Recorded only when declared. It turns an assumption into a declaration; the
+        # contract does not need it, since without it the assumption is listed instead.
+        builder.apply(
+            "randomised-population",
+            {"subject": name, "population": test.population, "unit": test.unit},
+        )
     return builder.apply("randomisation-contract", {"subject": name}, used)
 
 

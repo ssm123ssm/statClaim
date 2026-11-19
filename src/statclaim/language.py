@@ -41,6 +41,8 @@ from statclaim.methods.assumptions import (
     DECLARED_VALID,
     HIGHER_IS_BETTER,
     LOWER_IS_BETTER,
+    POPULATION_COVERED,
+    POPULATIONS,
 )
 from statclaim.methods.core import SCOPES, Assumption, CitedMethod, Guarantee
 from statclaim.planning import (
@@ -72,7 +74,7 @@ from statclaim.randomisation import (
     splits_needed,
 )
 
-LANGUAGE_VERSION = "0.13.0"
+LANGUAGE_VERSION = "0.14.0"
 
 
 class PlannableIR:
@@ -123,6 +125,9 @@ class AssignmentIR:
     # stratum, and the block size. Units are clusters when clusters were randomised.
     strata: tuple[tuple[int, int], ...] = ()
     block_size: int | None = None
+    # A key of POPULATIONS when declared: who is analysed. A randomisation test reads it,
+    # and other tests' claims say which population their bound covers.
+    population: str | None = None
 
     @property
     def clustered(self) -> bool:
@@ -361,6 +366,33 @@ class CitedAnalysisIR(TwoArmTestIR, LevelTestIR):
         return (*self.method.assumptions, *direction_assumptions(self.hypothesis), *vouched)
 
 
+def population_conditions(subject: object) -> tuple[Assumption, ...]:
+    """Which population the bounds in a claim cover, for each population an assignment
+    declares. A randomisation test is left out: its own premises say who is analysed."""
+    found: list[Assumption] = []
+
+    def visit(item: object) -> None:
+        if isinstance(item, RandomisationAnalysisIR):
+            return
+        if isinstance(item, (FeasibilityIR, SizingIR)):
+            visit(planned_analysis(item))
+        elif isinstance(item, ObservationIR):
+            visit(item.analysis)
+        elif isinstance(item, (ComposedFamilyIR, FamilyIR)):
+            for _, analysis in item.analyses:
+                visit(analysis)
+        else:
+            plan = getattr(item, "plan", None)
+            model = plan.model if isinstance(plan, PlanIR) else getattr(item, "model", None)
+            assignment = getattr(model, "assignment", None)
+            population = getattr(assignment, "population", None)
+            if population and POPULATION_COVERED[population] not in found:
+                found.append(POPULATION_COVERED[population])
+
+    visit(subject)
+    return tuple(found)
+
+
 def direction_assumptions(null: "NullIR") -> tuple[Assumption, ...]:
     """A one-sided null takes a side. If the model does not declare it, it is assumed."""
     favours = NULL_FORMS[null.predicate][1].favours if null.predicate in NULL_FORMS else None
@@ -401,6 +433,7 @@ class RandomisationAnalysisIR(LevelTestIR):
             model.assignment.strata,
             model.assignment.block_size,
             self.draws,
+            model.assignment.population,
         )
 
 
@@ -925,6 +958,8 @@ def normalize(value: object) -> object:
                 result["strata"] = [list(stratum) for stratum in value.strata]
             if value.block_size is not None:
                 result["block_size"] = value.block_size
+            if value.population is not None:
+                result["population"] = value.population
             return result
         case StratumIR(control=control, treatment=treatment):
             return {"control": control, "treatment": treatment}
@@ -1183,6 +1218,24 @@ def _declare_randomisation(
     return declared
 
 
+def _declare_population(
+    assignment: AssignmentIR, arguments: dict[str, LocatedValue]
+) -> AssignmentIR:
+    """Add who is analysed, when the assignment declares it."""
+    population = arguments.get("population")
+    if population is None or population.value is None:
+        return assignment
+    if population.value not in POPULATIONS:
+        fail(
+            "domain",
+            'population must be "randomised" (everyone randomised, analysed in the arm they '
+            'were assigned to) or "per_protocol" (participants excluded after randomisation '
+            "are left out). Leave it out if the file does not say.",
+            population.span,
+        )
+    return replace(assignment, population=population.value)
+
+
 def _arm_sizes(arguments: dict[str, LocatedValue]) -> AssignmentIR:
     for name in ("n_control", "n_treatment"):
         if arguments[name].value <= 0:
@@ -1191,7 +1244,8 @@ def _arm_sizes(arguments: dict[str, LocatedValue]) -> AssignmentIR:
 
 
 def _assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
-    return _declare_randomisation(_arm_sizes(arguments), arguments, span)
+    declared = _declare_randomisation(_arm_sizes(arguments), arguments, span)
+    return _declare_population(declared, arguments)
 
 
 def _stratum(arguments: dict[str, LocatedValue], span: Span) -> StratumIR:
@@ -1219,7 +1273,8 @@ def _cluster_assignment(arguments: dict[str, LocatedValue], span: Span) -> Assig
         arguments["clusters_control"].value,
         arguments["clusters_treatment"].value,
     )
-    return _declare_randomisation(clustered, arguments, span)
+    declared = _declare_randomisation(clustered, arguments, span)
+    return _declare_population(declared, arguments)
 
 
 def _outcome_piece(kind: str) -> Callable:
@@ -1455,6 +1510,24 @@ def _randomisation_test(arguments: dict[str, LocatedValue], span: Span) -> Rando
             f"{units} {unit}s into arms of these sizes was equally likely, declare "
             f'randomisation="complete" in {constructor}(...); for strata or blocks, declare '
             'randomisation="stratified" with strata=[...] or "blocked" with block_size=...',
+            design.span,
+        )
+    if assignment.population == "per_protocol":
+        model = design.value.model
+        others = "fisher" if model.outcome == "binary" else next(iter(_fitting(model)), "")
+        fail(
+            "population_mismatch",
+            "randomisation_test needs every randomised unit analysed, in the arm it was "
+            "assigned to: its level comes from how exactly those units were randomised. The "
+            'assignment declares population="per_protocol", which leaves out units excluded '
+            "after randomisation, so the units analysed were not randomised as a set. Analyse "
+            'everyone randomised and declare population="randomised"'
+            + (
+                f"; for a per-protocol analysis, use another test, such as {others}, whose "
+                "claim says it covers the per-protocol population only."
+                if others
+                else "."
+            ),
             design.span,
         )
     if units > MAX_UNITS:
@@ -2264,10 +2337,18 @@ RANDOMISATION_DOCUMENTATION = (
     "block of that size. Strata and blocks count randomised units. Leave it out otherwise; "
     "only randomisation_test reads it, and it refuses an assignment without it."
 )
+POPULATION_DOCUMENTATION = (
+    'population says who is analysed: "randomised" for everyone randomised, in the arm they '
+    'were assigned to (intention to treat), or "per_protocol" when participants excluded '
+    "after randomisation are left out, with the arm sizes counting those analysed. "
+    'randomisation_test needs "randomised" and refuses "per_protocol". Other tests take '
+    "either, and their claims say which population the bound covers."
+)
 RANDOMISATION_PARAMETERS = (
     ("randomisation", "string", True),
     ("strata", "list", True),
     ("block_size", "integer", True),
+    ("population", "string", True),
 )
 # Shared by every two-arm model module, so a file that loads several gets one copy.
 ASSIGNMENT = _constructor(
@@ -2277,7 +2358,8 @@ ASSIGNMENT = _constructor(
     _assignment,
     documentation="How participants are assigned to the two arms: the two arm sizes and, "
     "when declared, how the assignment was randomised. One assignment can be shared by "
-    f"several outcomes measured on the same participants. {RANDOMISATION_DOCUMENTATION}",
+    f"several outcomes measured on the same participants. {RANDOMISATION_DOCUMENTATION} "
+    f"{POPULATION_DOCUMENTATION}",
 )
 CLUSTER_ASSIGNMENT = _constructor(
     "cluster_assignment",
@@ -2295,7 +2377,7 @@ CLUSTER_ASSIGNMENT = _constructor(
     "the clusters; n_control and n_treatment count the participants. Sites in a trial that "
     "randomises participants are not clusters: use assignment(...) there. Tests that assume "
     "independent participants are refused. With randomisation, the units are the clusters. "
-    + RANDOMISATION_DOCUMENTATION,
+    + f"{RANDOMISATION_DOCUMENTATION} {POPULATION_DOCUMENTATION}",
 )
 STRATUM = _constructor(
     "stratum",

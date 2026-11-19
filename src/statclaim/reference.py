@@ -6,6 +6,7 @@ listed, and the grammar's examples are run through the real parser.
 """
 
 from statclaim.composition import MAX_MEMBERS
+from statclaim.methods.assumptions import POPULATIONS
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
@@ -130,6 +131,7 @@ ENUMERATIONS = {
         "blocked": "The same within each block of block_size units, independently between "
         "blocks, every block with its stratum's allocation. Needs block_size; strata optional.",
     },
+    "assignment population": POPULATIONS,
     "bonferroni joint_law": {
         "binomial_marginals": "The only value, and the default. Allowed only when every "
         "member is a two-sided Fisher analysis; leave it out otherwise.",
@@ -144,7 +146,7 @@ ENUMERATIONS = {
     "Assumption status": {
         "declared": "The file itself states it.",
         "assumed": "Nothing in the file can show it.",
-        "condition": "Says which null or planning point the claim is about.",
+        "condition": "Says which null, population or planning point the claim is about.",
     },
 }
 LIMITS = {
@@ -212,6 +214,11 @@ DIAGNOSTICS = {
         "error",
         "A randomisation test is declared on an assignment that does not say how it was "
         "randomised.",
+    ),
+    "population_mismatch": (
+        "error",
+        "A randomisation test is declared on an assignment whose analysis leaves out "
+        'randomised units (population="per_protocol").',
     ),
     "never_rejects": (
         "error",

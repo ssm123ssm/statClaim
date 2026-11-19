@@ -136,7 +136,9 @@ assumptions. It says nothing about how the study is run. Three examples:
   observed" is the one that fails.
 - **Participants excluded after randomisation.** A per-protocol analysis
   declared with the remaining numbers is verified for those numbers. It says
-  nothing about the population that was randomised.
+  nothing about the population that was randomised. Declared with
+  `population="per_protocol"`, the claim says it covers that population only,
+  and a randomisation test is refused.
 - **A randomisation test read as a test of means.** A verified randomisation
   test bounds error under the sharp null that treatment changes no one's
   outcome. It says nothing about equal means when effects differ between

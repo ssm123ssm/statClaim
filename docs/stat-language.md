@@ -216,6 +216,21 @@ a graph, like any exact test: Lean checks the combination, and the member's own
 bound is proved separately. It cannot be a look of a sequential design. See
 `examples/randomisation_family.stat`.
 
+### Who is analysed
+
+An assignment can also say who is analysed. `population="randomised"` means
+everyone randomised, in the arm they were assigned to (intention to treat).
+`population="per_protocol"` means participants excluded after randomisation are
+left out, and the arm sizes count those analysed.
+
+A randomisation test's level rests on analysing everyone randomised. Without a
+population, that is listed as assumed (`analysed_as_randomised`); with
+`"randomised"` the file states it, and the report lists it as declared. With
+`"per_protocol"` the test is refused with `population_mismatch`. Other tests take
+either population, and their claims list which population the bound covers
+(`randomised_population` or `per_protocol_population`). See
+`examples/analysis_population.stat`.
+
 ## First-class claims and execution results
 
 The built-in operations are available without an additional import:

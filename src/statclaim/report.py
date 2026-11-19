@@ -785,7 +785,10 @@ def run_randomisation(test, *, stopping: str, project: Path, output, timeout: fl
     )
     if report["status"] == "verified":
         report["limitations"] = [
-            "Complete randomisation and analysis as randomised are assumed, as listed.",
+            "The randomisation and who is analysed are declared by the file; how the p-value "
+            "counts is assumed, as listed."
+            if test.population
+            else "Complete randomisation and analysis as randomised are assumed, as listed.",
             "The bound is under the sharp null only; it says nothing about equal means.",
         ]
     return report

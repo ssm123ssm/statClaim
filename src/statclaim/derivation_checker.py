@@ -47,7 +47,10 @@ from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
 from statclaim.randomisation import (
     AS_DRAWN,
     AS_RANDOMISED,
+    COUNTS_DRAWS,
+    COUNTS_EVERY_SPLIT,
     GROUPED,
+    POPULATION,
     PRESPECIFIED,
     RANDOMISED,
 )
@@ -597,6 +600,16 @@ def _randomisation_expected(name: str, subject: dict) -> list[tuple]:
                 (),
             )
         )
+    if "population" in model:
+        # Only everyone randomised, in the assigned arms, has the declared randomisation.
+        steps.append(
+            (
+                "randomised-population",
+                {"subject": name, "population": model["population"], "unit": unit},
+                model["population"] == "randomised",
+                (),
+            )
+        )
     steps.append(("randomisation-contract", {"subject": name}, True, (0, 1, 2, 3, 4)))
     return steps
 
@@ -1057,10 +1070,15 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     if contract == RANDOMISATION_CONTRACT_ID:
         model = subject["design"]["model"]
         grouped = model.get("randomisation") != "complete"
+        counted = (
+            (POPULATION, COUNTS_DRAWS if "draws" in subject else COUNTS_EVERY_SPLIT)
+            if "population" in model
+            else (AS_DRAWN if "draws" in subject else AS_RANDOMISED,)
+        )
         assumptions = (
             GROUPED if grouped else RANDOMISED,
             PRESPECIFIED,
-            AS_DRAWN if "draws" in subject else AS_RANDOMISED,
+            *counted,
             SHARP_NULL_TEXT,
         )
         return (

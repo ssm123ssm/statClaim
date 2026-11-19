@@ -44,6 +44,7 @@
   randomisation, with exact or Monte Carlo p-values.
 - A cited t-test on cluster-level means or proportions for cluster-randomised trials.
 - Randomisation tests as members of families, fixed sequences and graphs.
+- Who is analysed, declared on the assignment: everyone randomised or per protocol.
 
 ## Direction
 

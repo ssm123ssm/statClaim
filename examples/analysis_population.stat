@@ -1,0 +1,36 @@
+# Who is analysed. population= on an assignment says whether everyone randomised is
+# analysed in the arm they were assigned to, or only participants left after exclusions.
+use models.two_arm_binomial
+use sampling
+use tests.randomisation
+use tests.fisher
+
+# Everyone randomised, in the arm they were assigned to. A randomisation test's level
+# rests on this, so the report lists it as declared rather than assumed.
+let randomised = assignment(
+    n_control=30,
+    n_treatment=30,
+    randomisation="complete",
+    population="randomised",
+)
+let response = two_arm(assignment=randomised, outcome=binary_outcome(better="higher"))
+let primary = randomisation_test(
+    design=fixed(model=response),
+    null=no_effect(model=response),
+    alpha=1/20,
+    draws=9999,
+)
+
+# Participants who followed the protocol: 4 control and 6 treatment participants were
+# excluded after randomisation. A randomisation test here would be refused. Fisher's test
+# keeps its bound, and its claim says the bound covers the per-protocol population only.
+let adherent = assignment(n_control=26, n_treatment=24, population="per_protocol")
+let completers = two_arm(assignment=adherent, outcome=binary_outcome(better="higher"))
+let supportive = fisher(
+    design=fixed(model=completers),
+    null=equal_proportions(model=completers),
+    alpha=1/20,
+)
+
+let everyone = verify(typeI(primary))
+let per_protocol = verify(typeI(supportive))

@@ -10,7 +10,7 @@ import pytest
 
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
-from statclaim.randomisation import RandomisationTest, randomisation_payload
+from statclaim.randomisation import POPULATION, RandomisationTest, randomisation_payload
 from statclaim.report import run_randomisation
 from statclaim.verification import VerificationError, canonical_bytes, digest, recheck_certificate
 
@@ -201,3 +201,23 @@ def test_monte_carlo_certificates_are_proved_and_replay(tmp_path, test):
     )
     assert checked.returncode != 0
     assert "STATCLAIM_CHECKED" not in checked.stdout
+
+
+def test_a_declared_population_is_bound_and_replays(tmp_path):
+    test = RandomisationTest(
+        12, 6, Fraction(1, 20), "cluster", "two_arm_continuous", 120, 120, population="randomised"
+    )
+    bundle = tmp_path / "checked"
+    report = run_randomisation(test, stopping="fixed", project=ROOT, output=bundle, timeout=300)
+    assert report["status"] == "verified", report.get("verification")
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    assert certificate["inputs"]["design"]["population"] == "randomised"
+    assert POPULATION in certificate["assumptions"]
+    assert "declared by the file" in report["limitations"][0]
+    assert recheck_certificate(bundle, project=ROOT, timeout=300)["status"] == "verified"
+    # Claiming a per-protocol analysis for the same bundle is refused on replay.
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    inputs["design"]["population"] = "per_protocol"
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT, timeout=300)
