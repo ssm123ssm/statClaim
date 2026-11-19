@@ -197,9 +197,7 @@ def test_too_few_clusters_to_ever_reject_is_refused():
 
 
 def test_a_zero_level_is_refused():
-    assert [code for code, _ in diagnostics(ARMS + STUDY + TEST.replace("1/20", "0"))] == [
-        "domain"
-    ]
+    assert [code for code, _ in diagnostics(ARMS + STUDY + TEST.replace("1/20", "0"))] == ["domain"]
 
 
 def test_too_many_units_are_refused():
