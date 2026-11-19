@@ -9,6 +9,7 @@ from statclaim.reference import (
     ENUMERATIONS,
     GRAMMAR,
     LIMITS,
+    PARAMETER_CHOICES,
     PROGRAM_STATUSES,
     RESULT_STATUSES,
     VALUE_TYPES,
@@ -310,6 +311,7 @@ def catalogue() -> dict:
         "scopes": SCOPES,
         "assumption_kinds": ASSUMPTION_KINDS,
         "enumerations": ENUMERATIONS,
+        "parameter_choices": PARAMETER_CHOICES,
         "limits": LIMITS,
         "cited_methods": [
             {
@@ -367,6 +369,11 @@ def _constructor(constructor) -> dict:
         "contract": (
             constructor.hypothesis_contract.to_dict() if constructor.hypothesis_contract else None
         ),
+        "choices": {
+            p.name: list(PARAMETER_CHOICES[p.name])
+            for p in constructor.parameters
+            if ValueType(p.kind).label == "string" and p.name in PARAMETER_CHOICES
+        },
     }
 
 
@@ -483,6 +490,28 @@ def render_catalogue() -> str:
     ]
     for title, values in data["enumerations"].items():
         lines += _meanings(f"`{title}`", values)
+    used = {}
+    for module in data["modules"]:
+        for constructor in module["constructors"]:
+            for name in constructor["choices"]:
+                used.setdefault(name, {})[constructor["name"]] = None
+    lines += [
+        "### String inputs with fixed values",
+        "",
+        "Other string inputs, such as `name`, take free text.",
+        "",
+        *_table(
+            ("Input", "Values", "Constructors"),
+            (
+                (
+                    f"`{name}`",
+                    ", ".join(f"`{value}`" for value in values),
+                    ", ".join(f"`{c}`" for c in used.get(name, {})),
+                )
+                for name, values in data["parameter_choices"].items()
+            ),
+        ),
+    ]
     lines += [
         "## Cited methods",
         "",

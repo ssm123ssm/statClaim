@@ -559,6 +559,19 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `assumed` | Nothing in the file can show it. |
 | `condition` | Says which null, population or planning point the claim is about. |
 
+### String inputs with fixed values
+
+Other string inputs, such as `name`, take free text.
+
+| Input | Values | Constructors |
+| --- | --- | --- |
+| `better` | `higher`, `lower` | `two_arm_continuous`, `continuous_outcome`, `two_arm_survival`, `survival_outcome`, `two_arm_binomial`, `binary_outcome` |
+| `population` | `randomised`, `per_protocol` | `two_arm_continuous`, `assignment`, `cluster_assignment`, `two_arm_survival`, `two_arm_binomial` |
+| `randomisation` | `complete`, `stratified`, `blocked` | `assignment`, `cluster_assignment` |
+| `joint_law` | `binomial_marginals` | `bonferroni` |
+| `criterion` | `optimal`, `minimax` | `two_stage_designs` |
+| `scope` | `finite_sample`, `asymptotic` | `declared_test` |
+
 ## Cited methods
 
 Guarantees taken from the literature. See [cited methods](cited-methods.md).

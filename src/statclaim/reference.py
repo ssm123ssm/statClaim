@@ -7,6 +7,7 @@ listed, and the grammar's examples are run through the real parser.
 
 from statclaim.composition import MAX_MEMBERS
 from statclaim.methods.assumptions import POPULATIONS
+from statclaim.methods.core import SCOPES
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
@@ -148,6 +149,22 @@ ENUMERATIONS = {
         "assumed": "Nothing in the file can show it.",
         "condition": "Says which null, population or planning point the claim is about.",
     },
+}
+# The values a string input accepts, by parameter name, wherever the parameter appears.
+# Editors offer them as choices; inputs not listed here take free text.
+PARAMETER_CHOICES = {
+    "better": {
+        "higher": "Higher outcome values are better for the treatment.",
+        "lower": "Lower outcome values are better for the treatment.",
+    },
+    "population": POPULATIONS,
+    "randomisation": ENUMERATIONS["assignment randomisation"],
+    "joint_law": ENUMERATIONS["bonferroni joint_law"],
+    "criterion": {
+        "optimal": "Minimises the expected sample size at the null rate.",
+        "minimax": "Minimises the largest possible sample size.",
+    },
+    "scope": SCOPES,
 }
 LIMITS = {
     "Analyses in a family, or looks in a sequential design": f"2 to {MAX_MEMBERS}",
