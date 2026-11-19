@@ -99,6 +99,7 @@ weakest part anywhere in it.
 | Compare two means | `tests.t` | Cited: pooled t-test (exact under normality) or Welch (large-sample) |
 | Compare two survival curves | `tests.survival` | Cited: log-rank test (large-sample) |
 | Analyse repeated measurements | `tests.mixed_model` | Cited: mixed model for repeated measures (large-sample) |
+| Compare clinics in a cluster-randomised trial | `tests.cluster` | Cited: t-test on cluster-level summaries, at least 4 clusters per arm |
 | Adjust a yes-or-no outcome for covariates | `tests.logistic` | Cited: logistic regression (large-sample) |
 | Use an analysis StatClaim does not know | `tests.declared` | Declared: only its fit to the design is checked |
 | Combine proved and cited tests | `multiplicity.bonferroni` | Conditional: Lean checks the combination, the members are assumed |

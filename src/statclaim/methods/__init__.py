@@ -9,7 +9,7 @@ serves. See docs/cited-methods.md.
 import hashlib
 import inspect
 
-from statclaim.methods import assumptions, logistic, mixed_models, survival, t_tests
+from statclaim.methods import assumptions, cluster, logistic, mixed_models, survival, t_tests
 from statclaim.methods.core import (
     Assumption,
     CitedMethod,
@@ -26,6 +26,7 @@ METHOD_MODULES: tuple[MethodModule, ...] = (
     mixed_models.MODULE,
     survival.MODULE,
     logistic.MODULE,
+    cluster.MODULE,
 )
 
 OUTCOMES: dict[str, Outcome] = {outcome.key: outcome for outcome in _OUTCOMES}
@@ -93,7 +94,8 @@ def _sha256(text: str) -> str:
 def method_content(method: CitedMethod) -> str:
     """What a method's version vouches for. A mirrored null counts only when it is set."""
     mirror = f" mirrored_null={method.mirrored_null!r}" if method.mirrored_null else ""
-    return repr(method) + mirror
+    unit = f" unit={method.unit!r}" if method.unit != "participant" else ""
+    return repr(method) + mirror + unit
 
 
 def versions() -> dict:

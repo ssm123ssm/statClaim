@@ -229,6 +229,14 @@ A Wald or likelihood-ratio test of the treatment coefficient in a logistic regre
   One-sided test of the treatment coefficient in a logistic regression. Its guarantee is cited from the literature and is not checked by Lean. Null: p_treatment - p_control <= 0.
   Required null: p_treatment - p_control <= 0; same model required.
 
+### `tests.cluster` — Cited analyses
+
+The t-test on cluster-level summaries for a cluster-randomised trial: one value per cluster, with the clusters as the sample size. It needs cluster_assignment and at least four clusters per arm. The Type I guarantee is cited, exact if the cluster summaries are normal with a common variance, and not checked by Lean. For a proved analysis, use randomisation_test.
+
+- `cluster_t_test(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
+  Two-sided t-test on cluster-level summaries. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
+  Required null: mean_treatment = mean_control; same model required.
+
 ### `models.two_arm_binomial` — Models and hypotheses
 
 Two independent binomial arms, in one call or from an assignment and an outcome; equality, difference and inequality nulls; observations and the Type I and result claims shared by two-arm analyses.
@@ -547,6 +555,7 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 | `log_rank` | 1 | survival | `equal_survival` | equals alpha | `asymptotic` | 1 per arm, 2 total | `schoenfeld_log_rank` |
 | `logistic_regression` | 1 | binary | `equal_proportions` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
 | `logistic_regression_one_sided` | 1 | binary | `proportion_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
+| `cluster_t_test` | 1 | continuous | `equal_means` | equals alpha | `finite_sample` | 4 clusters per arm, 8 total | none |
 
 **`t_test`** (Two-sided pooled-variance t-test) assumes `independent_observations`, `fixed_sample_sizes`, `single_analysis`, `normal_outcomes`, `equal_variances`. References:
 
@@ -600,6 +609,11 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 - Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal Statistical Society B 20(2), 215-242.
 - Hosmer, D. W., Lemeshow, S. and Sturdivant, R. X. (2013). Applied Logistic Regression, 3rd ed. Wiley.
 
+**`cluster_t_test`** (Two-sided t-test on cluster-level summaries) assumes `independent_clusters`, `fixed_sample_sizes`, `single_analysis`, `normal_cluster_summaries`. References:
+
+- Donner, A. and Klar, N. (2000). Design and Analysis of Cluster Randomization Trials in Health Research. Arnold, London. [to verify]
+- Hayes, R. J. and Moulton, L. H. (2017). Cluster Randomised Trials, 2nd ed. Chapman and Hall/CRC, Boca Raton. [to verify]
+
 ### Power formulas
 
 Approximate power for cited tests, by calculation only. See [power for cited tests](planning.md#power-for-cited-tests).
@@ -645,6 +659,8 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `prespecified_graph` | design | The tests, their starting shares of the level and the rules for passing a share on are fixed in advance, and a share is passed on only after a rejection. Each test controls its error at every level up to the overall level, not only at one. |
 | `declared_test_is_valid` | vouched | The declared test rejects its true null with probability at most its level. StatClaim has no contract or source for this test. |
 | `independent_participants` | sampling | Participants are independent of one another. Measurements on one participant may be correlated. |
+| `independent_clusters` | sampling | Clusters are independent of one another. Participants in one cluster may be correlated. |
+| `normal_cluster_summaries` | distribution | Each cluster's summary, such as its mean outcome, is normally distributed with the same variance in both arms. Clusters of very different sizes make this doubtful. |
 | `missing_at_random` | sampling | Missing measurements are missing at random given the observed data and the model. |
 | `correct_mean_model` | distribution | The model for the mean, with its covariates, is fixed in advance and correctly specified. |
 | `covariance_structure` | distribution | The covariance between a participant's measurements is correctly specified. An unstructured matrix imposes no structure. |
@@ -707,7 +723,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `alternative_in_null` | error | The planning point lies inside the null. |
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
 | `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
-| `unit_mismatch` | error | The test assumes independent participants or observations, but the declared design randomises clusters or measures each participant several times. |
+| `unit_mismatch` | error | The test's unit does not fit the declared design: it assumes independent participants or observations where clusters or repeated measurements are declared, or it takes one summary per cluster where participants were randomised. |
 | `undeclared_randomisation` | error | A randomisation test is declared on an assignment that does not say how it was randomised. |
 | `never_rejects` | error | A randomisation test has too few equally likely splits to reach its level, so it could never reject. |
 | `planning_point` | error | The planning point does not fit the analysis. |

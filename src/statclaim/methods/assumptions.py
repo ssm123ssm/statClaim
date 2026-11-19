@@ -74,6 +74,17 @@ INDEPENDENT_PARTICIPANTS = Assumption(
     "Participants are independent of one another. Measurements on one participant may be "
     "correlated.",
 )
+INDEPENDENT_CLUSTERS = Assumption(
+    "independent_clusters",
+    "sampling",
+    "Clusters are independent of one another. Participants in one cluster may be correlated.",
+)
+NORMAL_CLUSTER_SUMMARIES = Assumption(
+    "normal_cluster_summaries",
+    "distribution",
+    "Each cluster's summary, such as its mean outcome, is normally distributed with the same "
+    "variance in both arms. Clusters of very different sizes make this doubtful.",
+)
 MISSING_AT_RANDOM = Assumption(
     "missing_at_random",
     "sampling",

@@ -550,6 +550,19 @@ verify typeI(analysis)
         "unit_mismatch",
     ),
     Scenario(
+        "cluster_summaries_on_participants",
+        "Unit of analysis",
+        "Clinic means are compared with a t-test on cluster-level summaries, but the file "
+        "declares 200 participants per arm, not the 10 clinics, as the sample.",
+        PIECES.format(assignment="assignment(n_control=200, n_treatment=200)", outcome="")
+        .replace("use tests.t", "use tests.cluster")
+        .replace("t_test(", "cluster_t_test("),
+        "rejected",
+        "unit_mismatch",
+        note="Before the cluster-level test had a contract, this analysis could only be a "
+        "declared test, and the mistake was invisible.",
+    ),
+    Scenario(
         "cluster_randomised_undeclared",
         "Unit of analysis",
         "Ten clinics per arm are randomised, but the file declares 200 participants per arm "

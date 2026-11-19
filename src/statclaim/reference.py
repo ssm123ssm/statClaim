@@ -199,8 +199,9 @@ DIAGNOSTICS = {
     ),
     "unit_mismatch": (
         "error",
-        "The test assumes independent participants or observations, but the declared design "
-        "randomises clusters or measures each participant several times.",
+        "The test's unit does not fit the declared design: it assumes independent participants "
+        "or observations where clusters or repeated measurements are declared, or it takes one "
+        "summary per cluster where participants were randomised.",
     ),
     "undeclared_randomisation": (
         "error",

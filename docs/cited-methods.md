@@ -80,9 +80,18 @@ assumptions, listed in `CONTRADICTED_BY` in `methods/assumptions.py`: repeated
 measurements contradict `independent_observations`, and clusters also contradict
 `independent_participants`. A test that rests on a contradicted assumption is
 refused with `unit_mismatch`. So the mixed-model tests take repeated
-measurements, and no cited test takes clusters yet. A declared test takes
-either, and lists what it must account for as an assumption the author vouches
-for.
+measurements. A declared test takes either, and lists what it must account for
+as an assumption the author vouches for.
+
+`cluster_t_test` (`use tests.cluster`) takes clusters: a two-sided t-test on one
+summary per cluster, such as its mean, with the clusters as the sample size. It
+assumes `independent_clusters`, which clusters do not contradict, and normal
+cluster summaries with a common variance. It needs `cluster_assignment` and at
+least four clusters per arm; on participants it is refused with
+`unit_mismatch`. Its references (Donner and Klar 2000; Hayes and Moulton 2017)
+are marked "to verify" until reviewed. For a proved analysis of the same trial,
+use `randomisation_test` ([language guide](stat-language.md#randomisation-tests)).
+See `examples/cluster_trial.stat`.
 
 ## Which direction is better
 

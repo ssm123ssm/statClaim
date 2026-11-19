@@ -1159,19 +1159,35 @@ PLAIN_ASSUMPTIONS = {
 }
 
 
-def _design_remedy(feature: str, model) -> str:
-    if feature == "clusters":
-        return (
-            "No test with a contract accounts for clustering yet. Name one that does, such as "
-            "a mixed model with a random effect for cluster or a test on cluster-level "
-            "summaries, with declared_test(...)."
-        )
-    fitting = [
+def _fitting(model) -> list[str]:
+    """Registered tests for the model's outcome whose unit fits the assignment and whose
+    assumptions no declared feature contradicts."""
+    unit = "cluster" if model.assignment.clustered else "participant"
+    contradicted = {a for feature in model.features for a in CONTRADICTED_BY[feature]}
+    return [
         m.key
         for m in methods_for(model.outcome)
-        if not {a.id for a in m.assumptions} & set(CONTRADICTED_BY[feature])
+        if m.unit == unit and not {a.id for a in m.assumptions} & contradicted
     ]
-    tests = f"a test for repeated measurements ({', '.join(fitting)})" if fitting else None
+
+
+def _design_remedy(feature: str, model) -> str:
+    fitting = _fitting(model)
+    if feature == "clusters":
+        cited = (
+            f"Use {', '.join(fitting)}, which takes one summary per cluster with the clusters "
+            "as the sample size; or "
+            if fitting
+            else "Use "
+        )
+        return (
+            f'{cited}randomisation_test, with randomisation="complete" declared on the '
+            "assignment, whose level Lean proves. For another analysis that accounts for "
+            "clustering, such as a mixed model with a random effect for cluster, use "
+            "declared_test(...)."
+        )
+    kind = "that fits this design" if model.assignment.clustered else "for repeated measurements"
+    tests = f"a test {kind} ({', '.join(fitting)})" if fitting else None
     summary = (
         "declare one value per participant, such as the final visit or the mean, as an "
         "outcome with one measurement"
@@ -1266,14 +1282,27 @@ def _cited_test(method: CitedMethod) -> Callable:
                 "model is of another kind.",
                 design.span,
             )
-        if (
-            min(model.n_control, model.n_treatment) < method.min_per_arm
-            or model.n_control + model.n_treatment < method.min_total
-        ):
+        if method.unit == "cluster" and not model.assignment.clustered:
+            fail(
+                "unit_mismatch",
+                f"{method.key} takes one summary per cluster, with the clusters as the sample "
+                "size, but the assignment randomises participants one by one. Declare "
+                "cluster_assignment(...) if whole clusters were randomised; otherwise use a "
+                "test of participants, such as t_test.",
+                design.span,
+            )
+        sizes = (
+            (model.assignment.clusters_control, model.assignment.clusters_treatment)
+            if method.unit == "cluster"
+            else (model.n_control, model.n_treatment)
+        )
+        if min(sizes) < method.min_per_arm or sum(sizes) < method.min_total:
+            counted = "clusters " if method.unit == "cluster" else ""
             fail(
                 "domain",
-                f"{method.key} needs at least {method.min_per_arm} per arm and "
-                f"{method.min_total} in total to estimate the variance.",
+                f"{method.key} needs at least {method.min_per_arm} {counted}per arm and "
+                f"{method.min_total} in total to estimate the variance"
+                + (f"; this design randomises {sizes[0]} and {sizes[1]}." if counted else "."),
                 design.span,
             )
         if not 0 < alpha.value < 1:

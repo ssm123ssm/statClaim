@@ -72,6 +72,17 @@ RULES = {
         "{subject}: arm sizes ({n_control}, {n_treatment}) meet the method's minimum of "
         "{min_per_arm} per arm and {min_total} in total.",
     ),
+    "enough-clusters": Rule(
+        "The assignment randomises clusters, and each arm and the whole study have enough "
+        "clusters for the method, which takes one summary per cluster.",
+        "{subject}: ({clusters_control}, {clusters_treatment}) clusters per arm meet the "
+        "method's minimum of {min_per_arm} per arm and {min_total} in total.",
+    ),
+    "cluster-contract": Rule(
+        "The same-model, supported-null, level-interior and enough-clusters rules hold.",
+        "{subject}: the design, the null and the level fit this cited method, with the "
+        "clusters as the sample.",
+    ),
     "declared-design": Rule(
         "No assumption of the method is contradicted by the declared design: several "
         "measurements per participant contradict independent observations, and randomisation "
@@ -563,18 +574,28 @@ def _cited_steps(builder: _Builder, name: str, analysis: CitedAnalysisIR) -> int
             },
         ),
         builder.apply("level-interior", {"subject": name, "alpha": str(analysis.alpha)}),
-        builder.apply(
-            "enough-data",
-            {
-                "subject": name,
-                **_sizes(plan.model),
-                "min_per_arm": method.min_per_arm,
-                "min_total": method.min_total,
-            },
-        ),
+        _enough(builder, name, plan.model, method),
     )
     _declared_design(builder, name, analysis)
-    return builder.apply("cited-contract", {"subject": name}, used)
+    contract = "cluster-contract" if method.unit == "cluster" else "cited-contract"
+    return builder.apply(contract, {"subject": name}, used)
+
+
+def _enough(builder: _Builder, name: str, model, method) -> int:
+    """Enough participants, or for a test of one summary per cluster, enough clusters."""
+    minimum = {"min_per_arm": method.min_per_arm, "min_total": method.min_total}
+    if method.unit != "cluster":
+        return builder.apply("enough-data", {"subject": name, **_sizes(model), **minimum})
+    assignment = model.assignment
+    return builder.apply(
+        "enough-clusters",
+        {
+            "subject": name,
+            "clusters_control": assignment.clusters_control,
+            "clusters_treatment": assignment.clusters_treatment,
+            **minimum,
+        },
+    )
 
 
 def derive_cited(name: str, analysis: CitedAnalysisIR) -> Derivation:

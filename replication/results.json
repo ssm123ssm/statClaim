@@ -524,9 +524,23 @@
     "codes": [
       "unit_mismatch"
     ],
-    "message": "t_test assumes independent observations, but the assignment randomises whole clusters (10 control and 10 treatment clusters), and participants in one cluster tend to be alike. The test would overstate the evidence. No test with a contract accounts for clustering yet. Name one that does, such as a mixed model with a random effect for cluster or a test on cluster-level summaries, with declared_test(...).",
+    "message": "t_test assumes independent observations, but the assignment randomises whole clusters (10 control and 10 treatment clusters), and participants in one cluster tend to be alike. The test would overstate the evidence. Use cluster_t_test, which takes one summary per cluster with the clusters as the sample size; or randomisation_test, with randomisation=\"complete\" declared on the assignment, whose level Lean proves. For another analysis that accounts for clustering, such as a mixed model with a random effect for cluster, use declared_test(...).",
     "as_expected": true,
     "note": ""
+  },
+  {
+    "key": "cluster_summaries_on_participants",
+    "category": "Unit of analysis",
+    "error": "Clinic means are compared with a t-test on cluster-level summaries, but the file declares 200 participants per arm, not the 10 clinics, as the sample.",
+    "expected": "rejected",
+    "expected_code": "unit_mismatch",
+    "outcome": "rejected",
+    "codes": [
+      "unit_mismatch"
+    ],
+    "message": "cluster_t_test takes one summary per cluster, with the clusters as the sample size, but the assignment randomises participants one by one. Declare cluster_assignment(...) if whole clusters were randomised; otherwise use a test of participants, such as t_test.",
+    "as_expected": true,
+    "note": "Before the cluster-level test had a contract, this analysis could only be a declared test, and the mistake was invisible."
   },
   {
     "key": "cluster_randomised_undeclared",

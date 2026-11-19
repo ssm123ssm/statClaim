@@ -590,7 +590,30 @@ def _cited_expected(name: str, subject: dict, contract: str):
         model["module"] == expected_model for model in (design["model"], null["model"])
     )
     value_ok = method.null_value is None or (Fraction(null.get("value", "0")) == method.null_value)
-    enough = min(sizes.values()) >= method.min_per_arm and sum(sizes.values()) >= method.min_total
+    minimum = {"min_per_arm": method.min_per_arm, "min_total": method.min_total}
+    if method.unit == "cluster":
+        # Counted in clusters, which the model must declare.
+        model = design["model"]
+        counts = (model.get("clusters_control"), model.get("clusters_treatment"))
+        enough = all(_whole(count, 1) for count in counts) and (
+            min(counts) >= method.min_per_arm and sum(counts) >= method.min_total
+        )
+        size_step = (
+            "enough-clusters",
+            {
+                "subject": name,
+                "clusters_control": counts[0],
+                "clusters_treatment": counts[1],
+                **minimum,
+            },
+            enough,
+            (),
+        )
+    else:
+        enough = (
+            min(sizes.values()) >= method.min_per_arm and sum(sizes.values()) >= method.min_total
+        )
+        size_step = ("enough-data", {"subject": name, **sizes, **minimum}, enough, ())
     steps = [
         (
             "same-model",
@@ -611,21 +634,12 @@ def _cited_expected(name: str, subject: dict, contract: str):
             (),
         ),
         ("level-interior", {"subject": name, "alpha": subject["alpha"]}, 0 < alpha < 1, ()),
-        (
-            "enough-data",
-            {
-                "subject": name,
-                **sizes,
-                "min_per_arm": method.min_per_arm,
-                "min_total": method.min_total,
-            },
-            enough,
-            (),
-        ),
+        size_step,
     ]
     design_step = _design_facts(name, design["model"], method)
     steps += [design_step] if design_step else []
-    steps.append(("cited-contract", {"subject": name}, True, (0, 1, 2, 3)))
+    contract_rule = "cluster-contract" if method.unit == "cluster" else "cited-contract"
+    steps.append((contract_rule, {"subject": name}, True, (0, 1, 2, 3)))
     fixed = _sampling_expectation(name, subject)
     extra = (*_direction_assumed(null), *_vouched(design["model"], method))
     guarantee = None

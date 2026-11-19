@@ -317,7 +317,11 @@ def catalogue() -> dict:
                 "scope": method.scope,
                 "assumptions": [item.id for item in method.assumptions],
                 "references": list(method.references),
-                "minimum_sizes": {"per_arm": method.min_per_arm, "total": method.min_total},
+                "minimum_sizes": {
+                    "per_arm": method.min_per_arm,
+                    "total": method.min_total,
+                    "unit": method.unit,
+                },
                 "power": method.power.key if method.power else None,
             }
             for method in METHODS.values()
@@ -498,7 +502,9 @@ def render_catalogue() -> str:
                     " or ".join(f"`{null}`" for null in m["nulls"]),
                     "equals alpha" if m["relation"] == "equals" else "at most alpha",
                     f"`{m['scope']}`",
-                    f"{m['minimum_sizes']['per_arm']} per arm, {m['minimum_sizes']['total']} total",
+                    f"{m['minimum_sizes']['per_arm']} "
+                    + ("clusters " if m["minimum_sizes"]["unit"] == "cluster" else "")
+                    + f"per arm, {m['minimum_sizes']['total']} total",
                     f"`{m['power']}`" if m["power"] else "none",
                 )
                 for m in data["cited_methods"]

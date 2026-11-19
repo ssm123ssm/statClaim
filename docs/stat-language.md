@@ -150,8 +150,8 @@ let clinics = cluster_assignment(clusters_control=12, clusters_treatment=12,
 
 A test that takes one value per participant is refused for `visits`, and a test
 that assumes independent participants is refused for a model built on
-`clinics`, both with `unit_mismatch`. The message names a test that fits, or
-suggests `declared_test(...)`. Sites in a trial that randomises participants
+`clinics`, both with `unit_mismatch`. The message names a test that fits, such
+as `cluster_t_test` for clinics, or suggests `declared_test(...)`. Sites in a trial that randomises participants
 are not clusters. See `examples/declared_design.stat` and
 [cited methods](cited-methods.md#clusters-and-repeated-measurements).
 

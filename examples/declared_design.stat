@@ -15,7 +15,8 @@ let symptoms = mmrm_test(
 )
 
 # Twelve clinics per arm are randomised, with 240 participants per arm in all.
-# No test with a contract accounts for clustering yet, so the analysis is declared.
+# A mixed model for clinics has no contract, so it is declared. cluster_t_test and
+# randomisation_test have contracts; see cluster_trial.stat.
 let clinics = cluster_assignment(
     clusters_control=12,
     clusters_treatment=12,

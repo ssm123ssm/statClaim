@@ -1,0 +1,33 @@
+# A cluster-randomised trial: twelve clinics, six per arm, every split equally likely.
+# Two analyses of the same trial, one cited and one proved in Lean.
+use models.two_arm_continuous
+use sampling
+use tests.cluster
+use tests.randomisation
+
+let clinics = cluster_assignment(
+    clusters_control=6,
+    clusters_treatment=6,
+    n_control=120,
+    n_treatment=120,
+    randomisation="complete",
+)
+let practice = two_arm(assignment=clinics, outcome=continuous_outcome(better="higher"))
+
+# A t-test on the twelve clinic means: the sample size is the clinics, not the people.
+# Its guarantee is cited, exact if clinic means are normal with a common variance.
+let summaries = cluster_t_test(
+    design=fixed(model=practice),
+    null=equal_means(model=practice),
+    alpha=1/20,
+)
+
+# The randomisation test of the sharp null needs no assumption about the outcomes.
+let permuted = randomisation_test(
+    design=fixed(model=practice),
+    null=no_effect(model=practice),
+    alpha=1/20,
+)
+
+let cited = verify(typeI(summaries))
+let proved = verify(typeI(permuted))

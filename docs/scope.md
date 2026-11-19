@@ -28,6 +28,10 @@ What is supported:
   alpha for any statistic fixed in advance, whatever the outcomes. One Lean
   theorem covers every design; the p-value counts every split.
 
+- **Cluster-randomised trials, cited.** A t-test on one summary per cluster,
+  with the clusters as the sample size and at least four per arm. It assumes
+  independent clusters, which randomising clusters does not contradict. Its
+  references await review.
 - **Mixed models and logistic regression, cited.** A treatment contrast from a
   mixed model for repeated measures, and the treatment coefficient of a logistic
   regression. Both list their own assumptions, such as missing at random.

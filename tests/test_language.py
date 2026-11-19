@@ -294,7 +294,7 @@ def test_cli_fast_mode_and_module_discovery(capsys):
     assert report["status"] == "elaborated"
     assert report["certificate_issued"] is False
     assert main(["modules", "--json"]) == 0
-    assert len(json.loads(capsys.readouterr().out)) == 20
+    assert len(json.loads(capsys.readouterr().out)) == 21
 
 
 def test_cli_invalid_syntax_returns_two_and_a_readable_location(tmp_path, capsys):

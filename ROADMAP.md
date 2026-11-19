@@ -41,6 +41,7 @@
   tests whose independence assumptions they contradict refused.
 - Randomisation tests of the sharp null, proved in Lean once for every design,
   by participant or by cluster, under declared complete randomisation.
+- A cited t-test on cluster-level summaries for cluster-randomised trials.
 
 ## Direction
 
@@ -52,7 +53,7 @@ and for rules that combine tests. Each claim shows its
 
 ## Next
 
-1. Tests that account for clustering or repeated binary measurements, and strata
+1. Cluster-level tests for binary outcomes, repeated binary measurements, and strata
    on the assignment once a covariate-adjusted analysis reads them. Stratified
    and blocked randomisation for the randomisation test, and Monte Carlo p-values.
 2. Cited group-sequential boundaries that use the correlation between looks.

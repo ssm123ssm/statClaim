@@ -165,6 +165,7 @@ def test_module_constructor_and_builtin_completion_use_registry():
         "tests.logistic",
         "tests.declared",
         "tests.randomisation",
+        "tests.cluster",
     }
     assert set(complete("use models.")) == {
         "models.two_arm_binomial",

@@ -1529,8 +1529,10 @@ Program status: invalid</code></pre></div>
 assumption: repeated measurements contradict independent observations, and clusters
 also contradict independent participants. The mixed model assumes only that participants
 are independent, so it passes. The t-test assumes independent observations, so it is
-refused. No test with a contract accounts for clustering yet, so the clinic trial uses a
-declared test, and its result lists what the test must do, on your word.</p>
+refused. Here the clinic trial uses a declared mixed model, and its result lists what the
+test must do, on your word. The message also names two tests with a contract for clinics:
+<code>cluster_t_test</code>, a cited t-test on one summary per clinic, and
+<code>randomisation_test</code>, proved in lesson 21.</p>
 <div class="note"><strong>Left out, neither design can be seen.</strong> A file that
 declares 450 observations per arm, instead of 150 participants measured three times,
 gets a cited t-test, and the report only lists "observations are independent" as

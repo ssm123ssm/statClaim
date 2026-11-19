@@ -28,6 +28,7 @@ EXAMPLES = (
     ("examples/mixed_endpoints.stat", True, "cited", ("conditional", "verified")),
     ("examples/tutorial/11_bayesian_rule.stat", True, "verified", ("calculated", "verified")),
     ("examples/randomisation.stat", True, "verified", ("verified", "verified")),
+    ("examples/cluster_trial.stat", True, "cited", ("cited", "verified")),
 )
 
 

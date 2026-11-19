@@ -231,6 +231,14 @@ class CitedMethod:
     # How to approximate the test's power, if it can be. Versioned on its own, since the
     # Type I guarantee does not depend on it.
     power: PowerFormula | None = field(default=None, repr=False, compare=False)
+    # What min_per_arm and min_total count: participants, or clusters for a test of one
+    # summary per cluster, which needs cluster_assignment. Part of the hash when not the
+    # default; see versions().
+    unit: str = field(default="participant", repr=False, compare=False)
+
+    def __post_init__(self):
+        if self.unit not in ("participant", "cluster"):
+            raise ValueError(f"Unknown unit {self.unit!r}.")
 
     @property
     def nulls(self) -> tuple[str, ...]:
