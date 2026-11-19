@@ -1,0 +1,37 @@
+# Randomisation tests. Their level follows from how the trial was randomised, so
+# Lean proves it, for any test statistic fixed in advance and any outcome distribution.
+use models.two_arm_continuous
+use sampling
+use tests.randomisation
+
+# 40 participants, every split into two arms of 20 equally likely.
+let arms = assignment(n_control=20, n_treatment=20, randomisation="complete")
+let pain = two_arm(assignment=arms, outcome=continuous_outcome(better="lower"))
+
+# The null is the sharp null: treatment changes no participant's pain score.
+# It is not equal_means(...), which a randomisation test does not support.
+let analysis = randomisation_test(
+    design=fixed(model=pain),
+    null=no_effect(model=pain),
+    alpha=1/20,
+)
+
+# Twelve clinics randomised, six per arm: the test permutes clinics, not people.
+let clinics = cluster_assignment(
+    clusters_control=6,
+    clusters_treatment=6,
+    n_control=120,
+    n_treatment=120,
+    randomisation="complete",
+)
+let practice = two_arm(assignment=clinics, outcome=continuous_outcome(better="higher"))
+let clustered = randomisation_test(
+    design=fixed(model=practice),
+    null=no_effect(model=practice),
+    alpha=1/20,
+)
+
+let individual = verify(typeI(analysis))
+let by_clinic = verify(typeI(clustered))
+let status = by_clinic.status
+let grade = by_clinic.evidence.grade

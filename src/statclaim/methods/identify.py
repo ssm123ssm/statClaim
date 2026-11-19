@@ -13,6 +13,10 @@ from statclaim.methods.core import ASSUMPTION_KINDS
 
 # (pattern, id, kind). The first match wins, so put specific patterns first.
 RECOGNISED = [
+    # The randomisation test (statclaim.randomisation).
+    (r"^Every split of the randomised units", "complete_randomisation", "design"),
+    (r"^Every randomised unit is analysed", "analysed_as_randomised", "data"),
+    (r"null that treatment changes no participant's outcome", "bound_under_null", "scope"),
     (r"posterior rule is the binomial-sum form", "posterior_closed_form", "unproved_step"),
     (r"planning point", "planning_point_is_input", "scope"),
     (r"joint sampling law is a probability law", "common_probability_law", "sampling"),

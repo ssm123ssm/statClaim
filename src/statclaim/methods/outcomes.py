@@ -85,3 +85,14 @@ BINARY = Outcome(
 )
 
 OUTCOMES = (CONTINUOUS, SURVIVAL, BINARY)
+
+# The sharp null belongs to no single outcome: it is stated the same way for every
+# two-arm model, and only a randomisation test supports it. It is kept out of each
+# outcome's nulls so no cited test can list it.
+SHARP_NULL = NullForm(
+    "no_effect",
+    "treatment changes no participant's outcome",
+    "Sharp null: treatment changes no participant's outcome, so each participant would have "
+    "the same outcome in either arm. It is stronger than equal means or proportions, and "
+    "only randomisation_test supports it.",
+)

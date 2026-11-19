@@ -40,10 +40,12 @@ from statclaim.language import (
     PlanningPointIR,
     PowerTargetIR,
     PriorIR,
+    RandomisationAnalysisIR,
     RateIR,
     RatesIR,
     RuleIR,
     SequentialIR,
+    SharpNullIR,
     SizingIR,
     StudyModelIR,
     TwoArmTestIR,
@@ -94,7 +96,13 @@ TWO_ARM_FIELDS = {
 }
 
 SCHEMAS = {
-    AssignmentIR: {"n_control": FieldSpec(int), "n_treatment": FieldSpec(int)},
+    AssignmentIR: {
+        "n_control": FieldSpec(int),
+        "n_treatment": FieldSpec(int),
+        "randomisation": FieldSpec(
+            str, optional=True, description="complete, when the file declares it."
+        ),
+    },
     OutcomeIR: {
         "kind": FieldSpec(str, description="binary, continuous, survival, ..."),
         "better": BETTER,
@@ -113,6 +121,17 @@ SCHEMAS = {
         "null": FieldSpec(NullIR, attribute="hypothesis"),
         "alpha": FieldSpec(Fraction),
         "guarantee": FieldSpec(Guarantee, description="The cited error-rate statement."),
+    },
+    SharpNullIR: {
+        "model": FieldSpec(StudyModelIR),
+        "predicate": FieldSpec(str),
+        "statement": FieldSpec(str),
+    },
+    RandomisationAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(SharpNullIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction, description="Exact declared significance level."),
+        "guarantee": FieldSpec(Guarantee, description="The error-rate statement Lean proves."),
     },
     HypothesisIR: {
         "model": FieldSpec(ModelIR),

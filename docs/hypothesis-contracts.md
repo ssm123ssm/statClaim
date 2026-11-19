@@ -60,6 +60,14 @@ is different: `proportion_difference_at_most(study, 0)` includes parameters with
 unequal probabilities, and remains unsupported by the current Fisher contract.
 See `examples/hypothesis_zero.stat` and `examples/hypothesis_inequality.stat`.
 
+Every two-arm model module also provides `no_effect(model)`, the sharp null:
+treatment changes no participant's outcome. It restricts each participant's
+outcomes, not a parameter, and it belongs to no outcome's list of null forms.
+Only `randomisation_test` supports it, and the randomisation test supports
+nothing else. A cited test given `no_effect`, or a randomisation test given
+`equal_means`, is refused with `hypothesis_mismatch`; Fisher takes only the
+binomial hypotheses above.
+
 The Lean binomial module defines `proportionDifference` and
 `proportionDifferenceAtMost`. Its checked theorem
 `proportionDifference_zero_iff` establishes the zero-equality equivalence; the

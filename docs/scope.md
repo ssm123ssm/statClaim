@@ -23,6 +23,10 @@ What is supported:
 - **Two stages.** A single-arm design with an interim stop, using count or
   Beta-posterior rules. Type I error and power are checked for the whole design,
   and the decision for observed counts is checked against the declared rule.
+- **Randomisation tests.** Under declared complete randomisation of participants
+  or clusters, the randomisation test of the sharp null has Type I error at most
+  alpha for any statistic fixed in advance, whatever the outcomes. One Lean
+  theorem covers every design; the p-value counts every split.
 
 - **Mixed models and logistic regression, cited.** A treatment contrast from a
   mixed model for repeated measures, and the treatment coefficient of a logistic
@@ -125,6 +129,10 @@ assumptions. It says nothing about how the study is run. Three examples:
 - **Participants excluded after randomisation.** A per-protocol analysis
   declared with the remaining numbers is verified for those numbers. It says
   nothing about the population that was randomised.
+- **A randomisation test read as a test of means.** A verified randomisation
+  test bounds error under the sharp null that treatment changes no one's
+  outcome. It says nothing about equal means when effects differ between
+  participants.
 - **Repeated measurements counted as participants.** Three measurements on each
   of 100 participants, declared as 300 per arm, get a cited t-test. The listed
   assumption that observations are independent is the one that fails.

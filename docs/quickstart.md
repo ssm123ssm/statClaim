@@ -35,6 +35,7 @@ Other files in `playground/`:
 | `lower_is_better.stat` | An outcome where lower is better, declared and checked |
 | `shared_assignment.stat` | Two outcomes on the same participants, sharing one assignment |
 | `declared_design.stat` | Repeated measurements and randomised clinics, declared and checked |
+| `randomisation.stat` | Randomisation tests by participant and by clinic, proved in Lean |
 | `mixed_endpoints.stat` | A proved and a cited test under one error bound |
 
 ## Without Lean

@@ -1,6 +1,6 @@
 # The statistical file-language prototype
 
-Language version `0.12.0` provides a small declaration grammar over the existing
+Language version `0.13.0` provides a small declaration grammar over the existing
 statistical objects and Lean backend. Claims, verification results, and calculation
 results are first-class values. The statistical language is the researcher-facing
 interface; the Lean and TOML interfaces remain supported.
@@ -11,6 +11,7 @@ interface; the Lean and TOML interfaces remain supported.
 | `models.two_arm_continuous`, `tests.t` | Two means with cited t-tests ([cited methods](cited-methods.md)) |
 | `models.two_arm_survival`, `tests.survival` | Two survival curves with the cited log-rank test |
 | `tests.difference` | Exact test with a margin, such as non-inferiority ([planning](planning.md)) |
+| `tests.randomisation` | Randomisation test of the sharp null, proved in Lean (below) |
 | `multiplicity.bonferroni` | Several endpoints ([multiple testing](multiple-testing.md)) |
 | `planning` | Power targets and sample-size searches ([planning](planning.md)) |
 | `tests.binomial` | One-sample exact test and confidence interval ([planning](planning.md)) |
@@ -153,6 +154,33 @@ that assumes independent participants is refused for a model built on
 suggests `declared_test(...)`. Sites in a trial that randomises participants
 are not clusters. See `examples/declared_design.stat` and
 [cited methods](cited-methods.md#clusters-and-repeated-measurements).
+
+## Randomisation tests
+
+An assignment can say how it was randomised. `randomisation="complete"` means
+every split of the units into arms of the declared sizes was equally likely.
+A randomisation test then has a level that follows from the design alone:
+
+```text
+let arms = assignment(n_control=20, n_treatment=20, randomisation="complete")
+let pain = two_arm(assignment=arms, outcome=continuous_outcome(better="lower"))
+let analysis = randomisation_test(design=fixed(model=pain), null=no_effect(model=pain),
+                                  alpha=1/20)
+```
+
+Lean proves, once, that for any statistic fixed in advance the randomisation
+p-value is at most alpha with probability at most alpha, whatever the outcomes.
+The claim is `verified`. Its null is the sharp null `no_effect`: treatment
+changes no participant's outcome. It is not `equal_means`, and neither stands in
+for the other: each test's contract refuses the other's null.
+
+With `cluster_assignment(..., randomisation="complete")` the units are the
+clusters, and the test permutes clusters. This is a proved analysis for a
+cluster-randomised trial. A design with too few splits to reach its level, such
+as two clusters per arm at 1/20, is refused with `never_rejects`; an assignment
+without a declared scheme is refused with `undeclared_randomisation`. The
+p-value counts every split; a p-value from a random sample of splits is not
+covered. See `examples/randomisation.stat`.
 
 ## First-class claims and execution results
 

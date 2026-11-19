@@ -17,6 +17,7 @@ from statclaim.language import (
     LocatedValue,
     ObservationIR,
     OneSampleObservationIR,
+    RandomisationAnalysisIR,
     RequestIR,
     SizingIR,
     TwoStageAnalysisIR,
@@ -41,6 +42,7 @@ from statclaim.report import (
     interval_report,
     margin_report,
     planning_report,
+    randomisation_report,
     stage_result_report,
 )
 
@@ -219,6 +221,8 @@ def inspect_request(request: RequestIR) -> dict:
         return composed_report(subject)
     if isinstance(subject, FamilyIR):
         return inspect_family(subject.lower())
+    if isinstance(subject, RandomisationAnalysisIR):
+        return randomisation_report(subject.lower(), stopping=subject.plan.stopping)
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject
     if analysis.alternative == "margin":
         observed = None

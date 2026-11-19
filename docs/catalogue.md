@@ -61,7 +61,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Assignment | How participants reach the two arms: the arm sizes. Shared by outcomes on the same participants. | `n_control: integer`, `n_treatment: integer` |
+| Assignment | How participants reach the two arms: the arm sizes, clusters and, when declared, the randomisation. Shared by outcomes on the same participants. | `n_control: integer`, `n_treatment: integer`, `randomisation: Option[string]` |
 | Outcome | What is measured on each participant: its kind and which direction is better. | `kind: string`, `better: Option[string]` |
 | Model | Two binomial arms: an assignment and a binary outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | StudyDesign | Model with a stopping rule. | `model: Model`, `stopping: string` |
@@ -69,6 +69,8 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
 | OutcomeModel | Two arms: an assignment and a continuous, survival or other registered outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
+| SharpNull | The sharp null: treatment changes no participant's outcome. Not a null about means. | `model: Model`, `predicate: string`, `statement: string` |
+| RandomisationAnalysis | Design, sharp null and alpha for a randomisation test; its level is proved in Lean. | `design: StudyDesign`, `null: SharpNull`, `alpha: exact number`, `guarantee: Guarantee` |
 | CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
@@ -135,10 +137,10 @@ Two arms with a continuous outcome; equal-means and mean-difference nulls. Fixes
 
 - `two_arm_continuous(n_control: integer, n_treatment: integer, better?: string) -> OutcomeModel`
   Two arms with a continuous outcome, such as a change in blood pressure. The model fixes no distribution; each test states the one it assumes. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=continuous_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
-- `assignment(n_control: integer, n_treatment: integer) -> Assignment`
-  How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
-- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer) -> Assignment`
-  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused.
+- `assignment(n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
+  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
 - `continuous_outcome(better?: string, measurements?: integer) -> Outcome`
   The continuous outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption. measurements is how many times the outcome is measured on each participant, 1 if left out. With more than one, tests that take one value per participant are refused.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
@@ -149,6 +151,8 @@ Two arms with a continuous outcome; equal-means and mean-difference nulls. Fixes
   Null: mean_treatment - mean_control <= value, in the outcome's units. Zero asks whether the treatment is better; a negative value is a non-inferiority margin. This direction suits an outcome where higher is better.
 - `mean_difference_at_least(model: OutcomeModel, value: number) -> OutcomeNull`
   Null: mean_treatment - mean_control >= value, for an outcome where lower is better. Zero asks whether the treatment is better (lower); a positive value is a non-inferiority margin.
+- `no_effect(model: Model) -> SharpNull`
+  Sharp null: treatment changes no participant's outcome, so each participant would have the same outcome in either arm. It is stronger than equal means or proportions, and only randomisation_test supports it.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
 ### `models.two_arm_survival` — Models and hypotheses
@@ -157,16 +161,18 @@ Two arms with a time-to-event outcome, possibly censored; equal-survival null. F
 
 - `two_arm_survival(n_control: integer, n_treatment: integer, better?: string) -> OutcomeModel`
   Two arms followed for the time until an event, such as death or relapse. Some participants may be censored: followed without the event being seen. The model fixes no distribution; each test states the one it assumes. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=survival_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
-- `assignment(n_control: integer, n_treatment: integer) -> Assignment`
-  How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
-- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer) -> Assignment`
-  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused.
+- `assignment(n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
+  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
 - `survival_outcome(better?: string) -> Outcome`
   The survival outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
   A two-arm model from an assignment and an outcome. A binary outcome gives the binomial model; any other outcome gives an OutcomeModel. The same pieces give the same model as the one-call constructors, such as two_arm_continuous.
 - `equal_survival(model: OutcomeModel) -> OutcomeNull`
   Null: the two arms have the same distribution of time to the event.
+- `no_effect(model: Model) -> SharpNull`
+  Sharp null: treatment changes no participant's outcome, so each participant would have the same outcome in either arm. It is stronger than equal means or proportions, and only randomisation_test supports it.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
 ### `tests.declared` — Declared analyses
@@ -229,10 +235,10 @@ Two independent binomial arms, in one call or from an assignment and an outcome;
 
 - `two_arm_binomial(n_control: integer, n_treatment: integer, better?: string) -> Model`
   Two independent binomial arms. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=binary_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
-- `assignment(n_control: integer, n_treatment: integer) -> Assignment`
-  How participants are assigned to the two arms: today, the two arm sizes. One assignment can be shared by several outcomes measured on the same participants.
-- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer) -> Assignment`
-  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused.
+- `assignment(n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
+  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
 - `binary_outcome(better?: string) -> Outcome`
   The binary outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
@@ -244,6 +250,8 @@ Two independent binomial arms, in one call or from an assignment and an outcome;
 - `proportion_difference_at_most(model: Model, value: number) -> Hypothesis`
   Null: p_treatment - p_control <= value. This is an inequality null, including when value=0; it is not the equality null supported by the current two-sided Fisher analysis.
 - `observe(analysis: Analysis, control_successes: integer, treatment_successes: integer) -> Observation`
+- `no_effect(model: Model) -> SharpNull`
+  Sharp null: treatment changes no participant's outcome, so each participant would have the same outcome in either arm. It is stronger than equal means or proportions, and only randomisation_test supports it.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 - `result(observation: Observation) -> ResultClaim`
 
@@ -264,6 +272,15 @@ Two-sided Fisher analysis for the equality null and one-sided analysis for "trea
 - `fisher_one_sided(design: StudyDesign, null: Hypothesis, alpha: level) -> Analysis`
   The one-sided Fisher analysis tests whether the treatment's success probability exceeds the control's. Its null is proportion_difference_at_most(model=..., value=0). A nonzero margin is a different question and needs an analysis that supports it. Use equal_proportions with fisher(...) for a two-sided question.
   Required null: p_treatment - p_control <= 0 (the treatment is no better than the control); same model required.
+
+### `tests.randomisation` — Analyses and claims
+
+Randomisation test of the sharp null that treatment changes no participant's outcome, for any two-arm model. Its level follows from complete randomisation declared on the assignment; Lean proves it for every statistic fixed in advance. With clusters randomised, the test permutes clusters. Up to 10,000 randomised units.
+
+- `randomisation_test(design: StudyDesign, null: Hypothesis, alpha: level) -> RandomisationAnalysis`
+  Randomisation test of the sharp null. Its level follows from the randomisation declared on the assignment, and Lean proves it for every test statistic fixed in advance; no distribution is assumed. With cluster_assignment the clusters are randomised, so the test permutes clusters. The randomisation test supports only the sharp null no_effect(model=...). It does not test equal means or proportions: when effects differ between participants, its error under those nulls is not guaranteed. Keep your null if it states your question, and choose a test that supports it.
+  Required null: treatment changes no participant's outcome (the sharp null); same model required.
+- `typeI(analysis: Analysis) -> TypeIClaim`
 
 ### `tests.difference` — Analyses and claims
 
@@ -481,6 +498,12 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `fixed` | From `fixed(...)`: sizes set in advance, one analysis. |
 | `data_dependent` | From `adaptive(...)`: leaves error claims unresolved. |
 
+### `assignment randomisation`
+
+| Value | Meaning |
+| --- | --- |
+| `complete` | Every split of the units into arms of the declared sizes was equally likely. With cluster_assignment, the units are the clusters. |
+
 ### `bonferroni joint_law`
 
 | Value | Meaning |
@@ -650,6 +673,7 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | Participants per arm, cited-test planning search | up to 100000 |
 | Allocation ratio in a planning search | 1 to 10 |
 | Participants, one-sample binomial test | up to 1000 |
+| Randomised units, participants or clusters, randomisation test | up to 10000 |
 | Participants per stage, two-stage design | up to 200 |
 | Total participants, two-stage design search | up to 120 |
 
@@ -684,6 +708,8 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
 | `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
 | `unit_mismatch` | error | The test assumes independent participants or observations, but the declared design randomises clusters or measures each participant several times. |
+| `undeclared_randomisation` | error | A randomisation test is declared on an assignment that does not say how it was randomised. |
+| `never_rejects` | error | A randomisation test has too few equally likely splits to reach its level, so it could never reject. |
 | `planning_point` | error | The planning point does not fit the analysis. |
 | `rule_mismatch` | error | A stopping rule does not fit the two-stage design. |
 | `sampling_contract` | error | A joint law is given where none applies, or is not supported. |

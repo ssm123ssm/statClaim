@@ -111,3 +111,12 @@ MARGIN_CONTRACT = HypothesisContract(
     "proportion_difference_at_most(model=..., value=margin). A negative margin is a "
     "non-inferiority question; zero is superiority.",
 )
+
+RANDOMISATION_CONTRACT = HypothesisContract(
+    ("no_effect",),
+    "treatment changes no participant's outcome (the sharp null)",
+    "The randomisation test supports only the sharp null no_effect(model=...). It does not "
+    "test equal means or proportions: when effects differ between participants, its error "
+    "under those nulls is not guaranteed. Keep your null if it states your question, and "
+    "choose a test that supports it.",
+)

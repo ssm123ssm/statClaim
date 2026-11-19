@@ -13,6 +13,7 @@ A rule name or a success flag alone never passes.
 """
 
 from fractions import Fraction
+from math import comb
 
 from statclaim.derivations import (
     ANALYSIS_ASSUMPTIONS,
@@ -24,10 +25,11 @@ from statclaim.derivations import (
     NOT_ESTABLISHED,
     ONE_SAMPLE_ASSUMPTIONS,
     PLANNING_POINT_ASSUMPTION,
+    RANDOMISATION_CONTRACT_ID,
     RULES,
     TWO_STAGE_ASSUMPTIONS,
 )
-from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
+from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES, SHARP_NULL
 from statclaim.methods.assumptions import (
     ACCOUNTS_FOR,
     CONTRADICTED_BY,
@@ -42,6 +44,7 @@ from statclaim.methods.assumptions import (
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
+from statclaim.randomisation import ASSUMPTIONS as RANDOMISATION_ASSUMPTIONS
 
 SUPPORTED_NULLS = {
     "two_sided": ["equal_proportions"],
@@ -54,6 +57,8 @@ SUPPORTED_JOINT_LAWS = ["binomial_marginals"]
 FAMILY_LIMITS = (2, 20)
 ONE_ARM_LIMIT, PER_ARM_LIMIT, STAGE_LIMIT, SEARCH_LIMIT, RATIO_LIMIT = 1000, 500, 200, 120, 10
 CITED_ARM_LIMIT = 100_000
+UNIT_LIMIT = 10_000  # randomised units in a randomisation test
+SCHEMES = ["complete"]  # randomisation schemes the randomisation theorem covers
 # The arguments of each kind of planning point a power formula can take.
 POINT_KEYS = {
     "mean_difference": {"mean_difference", "sd"},
@@ -462,8 +467,71 @@ def _analysis_expectations(name: str, analysis: dict) -> list[tuple[str, dict, b
     ]
 
 
+def _randomised(model: dict) -> tuple[str, int, int]:
+    """The kind of unit randomised, how many, and how many treated, from the serialized model."""
+    if "clusters_control" in model:
+        control, treated = model["clusters_control"], model["clusters_treatment"]
+        return "cluster", control + treated, treated
+    return "participant", model["n_control"] + model["n_treatment"], model["n_treatment"]
+
+
+def _randomisation_expected(name: str, subject: dict) -> list[tuple]:
+    """The randomisation test's premises, re-evaluated from the serialized subject."""
+    if subject.get("test") != "randomisation":
+        raise ValueError("the contract does not match the declaration")
+    design, null = subject["design"], subject["null"]
+    model, alpha = design["model"], Fraction(subject["alpha"])
+    unit, units, treated = _randomised(model)
+    possible = _whole(treated, 1) and _whole(units, treated + 1) and units <= UNIT_LIMIT
+    splits = comb(units, treated) if possible else 0
+    steps = [
+        (
+            "same-model",
+            {"subject": name, "design_model": _sizes(model), "null_model": _sizes(null["model"])},
+            model == null["model"],
+            (),
+        ),
+        (
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": null["predicate"],
+                "statement": SHARP_NULL.statement,
+                "supported": [SHARP_NULL.key],
+                **_direction_facts(null),
+            },
+            null["predicate"] == SHARP_NULL.key and set(null) == {"predicate", "model"},
+            (),
+        ),
+        ("level-range", {"subject": name, "alpha": subject["alpha"]}, 0 <= alpha <= 1, ()),
+        (
+            "declared-randomisation",
+            {
+                "subject": name,
+                "randomisation": model.get("randomisation"),
+                "unit": unit,
+                "units": units,
+                "treated": treated,
+            },
+            model.get("randomisation") in SCHEMES,
+            (),
+        ),
+        (
+            "can-reject",
+            {"subject": name, "splits": str(splits), "alpha": subject["alpha"]},
+            possible and Fraction(1, splits) <= alpha,
+            (),
+        ),
+    ]
+    steps.append(("randomisation-contract", {"subject": name}, True, (0, 1, 2, 3, 4)))
+    return steps
+
+
 def _null_statement(null: dict) -> str:
     """The statement of a registered null form, from the registry's data."""
+    if null["predicate"] == SHARP_NULL.key:
+        # Only a declared test may take the sharp null besides the randomisation test.
+        return SHARP_NULL.statement
     form = NULL_FORMS[null["predicate"]][1]
     return form.state(Fraction(null["value"]) if form.takes_value else Fraction(0))
 
@@ -889,6 +957,12 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
         ):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+    if contract == RANDOMISATION_CONTRACT_ID:
+        return (
+            _randomisation_expected(name, subject),
+            [_sampling_expectation(name, subject)],
+            RANDOMISATION_ASSUMPTIONS,
+        )
     if contract in ("tests.binomial/binomial_test", "designs.two_stage/two_stage_test"):
         expected = "binomial_exact_one_sided" if "binomial" in contract else "two_stage"
         if subject["test"] != expected:

@@ -18,6 +18,7 @@ from statclaim.language import (
     ObservationIR,
     OneArmCandidatesIR,
     OneSampleObservationIR,
+    RandomisationAnalysisIR,
     RequestIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
@@ -52,6 +53,7 @@ from statclaim.report import (
     run_one_sample_search,
     run_policy_plan,
     run_power_plan,
+    run_randomisation,
     run_sample_size,
     run_stage_result,
     run_two_stage_search,
@@ -200,6 +202,14 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         return run_margin(
             margin.margin_test(observed=observed),
             verify=request.operation == "verify",
+            project=project,
+            output=output,
+            timeout=timeout,
+        )
+    if isinstance(subject, RandomisationAnalysisIR):
+        return run_randomisation(
+            subject.lower(),
+            stopping=subject.plan.stopping,
             project=project,
             output=output,
             timeout=timeout,

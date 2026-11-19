@@ -25,11 +25,13 @@ from statclaim.language import (
     OneArmCandidatesIR,
     OneSampleAnalysisIR,
     ProgramIR,
+    RandomisationAnalysisIR,
     RatesIR,
     TwoStageAnalysisIR,
     normalize,
 )
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
+from statclaim.randomisation import ASSUMPTIONS as RANDOMISATION_ASSUMPTIONS
 
 
 @dataclass(frozen=True)
@@ -75,6 +77,24 @@ RULES = {
         "measurements per participant contradict independent observations, and randomisation "
         "by cluster contradicts independent participants.",
         "{subject}: the declared design ({design}) contradicts none of the method's assumptions.",
+    ),
+    "declared-randomisation": Rule(
+        "The assignment declares how it was randomised, by a scheme the test's theorem "
+        "covers: complete randomisation, every split of the units into arms of the declared "
+        "sizes equally likely.",
+        "{subject}: the assignment declares {randomisation} randomisation of {units} {unit}s, "
+        "{treated} treated.",
+    ),
+    "can-reject": Rule(
+        "One over the number of equally likely splits, the smallest p-value the test can "
+        "give, is at most the level.",
+        "{subject}: {splits} splits give a smallest p-value of 1/{splits}, within the level "
+        "{alpha}.",
+    ),
+    "randomisation-contract": Rule(
+        "The same-model, supported-null, level-range, declared-randomisation and can-reject "
+        "rules hold.",
+        "{subject}: the design, the null and the level fit the randomisation test.",
     ),
     "cited-contract": Rule(
         "The same-model, supported-null, level-interior and enough-data rules hold.",
@@ -236,6 +256,7 @@ RULES = {
     ),
 }
 
+RANDOMISATION_CONTRACT_ID = "tests.randomisation/randomisation_test"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 MARGIN_CONTRACT_ID = "tests.difference/difference_test"
 CONTRACT_IDS = {
@@ -459,6 +480,53 @@ def derive_analysis(name: str, analysis: AnalysisIR) -> Derivation:
         builder.steps[final].conclusion,
         tuple(builder.steps),
         ANALYSIS_ASSUMPTIONS,
+        tuple(builder.obligations),
+        normalize(analysis),
+    )
+
+
+def derive_randomisation(name: str, analysis: RandomisationAnalysisIR) -> Derivation:
+    """Why the randomisation test's contract holds. Its guarantee is proved, not carried."""
+    builder, plan, null = _Builder(), analysis.plan, analysis.hypothesis
+    test = analysis.lower()
+    used = (
+        builder.apply(
+            "same-model",
+            {"subject": name, "design_model": _sizes(plan.model), "null_model": _sizes(null.model)},
+        ),
+        builder.apply(
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": null.predicate,
+                "statement": null.statement,
+                "supported": ["no_effect"],
+                **_direction(null.model),
+            },
+        ),
+        builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
+        builder.apply(
+            "declared-randomisation",
+            {
+                "subject": name,
+                "randomisation": plan.model.assignment.randomisation,
+                "unit": test.unit,
+                "units": test.units,
+                "treated": test.treated,
+            },
+        ),
+        builder.apply(
+            "can-reject", {"subject": name, "splits": str(test.splits), "alpha": str(test.alpha)}
+        ),
+    )
+    final = builder.apply("randomisation-contract", {"subject": name}, used)
+    _sampling(builder, name, analysis)
+    return Derivation(
+        name,
+        RANDOMISATION_CONTRACT_ID,
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        RANDOMISATION_ASSUMPTIONS,
         tuple(builder.obligations),
         normalize(analysis),
     )
@@ -908,6 +976,8 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
             derivations.append(derive_analysis(binding.name, value))
         elif isinstance(value, CitedAnalysisIR):
             derivations.append(derive_cited(binding.name, value))
+        elif isinstance(value, RandomisationAnalysisIR):
+            derivations.append(derive_randomisation(binding.name, value))
         elif isinstance(value, ComposedFamilyIR):
             derivations.append(derive_composed(binding.name, value))
         elif isinstance(value, FamilyIR):

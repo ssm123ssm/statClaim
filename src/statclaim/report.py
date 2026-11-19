@@ -35,6 +35,7 @@ from statclaim.verification import (
     certify_margin,
     certify_planning,
     certify_policy,
+    certify_randomisation,
     certify_result,
     certify_stage_result,
     digest,
@@ -737,4 +738,53 @@ def run_margin_search(
             f"No candidate with {bounds[0]} to {bounds[1]} controls meets the power target. "
             "Nothing is claimed about other designs or larger samples.",
         )
+    return report
+
+
+def randomisation_report(test, *, stopping: str = "fixed") -> dict:
+    """A randomisation test's Type I claim before it is checked."""
+    from statclaim.randomisation import ASSUMPTIONS, NULL_STATEMENT
+
+    report = planning_report(
+        "randomisation_test",
+        f"Randomisation test with {test.describe()}: Type I error <= {test.alpha} whenever "
+        f"{NULL_STATEMENT}, for every statistic fixed in advance.",
+        list(ASSUMPTIONS),
+    )
+    report["calculation"] = {
+        "units": test.units,
+        "treated_units": test.treated,
+        "unit": test.unit,
+        "splits": str(test.splits),
+        "smallest_p_value": str(test.smallest_p_value),
+        "alpha": str(test.alpha),
+    }
+    if stopping != "fixed":
+        report["outstanding_obligations"] = [
+            "Specify the randomisation and stopping procedure as one design; the test counts "
+            "splits of a fixed set of units."
+        ]
+    return report
+
+
+def run_randomisation(test, *, stopping: str, project: Path, output, timeout: float) -> dict:
+    """Have Lean check the randomisation test's error bound for the declared assignment."""
+    report = randomisation_report(test, stopping=stopping)
+    if stopping != "fixed":
+        return _unmet(
+            report,
+            "sampling_scope",
+            "sampling_scope",
+            "Data-dependent stopping changes which units are analysed, so the splits of a "
+            "fixed set of units no longer describe the design. This is not evidence of "
+            "inflated error.",
+        )
+    report = _certified(
+        report, certify_randomisation, test, project=project, output=output, timeout=timeout
+    )
+    if report["status"] == "verified":
+        report["limitations"] = [
+            "Complete randomisation and analysis as randomised are assumed, as listed.",
+            "The bound is under the sharp null only; it says nothing about equal means.",
+        ]
     return report

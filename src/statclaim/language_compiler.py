@@ -17,6 +17,7 @@ from statclaim.language import (
     ObservationIR,
     OneSampleObservationIR,
     ProgramIR,
+    RandomisationAnalysisIR,
     RequestIR,
     TwoStageObservationIR,
     elaborate,
@@ -133,6 +134,19 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 f"{name}: the cited guarantee assumes arm sizes fixed in advance and a single "
                 "analysis. Data-dependent stopping is outside it and needs a design with its "
                 "own guarantee. This is not evidence of inflated error.",
+                _origin(program, subject.plan, request.span),
+                "obligation",
+            ),
+        )
+    if isinstance(subject, RandomisationAnalysisIR):
+        if request.operation != "verify" or subject.plan.stopping == "fixed":
+            return ()
+        return (
+            Diagnostic(
+                "sampling_scope",
+                f"{name}: the randomisation test counts the splits of a fixed set of units. "
+                "Data-dependent stopping changes which units are analysed and needs a design "
+                "with its own guarantee. This is not evidence of inflated error.",
                 _origin(program, subject.plan, request.span),
                 "obligation",
             ),

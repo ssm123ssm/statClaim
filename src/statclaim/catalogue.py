@@ -32,6 +32,13 @@ MODULE_CLASSES = {
         '"treatment no better than control", with Lean-backed result and Type I claims '
         "under fixed sampling.",
     ),
+    "tests.randomisation": (
+        "Analyses and claims",
+        "Randomisation test of the sharp null that treatment changes no participant's "
+        "outcome, for any two-arm model. Its level follows from complete randomisation "
+        "declared on the assignment; Lean proves it for every statistic fixed in advance. "
+        "With clusters randomised, the test permutes clusters. Up to 10,000 randomised units.",
+    ),
     "tests.difference": (
         "Analyses and claims",
         "Exact test of p_treatment - p_control <= margin, for non-inferiority (negative "
@@ -110,8 +117,8 @@ OBJECT_CLASSES = {
     ),
     "Assignment": (
         "Core statistical objects",
-        "How participants reach the two arms: the arm sizes. Shared by outcomes on the "
-        "same participants.",
+        "How participants reach the two arms: the arm sizes, clusters and, when declared, "
+        "the randomisation. Shared by outcomes on the same participants.",
     ),
     "Outcome": (
         "Core statistical objects",
@@ -129,6 +136,14 @@ OBJECT_CLASSES = {
         "Two arms: an assignment and a continuous, survival or other registered outcome.",
     ),
     "OutcomeNull": ("Core statistical objects", "A null restriction for such a model."),
+    "SharpNull": (
+        "Core statistical objects",
+        "The sharp null: treatment changes no participant's outcome. Not a null about means.",
+    ),
+    "RandomisationAnalysis": (
+        "Core statistical objects",
+        "Design, sharp null and alpha for a randomisation test; its level is proved in Lean.",
+    ),
     "CitedAnalysis": (
         "Core statistical objects",
         "Design, null and alpha for a test whose guarantee is cited, not proved.",

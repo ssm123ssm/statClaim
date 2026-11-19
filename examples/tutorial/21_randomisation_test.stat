@@ -1,0 +1,23 @@
+# Lesson 21: a test whose level follows from the randomisation.
+use models.two_arm_continuous
+use sampling
+use tests.randomisation
+
+# Twelve clinics, six per arm, every split of them equally likely.
+let clinics = cluster_assignment(
+    clusters_control=6,
+    clusters_treatment=6,
+    n_control=120,
+    n_treatment=120,
+    randomisation="complete",
+)
+let practice = two_arm(assignment=clinics, outcome=continuous_outcome(better="higher"))
+
+# The sharp null: treatment changes no participant's outcome.
+let adherence = randomisation_test(
+    design=fixed(model=practice),
+    null=no_effect(model=practice),
+    alpha=1/20,
+)
+
+let checked = verify(typeI(adherence))

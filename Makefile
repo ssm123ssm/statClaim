@@ -14,7 +14,8 @@ setup:
 		Mathlib.Tactic.FieldSimp \
 		Mathlib.Tactic.Ring \
 		Mathlib.Probability.Distributions.Binomial \
-		Mathlib.MeasureTheory.Measure.Prod
+		Mathlib.MeasureTheory.Measure.Prod \
+		Mathlib.Probability.Distributions.Uniform
 	lake build
 
 check: python-check lean-check integration-check

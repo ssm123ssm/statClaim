@@ -7,6 +7,7 @@ supported objects to the same validated requests as the TOML and Lean routes.
 from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
+from math import comb
 from typing import Literal as Choice
 
 from statclaim.composition import MODES, Component, Composition
@@ -17,6 +18,7 @@ from statclaim.language_contracts import (
     FISHER_CONTRACT,
     MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
+    RANDOMISATION_CONTRACT,
     HypothesisContract,
 )
 from statclaim.language_syntax import (
@@ -33,7 +35,7 @@ from statclaim.language_syntax import (
     Statement,
     parse,
 )
-from statclaim.methods import METHOD_MODULES, NULL_FORMS, OUTCOMES, methods_for
+from statclaim.methods import METHOD_MODULES, NULL_FORMS, OUTCOMES, SHARP_NULL, methods_for
 from statclaim.methods.assumptions import (
     ACCOUNTS_FOR,
     CONTRADICTED_BY,
@@ -61,8 +63,9 @@ from statclaim.planning import (
     TwoStageResult,
     TwoStageRule,
 )
+from statclaim.randomisation import MAX_UNITS, SCHEMES, RandomisationTest, splits_needed
 
-LANGUAGE_VERSION = "0.12.0"
+LANGUAGE_VERSION = "0.13.0"
 
 
 class PlannableIR:
@@ -95,8 +98,9 @@ class NullIR:
 
 @dataclass(frozen=True)
 class AssignmentIR:
-    """How participants reach the two arms: the arm sizes, and whether whole clusters,
-    such as clinics, were assigned instead of single participants.
+    """How participants reach the two arms: the arm sizes, whether whole clusters, such
+    as clinics, were assigned instead of single participants, and how the assignment was
+    randomised when the file says so.
 
     Later design declarations, such as strata, belong here.
     """
@@ -106,10 +110,23 @@ class AssignmentIR:
     # Numbers of clusters per arm when clusters were randomised; None when participants were.
     clusters_control: int | None = None
     clusters_treatment: int | None = None
+    # A key of randomisation.SCHEMES when declared. Only a randomisation test reads it.
+    randomisation: str | None = None
 
     @property
     def clustered(self) -> bool:
         return self.clusters_control is not None
+
+    @property
+    def randomised_units(self) -> tuple[str, int, int]:
+        """What was randomised: the kind of unit, how many, and how many were treated."""
+        if self.clustered:
+            return (
+                "cluster",
+                self.clusters_control + self.clusters_treatment,
+                self.clusters_treatment,
+            )
+        return ("participant", self.n_control + self.n_treatment, self.n_treatment)
 
 
 @dataclass(frozen=True)
@@ -190,6 +207,22 @@ class OutcomeNullIR(NullIR):
     @property
     def statement(self) -> str:
         return NULL_FORMS[self.predicate][1].state(self.value)
+
+
+@dataclass(frozen=True)
+class SharpNullIR(NullIR):
+    """The sharp null on any two-arm model: treatment changes no participant's outcome.
+
+    It is not a restriction on means or proportions, and only a randomisation test takes it.
+    """
+
+    model: TwoArmModelIR
+    predicate: str = SHARP_NULL.key
+    value: Fraction = Fraction(0)
+
+    @property
+    def statement(self) -> str:
+        return SHARP_NULL.statement
 
 
 @dataclass(frozen=True)
@@ -309,6 +342,35 @@ def direction_assumptions(null: "NullIR") -> tuple[Assumption, ...]:
     if favours is None or null.model.better is not None:
         return ()
     return (HIGHER_IS_BETTER if favours == "higher" else LOWER_IS_BETTER,)
+
+
+@dataclass(frozen=True)
+class RandomisationAnalysisIR(LevelTestIR):
+    """A randomisation test of the sharp null. Its level follows from the declared
+    randomisation alone, and Lean proves it for every statistic fixed in advance."""
+
+    plan: PlanIR
+    hypothesis: SharpNullIR
+    alpha: Fraction
+
+    @property
+    def guarantee(self) -> Guarantee:
+        return Guarantee(
+            "type_I_error", "at_most", self.alpha, self.hypothesis.statement, "finite_sample"
+        )
+
+    def lower(self) -> RandomisationTest:
+        model = self.plan.model
+        unit, units, treated = model.assignment.randomised_units
+        return RandomisationTest(
+            units,
+            treated,
+            self.alpha,
+            unit,
+            OUTCOMES[model.outcome].constructor,
+            model.n_control,
+            model.n_treatment,
+        )
 
 
 class FamilyLikeIR:
@@ -647,7 +709,7 @@ class ClaimIR:
     def guarantee(self) -> Guarantee | None:
         """The error-rate statement this claim asks for, when it is a single bound."""
         subject = self.subject
-        if isinstance(subject, CitedAnalysisIR):
+        if isinstance(subject, (CitedAnalysisIR, RandomisationAnalysisIR)):
             return subject.guarantee
         if isinstance(subject, ComposedFamilyIR):
             return subject.lower().guarantee
@@ -817,6 +879,8 @@ def normalize(value: object) -> object:
             result = {"n_control": nc, "n_treatment": nt}
             if cc is not None:
                 result.update(clusters_control=cc, clusters_treatment=value.clusters_treatment)
+            if value.randomisation is not None:
+                result["randomisation"] = value.randomisation
             return result
         case OutcomeIR(kind=kind, better=better, measurements=measurements):
             return {
@@ -829,6 +893,15 @@ def normalize(value: object) -> object:
             if NULL_FORMS[predicate][1].takes_value:
                 result["value"] = str(bound)
             return result
+        case SharpNullIR(model=model, predicate=predicate):
+            return {"predicate": predicate, "model": normalize(model)}
+        case RandomisationAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
+            return {
+                "test": "randomisation",
+                "design": normalize(plan),
+                "null": normalize(hypothesis),
+                "alpha": str(alpha),
+            }
         case CitedAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, method=method):
             result = {
                 "test": method.key,
@@ -1017,11 +1090,31 @@ def fail(code: str, message: str, span: Span) -> None:
     raise LanguageError(Diagnostic(code, message, span))
 
 
+def _scheme(arguments: dict[str, LocatedValue]) -> str | None:
+    """The declared randomisation scheme, if any. Only complete randomisation is known."""
+    scheme = arguments.get("randomisation")
+    if scheme is None or scheme.value is None:
+        return None
+    if scheme.value not in SCHEMES:
+        fail(
+            "domain",
+            'randomisation must be "complete": every split of the units into arms of the '
+            "declared sizes was equally likely. Blocked, stratified and other schemes are not "
+            "supported yet; leave randomisation out for them.",
+            scheme.span,
+        )
+    return scheme.value
+
+
 def _assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
     for name in ("n_control", "n_treatment"):
         if arguments[name].value <= 0:
             fail("domain", f"{name} must be a positive integer.", arguments[name].span)
-    return AssignmentIR(arguments["n_control"].value, arguments["n_treatment"].value)
+    return AssignmentIR(
+        arguments["n_control"].value,
+        arguments["n_treatment"].value,
+        randomisation=_scheme(arguments),
+    )
 
 
 def _cluster_assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
@@ -1039,6 +1132,7 @@ def _cluster_assignment(arguments: dict[str, LocatedValue], span: Span) -> Assig
         sizes.n_treatment,
         arguments["clusters_control"].value,
         arguments["clusters_treatment"].value,
+        sizes.randomisation,
     )
 
 
@@ -1224,6 +1318,49 @@ def _declared_test(arguments: dict[str, LocatedValue], span: Span) -> CitedAnaly
         grade="declared",
     )
     return CitedAnalysisIR(design.value, null.value, alpha.value, method)
+
+
+def _no_effect(arguments: dict[str, LocatedValue], span: Span) -> SharpNullIR:
+    model = arguments["model"]
+    if not isinstance(model.value, TwoArmModelIR):
+        fail("type", "no_effect is a null for a two-arm model.", model.span)
+    return SharpNullIR(model.value)
+
+
+def _randomisation_test(arguments: dict[str, LocatedValue], span: Span) -> RandomisationAnalysisIR:
+    design, alpha = arguments["design"], arguments["alpha"]
+    assignment = design.value.model.assignment
+    unit, units, treated = assignment.randomised_units
+    if assignment.randomisation is None:
+        constructor = "cluster_assignment" if assignment.clustered else "assignment"
+        fail(
+            "undeclared_randomisation",
+            "randomisation_test needs the assignment to say how it was randomised: its level "
+            "follows from the randomisation alone. If every split of the "
+            f"{units} {unit}s into arms of these sizes was equally likely, declare "
+            f'randomisation="complete" in {constructor}(...).',
+            design.span,
+        )
+    if units > MAX_UNITS:
+        fail(
+            "domain",
+            f"randomisation_test supports up to {MAX_UNITS} randomised units; this design has "
+            f"{units}.",
+            design.span,
+        )
+    if alpha.value == 0:
+        fail("domain", "alpha must be positive for this test.", alpha.span)
+    splits = comb(units, treated)
+    if Fraction(1, splits) > alpha.value:
+        fail(
+            "never_rejects",
+            f"With {units} {unit}s, {treated} treated, there are {splits} equally likely "
+            f"splits, so no p-value is below 1/{splits}, which is above the level "
+            f"{alpha.value}. The test can never reject. It needs at least "
+            f"{splits_needed(alpha.value)} splits: randomise more {unit}s or use a larger level.",
+            design.span,
+        )
+    return RandomisationAnalysisIR(design.value, arguments["null"].value, alpha.value)
 
 
 def _fisher(alternative: str) -> Callable:
@@ -1979,15 +2116,20 @@ DECLARED_MODULE_SUMMARY = (
 )
 
 
+RANDOMISATION_DOCUMENTATION = (
+    'randomisation is "complete" when every split of the units into arms of these sizes was '
+    "equally likely. Leave it out otherwise; only randomisation_test reads it, and it "
+    "refuses an assignment without it."
+)
 # Shared by every two-arm model module, so a file that loads several gets one copy.
 ASSIGNMENT = _constructor(
     "assignment",
-    (("n_control", "integer"), ("n_treatment", "integer")),
+    (("n_control", "integer"), ("n_treatment", "integer"), ("randomisation", "string", True)),
     "Assignment",
     _assignment,
-    documentation="How participants are assigned to the two arms: today, the two arm "
-    "sizes. One assignment can be shared by several outcomes measured on the same "
-    "participants.",
+    documentation="How participants are assigned to the two arms: the two arm sizes and, "
+    "when declared, how the assignment was randomised. One assignment can be shared by "
+    f"several outcomes measured on the same participants. {RANDOMISATION_DOCUMENTATION}",
 )
 CLUSTER_ASSIGNMENT = _constructor(
     "cluster_assignment",
@@ -1996,6 +2138,7 @@ CLUSTER_ASSIGNMENT = _constructor(
         ("clusters_treatment", "integer"),
         ("n_control", "integer"),
         ("n_treatment", "integer"),
+        ("randomisation", "string", True),
     ),
     "Assignment",
     _cluster_assignment,
@@ -2003,7 +2146,15 @@ CLUSTER_ASSIGNMENT = _constructor(
     "everyone in a cluster gets the same arm. clusters_control and clusters_treatment count "
     "the clusters; n_control and n_treatment count the participants. Sites in a trial that "
     "randomises participants are not clusters: use assignment(...) there. Tests that assume "
-    "independent participants are refused.",
+    "independent participants are refused. With randomisation, the units are the clusters. "
+    + RANDOMISATION_DOCUMENTATION,
+)
+NO_EFFECT = _constructor(
+    "no_effect",
+    (("model", StudyModelIR),),
+    "SharpNull",
+    _no_effect,
+    documentation=SHARP_NULL.documentation,
 )
 TWO_ARM = _constructor(
     "two_arm",
@@ -2066,7 +2217,7 @@ def _outcome_module(outcome) -> "Module":
         f"states the one it assumes. {_shorthand_note(outcome)} {BETTER_DOCUMENTATION}",
     )
     pieces = (ASSIGNMENT, CLUSTER_ASSIGNMENT, _outcome_piece_constructor(outcome), TWO_ARM)
-    return Module(outcome.module, (model, *pieces, *nulls, TYPE_I))
+    return Module(outcome.module, (model, *pieces, *nulls, NO_EFFECT, TYPE_I))
 
 
 # Extending this registry adds vocabulary and typed builders; parsing is unchanged.
@@ -2157,6 +2308,7 @@ MODULES = {
                     "Observation",
                     _observe,
                 ),
+                NO_EFFECT,
                 TYPE_I,
                 _constructor(
                     "result",
@@ -2202,6 +2354,24 @@ MODULES = {
                     hypothesis_contract=ONE_SIDED_FISHER_CONTRACT,
                     documentation=ONE_SIDED_FISHER_CONTRACT.guidance,
                 ),
+            ),
+        ),
+        Module(
+            "tests.randomisation",
+            (
+                _constructor(
+                    "randomisation_test",
+                    (("design", PlanIR), ("null", NullIR), ("alpha", "level")),
+                    "RandomisationAnalysis",
+                    _randomisation_test,
+                    hypothesis_contract=RANDOMISATION_CONTRACT,
+                    documentation="Randomisation test of the sharp null. Its level follows "
+                    "from the randomisation declared on the assignment, and Lean proves it "
+                    "for every test statistic fixed in advance; no distribution is assumed. "
+                    "With cluster_assignment the clusters are randomised, so the test "
+                    "permutes clusters. " + RANDOMISATION_CONTRACT.guidance,
+                ),
+                TYPE_I,
             ),
         ),
         Module(

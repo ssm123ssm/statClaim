@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1541,6 +1541,77 @@ assumed. Declare what you know, so that it can be checked.</div>
     <div class="task"><h4>Try it</h4><p>In the clinic trial, replace the declared test with <code>t_test</code>, adding <code>use tests.t</code>, and read the message. Then build the trial with <code>assignment(n_control=240, n_treatment=240)</code> instead and see the t-test accepted: the file no longer says that clinics were randomised.</p></div>
   </div>
 </section>
+<section class="lesson" id="randomisation">
+  <p class="eyebrow">Lesson 21</p>
+  <h2>A test whose level follows from the randomisation</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>The t-test's guarantee rests on assumptions about the outcomes. A randomisation test's level rests only on how the trial was randomised. Declare the randomisation on the assignment, and its Type I bound is proved in Lean, for clinics as well as for participants.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/21_randomisation_test.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 21: a test whose level follows from the randomisation.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.randomisation
+
+<span class="c"># Twelve clinics, six per arm, every split of them equally likely.</span>
+<span class="k">let</span> clinics = <span class="f">cluster_assignment</span>(
+    clusters_control=6,
+    clusters_treatment=6,
+    n_control=120,
+    n_treatment=120,
+    randomisation=&quot;complete&quot;,
+)
+<span class="k">let</span> practice = <span class="f">two_arm</span>(assignment=clinics, outcome=<span class="f">continuous_outcome</span>(better=&quot;higher&quot;))
+
+<span class="c"># The sharp null: treatment changes no participant&#x27;s outcome.</span>
+<span class="k">let</span> adherence = <span class="f">randomisation_test</span>(
+    design=<span class="f">fixed</span>(model=practice),
+    null=<span class="f">no_effect</span>(model=practice),
+    alpha=1/20,
+)
+
+<span class="k">let</span> checked = <span class="f">verify</span>(<span class="f">typeI</span>(adherence))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>randomisation="complete"</code></dt>
+  <dd>Every split of the twelve clinics into two arms of six was equally likely. It is
+  declared on the assignment, because it is a fact about how units reached the arms.
+  <code>assignment(...)</code> takes it too.</dd>
+  <dt><code>no_effect</code></dt>
+  <dd>The sharp null: treatment changes no participant&#x27;s outcome. It is a stronger
+  statement than equal means, and a different one.</dd>
+  <dt><code>randomisation_test</code></dt>
+  <dd>Compares the observed value of a statistic, such as the difference in clinic
+  means, with its value under every other split. Because clinics were randomised, it
+  permutes clinics.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [checked]: typeI(adherence)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  Under complete randomisation of 12 clusters, 6 treated and 6 control, the 924 possible splits are equally likely, and that uniform law is a probability law.
+  No p-value is below 1/924, which does not exceed the level 1/20, so the test can reject.
+  For every test statistic fixed in advance, the randomisation p-value, the share of splits whose statistic is at least the observed one, is at most 1/20 with probability at most 1/20 whenever treatment changes no participant&#x27;s outcome.
+  ...
+Program status: verified</code></pre></div>
+<p>Lean proves one theorem for every design: when all splits are equally likely and
+the outcomes do not depend on the split, at most a share alpha of the splits can give
+a p-value at or below alpha. The certificate applies it to twelve clinics and checks
+that there are 924 splits. No distribution is assumed, and participants in one clinic
+may be as alike as they are.</p>
+<p>Now try two clinics per arm:</p>
+<div class="scroll output"><pre><code>error [never_rejects]: With 4 clusters, 2 treated, there are 6 equally likely splits,
+so no p-value is below 1/6, which is above the level 1/20. The test can never reject.
+It needs at least 20 splits: randomise more clusters or use a larger level.</code></pre></div>
+<p>The error bound would still hold, but only because the test can never reject. Leave
+out <code>randomisation="complete"</code>, and the test is refused with
+<code>undeclared_randomisation</code>: its level comes from the randomisation, so the file
+must say what it was.</p>
+<div class="note"><strong>Not a test of means.</strong> Give the randomisation test
+<code>equal_means(model=practice)</code>, or a t-test <code>no_effect(model=practice)</code>, and
+each is refused with <code>hypothesis_mismatch</code>. When effects differ between
+participants, the two nulls ask different questions.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>An assignment can declare that every split was equally likely.</li><li>A randomisation test of the sharp null is then proved, whatever the outcomes.</li><li>With randomised clusters, the test permutes clusters; too few clusters to reach the level are refused.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Build the trial with <code>assignment(n_control=20, n_treatment=20, randomisation="complete")</code> instead and read how many splits it has. Then set <code>clusters_control=3</code> and <code>clusters_treatment=3</code>: 20 splits, just enough at 1/20.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1555,6 +1626,7 @@ assumed. Declare what you know, so that it can be checked.</div>
       <tr><td>Analyse repeated measurements</td><td><code>models.two_arm_continuous</code>, <code>tests.mixed_model</code></td><td><code>mmrm_test</code> with <code>typeI</code> (cited)</td><td>17, 20</td></tr>
       <tr><td>State arm sizes once for several outcomes</td><td>any two-arm model module</td><td><code>assignment</code>, <code>two_arm</code></td><td>19</td></tr>
       <tr><td>Declare repeated measurements or randomised clusters</td><td>any two-arm model module</td><td><code>continuous_outcome(measurements=...)</code>, <code>cluster_assignment</code></td><td>20</td></tr>
+      <tr><td>Test a randomised comparison without assumptions about outcomes</td><td><code>tests.randomisation</code></td><td><code>randomisation_test</code> with <code>typeI</code></td><td>21</td></tr>
       <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
       <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>

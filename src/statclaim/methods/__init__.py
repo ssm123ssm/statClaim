@@ -19,6 +19,7 @@ from statclaim.methods.core import (
     PowerFormula,
 )
 from statclaim.methods.outcomes import OUTCOMES as _OUTCOMES
+from statclaim.methods.outcomes import SHARP_NULL
 
 METHOD_MODULES: tuple[MethodModule, ...] = (
     t_tests.MODULE,
@@ -35,6 +36,9 @@ for _outcome in _OUTCOMES:
         if _form.key in NULL_FORMS:
             raise ValueError(f"Null form {_form.key!r} is defined twice.")
         NULL_FORMS[_form.key] = (_outcome, _form)
+# The sharp null is no outcome's null, so a cited method can never name it.
+if SHARP_NULL.key in NULL_FORMS:
+    raise ValueError("The sharp null may not be listed as an outcome's null.")
 
 METHODS: dict[str, CitedMethod] = {}
 for _module in METHOD_MODULES:

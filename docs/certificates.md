@@ -15,7 +15,9 @@ one-sample result, `statclaim_two_stage_result_certificate` the decision of a
 two-stage design, and `statclaim_binomial_interval_certificate` an exact
 confidence interval. `statclaim_difference_interval_certificate` covers an
 interval for a difference of two proportions, and
-`statclaim_margin_test_certificate` an exact test with a margin. All replay with `check-certificate`.
+`statclaim_margin_test_certificate` an exact test with a margin.
+`statclaim_randomisation_certificate` covers a randomisation test of the sharp
+null for the declared numbers of units. All replay with `check-certificate`.
 
 The TOML commands below (`verify-design`, `verify-family`, `verify-result` and
 their `inspect` counterparts) predate the file language. They still work but are

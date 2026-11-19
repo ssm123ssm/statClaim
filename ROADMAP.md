@@ -39,6 +39,8 @@
   participants can share one assignment.
 - Randomisation by cluster and repeated measurements declared on the model, and
   tests whose independence assumptions they contradict refused.
+- Randomisation tests of the sharp null, proved in Lean once for every design,
+  by participant or by cluster, under declared complete randomisation.
 
 ## Direction
 
@@ -51,7 +53,8 @@ and for rules that combine tests. Each claim shows its
 ## Next
 
 1. Tests that account for clustering or repeated binary measurements, and strata
-   on the assignment once a covariate-adjusted analysis reads them.
+   on the assignment once a covariate-adjusted analysis reads them. Stratified
+   and blocked randomisation for the randomisation test, and Monte Carlo p-values.
 2. Cited group-sequential boundaries that use the correlation between looks.
 3. A narrower exact interval for a difference of two proportions.
 4. Larger sample sizes and p-values for the test with a margin.

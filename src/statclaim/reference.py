@@ -16,6 +16,7 @@ from statclaim.planning import (
     MAX_SEARCH_TOTAL,
     MAX_STAGE,
 )
+from statclaim.randomisation import MAX_UNITS
 
 GRAMMAR = """\
 file        = { statement NEWLINE } ;
@@ -121,6 +122,10 @@ ENUMERATIONS = {
         "fixed": "From `fixed(...)`: sizes set in advance, one analysis.",
         "data_dependent": "From `adaptive(...)`: leaves error claims unresolved.",
     },
+    "assignment randomisation": {
+        "complete": "Every split of the units into arms of the declared sizes was equally "
+        "likely. With cluster_assignment, the units are the clusters.",
+    },
     "bonferroni joint_law": {
         "binomial_marginals": "The only value, and the default. Allowed only when every "
         "member is a two-sided Fisher analysis; leave it out otherwise.",
@@ -145,6 +150,7 @@ LIMITS = {
     "Participants per arm, cited-test planning search": f"up to {MAX_CITED_ARM}",
     "Allocation ratio in a planning search": f"1 to {MAX_RATIO}",
     "Participants, one-sample binomial test": f"up to {MAX_ONE_ARM}",
+    "Randomised units, participants or clusters, randomisation test": f"up to {MAX_UNITS}",
     "Participants per stage, two-stage design": f"up to {MAX_STAGE}",
     "Total participants, two-stage design search": f"up to {MAX_SEARCH_TOTAL}",
 }
@@ -195,6 +201,16 @@ DIAGNOSTICS = {
         "error",
         "The test assumes independent participants or observations, but the declared design "
         "randomises clusters or measures each participant several times.",
+    ),
+    "undeclared_randomisation": (
+        "error",
+        "A randomisation test is declared on an assignment that does not say how it was "
+        "randomised.",
+    ),
+    "never_rejects": (
+        "error",
+        "A randomisation test has too few equally likely splits to reach its level, so it "
+        "could never reject.",
     ),
     "planning_point": ("error", "The planning point does not fit the analysis."),
     "rule_mismatch": ("error", "A stopping rule does not fit the two-stage design."),

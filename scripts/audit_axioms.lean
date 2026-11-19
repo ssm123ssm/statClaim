@@ -74,7 +74,16 @@ run_cmd do
     ``StatClaim.Modules.Composition.familywise_le,
     ``StatClaim.Modules.Composition.familywise_le_of_levels,
     ``StatClaim.Modules.Composition.fixed_sequence_le,
-    ``StatClaim.Modules.Composition.fixed_sequence_le_of_levels]
+    ``StatClaim.Modules.Composition.fixed_sequence_le_of_levels,
+    ``StatClaim.Modules.Randomisation.card_rejected_le,
+    ``StatClaim.Modules.Randomisation.uniform_tail_le,
+    ``StatClaim.Modules.Randomisation.uniform_univ,
+    ``StatClaim.Modules.Randomisation.splits_card,
+    ``StatClaim.Modules.Randomisation.law_univ,
+    ``StatClaim.Modules.Randomisation.sharpNull_of_units,
+    ``StatClaim.Modules.Randomisation.pValue_ge,
+    ``StatClaim.Modules.Randomisation.typeI,
+    ``StatClaim.Modules.Randomisation.typeI_of_level]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

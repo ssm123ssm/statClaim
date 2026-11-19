@@ -101,6 +101,23 @@ from statclaim.proof import (
     render_proof,
     validate_result,
 )
+from statclaim.randomisation import (
+    ASSUMPTIONS as RANDOMISATION_ASSUMPTIONS,
+)
+from statclaim.randomisation import (
+    GENERAL_THEOREM as RANDOMISATION_THEOREM,
+)
+from statclaim.randomisation import (
+    RANDOMISATION_KIND,
+    RandomisationTest,
+    parse_randomisation_payload,
+    randomisation_claims,
+    randomisation_payload,
+    render_randomisation_proof,
+)
+from statclaim.randomisation import (
+    THEOREMS as RANDOMISATION_THEOREMS,
+)
 
 CLAIMS = [
     "Exact p-value equals the Lean Fisher definition for these counts.",
@@ -239,6 +256,14 @@ def _profile(kind: str, payload: dict) -> dict:
             "interval for the difference at these observed counts."
         )
         general_theorem = "StatClaim.Modules.BinomialInterval.joint_coverage"
+    elif kind == RANDOMISATION_KIND:
+        claims = randomisation_claims(parse_randomisation_payload(payload))
+        assumptions, theorems = list(RANDOMISATION_ASSUMPTIONS), RANDOMISATION_THEOREMS
+        scope = (
+            "The declared randomisation test under complete randomisation, for every statistic "
+            "fixed in advance; no observed results are certified."
+        )
+        general_theorem = RANDOMISATION_THEOREM
     elif kind == INTERVAL_KIND:
         claims = interval_claims(parse_interval_payload(payload))
         assumptions, theorems = INTERVAL_ASSUMPTIONS, INTERVAL_CHECKED_THEOREMS
@@ -406,6 +431,8 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_interval_proof(parse_interval_payload(payload), input_id)
     if kind == RESULT_KIND:
         return render_result_proof(parse_result_payload(payload), input_id)
+    if kind == RANDOMISATION_KIND:
+        return render_randomisation_proof(parse_randomisation_payload(payload), input_id)
     raise VerificationError("integrity", "Unsupported certificate kind.")
 
 
@@ -738,6 +765,19 @@ def certify_interval(
     """Certify an exact confidence interval and the coverage of its procedure."""
     return _certify_payload(
         interval_payload(interval), INTERVAL_KIND, project=project, output=output, timeout=timeout
+    )
+
+
+def certify_randomisation(
+    test: RandomisationTest, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify a randomisation test's Type I bound under the sharp null."""
+    return _certify_payload(
+        randomisation_payload(test),
+        RANDOMISATION_KIND,
+        project=project,
+        output=output,
+        timeout=timeout,
     )
 
 
