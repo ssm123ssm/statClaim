@@ -60,6 +60,28 @@ def test_pieces_and_the_one_call_spelling_give_the_same_model(kind, shorthand, m
     assert normalize(found["pieces"]) == normalize(found["short"])
 
 
+@pytest.mark.parametrize(
+    ("kind", "shorthand"),
+    [
+        ("binary", "two_arm_binomial"),
+        ("continuous", "two_arm_continuous"),
+        ("survival", "two_arm_survival"),
+    ],
+)
+def test_the_one_call_spelling_takes_a_population_and_a_name(kind, shorthand):
+    sizes = "n_control=30, n_treatment=45"
+    found = values(
+        USES + f'let arms = assignment({sizes}, population="per_protocol")\n'
+        f'let measured = {kind}_outcome(name="primary")\n'
+        "let pieces = two_arm(assignment=arms, outcome=measured)\n"
+        f'let short = {shorthand}({sizes}, population="per_protocol", name="primary")\n'
+    )
+    assert found["pieces"] == found["short"]
+    assert normalize(found["pieces"]) == normalize(found["short"])
+    assert found["short"].assignment.population == "per_protocol"
+    assert found["short"].measured.name == "primary"
+
+
 def test_sharing_an_assignment_changes_no_claim_or_contract():
     """The example states its sizes once; its claims match separate declarations."""
     separate = SEPARATE.replace(
@@ -131,6 +153,13 @@ def test_the_binary_pieces_give_the_lean_backed_model():
         ('let bad = continuous_outcome(better="up")', "domain"),
         ("let bad = two_arm(assignment=continuous_outcome(), outcome=arms)", "type"),
         ("let bad = two_arm(assignment=arms)", "arguments"),
+        ('let bad = two_arm_binomial(n_control=3, n_treatment=5, population="itt")', "domain"),
+        ('let bad = two_arm_continuous(n_control=3, n_treatment=5, name=" ")', "domain"),
+        # Randomisation needs the assignment piece.
+        (
+            'let bad = two_arm_survival(n_control=3, n_treatment=5, randomisation="complete")',
+            "arguments",
+        ),
     ],
 )
 def test_malformed_pieces_are_refused(line, code):

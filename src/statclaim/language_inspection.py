@@ -198,8 +198,9 @@ def composed_report(family: ComposedFamilyIR) -> dict:
 def with_population(report: dict, subject: object) -> dict:
     """Add which population the claim's bounds cover, when an assignment declares it.
 
-    These are conditions on what the claim is about, listed with its assumptions. They are
-    not part of any certificate: Lean's theorem is the same for either population.
+    These are conditions on what the claim is about, listed with its assumptions; a
+    per-protocol population also adds that exclusions were not chosen from the results.
+    They are not part of any certificate: Lean's theorem is the same for either population.
     """
     conditions = [
         item

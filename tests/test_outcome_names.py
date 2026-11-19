@@ -269,3 +269,14 @@ def test_a_null_on_another_named_outcome_is_a_different_model():
     )
     ((code, message),) = errors(text)
     assert code == "model_mismatch" and "differ in their assignment or outcome" in message
+
+
+def test_the_one_call_spelling_names_an_outcome():
+    text = (
+        'let study = two_arm_binomial(n_control=100, n_treatment=100, name="response")\n'
+        + fisher("first")
+        + fisher("again")
+        + FAMILY.format(members="first, again")
+    )
+    ((code, message), *_) = errors(text)
+    assert code == "duplicate_analysis" and '"response"' in message

@@ -29,6 +29,8 @@ RECOGNISED = [
     # Which population a bound covers, when the assignment declares it (assumptions.py).
     (r"^The bound covers the randomised population", "randomised_population", "scope"),
     (r"^The bound covers the per-protocol population", "per_protocol_population", "scope"),
+    # Before the generic "fixed before": this one is assumed, not stated by the file.
+    (r"^Who is excluded after randomisation", "prespecified_exclusions", "sampling"),
     (r"null that treatment changes no participant's outcome", "bound_under_null", "scope"),
     (r"posterior rule is the binomial-sum form", "posterior_closed_form", "unproved_step"),
     (r"planning point", "planning_point_is_input", "scope"),

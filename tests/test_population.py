@@ -18,7 +18,12 @@ from statclaim.language_compiler import compile_source
 from statclaim.language_inspection import inspect_program
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
-from statclaim.methods.assumptions import PER_PROTOCOL_POPULATION, RANDOMISED_POPULATION
+from statclaim.methods.assumptions import (
+    PER_PROTOCOL_POPULATION,
+    PRESPECIFIED_EXCLUSIONS,
+    RANDOMISED_POPULATION,
+)
+from statclaim.methods.identify import identify
 from statclaim.randomisation import (
     POPULATION,
     RandomisationTest,
@@ -253,3 +258,24 @@ def test_tests_without_an_assignment_population_have_no_condition():
         "randomised_population",
         "per_protocol_population",
     }
+
+
+def test_a_per_protocol_claim_assumes_the_exclusions_were_not_chosen_from_the_results():
+    # Per-protocol arm sizes count those left after exclusions, so the file cannot show
+    # that they were fixed before outcomes: the claim lists that as assumed.
+    claim = RESPONSE + FISHER + "verify typeI(analysis)\n"
+    assert statuses(compiled(arms("per_protocol") + claim))[PRESPECIFIED_EXCLUSIONS.id] == "assumed"
+    assert PRESPECIFIED_EXCLUSIONS.id not in statuses(compiled(arms("randomised") + claim))
+    # The sentence says "fixed before", but it is not the design's declaration.
+    assert identify(PRESPECIFIED_EXCLUSIONS.text)["status"] == "assumed"
+
+
+def test_the_one_call_spelling_declares_a_population():
+    text = (
+        'let study = two_arm_binomial(n_control=26, n_treatment=24, population="per_protocol")\n'
+        + FISHER
+        + "verify typeI(analysis)\n"
+    )
+    found = statuses(compiled(text))
+    assert found[PER_PROTOCOL_POPULATION.id] == "condition"
+    assert found[PRESPECIFIED_EXCLUSIONS.id] == "assumed"

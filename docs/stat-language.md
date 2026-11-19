@@ -139,6 +139,8 @@ evidence. A shared assignment states the arm sizes once, and a change to it is
 reported against every model, analysis and claim built on it. Sharing does not
 assume that the outcomes are independent. Read the pieces back as
 `scores.assignment` and `scores.outcome`. See `examples/shared_assignment.stat`.
+The one-call constructors also take `population` and `name`, described below;
+randomisation and repeated measurements need the pieces.
 
 An outcome can have a name: `binary_outcome(name="response")`. One name is one
 outcome, so models that share a name must agree on its kind and `better`
@@ -237,8 +239,10 @@ population, that is listed as assumed (`analysed_as_randomised`); with
 `"randomised"` the file states it, and the report lists it as declared. With
 `"per_protocol"` the test is refused with `population_mismatch`. Other tests take
 either population, and their claims list which population the bound covers
-(`randomised_population` or `per_protocol_population`). See
-`examples/analysis_population.stat`.
+(`randomised_population` or `per_protocol_population`). A per-protocol claim also
+lists as assumed that exclusions followed rules fixed before outcomes were
+observed (`prespecified_exclusions`): its arm sizes are counted after them. See
+`examples/analysis_population.stat` and tutorial lesson 22.
 
 ## First-class claims and execution results
 

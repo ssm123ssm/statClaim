@@ -187,7 +187,7 @@ POPULATIONS = {
     "to treat). Turns a randomisation test's analysed_as_randomised into a declaration.",
     "per_protocol": "Participants excluded after randomisation are left out; the arm sizes "
     "count those analysed. A randomisation test is refused; other claims say they cover this "
-    "population only.",
+    "population only, and list as assumed that exclusions were not chosen from the results.",
 }
 RANDOMISED_POPULATION = Assumption(
     "randomised_population",
@@ -203,9 +203,17 @@ PER_PROTOCOL_POPULATION = Assumption(
     "arms' remaining groups comparable, so a difference between them need not be caused by "
     "treatment.",
 )
+# The arm sizes a per-protocol file declares count those left after exclusions, so they
+# were not fixed before outcomes in the way a fixed design's sizes are.
+PRESPECIFIED_EXCLUSIONS = Assumption(
+    "prespecified_exclusions",
+    "sampling",
+    "Who is excluded after randomisation was decided by rules fixed before outcomes were "
+    "observed, so the arm sizes analysed were not chosen by looking at the results.",
+)
 POPULATION_COVERED = {
-    "randomised": RANDOMISED_POPULATION,
-    "per_protocol": PER_PROTOCOL_POPULATION,
+    "randomised": (RANDOMISED_POPULATION,),
+    "per_protocol": (PER_PROTOCOL_POPULATION, PRESPECIFIED_EXCLUSIONS),
 }
 
 # Assumptions of the approximate power formulas in power.py. Power is a calculation,

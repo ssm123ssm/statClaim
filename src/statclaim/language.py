@@ -75,7 +75,7 @@ from statclaim.randomisation import (
     splits_needed,
 )
 
-LANGUAGE_VERSION = "0.15.0"
+LANGUAGE_VERSION = "0.16.0"
 
 
 class PlannableIR:
@@ -370,7 +370,8 @@ class CitedAnalysisIR(TwoArmTestIR, LevelTestIR):
 
 def population_conditions(subject: object) -> tuple[Assumption, ...]:
     """Which population the bounds in a claim cover, for each population an assignment
-    declares. A randomisation test is left out: its own premises say who is analysed."""
+    declares, with what that population adds to the assumptions. A randomisation test is
+    left out: its own premises say who is analysed."""
     found: list[Assumption] = []
 
     def visit(item: object) -> None:
@@ -388,8 +389,9 @@ def population_conditions(subject: object) -> tuple[Assumption, ...]:
             model = plan.model if isinstance(plan, PlanIR) else getattr(item, "model", None)
             assignment = getattr(model, "assignment", None)
             population = getattr(assignment, "population", None)
-            if population and POPULATION_COVERED[population] not in found:
-                found.append(POPULATION_COVERED[population])
+            for condition in POPULATION_COVERED.get(population, ()):
+                if condition not in found:
+                    found.append(condition)
 
     visit(subject)
     return tuple(found)
@@ -2515,9 +2517,21 @@ def _outcome_piece_constructor(outcome) -> Constructor:
 
 def _shorthand_note(outcome) -> str:
     return (
-        f"Shorthand for two_arm(assignment=assignment(n_control, n_treatment), "
-        f"outcome={outcome_constructor_name(outcome.key)}(better))."
+        f"Shorthand for two_arm(assignment=assignment(n_control, n_treatment, population), "
+        f"outcome={outcome_constructor_name(outcome.key)}(better, name)); population and name "
+        "mean the same as there."
     )
+
+
+# The one-call model constructors: arm sizes, and the assignment's and outcome's optional
+# declarations that fit in one call. Randomisation and repeated measurements need the pieces.
+SHORTHAND_PARAMETERS = (
+    ("n_control", "integer"),
+    ("n_treatment", "integer"),
+    ("better", "string", True),
+    ("population", "string", True),
+    ("name", "string", True),
+)
 
 
 def _outcome_module(outcome) -> "Module":
@@ -2533,7 +2547,7 @@ def _outcome_module(outcome) -> "Module":
     )
     model = _constructor(
         outcome.constructor,
-        (("n_control", "integer"), ("n_treatment", "integer"), ("better", "string", True)),
+        SHORTHAND_PARAMETERS,
         "OutcomeModel",
         _model_from_sizes(outcome.key),
         documentation=f"{outcome.documentation} The model fixes no distribution; each test "
@@ -2585,11 +2599,7 @@ MODULES = {
             (
                 _constructor(
                     "two_arm_binomial",
-                    (
-                        ("n_control", "integer"),
-                        ("n_treatment", "integer"),
-                        ("better", "string", True),
-                    ),
+                    SHORTHAND_PARAMETERS,
                     "Model",
                     _model_from_sizes("binary"),
                     documentation="Two independent binomial arms. "

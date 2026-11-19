@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Eighteen short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Twenty-two short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -1624,6 +1624,115 @@ participants, the two nulls ask different questions.</div>
     <div class="task"><h4>Try it</h4><p>Build the trial with <code>assignment(n_control=20, n_treatment=20, randomisation="complete")</code> instead and read how many splits it has. Then set <code>clusters_control=3</code> and <code>clusters_treatment=3</code>: 20 splits, just enough at 1/20.</p></div>
   </div>
 </section>
+<section class="lesson" id="population">
+  <p class="eyebrow">Lesson 22</p>
+  <h2>Who is analysed, and which outcome</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>An analysis counts either everyone randomised or only those who followed the protocol. Say which on the assignment, and StatClaim refuses a test that needs the other. Name an outcome, and a family cannot test it twice.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/22_population_and_names.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 22: who is analysed, and which outcome.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.randomisation
+<span class="k">use</span> tests.fisher
+
+<span class="c"># Everyone randomised, analysed in the arm they were assigned to.</span>
+<span class="k">let</span> everyone = <span class="f">assignment</span>(
+    n_control=40,
+    n_treatment=40,
+    randomisation=&quot;complete&quot;,
+    population=&quot;randomised&quot;,
+)
+<span class="k">let</span> response = <span class="f">two_arm</span>(assignment=everyone, outcome=<span class="f">binary_outcome</span>(better=&quot;higher&quot;, name=&quot;response&quot;))
+<span class="k">let</span> primary = <span class="f">randomisation_test</span>(
+    design=<span class="f">fixed</span>(model=response),
+    null=<span class="f">no_effect</span>(model=response),
+    alpha=1/20,
+    draws=9999,
+)
+
+<span class="c"># Only those who followed the protocol: 6 control and 5 treatment participants left out.</span>
+<span class="k">let</span> adherent = <span class="f">two_arm_binomial</span>(
+    n_control=34,
+    n_treatment=35,
+    better=&quot;higher&quot;,
+    population=&quot;per_protocol&quot;,
+    name=&quot;response&quot;,
+)
+<span class="k">let</span> supportive = <span class="f">fisher</span>(
+    design=<span class="f">fixed</span>(model=adherent),
+    null=<span class="f">equal_proportions</span>(model=adherent),
+    alpha=1/20,
+)
+
+<span class="k">let</span> main = <span class="f">verify</span>(typeI(primary))
+<span class="k">let</span> sensitivity = <span class="f">verify</span>(typeI(supportive))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>population="randomised"</code></dt>
+  <dd>Everyone randomised is analysed, in the arm they were assigned to, whatever happened
+  afterwards: intention to treat. <code>cluster_assignment</code> takes it too.</dd>
+  <dt><code>population="per_protocol"</code></dt>
+  <dd>Participants excluded after randomisation are left out, and the arm sizes count those
+  analysed. The one-call constructors, such as <code>two_arm_binomial</code>, take
+  <code>population</code> and <code>name</code> as well.</dd>
+  <dt><code>name="response"</code></dt>
+  <dd>Labels the outcome. One name is one outcome, so every model that uses it must agree
+  on its kind and on which direction is better.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [main]: typeI(primary)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  ...
+  Assumptions:
+    Every split of the randomised units into arms of the declared sizes was equally likely: complete randomisation, as the assignment declares. With clusters, the units are the clusters.
+    The analysis and its level are chosen before outcomes are observed.
+    Every randomised unit is analysed, in the arm it was assigned to: the randomised population, as the assignment declares.
+    ...
+<span class="ok">verified</span> [sensitivity]: typeI(supportive)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  ...
+  Assumptions:
+    ...
+    The bound covers the per-protocol population only, as the assignment declares: participants excluded after randomisation are left out. Randomisation does not make the arms&#x27; remaining groups comparable, so a difference between them need not be caused by treatment.
+    Who is excluded after randomisation was decided by rules fixed before outcomes were observed, so the arm sizes analysed were not chosen by looking at the results.
+Program status: verified</code></pre></div>
+<p>In lesson 21 the randomisation test assumed that everyone randomised was analysed.
+Here the file says so: the study report (lesson 6) lists it as declared, and the
+certificate records it. Fisher&#x27;s test is proved for any two binomial arms, so it takes the
+per-protocol population. Its claim says the bound covers only that population, and adds
+one assumption the file cannot show: that the exclusions were not chosen by looking at
+the results.</p>
+<p>Now declare <code>population="per_protocol"</code> in <code>everyone</code>:</p>
+<div class="scroll output"><pre><code>22_population_and_names.stat:16:12: <span class="bad">error [population_mismatch]</span>: randomisation_test needs every
+randomised unit analysed, in the arm it was assigned to: its level comes from how exactly
+those units were randomised. The assignment declares population=&quot;per_protocol&quot;, which
+leaves out units excluded after randomisation, so the units analysed were not randomised
+as a set. Analyse everyone randomised and declare population=&quot;randomised&quot;; for a
+per-protocol analysis, use another test, such as fisher, whose claim says it covers the
+per-protocol population only.
+Program status: invalid</code></pre></div>
+<p>Without names, two declarations with the same content could be two outcomes measured on
+the same participants, so StatClaim accepts both. With a name, it knows they are one. Add
+<code>use multiplicity.bonferroni</code>, replace the two <code>verify</code> lines with
+these, and check the file again:</p>
+<div class="scroll output"><pre><code>let copy = two_arm(assignment=everyone, outcome=binary_outcome(better=&quot;higher&quot;, name=&quot;response&quot;))
+let again = randomisation_test(design=fixed(model=copy), null=no_effect(model=copy), alpha=1/40, draws=9999)
+let endpoints = bonferroni(analyses=[primary, again], alpha=1/20)</code></pre></div>
+<div class="scroll output"><pre><code><span class="bad">error [duplicate_analysis]</span>: primary and again ask the same question of the outcome
+&quot;response&quot;: the same test of the same null on the same participants. Listed twice, one
+question would be reported as two. Keep one; if the other is a different outcome, give it
+its own name.
+Program status: invalid</code></pre></div>
+<p>The per-protocol Fisher test also measures <code>"response"</code>. It asks a different
+question, a different test on different participants, so the two can share the name.</p>
+<div class="note"><strong>Left out, neither can be seen.</strong> Without
+<code>population</code>, the randomisation test assumes that everyone randomised was
+analysed, as in lesson 21, and a per-protocol file looks like any other. Without names,
+two copies of one outcome look like two outcomes.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>population</code> on an assignment says who is analysed; a randomisation test needs <code>"randomised"</code>.</li><li>Other tests take either, and their claims say which population the bound covers.</li><li>A family cannot ask a named outcome the same question twice.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>In the family, give <code>copy</code> <code>better="lower"</code> and read the message: one name cannot be two outcomes. Then remove the name from <code>copy</code> and see the family accepted, because the file no longer says the two models are one outcome.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1639,6 +1748,7 @@ participants, the two nulls ask different questions.</div>
       <tr><td>State arm sizes once for several outcomes</td><td>any two-arm model module</td><td><code>assignment</code>, <code>two_arm</code></td><td>19</td></tr>
       <tr><td>Declare repeated measurements or randomised clusters</td><td>any two-arm model module</td><td><code>continuous_outcome(measurements=...)</code>, <code>cluster_assignment</code></td><td>20</td></tr>
       <tr><td>Test a randomised comparison without assumptions about outcomes</td><td><code>tests.randomisation</code></td><td><code>randomisation_test</code> with <code>typeI</code></td><td>21</td></tr>
+      <tr><td>Say who is analysed, or name an outcome</td><td>any two-arm model module</td><td><code>assignment(population=...)</code>, <code>binary_outcome(name=...)</code></td><td>22</td></tr>
       <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
       <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
