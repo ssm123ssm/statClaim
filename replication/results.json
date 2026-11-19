@@ -239,13 +239,16 @@
     "key": "same_outcome_declared_twice",
     "category": "Multiplicity",
     "error": "The same outcome is declared as two separate analyses to gain a second chance.",
-    "expected": "invisible",
-    "expected_code": null,
-    "outcome": "invisible",
-    "codes": [],
-    "message": "",
+    "expected": "rejected",
+    "expected_code": "duplicate_analysis",
+    "outcome": "rejected",
+    "codes": [
+      "duplicate_analysis",
+      "dependency"
+    ],
+    "message": "analysis and again ask the same question of the outcome \"response\": the same test of the same null on the same participants. Listed twice, one question would be reported as two. Keep one; if the other is a different outcome, give it its own name.",
     "as_expected": true,
-    "note": "Two declarations with identical content are indistinguishable from two real outcomes measured on the same participants."
+    "note": "The outcome is named. Without a name, two declarations with identical content are indistinguishable from two real outcomes measured on the same participants."
   },
   {
     "key": "graph_shares_exceed_whole",

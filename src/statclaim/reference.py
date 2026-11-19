@@ -229,7 +229,15 @@ DIAGNOSTICS = {
     "rule_mismatch": ("error", "A stopping rule does not fit the two-stage design."),
     "sampling_contract": ("error", "A joint law is given where none applies, or is not supported."),
     "family_size": ("error", "A family or sequential design has too few or too many entries."),
-    "duplicate_analysis": ("error", "A family or sequential design lists an analysis twice."),
+    "duplicate_analysis": (
+        "error",
+        "A family or sequential design lists an analysis twice, or asks the same question of "
+        "a named outcome twice.",
+    ),
+    "outcome_conflict": (
+        "error",
+        "One outcome name is given to outcomes of different kinds or better directions.",
+    ),
     "sequential_question": ("error", "The looks of a sequential design differ in test or null."),
     "sequence_level": (
         "error",

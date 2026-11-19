@@ -140,6 +140,15 @@ reported against every model, analysis and claim built on it. Sharing does not
 assume that the outcomes are independent. Read the pieces back as
 `scores.assignment` and `scores.outcome`. See `examples/shared_assignment.stat`.
 
+An outcome can have a name: `binary_outcome(name="response")`. One name is one
+outcome, so models that share a name must agree on its kind and `better`
+(`outcome_conflict` otherwise). A family, sequence or graph that asks the same
+question of a named outcome twice, the same test of the same null on the same
+participants at any level, is refused with `duplicate_analysis`. Different
+questions of one outcome, such as non-inferiority and then superiority, are
+fine. Without names, two identical analyses could be two outcomes measured on
+the same participants, so they are not refused.
+
 The pieces also declare a design that a test's assumptions can contradict:
 
 ```text

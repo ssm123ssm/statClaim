@@ -12,6 +12,7 @@ else: it does not call the contract code or the functions that build derivations
 A rule name or a success flag alone never passes.
 """
 
+import json
 from fractions import Fraction
 from math import comb
 
@@ -979,6 +980,8 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
             ("graph-transitions", {"subject": name, "transitions": table}, table_ok, ()),
         ]
         used += [base + 3, base + 4]
+    questions = _questions(name, subject["analyses"])
+    steps += [questions] if questions else []
     steps.append((rule, {"subject": name, "members": names}, True, tuple(used)))
     obligations = []
     if splits:
@@ -1019,6 +1022,39 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
             **extra,
         },
     }
+
+
+def _single(analyses: list) -> list[dict]:
+    """The single analyses of a combination, inside nested ones too."""
+    found = []
+    for item in analyses:
+        analysis = item["analysis"]
+        found += [analysis] if "test" in analysis else _single(analysis["analyses"])
+    return found
+
+
+def _questions(name: str, analyses: list) -> tuple | None:
+    """The distinct-questions step, when some analysis names its outcome."""
+    named = [a for a in _single(analyses) if "outcome_name" in a["design"]["model"]]
+    if not named:
+        return None
+    definitions: dict = {}
+    agree = True
+    for analysis in named:
+        model = analysis["design"]["model"]
+        definition = (model["module"], model.get("better"))
+        agree = agree and definitions.setdefault(model["outcome_name"], definition) == definition
+    asked = [
+        json.dumps({k: v for k, v in analysis.items() if k != "alpha"}, sort_keys=True)
+        for analysis in named
+    ]
+    outcomes = ", ".join(dict.fromkeys(a["design"]["model"]["outcome_name"] for a in named))
+    return (
+        "distinct-questions",
+        {"subject": name, "outcomes": outcomes},
+        agree and len(set(asked)) == len(asked),
+        (),
+    )
 
 
 def _composed_expected(name: str, subject: dict, contract: str):
@@ -1122,6 +1158,8 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
                 (),
             ),
         ]
+        questions = _questions(name, subject["analyses"])
+        steps += [questions] if questions else []
         steps.append(
             (
                 "family-contract",

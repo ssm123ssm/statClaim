@@ -1,5 +1,6 @@
 # One trial, two outcomes measured on the same participants.
 # The arm sizes are stated once, in the assignment, and both models share them.
+# Each outcome has a name, so a family that tested one of them twice would be refused.
 use models.two_arm_binomial
 use models.two_arm_continuous
 use sampling
@@ -10,7 +11,10 @@ use multiplicity.bonferroni
 let arms = assignment(n_control=120, n_treatment=120)
 
 # Primary endpoint: response, yes or no. Its test is proved in Lean.
-let responders = two_arm(assignment=arms, outcome=binary_outcome(better="higher"))
+let responders = two_arm(
+    assignment=arms,
+    outcome=binary_outcome(better="higher", name="response"),
+)
 let response = fisher(
     design=fixed(model=responders),
     null=equal_proportions(model=responders),
@@ -18,7 +22,10 @@ let response = fisher(
 )
 
 # Secondary endpoint: change in a symptom score, where lower is better. Its test is cited.
-let scores = two_arm(assignment=arms, outcome=continuous_outcome(better="lower"))
+let scores = two_arm(
+    assignment=arms,
+    outcome=continuous_outcome(better="lower", name="symptom score"),
+)
 let symptoms = t_test(
     design=fixed(model=scores),
     null=equal_means(model=scores),

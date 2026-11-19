@@ -69,7 +69,9 @@ def test_sharing_an_assignment_changes_no_claim_or_contract():
         "two_arm_continuous(n_control=120, n_treatment=120)",
         'two_arm_continuous(n_control=120, n_treatment=120, better="lower")',
     )
-    shared, separate = compiled(SHARED), compiled(separate)
+    # The one-call models cannot name their outcomes, so compare without the names.
+    unnamed = SHARED.replace(', name="response"', "").replace(', name="symptom score"', "")
+    shared, separate = compiled(unnamed), compiled(separate)
     assert not shared.diagnostics and not separate.diagnostics
     assert [normalize(r.claim) for r in shared.program.requests] == [
         normalize(r.claim) for r in separate.program.requests

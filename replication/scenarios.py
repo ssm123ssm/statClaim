@@ -312,14 +312,19 @@ SCENARIOS = (
         "same_outcome_declared_twice",
         "Multiplicity",
         "The same outcome is declared as two separate analyses to gain a second chance.",
-        BINARY
+        BINARY.replace(
+            "two_arm_binomial(n_control=100, n_treatment=100)",
+            "two_arm(assignment=assignment(n_control=100, n_treatment=100), "
+            'outcome=binary_outcome(name="response"))',
+        )
         + "use multiplicity.bonferroni\n"
         + "let again = fisher(design=plan, null=null, alpha=1/20)\n"
         + "let family = bonferroni(analyses=[analysis, again], alpha=1/10)\n"
         + "verify familywise(family)\n",
-        "invisible",
-        note="Two declarations with identical content are indistinguishable from two real "
-        "outcomes measured on the same participants.",
+        "rejected",
+        "duplicate_analysis",
+        note="The outcome is named. Without a name, two declarations with identical content "
+        "are indistinguishable from two real outcomes measured on the same participants.",
     ),
     Scenario(
         "graph_shares_exceed_whole",

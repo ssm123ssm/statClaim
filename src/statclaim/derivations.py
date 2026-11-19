@@ -28,6 +28,7 @@ from statclaim.language import (
     RandomisationAnalysisIR,
     RatesIR,
     TwoStageAnalysisIR,
+    named_outcomes,
     normalize,
 )
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
@@ -133,6 +134,12 @@ RULES = {
     "distinct-members": Rule(
         "No analysis is listed twice.",
         "{subject}: the member analyses are distinct.",
+    ),
+    "distinct-questions": Rule(
+        "No two analyses ask the same question of one named outcome: the same test of the "
+        "same null on the same participants, at any level. Models that share an outcome's "
+        "name agree on its kind and its better direction.",
+        "{subject}: each question about the named outcomes ({outcomes}) is asked once.",
     ),
     "family-size": Rule(
         f"The family has between 2 and {MAX_ENDPOINTS} analyses.",
@@ -771,6 +778,7 @@ def _composed_steps(builder: _Builder, name: str, family: ComposedFamilyIR, pend
                 },
             ),
         ]
+    _distinct_questions(builder, name, family.analyses)
     final = builder.apply(rules.rule, {"subject": name, "members": names}, tuple(used))
     if rules.splits:
         allocated = sum((analysis.alpha for _, analysis in family.analyses), Fraction())
@@ -783,6 +791,13 @@ def _composed_steps(builder: _Builder, name: str, family: ComposedFamilyIR, pend
         )
     pending += inner
     return final
+
+
+def _distinct_questions(builder: _Builder, name: str, analyses) -> None:
+    """Recorded only when some analysis names its outcome; the contract does not use it."""
+    outcomes = named_outcomes(analyses)
+    if outcomes:
+        builder.apply("distinct-questions", {"subject": name, "outcomes": ", ".join(outcomes)})
 
 
 def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
@@ -813,6 +828,7 @@ def derive_family(name: str, family: FamilyIR) -> Derivation:
         builder.apply("family-size", {"subject": name, "count": len(names)}),
         builder.apply("joint-law", {"subject": name, "joint_law": family.joint_law}),
     )
+    _distinct_questions(builder, name, family.analyses)
     final = builder.apply("family-contract", {"subject": name, "members": names}, used)
     allocated = sum((analysis.alpha for _, analysis in family.analyses), Fraction())
     builder.settle(

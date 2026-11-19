@@ -106,11 +106,17 @@ SCHEMAS = {
             description="complete, stratified or blocked, when the file declares it.",
         ),
         "block_size": FieldSpec(int, optional=True, description="Units per block, if blocked."),
+        "population": FieldSpec(
+            str,
+            optional=True,
+            description="randomised or per_protocol: who is analysed, when declared.",
+        ),
     },
     StratumIR: {"control": FieldSpec(int), "treatment": FieldSpec(int)},
     OutcomeIR: {
         "kind": FieldSpec(str, description="binary, continuous, survival, ..."),
         "better": BETTER,
+        "name": FieldSpec(str, optional=True, description="The outcome's name, when declared."),
     },
     ModelIR: TWO_ARM_FIELDS,
     PlanIR: {"model": FieldSpec(StudyModelIR), "stopping": FieldSpec(str)},

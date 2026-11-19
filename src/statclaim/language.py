@@ -4,7 +4,8 @@ No Python or Lean source in a user file is executed. Module builders lower the
 supported objects to the same validated requests as the TOML and Lean routes.
 """
 
-from collections.abc import Callable
+import json
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from typing import Literal as Choice
@@ -74,7 +75,7 @@ from statclaim.randomisation import (
     splits_needed,
 )
 
-LANGUAGE_VERSION = "0.14.0"
+LANGUAGE_VERSION = "0.15.0"
 
 
 class PlannableIR:
@@ -161,13 +162,14 @@ class StratumIR:
 
 @dataclass(frozen=True)
 class OutcomeIR:
-    """What is measured on each participant: its kind, which direction is better, and how
-    many times it is measured."""
+    """What is measured on each participant: its kind, which direction is better, how many
+    times it is measured, and its name when declared. One name is one outcome."""
 
     kind: str  # a key of OUTCOMES
     # "higher" or "lower": which direction of the outcome is better, when declared.
     better: str | None = None
     measurements: int = 1
+    name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -943,10 +945,12 @@ def normalize(value: object) -> object:
         case TwoArmModelIR(assignment=assignment, measured=measured):
             # Only what a file declared beyond the arm sizes is written, so a model keeps
             # the same record however it is spelled and whatever was added later.
+            outcome = normalize(measured)
             return {
                 "module": OUTCOMES[measured.kind].constructor,
                 **normalize(assignment),
-                **{key: value for key, value in normalize(measured).items() if key != "outcome"},
+                **{key: value for key, value in outcome.items() if key not in ("outcome", "name")},
+                **({"outcome_name": outcome["name"]} if "name" in outcome else {}),
             }
         case AssignmentIR(n_control=nc, n_treatment=nt, clusters_control=cc):
             result = {"n_control": nc, "n_treatment": nt}
@@ -968,6 +972,7 @@ def normalize(value: object) -> object:
                 "outcome": kind,
                 **({"better": better} if better else {}),
                 **({"measurements": measurements} if measurements > 1 else {}),
+                **({"name": value.name} if value.name is not None else {}),
             }
         case OutcomeNullIR(model=model, predicate=predicate, value=bound):
             result = {"predicate": predicate, "model": normalize(model)}
@@ -1286,9 +1291,79 @@ def _outcome_piece(kind: str) -> Callable:
         count = 1 if measurements is None or measurements.value is None else measurements.value
         if count < 1:
             fail("domain", "measurements must be a positive integer.", measurements.span)
-        return OutcomeIR(kind, better.value, count)
+        named = arguments.get("name")
+        name = None if named is None or named.value is None else named.value.strip()
+        if name is not None and (not name or "\n" in name or len(name) > MAX_NAME):
+            fail(
+                "domain",
+                f'name must be one line of 1 to {MAX_NAME} characters, such as "response".',
+                named.span,
+            )
+        return OutcomeIR(kind, better.value, count, name)
 
     return build
+
+
+# Longest outcome name.
+MAX_NAME = 100
+
+
+def _leaves(members) -> Iterator[tuple[str, object]]:
+    """The single analyses in a combination, inside nested ones too, with their names."""
+    for name, analysis in members:
+        if isinstance(analysis, (ComposedFamilyIR, FamilyIR)):
+            yield from _leaves(analysis.analyses)
+        else:
+            yield name, analysis
+
+
+def named_outcomes(members) -> list[str]:
+    """The outcome names a combination's analyses declare, in order, each once."""
+    names = (analysis.plan.model.measured.name for _, analysis in _leaves(members))
+    return list(dict.fromkeys(name for name in names if name is not None))
+
+
+def _question(analysis) -> str:
+    """What an analysis asks, whatever its level: its test, its null and its design."""
+    return json.dumps(
+        {key: value for key, value in normalize(analysis).items() if key != "alpha"},
+        sort_keys=True,
+    )
+
+
+def _outcome_words(outcome: OutcomeIR) -> str:
+    better = f' with better="{outcome.better}"' if outcome.better else " with no better="
+    return f"a {outcome.kind} outcome{better}"
+
+
+def _check_named_outcomes(members, span: Span) -> None:
+    """One name is one outcome, and a combination asks each question of it once."""
+    first: dict[str, tuple[str, OutcomeIR]] = {}
+    asked: dict[str, str] = {}
+    for label, analysis in _leaves(members):
+        outcome = analysis.plan.model.measured
+        if outcome.name is None:
+            continue
+        earlier, seen = first.setdefault(outcome.name, (label, outcome))
+        if (seen.kind, seen.better) != (outcome.kind, outcome.better):
+            fail(
+                "outcome_conflict",
+                f'The outcome "{outcome.name}" is {_outcome_words(seen)} in {earlier} but '
+                f"{_outcome_words(outcome)} in {label}. One name is one outcome; give different "
+                "outcomes different names.",
+                span,
+            )
+        question = _question(analysis)
+        if question in asked:
+            fail(
+                "duplicate_analysis",
+                f"{asked[question]} and {label} ask the same question of the outcome "
+                f'"{outcome.name}": the same test of the same null on the same participants. '
+                "Listed twice, one question would be reported as two. Keep one; if the other "
+                "is a different outcome, give it its own name.",
+                span,
+            )
+        asked[question] = label
 
 
 # Lean-backed two-arm analyses rest on independent binomial arms (methods/identify.py).
@@ -1666,6 +1741,7 @@ def _members(
             "Declare each analysis separately; its name is its label.",
             argument.span,
         )
+    _check_named_outcomes(members, argument.span)
     return members
 
 
@@ -2415,16 +2491,25 @@ MEASUREMENTS_DOCUMENTATION = (
 )
 
 
+NAME_DOCUMENTATION = (
+    'name labels the outcome, such as "response". One name is one outcome: models that '
+    "share it must agree on its kind and better. A family, sequence or graph that asks the "
+    "same question of a named outcome twice, the same test of the same null on the same "
+    "participants, is refused."
+)
+
+
 def _outcome_piece_constructor(outcome) -> Constructor:
     repeated = (("measurements", "integer", True),) if outcome.repeatable else ()
     return _constructor(
         outcome_constructor_name(outcome.key),
-        (("better", "string", True), *repeated),
+        (("better", "string", True), *repeated, ("name", "string", True)),
         "Outcome",
         _outcome_piece(outcome.key),
         documentation=f"The {outcome.key} outcome measured on each participant. Combine "
         f"it with an assignment in two_arm(...). {BETTER_DOCUMENTATION}"
-        + (f" {MEASUREMENTS_DOCUMENTATION}" if outcome.repeatable else ""),
+        + (f" {MEASUREMENTS_DOCUMENTATION}" if outcome.repeatable else "")
+        + f" {NAME_DOCUMENTATION}",
     )
 
 
