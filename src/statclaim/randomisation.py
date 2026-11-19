@@ -36,6 +36,8 @@ UNITS = ("participant", "cluster")
 MAX_UNITS = 10_000
 # Strata or blocks, each randomised on its own. A certificate lists every one.
 MAX_GROUPS = 1_000
+# Assignments drawn for a Monte Carlo p-value. Nothing enumerates them.
+MAX_DRAWS = 10_000_000
 
 # Bound into certificates and derivations; methods/identify.py recognises each one.
 RANDOMISED = (
@@ -47,6 +49,11 @@ PRESPECIFIED = "The analysis and its level are chosen before outcomes are observ
 AS_RANDOMISED = (
     "Every randomised unit is analysed, in the arm it was assigned to; the p-value counts "
     "every split, not a random sample of splits."
+)
+AS_DRAWN = (
+    "Every randomised unit is analysed, in the arm it was assigned to; the p-value compares "
+    "the observed assignment with the declared number of assignments drawn independently and "
+    "uniformly at random, with replacement, and counts the observed one among them."
 )
 SHARP_NULL = (
     "The error bound is under the null that treatment changes no participant's outcome "
@@ -68,6 +75,7 @@ GROUPED_THEOREMS = [
 ]
 GENERAL_THEOREM = "StatClaim.Modules.Randomisation.typeI"
 GROUPED_GENERAL_THEOREM = "StatClaim.Modules.Randomisation.groupedTypeI_of_level"
+DRAWN_GENERAL_THEOREM = "StatClaim.Modules.Randomisation.drawnRejection_le_of_level"
 NULL_STATEMENT = "treatment changes no participant's outcome"
 
 
@@ -147,6 +155,8 @@ class RandomisationTest:
     scheme: str = "complete"
     strata: tuple[tuple[int, int], ...] = ()  # (control, treatment) units per stratum
     block_size: int | None = None
+    # Assignments drawn at random for a Monte Carlo p-value; None when every one is counted.
+    draws: int | None = None
 
     def __post_init__(self):
         validate_alpha(self.alpha)
@@ -162,6 +172,10 @@ class RandomisationTest:
         if self.n_control < self.units - self.treated or self.n_treatment < self.treated:
             raise ValueError("Each arm has at least as many participants as units.")
         groups_of(self.units, self.treated, self.scheme, self.strata, self.block_size)
+        if self.draws is not None and not (
+            type(self.draws) is int and 1 <= self.draws <= MAX_DRAWS
+        ):
+            raise ValueError(f"draws must be a whole number from 1 to {MAX_DRAWS}.")
         if not self.can_reject:
             raise ValueError("The test can never reject at this level.")
         if not isinstance(self.module, str) or not re.fullmatch(r"[a-z_]+", self.module):
@@ -182,8 +196,8 @@ class RandomisationTest:
 
     @property
     def smallest_p_value(self) -> Fraction:
-        """No p-value is smaller: the observed split always counts itself."""
-        return Fraction(1, self.splits)
+        """No p-value is smaller: the observed assignment always counts itself."""
+        return Fraction(1, self.draws + 1 if self.draws else self.splits)
 
     @property
     def can_reject(self) -> bool:
@@ -234,6 +248,8 @@ def randomisation_payload(test: RandomisationTest) -> dict:
             "splits": str(test.splits),
         },
     }
+    if test.draws is not None:
+        payload["analysis"]["draws"] = test.draws
     if test.grouped:
         design = payload["design"]
         design["randomisation"] = test.scheme
@@ -257,6 +273,7 @@ def parse_randomisation_payload(payload: dict) -> RandomisationTest:
         design["randomisation"],
         tuple(tuple(stratum) for stratum in design.get("strata", ())),
         design.get("block_size"),
+        analysis.get("draws"),
     )
     if payload != randomisation_payload(test):
         raise ValueError("Bound randomisation-test inputs are inconsistent.")
@@ -264,7 +281,14 @@ def parse_randomisation_payload(payload: dict) -> RandomisationTest:
 
 
 def randomisation_assumptions(test: RandomisationTest) -> tuple[str, ...]:
-    return (GROUPED, *ASSUMPTIONS[1:]) if test.grouped else ASSUMPTIONS
+    """How units were randomised, the prespecified analysis, how the p-value counts, and
+    the null. A design's assumptions depend only on its scheme and on draws."""
+    return (
+        GROUPED if test.grouped else RANDOMISED,
+        PRESPECIFIED,
+        AS_DRAWN if test.draws else AS_RANDOMISED,
+        SHARP_NULL,
+    )
 
 
 def randomisation_theorems(test: RandomisationTest) -> list[str]:
@@ -272,11 +296,35 @@ def randomisation_theorems(test: RandomisationTest) -> list[str]:
 
 
 def general_theorem(test: RandomisationTest) -> str:
+    if test.draws:
+        return DRAWN_GENERAL_THEOREM
     return GROUPED_GENERAL_THEOREM if test.grouped else GENERAL_THEOREM
+
+
+def _drawn_claims(test: RandomisationTest, law: str) -> list[str]:
+    plural, plus = test.unit_words, test.draws + 1
+    return [
+        law,
+        f"No Monte Carlo p-value is below 1/{plus}, which does not exceed the level "
+        f"{test.alpha}, so the test can reject.",
+        f"For every test statistic fixed in advance, the Monte Carlo p-value, the share of the "
+        f"observed assignment and {test.draws} assignments drawn independently and uniformly, "
+        "with replacement, whose statistic is at least the observed one, is at most "
+        f"{test.alpha} with probability at most {test.alpha} whenever {NULL_STATEMENT}.",
+        f"The bound holds for any number of draws, whatever the outcomes are and however the "
+        f"{plural} affect one another; no distribution is assumed.",
+    ]
 
 
 def randomisation_claims(test: RandomisationTest) -> list[str]:
     plural = test.unit_words
+    if test.draws:
+        kind = "assignments" if test.grouped else "splits"
+        return _drawn_claims(
+            test,
+            f"Under {test.scheme} randomisation of {test.describe()}, the {test.splits} "
+            f"possible {kind} are equally likely, and that uniform law is a probability law.",
+        )
     if test.grouped:
         return [
             f"Under {test.scheme} randomisation of {test.describe()}, the {test.splits} possible "
@@ -310,6 +358,31 @@ def render_randomisation_proof(test: RandomisationTest, input_sha256: str) -> st
         return _render_grouped_proof(test, input_sha256)
     numerator, denominator = test.alpha.as_integer_ratio()
     units, treated, splits = test.units, test.treated, test.splits
+    if test.draws:
+        tail = _drawn_tail(
+            test.draws,
+            "Randomisation.Assignment units → (Fin units → Value) → Statistic",
+            "Randomisation.PotentialOutcomes units Value",
+            "Randomisation.SharpNull outcomes",
+            "Randomisation.law units treatedUnits",
+            "Randomisation.splits units treatedUnits",
+            "Value",
+        )
+    else:
+        tail = f"""-- No p-value is below one over the number of splits (Randomisation.pValue_ge).
+theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
+  norm_num [declaredLevel]
+
+theorem checked_typeI {{Value : Type}} {{Statistic : Type}} [LinearOrder Statistic]
+    (statistic : Randomisation.Assignment units → (Fin units → Value) → Statistic)
+    (outcomes : Randomisation.PotentialOutcomes units Value)
+    (sharp : Randomisation.SharpNull outcomes) :
+    (Randomisation.law units treatedUnits).real
+        (Randomisation.rejection units treatedUnits statistic outcomes declaredLevel.value) ≤
+      (declaredLevel.value : ℝ) :=
+  Randomisation.typeI_of_level units treatedUnits statistic outcomes sharp
+    declaredLevel.value declaredLevel.nonnegative
+"""
     return f"""import StatClaim
 import Lean.Util.CollectAxioms
 
@@ -336,20 +409,7 @@ theorem checked_splits : (Randomisation.splits units treatedUnits).card = {split
   rw [Randomisation.splits_card, Nat.choose_eq_factorial_div_factorial (by decide)]
   decide +kernel
 
--- No p-value is below one over the number of splits (Randomisation.pValue_ge).
-theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
-  norm_num [declaredLevel]
-
-theorem checked_typeI {{Value : Type}} {{Statistic : Type}} [LinearOrder Statistic]
-    (statistic : Randomisation.Assignment units → (Fin units → Value) → Statistic)
-    (outcomes : Randomisation.PotentialOutcomes units Value)
-    (sharp : Randomisation.SharpNull outcomes) :
-    (Randomisation.law units treatedUnits).real
-        (Randomisation.rejection units treatedUnits statistic outcomes declaredLevel.value) ≤
-      (declaredLevel.value : ℝ) :=
-  Randomisation.typeI_of_level units treatedUnits statistic outcomes sharp
-    declaredLevel.value declaredLevel.nonnegative
-
+{tail}
 end StatClaimCertificate
 {_audit(THEOREMS, input_sha256)}"""
 
@@ -358,6 +418,36 @@ def _render_grouped_proof(test: RandomisationTest, input_sha256: str) -> str:
     numerator, denominator = test.alpha.as_integer_ratio()
     groups = ", ".join(f"({size}, {treated})" for size, treated in test.groups)
     splits = test.splits
+    if test.draws:
+        tail = _drawn_tail(
+            test.draws,
+            "Randomisation.GroupedAssignment groups → Record → Statistic",
+            "Randomisation.GroupedAssignment groups → Record",
+            "∀ first second, outcomes first = outcomes second",
+            "Randomisation.groupedLaw groups",
+            "Randomisation.groupedSplits groups",
+            "Record",
+        )
+    else:
+        tail = (
+            (
+                "-- The observed assignment always counts itself, so no p-value is below one over "
+                "the count.\n"
+            )
+            + f"""theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
+  norm_num [declaredLevel]
+
+theorem checked_typeI {{Record : Type}} {{Statistic : Type}} [LinearOrder Statistic]
+    (statistic : Randomisation.GroupedAssignment groups → Record → Statistic)
+    (outcomes : Randomisation.GroupedAssignment groups → Record)
+    (sharp : ∀ first second, outcomes first = outcomes second) :
+    (Randomisation.groupedLaw groups).real
+        (Randomisation.uniformRejection (Randomisation.groupedSplits groups) statistic outcomes
+          declaredLevel.value) ≤ (declaredLevel.value : ℝ) :=
+  Randomisation.groupedTypeI_of_level groups statistic outcomes sharp declaredLevel.value
+    declaredLevel.nonnegative
+"""
+        )
     return f"""import StatClaim
 import Lean.Util.CollectAxioms
 
@@ -383,19 +473,30 @@ theorem checked_splits : (Randomisation.groupedSplits groups).card = {splits} :=
   rw [Randomisation.groupedSplits_card groups checked_groups]
   decide +kernel
 
--- The observed assignment always counts itself, so no p-value is below one over the count.
-theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
-  norm_num [declaredLevel]
-
-theorem checked_typeI {{Record : Type}} {{Statistic : Type}} [LinearOrder Statistic]
-    (statistic : Randomisation.GroupedAssignment groups → Record → Statistic)
-    (outcomes : Randomisation.GroupedAssignment groups → Record)
-    (sharp : ∀ first second, outcomes first = outcomes second) :
-    (Randomisation.groupedLaw groups).real
-        (Randomisation.uniformRejection (Randomisation.groupedSplits groups) statistic outcomes
-          declaredLevel.value) ≤ (declaredLevel.value : ℝ) :=
-  Randomisation.groupedTypeI_of_level groups statistic outcomes sharp declaredLevel.value
-    declaredLevel.nonnegative
-
+{tail}
 end StatClaimCertificate
 {_audit(GROUPED_THEOREMS, input_sha256)}"""
+
+
+def _drawn_tail(
+    draws: int, statistic: str, outcomes: str, sharp: str, law: str, support: str, record: str
+) -> str:
+    """The attainable-level and Type I theorems of a Monte Carlo p-value with `draws` draws.
+    The law is the product of independent uniform draws (Randomisation.pi_uniform)."""
+    return f"""def draws : ℕ := {draws}
+
+-- No Monte Carlo p-value is below one over the draws plus one (Randomisation.drawnShare_ge).
+theorem checked_attainable : (1 : ℚ) / (draws + 1) ≤ declaredLevel.value := by
+  norm_num [draws, declaredLevel]
+
+-- The observed assignment and the draws are independent, each with the design's law.
+theorem checked_typeI {{{record} : Type}} {{Statistic : Type}} [LinearOrder Statistic]
+    (statistic : {statistic})
+    (outcomes : {outcomes})
+    (sharp : {sharp}) :
+    (MeasureTheory.Measure.pi (fun _ : Fin (draws + 1) => {law})).real
+        (Randomisation.drawnRejection draws statistic outcomes declaredLevel.value) ≤
+      (declaredLevel.value : ℝ) :=
+  Randomisation.drawnRejection_le_of_level ({support}) draws statistic outcomes sharp
+    declaredLevel.value declaredLevel.nonnegative
+"""

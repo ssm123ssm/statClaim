@@ -44,7 +44,16 @@ from statclaim.methods.assumptions import (
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
-from statclaim.randomisation import ASSUMPTIONS as RANDOMISATION_ASSUMPTIONS
+from statclaim.randomisation import (
+    AS_DRAWN,
+    AS_RANDOMISED,
+    GROUPED,
+    PRESPECIFIED,
+    RANDOMISED,
+)
+from statclaim.randomisation import (
+    SHARP_NULL as SHARP_NULL_TEXT,
+)
 
 SUPPORTED_NULLS = {
     "two_sided": ["equal_proportions"],
@@ -58,6 +67,7 @@ FAMILY_LIMITS = (2, 20)
 ONE_ARM_LIMIT, PER_ARM_LIMIT, STAGE_LIMIT, SEARCH_LIMIT, RATIO_LIMIT = 1000, 500, 200, 120, 10
 CITED_ARM_LIMIT = 100_000
 UNIT_LIMIT = 10_000  # randomised units in a randomisation test
+DRAW_LIMIT = 10_000_000  # random draws for a Monte Carlo p-value
 SCHEMES = ["complete", "stratified", "blocked"]  # schemes the randomisation theorem covers
 GROUP_LIMIT = 1_000  # strata or blocks in a randomisation test
 # The arguments of each kind of planning point a power formula can take.
@@ -560,13 +570,33 @@ def _randomisation_expected(name: str, subject: dict) -> list[tuple]:
             model.get("randomisation") in SCHEMES and groups is not None,
             (),
         ),
-        (
-            "can-reject",
-            {"subject": name, "splits": str(splits), "alpha": subject["alpha"]},
-            groups is not None and Fraction(1, splits) <= alpha,
-            (),
-        ),
     ]
+    if "draws" in subject:
+        draws = subject["draws"]
+        drawn = _whole(draws, 1) and draws <= DRAW_LIMIT
+        smallest = Fraction(1, draws + 1) if drawn else Fraction(1)
+        steps.append(
+            (
+                "can-reject-drawn",
+                {
+                    "subject": name,
+                    "draws": draws,
+                    "smallest": str(smallest),
+                    "alpha": subject["alpha"],
+                },
+                groups is not None and drawn and smallest <= alpha,
+                (),
+            )
+        )
+    else:
+        steps.append(
+            (
+                "can-reject",
+                {"subject": name, "splits": str(splits), "alpha": subject["alpha"]},
+                groups is not None and Fraction(1, splits) <= alpha,
+                (),
+            )
+        )
     steps.append(("randomisation-contract", {"subject": name}, True, (0, 1, 2, 3, 4)))
     return steps
 
@@ -1016,10 +1046,18 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
     if contract == RANDOMISATION_CONTRACT_ID:
+        model = subject["design"]["model"]
+        grouped = model.get("randomisation") != "complete"
+        assumptions = (
+            GROUPED if grouped else RANDOMISED,
+            PRESPECIFIED,
+            AS_DRAWN if "draws" in subject else AS_RANDOMISED,
+            SHARP_NULL_TEXT,
+        )
         return (
             _randomisation_expected(name, subject),
             [_sampling_expectation(name, subject)],
-            RANDOMISATION_ASSUMPTIONS,
+            assumptions,
         )
     if contract in ("tests.binomial/binomial_test", "designs.two_stage/two_stage_test"):
         expected = "binomial_exact_one_sided" if "binomial" in contract else "two_stage"

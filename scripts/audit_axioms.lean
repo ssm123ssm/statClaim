@@ -88,7 +88,14 @@ run_cmd do
     ``StatClaim.Modules.Randomisation.groupedSplits_card,
     ``StatClaim.Modules.Randomisation.groupedSplits_nonempty,
     ``StatClaim.Modules.Randomisation.groupedLaw_univ,
-    ``StatClaim.Modules.Randomisation.groupedTypeI_of_level]
+    ``StatClaim.Modules.Randomisation.groupedTypeI_of_level,
+    ``StatClaim.Modules.Randomisation.card_filter_perm,
+    ``StatClaim.Modules.Randomisation.rejectedAt_card,
+    ``StatClaim.Modules.Randomisation.card_drawn_le,
+    ``StatClaim.Modules.Randomisation.pi_uniform,
+    ``StatClaim.Modules.Randomisation.drawnRejection_le,
+    ``StatClaim.Modules.Randomisation.drawnRejection_le_of_level,
+    ``StatClaim.Modules.Randomisation.drawnShare_ge]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

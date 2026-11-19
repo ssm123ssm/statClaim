@@ -16,6 +16,7 @@ RECOGNISED = [
     # The randomisation test (statclaim.randomisation).
     (r"^Every split of the randomised units", "complete_randomisation", "design"),
     (r"^Within each stratum or block, every split", "stratified_randomisation", "design"),
+    (r"^Every randomised unit is analysed.*drawn independently", "analysed_with_draws", "data"),
     (r"^Every randomised unit is analysed", "analysed_as_randomised", "data"),
     (r"null that treatment changes no participant's outcome", "bound_under_null", "scope"),
     (r"posterior rule is the binomial-sum form", "posterior_closed_form", "unproved_step"),

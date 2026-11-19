@@ -20,8 +20,10 @@ affect one another: the sharp null says no assignment changes any unit's
 record. Nothing requires the units to be people: with clusters as units, each
 unit's record is whatever was measured on the cluster's members.
 
-The p-value here counts every split. A p-value from a random sample of splits
-is a different procedure and is not covered.
+The exact p-value counts every split. A Monte Carlo p-value compares the observed
+assignment with `B` independent uniform draws, counting the observed one among
+them; its bound is proved separately (`drawnRejection_le`), with the independence
+of the draws stated as a product of uniform laws (`pi_uniform`).
 -/
 
 @[expose] public section
@@ -129,6 +131,216 @@ theorem uniformRejection_le [MeasurableSpace Ω] [MeasurableSingletonClass Ω] {
   exact uniform_tail_le support (fun other => statistic other (outcomes fixed)) alpha alpha_nonneg
 
 end Generic
+
+section MonteCarlo
+
+variable {Ω : Type*} {β : Type*} [LinearOrder β]
+
+/-- The Monte Carlo p-value of `B` drawn assignments: index 0 is the observed
+assignment and indices 1 to `B` the draws. It is the share of all `B + 1`, the
+observed one included, whose statistic is at least the observed one's. -/
+noncomputable def drawnShare {B : ℕ} (statistic : Ω → β) (draws : Fin (B + 1) → Ω) : ℝ :=
+  ((Finset.univ.filter (fun i => statistic (draws 0) ≤ statistic (draws i))).card : ℝ) /
+    (B + 1)
+
+/-- The observed assignment and the draws, each from `support`. -/
+def drawSpace (support : Finset Ω) (B : ℕ) : Finset (Fin (B + 1) → Ω) :=
+  Fintype.piFinset fun _ => support
+
+/-- Draws at whose index `j` the statistic has at most `c` of the `B + 1` at or above it. -/
+noncomputable def rejectedAt [DecidableEq Ω] (support : Finset Ω) (B : ℕ) (statistic : Ω → β) (c : ℝ)
+    (j : Fin (B + 1)) : Finset (Fin (B + 1) → Ω) :=
+  (drawSpace support B).filter (fun draws =>
+    ((Finset.univ.filter (fun i => statistic (draws j) ≤ statistic (draws i))).card : ℝ) ≤ c)
+
+/-- Relabelling the draws does not change how many are at or above a given value. -/
+theorem card_filter_perm {B : ℕ} (σ : Equiv.Perm (Fin (B + 1))) (p : Fin (B + 1) → Prop)
+    [DecidablePred p] :
+    (Finset.univ.filter (fun i => p (σ i))).card = (Finset.univ.filter p).card := by
+  simp only [Finset.card_filter]
+  exact Equiv.sum_comp σ (fun i => if p i then 1 else 0)
+
+/-- Swapping the observed assignment with draw `j` is a bijection of the draw space, so
+every index is rejected as often as the observed one. -/
+theorem rejectedAt_card [DecidableEq Ω] (support : Finset Ω) (B : ℕ) (statistic : Ω → β)
+    (c : ℝ) (j : Fin (B + 1)) :
+    (rejectedAt support B statistic c j).card = (rejectedAt support B statistic c 0).card := by
+  classical
+  let σ : Equiv.Perm (Fin (B + 1)) := Equiv.swap 0 j
+  refine Finset.card_bij (fun draws _ => draws ∘ σ) ?_ ?_ ?_
+  · intro draws member
+    obtain ⟨inside, count⟩ := Finset.mem_filter.mp member
+    refine Finset.mem_filter.mpr ⟨?_, ?_⟩
+    · rw [drawSpace, Fintype.mem_piFinset] at inside ⊢
+      exact fun i => inside (σ i)
+    · have zero : σ 0 = j := Equiv.swap_apply_left 0 j
+      simp only [Function.comp_apply, zero]
+      rw [card_filter_perm σ (fun i => statistic (draws j) ≤ statistic (draws i))]
+      exact count
+  · intro first _ second _ same
+    funext i
+    have := congrFun same (σ i)
+    simpa [σ, Function.comp_apply, Equiv.swap_apply_self] using this
+  · intro draws member
+    refine ⟨draws ∘ σ, ?_, ?_⟩
+    · obtain ⟨inside, count⟩ := Finset.mem_filter.mp member
+      refine Finset.mem_filter.mpr ⟨?_, ?_⟩
+      · rw [drawSpace, Fintype.mem_piFinset] at inside ⊢
+        exact fun i => inside (σ i)
+      · have back : σ j = 0 := Equiv.swap_apply_right 0 j
+        simp only [Function.comp_apply, back]
+        rw [card_filter_perm σ (fun i => statistic (draws 0) ≤ statistic (draws i))]
+        exact count
+    · funext i
+      simp [σ, Function.comp_apply, Equiv.swap_apply_self]
+
+/-- The Monte Carlo counting argument. Summed over the `B + 1` indices, the rejected
+draws number at most `c` per point of the draw space, and each index is rejected
+equally often, so the observed index is rejected at most a share `alpha`. -/
+theorem card_drawn_le (support : Finset Ω) (B : ℕ) (statistic : Ω → β)
+    (alpha : ℝ) (alpha_nonneg : 0 ≤ alpha) :
+    (((drawSpace support B).filter (fun draws => drawnShare statistic draws ≤ alpha)).card : ℝ)
+      ≤ alpha * (drawSpace support B).card := by
+  classical
+  set c : ℝ := alpha * (B + 1) with c_def
+  have positive : (0 : ℝ) < B + 1 := by positivity
+  have first : (drawSpace support B).filter (fun draws => drawnShare statistic draws ≤ alpha) =
+      rejectedAt support B statistic c 0 := by
+    apply Finset.filter_congr
+    intro draws _
+    unfold drawnShare
+    rw [div_le_iff₀ positive]
+  have each : ∀ draws ∈ drawSpace support B,
+      ((Finset.univ.filter (fun j => draws ∈ rejectedAt support B statistic c j)).card : ℝ) ≤ c := by
+    intro draws inside
+    have same : Finset.univ.filter (fun j => draws ∈ rejectedAt support B statistic c j) =
+        Finset.univ.filter (fun j => ((tail Finset.univ (fun i => statistic (draws i)) j).card : ℝ)
+          ≤ c) := by
+      apply Finset.filter_congr
+      intro j _
+      simp [rejectedAt, inside, tail]
+    rw [same]
+    exact card_rejected_le Finset.univ (fun i => statistic (draws i)) c
+      (mul_nonneg alpha_nonneg positive.le)
+  have total : ∑ j : Fin (B + 1), ((rejectedAt support B statistic c j).card : ℝ) ≤
+      c * (drawSpace support B).card := by
+    have swapped : ∑ j : Fin (B + 1), ((rejectedAt support B statistic c j).card : ℝ) =
+        ∑ draws ∈ drawSpace support B,
+          ((Finset.univ.filter (fun j => draws ∈ rejectedAt support B statistic c j)).card : ℝ) := by
+      have inner : ∀ j, ((rejectedAt support B statistic c j).card : ℝ) =
+          ∑ draws ∈ drawSpace support B,
+            (if draws ∈ rejectedAt support B statistic c j then (1 : ℝ) else 0) := by
+        intro j
+        have inside : rejectedAt support B statistic c j ⊆ drawSpace support B :=
+          Finset.filter_subset _ _
+        rw [Finset.sum_ite_mem, Finset.inter_eq_right.mpr inside]
+        simp
+      simp_rw [inner]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro draws _
+      rw [Finset.card_filter]
+      push_cast
+      rfl
+    rw [swapped]
+    calc ∑ draws ∈ drawSpace support B,
+          ((Finset.univ.filter (fun j => draws ∈ rejectedAt support B statistic c j)).card : ℝ)
+        ≤ ∑ _draws ∈ drawSpace support B, c := Finset.sum_le_sum each
+      _ = c * (drawSpace support B).card := by
+        rw [Finset.sum_const, nsmul_eq_mul, mul_comm]
+  rw [first]
+  have scaled : (B + 1 : ℝ) * (rejectedAt support B statistic c 0).card ≤
+      (B + 1) * (alpha * (drawSpace support B).card) := by
+    calc (B + 1 : ℝ) * (rejectedAt support B statistic c 0).card
+        = ∑ j : Fin (B + 1), ((rejectedAt support B statistic c j).card : ℝ) := by
+          simp only [rejectedAt_card support B statistic c, Finset.sum_const, Finset.card_univ,
+            Fintype.card_fin, nsmul_eq_mul]
+          push_cast
+          ring
+      _ ≤ c * (drawSpace support B).card := total
+      _ = (B + 1) * (alpha * (drawSpace support B).card) := by rw [c_def]; ring
+  exact le_of_mul_le_mul_left scaled positive
+
+
+/-- The uniform law on a finite set has finite total mass, so it can be a factor of a
+product measure. -/
+instance uniform_isFiniteMeasure [MeasurableSpace Ω] [MeasurableSingletonClass Ω]
+    (support : Finset Ω) : IsFiniteMeasure (Measure.uniformOfFinset support) := by
+  refine ⟨lt_of_le_of_lt ?_ ENNReal.one_lt_top⟩
+  rcases support.eq_empty_or_nonempty with empty | nonempty
+  · subst empty
+    simp [Measure.uniformOfFinset]
+  · exact (uniform_univ support nonempty).le
+
+/-- Independent uniform draws: the observed assignment and `B` draws, each uniform on
+`support` and independent of one another, have the uniform law on the draw space. -/
+theorem pi_uniform [MeasurableSpace Ω] [MeasurableSingletonClass Ω]
+    (support : Finset Ω) (B : ℕ) :
+    Measure.pi (fun _ : Fin (B + 1) => Measure.uniformOfFinset support) =
+      Measure.uniformOfFinset (drawSpace support B) := by
+  classical
+  refine Measure.pi_eq (fun sets _ => ?_)
+  have filtered : (drawSpace support B).filter (fun draws => draws ∈ Set.pi Set.univ sets) =
+      Fintype.piFinset (fun i => support.filter (fun x => x ∈ sets i)) := by
+    ext draws
+    simp [drawSpace, Fintype.mem_piFinset, Set.mem_pi, forall_and]
+  rw [Measure.uniformOfFinset_apply, filtered, drawSpace, Fintype.card_piFinset,
+    Fintype.card_piFinset]
+  simp only [Measure.uniformOfFinset_apply, Finset.prod_const, Finset.card_univ,
+    Fintype.card_fin, Nat.cast_prod, Nat.cast_pow, div_eq_mul_inv, Finset.prod_mul_distrib,
+    ENNReal.inv_pow]
+
+/-- The record a Monte Carlo test sees comes from the observed assignment, index 0. -/
+def drawnRejection {Record : Type*} (B : ℕ) (statistic : Ω → Record → β)
+    (outcomes : Ω → Record) (alpha : ℝ) : Set (Fin (B + 1) → Ω) :=
+  {draws | drawnShare (fun other => statistic other (outcomes (draws 0))) draws ≤ alpha}
+
+/-- The Type I bound of the Monte Carlo randomisation test: the observed assignment and
+`B` independent draws, each uniform on `support`, and a record no assignment changes. -/
+theorem drawnRejection_le [MeasurableSpace Ω] [MeasurableSingletonClass Ω] {Record : Type*}
+    (support : Finset Ω) (B : ℕ) (statistic : Ω → Record → β) (outcomes : Ω → Record)
+    (sharp : ∀ first second, outcomes first = outcomes second)
+    (alpha : ℝ) (alpha_nonneg : 0 ≤ alpha) :
+    (Measure.pi (fun _ : Fin (B + 1) => Measure.uniformOfFinset support)).real
+      (drawnRejection B statistic outcomes alpha) ≤ alpha := by
+  classical
+  rw [pi_uniform]
+  rcases support.eq_empty_or_nonempty with empty | ⟨fixed, _⟩
+  · subst empty
+    simp [Measure.real, Measure.uniformOfFinset_apply, alpha_nonneg, drawSpace]
+  have same : drawnRejection B statistic outcomes alpha =
+      {draws | drawnShare (fun other => statistic other (outcomes fixed)) draws ≤ alpha} := by
+    ext draws
+    simp only [drawnRejection, Set.mem_ofPred_eq, sharp (draws 0) fixed]
+  have positive : (0 : ℝ) < (drawSpace support B).card := by
+    have : (drawSpace support B).Nonempty := by
+      rw [drawSpace, Fintype.piFinset_nonempty]
+      exact fun _ => ⟨fixed, by assumption⟩
+    exact_mod_cast this.card_pos
+  rw [same, Measure.real, Measure.uniformOfFinset_apply, ENNReal.toReal_div,
+    ENNReal.toReal_natCast, ENNReal.toReal_natCast, div_le_iff₀ positive]
+  exact card_drawn_le support B (fun other => statistic other (outcomes fixed)) alpha
+    alpha_nonneg
+
+/-- The same at an exact rational level, as a certificate states it. -/
+theorem drawnRejection_le_of_level [MeasurableSpace Ω] [MeasurableSingletonClass Ω]
+    {Record : Type*} (support : Finset Ω) (B : ℕ) (statistic : Ω → Record → β)
+    (outcomes : Ω → Record) (sharp : ∀ first second, outcomes first = outcomes second)
+    (alpha : ℚ) (alpha_nonneg : 0 ≤ alpha) :
+    (Measure.pi (fun _ : Fin (B + 1) => Measure.uniformOfFinset support)).real
+      (drawnRejection B statistic outcomes alpha) ≤ (alpha : ℝ) :=
+  drawnRejection_le support B statistic outcomes sharp alpha (by exact_mod_cast alpha_nonneg)
+
+/-- No Monte Carlo p-value is below `1 / (B + 1)`: the observed assignment counts itself. -/
+theorem drawnShare_ge {B : ℕ} (statistic : Ω → β) (draws : Fin (B + 1) → Ω) :
+    1 / ((B : ℝ) + 1) ≤ drawnShare statistic draws := by
+  have one : (1 : ℝ) ≤ ((Finset.univ.filter
+      (fun i => statistic (draws 0) ≤ statistic (draws i))).card : ℝ) := by
+    exact_mod_cast Finset.card_pos.mpr ⟨0, by simp⟩
+  unfold drawnShare
+  exact div_le_div_of_nonneg_right one (by positivity)
+
+end MonteCarlo
 
 section Design
 

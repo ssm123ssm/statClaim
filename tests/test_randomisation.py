@@ -518,3 +518,85 @@ def test_the_stratified_example_compiles():
     compilation = compile_source(Source(path.read_text(), str(path)))
     assert compilation.status == "elaborated"
     assert [check_derivation(d.to_dict()) for d in compilation.derivations] == [[], []]
+
+
+DRAWN = TEST.replace("alpha=1/20)", "alpha=1/20, draws={draws})")
+
+
+def test_drawn_assignments_give_a_checked_monte_carlo_derivation():
+    compilation = compiled(ARMS + STUDY + DRAWN.format(draws=9999) + "verify typeI(analysis)\n")
+    assert not compilation.diagnostics
+    record = derivation(compilation)
+    assert check_derivation(record) == []
+    assert [step["rule"] for step in record["steps"]][4] == "can-reject-drawn"
+    assert record["steps"][4]["facts"]["smallest"] == "1/10000"
+    assert record["subject"]["draws"] == 9999
+    (claim,) = inspect_program(compilation)
+    ids = [item["id"] for item in claim["identified_assumptions"]]
+    assert "analysed_with_draws" in ids and "analysed_as_randomised" not in ids
+    test = compilation.program.bindings[-1].value.lower()
+    assert test.smallest_p_value == Fraction(1, 10000)
+
+
+def test_draws_work_with_strata_and_with_few_splits():
+    blocked = (
+        "let arms = assignment(n_control=20, n_treatment=20, "
+        'randomisation="blocked", block_size=4)\n'
+    )
+    assert not compiled(blocked + STUDY + DRAWN.format(draws=999)).diagnostics
+    # Two clusters per arm give 6 splits; drawn assignments can still reach 1/20.
+    clinics = CLINICS.format(c=2) + STUDY + DRAWN.format(draws=999)
+    compilation = compiled(clinics)
+    assert not compilation.diagnostics
+    assert check_derivation(derivation(compilation)) == []
+
+
+@pytest.mark.parametrize("draws,code", [(18, "never_rejects"), (0, "domain"), (19, None)])
+def test_too_few_draws_to_reach_the_level_are_refused(draws, code):
+    found = [c for c, _ in diagnostics(ARMS + STUDY + DRAWN.format(draws=draws))]
+    assert found == ([code] if code else [])
+
+
+def _more_draws(record):
+    record["subject"]["draws"] = 99
+    record["steps"][4]["facts"].update(draws=99, smallest="1/100")
+
+
+def _counted_exactly(record):
+    del record["subject"]["draws"]
+
+
+def _exact_rule(record):
+    record["steps"][4]["rule"] = "can-reject"
+
+
+def _exact_assumption(record):
+    record["assumptions"][2] = record["assumptions"][2].split(";")[0] + (
+        "; the p-value counts every split, not a random sample of splits."
+    )
+
+
+@pytest.mark.parametrize("change", [_more_draws, _counted_exactly, _exact_rule, _exact_assumption])
+def test_the_checker_rejects_tampered_monte_carlo_derivations(change):
+    record = derivation(compiled(ARMS + STUDY + DRAWN.format(draws=9999)))
+    assert check_derivation(record) == []
+    assert check_derivation(tamper(record, change)) != []
+
+
+def test_drawn_payloads_and_proofs():
+    test = RandomisationTest(
+        40, 20, Fraction(1, 20), "participant", "two_arm_continuous", 20, 20, draws=9999
+    )
+    payload = randomisation_payload(test)
+    assert payload["analysis"]["draws"] == 9999
+    assert parse_randomisation_payload(payload) == test
+    altered = copy.deepcopy(payload)
+    altered["analysis"]["draws"] = 10  # 1/11 is above 1/20: the test could never reject
+    with pytest.raises(ValueError):
+        parse_randomisation_payload(altered)
+    proof = render_randomisation_proof(test, "c" * 64)
+    assert "def draws : ℕ := 9999" in proof
+    assert "Randomisation.drawnRejection_le_of_level" in proof
+    assert "MeasureTheory.Measure.pi (fun _ : Fin (draws + 1)" in proof
+    with pytest.raises(ValueError):
+        RandomisationTest(40, 20, Fraction(1, 20), "participant", "x", 20, 20, draws=0)

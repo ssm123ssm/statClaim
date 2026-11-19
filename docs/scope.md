@@ -26,8 +26,9 @@ What is supported:
 - **Randomisation tests.** Under declared complete, stratified or blocked
   randomisation of participants or clusters, the randomisation test of the sharp
   null has Type I error at most alpha for any statistic fixed in advance,
-  whatever the outcomes. One Lean theorem covers every design; the p-value counts
-  every possible assignment.
+  whatever the outcomes. One Lean theorem covers every design. The p-value counts
+  every possible assignment, or compares the observed one with a declared number
+  of random draws (Monte Carlo); both are proved.
 
 - **Cluster-randomised trials, cited.** A t-test on one summary per cluster,
   with the clusters as the sample size and at least four per arm. It assumes

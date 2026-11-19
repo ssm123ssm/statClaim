@@ -136,6 +136,7 @@ SCHEMAS = {
         "design": FieldSpec(PlanIR, attribute="plan"),
         "null": FieldSpec(SharpNullIR, attribute="hypothesis"),
         "alpha": FieldSpec(Fraction, description="Exact declared significance level."),
+        "draws": FieldSpec(int, optional=True, description="Random draws, if Monte Carlo."),
         "guarantee": FieldSpec(Guarantee, description="The error-rate statement Lean proves."),
     },
     HypothesisIR: {

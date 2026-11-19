@@ -10,10 +10,13 @@ let pain = two_arm(assignment=arms, outcome=continuous_outcome(better="lower"))
 
 # The null is the sharp null: treatment changes no participant's pain score.
 # It is not equal_means(...), which a randomisation test does not support.
+# 40 participants have 137,846,528,820 splits, too many to count, so the p-value
+# compares the observed split with 9,999 drawn at random. Lean proves that too.
 let analysis = randomisation_test(
     design=fixed(model=pain),
     null=no_effect(model=pain),
     alpha=1/20,
+    draws=9999,
 )
 
 # Twelve clinics randomised, six per arm: the test permutes clinics, not people.

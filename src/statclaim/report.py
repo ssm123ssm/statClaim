@@ -756,6 +756,7 @@ def randomisation_report(test, *, stopping: str = "fixed") -> dict:
         "treated_units": test.treated,
         "unit": test.unit,
         "splits": str(test.splits),
+        **({"draws": test.draws} if test.draws else {}),
         "smallest_p_value": str(test.smallest_p_value),
         "alpha": str(test.alpha),
     }

@@ -71,7 +71,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
 | Stratum | One stratum of a stratified or blocked assignment: randomised units per arm. | `control: integer`, `treatment: integer` |
 | SharpNull | The sharp null: treatment changes no participant's outcome. Not a null about means. | `model: Model`, `predicate: string`, `statement: string` |
-| RandomisationAnalysis | Design, sharp null and alpha for a randomisation test; its level is proved in Lean. | `design: StudyDesign`, `null: SharpNull`, `alpha: exact number`, `guarantee: Guarantee` |
+| RandomisationAnalysis | Design, sharp null and alpha for a randomisation test; its level is proved in Lean. | `design: StudyDesign`, `null: SharpNull`, `alpha: exact number`, `draws: Option[integer]`, `guarantee: Guarantee` |
 | CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
 | Observation | Observed counts tied to an analysis. | `analysis: Analysis`, `control_successes: integer`, `treatment_successes: integer` |
 | Family | Analyses, family alpha and declared joint law. | `analyses: list`, `alpha: exact number`, `joint_law: string` |
@@ -292,8 +292,8 @@ Two-sided Fisher analysis for the equality null and one-sided analysis for "trea
 
 Randomisation test of the sharp null that treatment changes no participant's outcome, for any two-arm model. Its level follows from the complete, stratified or blocked randomisation declared on the assignment; Lean proves it for every statistic fixed in advance. With clusters randomised, the test permutes clusters. Up to 10,000 randomised units and 1,000 strata or blocks.
 
-- `randomisation_test(design: StudyDesign, null: Hypothesis, alpha: level) -> RandomisationAnalysis`
-  Randomisation test of the sharp null. Its level follows from the randomisation declared on the assignment, and Lean proves it for every test statistic fixed in advance; no distribution is assumed. With cluster_assignment the clusters are randomised, so the test permutes clusters. The randomisation test supports only the sharp null no_effect(model=...). It does not test equal means or proportions: when effects differ between participants, its error under those nulls is not guaranteed. Keep your null if it states your question, and choose a test that supports it.
+- `randomisation_test(design: StudyDesign, null: Hypothesis, alpha: level, draws?: integer) -> RandomisationAnalysis`
+  Randomisation test of the sharp null. Its level follows from the randomisation declared on the assignment, and Lean proves it for every test statistic fixed in advance; no distribution is assumed. With cluster_assignment the clusters are randomised, so the test permutes clusters. Without draws the p-value counts every possible assignment; with draws=B it compares the observed assignment with B drawn at random, which Lean also proves. The randomisation test supports only the sharp null no_effect(model=...). It does not test equal means or proportions: when effects differ between participants, its error under those nulls is not guaranteed. Keep your null if it states your question, and choose a test that supports it.
   Required null: treatment changes no participant's outcome (the sharp null); same model required.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 

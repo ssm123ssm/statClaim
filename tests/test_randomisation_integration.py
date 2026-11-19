@@ -159,3 +159,45 @@ def test_the_kernel_rejects_false_grouped_statements(grouped, tmp_path, before, 
     )
     assert checked.returncode != 0
     assert "STATCLAIM_CHECKED" not in checked.stdout
+
+
+@pytest.mark.parametrize(
+    "test",
+    [
+        RandomisationTest(
+            40, 20, Fraction(1, 20), "participant", "two_arm_continuous", 20, 20, draws=9999
+        ),
+        RandomisationTest(
+            48,
+            24,
+            Fraction(1, 20),
+            "participant",
+            "two_arm_continuous",
+            24,
+            24,
+            "blocked",
+            block_size=4,
+            draws=999,
+        ),
+    ],
+    ids=["complete", "blocked"],
+)
+def test_monte_carlo_certificates_are_proved_and_replay(tmp_path, test):
+    bundle = tmp_path / "checked"
+    report = run_randomisation(test, stopping="fixed", project=ROOT, output=bundle, timeout=300)
+    assert report["status"] == "verified", report.get("verification")
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    assert certificate["general_theorem"] == (
+        "StatClaim.Modules.Randomisation.drawnRejection_le_of_level"
+    )
+    assert any("Monte Carlo p-value" in claim for claim in certificate["claims"])
+    assert recheck_certificate(bundle, project=ROOT, timeout=300)["status"] == "verified"
+    source = (bundle / "Proof.lean").read_text()
+    # Too few draws for the level: the kernel refuses the attainable-level theorem.
+    false = tmp_path / "FalseDraws.lean"
+    false.write_text(source.replace(f"def draws : ℕ := {test.draws}", "def draws : ℕ := 10"))
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(false)], cwd=ROOT, capture_output=True, text=True, timeout=300
+    )
+    assert checked.returncode != 0
+    assert "STATCLAIM_CHECKED" not in checked.stdout

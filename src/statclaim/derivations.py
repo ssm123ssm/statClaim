@@ -31,7 +31,7 @@ from statclaim.language import (
     normalize,
 )
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
-from statclaim.randomisation import ASSUMPTIONS as RANDOMISATION_ASSUMPTIONS
+from statclaim.randomisation import randomisation_assumptions
 
 
 @dataclass(frozen=True)
@@ -104,10 +104,17 @@ RULES = {
         "{subject}: {splits} splits give a smallest p-value of 1/{splits}, within the level "
         "{alpha}.",
     ),
+    "can-reject-drawn": Rule(
+        "One over the number of drawn assignments plus one, the smallest Monte Carlo p-value, "
+        "is at most the level.",
+        "{subject}: {draws} drawn assignments give a smallest p-value of {smallest}, within "
+        "the level {alpha}.",
+    ),
     "randomisation-contract": Rule(
-        "The same-model, supported-null, level-range, declared-randomisation and can-reject "
-        "rules hold.",
+        "The same-model, supported-null, level-range and declared-randomisation rules hold, "
+        "and can-reject, or can-reject-drawn when the p-value uses drawn assignments.",
         "{subject}: the design, the null and the level fit the randomisation test.",
+        version=2,
     ),
     "cited-contract": Rule(
         "The same-model, supported-null, level-interior and enough-data rules hold.",
@@ -531,6 +538,16 @@ def derive_randomisation(name: str, analysis: RandomisationAnalysisIR) -> Deriva
             },
         ),
         builder.apply(
+            "can-reject-drawn",
+            {
+                "subject": name,
+                "draws": test.draws,
+                "smallest": str(test.smallest_p_value),
+                "alpha": str(test.alpha),
+            },
+        )
+        if test.draws
+        else builder.apply(
             "can-reject", {"subject": name, "splits": str(test.splits), "alpha": str(test.alpha)}
         ),
     )
@@ -541,7 +558,7 @@ def derive_randomisation(name: str, analysis: RandomisationAnalysisIR) -> Deriva
         RANDOMISATION_CONTRACT_ID,
         builder.steps[final].conclusion,
         tuple(builder.steps),
-        RANDOMISATION_ASSUMPTIONS,
+        randomisation_assumptions(test),
         tuple(builder.obligations),
         normalize(analysis),
     )

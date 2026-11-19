@@ -1610,6 +1610,10 @@ or <code>randomisation="blocked"</code> and <code>block_size</code>. Matched pai
 one of each pair treated, are blocks of two: <code>block_size=2</code>. The same theorem
 covers them all, because each stratum or block is randomised on its own; only the count of
 equally likely assignments changes.</p>
+<p>Forty participants already have 137,846,528,820 splits, too many to count. Add
+<code>draws=9999</code> and the p-value compares the observed split with 9,999 drawn at
+random, counting the observed one among them. Lean proves that version too, for any
+number of draws.</p>
 <div class="note"><strong>Not a test of means.</strong> Give the randomisation test
 <code>equal_means(model=practice)</code>, or a t-test <code>no_effect(model=practice)</code>, and
 each is refused with <code>hypothesis_mismatch</code>. When effects differ between

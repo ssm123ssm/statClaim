@@ -63,6 +63,7 @@ from statclaim.planning import (
     TwoStageRule,
 )
 from statclaim.randomisation import (
+    MAX_DRAWS,
     MAX_UNITS,
     SCHEMES,
     RandomisationTest,
@@ -376,6 +377,8 @@ class RandomisationAnalysisIR(LevelTestIR):
     plan: PlanIR
     hypothesis: SharpNullIR
     alpha: Fraction
+    # Assignments drawn at random for a Monte Carlo p-value; None counts every one.
+    draws: int | None = None
 
     @property
     def guarantee(self) -> Guarantee:
@@ -397,6 +400,7 @@ class RandomisationAnalysisIR(LevelTestIR):
             model.assignment.randomisation,
             model.assignment.strata,
             model.assignment.block_size,
+            self.draws,
         )
 
 
@@ -928,13 +932,16 @@ def normalize(value: object) -> object:
             return result
         case SharpNullIR(model=model, predicate=predicate):
             return {"predicate": predicate, "model": normalize(model)}
-        case RandomisationAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
-            return {
+        case RandomisationAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, draws=draws):
+            result = {
                 "test": "randomisation",
                 "design": normalize(plan),
                 "null": normalize(hypothesis),
                 "alpha": str(alpha),
             }
+            if draws is not None:
+                result["draws"] = draws
+            return result
         case CitedAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, method=method):
             result = {
                 "test": method.key,
@@ -1450,6 +1457,20 @@ def _randomisation_test(arguments: dict[str, LocatedValue], span: Span) -> Rando
         )
     if alpha.value == 0:
         fail("domain", "alpha must be positive for this test.", alpha.span)
+    drawn = arguments.get("draws")
+    draws = drawn.value if drawn is not None else None
+    if draws is not None:
+        if not 1 <= draws <= MAX_DRAWS:
+            fail("domain", f"draws must be a whole number from 1 to {MAX_DRAWS}.", drawn.span)
+        if Fraction(1, draws + 1) > alpha.value:
+            fail(
+                "never_rejects",
+                f"With {draws} drawn assignments, no Monte Carlo p-value is below "
+                f"1/{draws + 1}, which is above the level {alpha.value}. The test can never "
+                f"reject. Draw at least {splits_needed(alpha.value) - 1}.",
+                drawn.span,
+            )
+        return RandomisationAnalysisIR(design.value, arguments["null"].value, alpha.value, draws)
     splits = count_splits(assignment.groups)
     if Fraction(1, splits) > alpha.value:
         grouped = assignment.randomisation != "complete"
@@ -2486,7 +2507,12 @@ MODULES = {
             (
                 _constructor(
                     "randomisation_test",
-                    (("design", PlanIR), ("null", NullIR), ("alpha", "level")),
+                    (
+                        ("design", PlanIR),
+                        ("null", NullIR),
+                        ("alpha", "level"),
+                        ("draws", "integer", True),
+                    ),
                     "RandomisationAnalysis",
                     _randomisation_test,
                     hypothesis_contract=RANDOMISATION_CONTRACT,
@@ -2494,7 +2520,9 @@ MODULES = {
                     "from the randomisation declared on the assignment, and Lean proves it "
                     "for every test statistic fixed in advance; no distribution is assumed. "
                     "With cluster_assignment the clusters are randomised, so the test "
-                    "permutes clusters. " + RANDOMISATION_CONTRACT.guidance,
+                    "permutes clusters. Without draws the p-value counts every possible "
+                    "assignment; with draws=B it compares the observed assignment with B "
+                    "drawn at random, which Lean also proves. " + RANDOMISATION_CONTRACT.guidance,
                 ),
                 TYPE_I,
             ),

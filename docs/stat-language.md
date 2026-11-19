@@ -197,7 +197,19 @@ cluster-randomised trial. A design with too few splits to reach its level, such
 as two clusters per arm at 1/20, is refused with `never_rejects`; an assignment
 without a declared scheme is refused with `undeclared_randomisation`. The
 p-value counts every split; a p-value from a random sample of splits is not
-covered. See `examples/randomisation.stat`.
+covered by the exact form. For that, add `draws`:
+
+```text
+let analysis = randomisation_test(design=fixed(model=pain), null=no_effect(model=pain),
+                                  alpha=1/20, draws=9999)
+```
+
+The p-value then compares the observed assignment with 9,999 drawn independently
+and uniformly, counting the observed one among them, the usual `(1 + count) /
+(draws + 1)`. Lean proves this has Type I error at most alpha for any number of
+draws, with the draws' independence stated as a product of uniform laws. Too
+few draws to reach the level, such as 18 at 1/20, are refused with
+`never_rejects`. See `examples/randomisation.stat`.
 
 ## First-class claims and execution results
 
