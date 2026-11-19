@@ -35,9 +35,10 @@ MODULE_CLASSES = {
     "tests.randomisation": (
         "Analyses and claims",
         "Randomisation test of the sharp null that treatment changes no participant's "
-        "outcome, for any two-arm model. Its level follows from complete randomisation "
-        "declared on the assignment; Lean proves it for every statistic fixed in advance. "
-        "With clusters randomised, the test permutes clusters. Up to 10,000 randomised units.",
+        "outcome, for any two-arm model. Its level follows from the complete, stratified or "
+        "blocked randomisation declared on the assignment; Lean proves it for every statistic "
+        "fixed in advance. With clusters randomised, the test permutes clusters. Up to 10,000 "
+        "randomised units and 1,000 strata or blocks.",
     ),
     "tests.difference": (
         "Analyses and claims",
@@ -136,6 +137,10 @@ OBJECT_CLASSES = {
         "Two arms: an assignment and a continuous, survival or other registered outcome.",
     ),
     "OutcomeNull": ("Core statistical objects", "A null restriction for such a model."),
+    "Stratum": (
+        "Core statistical objects",
+        "One stratum of a stratified or blocked assignment: randomised units per arm.",
+    ),
     "SharpNull": (
         "Core statistical objects",
         "The sharp null: treatment changes no participant's outcome. Not a null about means.",

@@ -102,21 +102,17 @@ from statclaim.proof import (
     validate_result,
 )
 from statclaim.randomisation import (
-    ASSUMPTIONS as RANDOMISATION_ASSUMPTIONS,
-)
-from statclaim.randomisation import (
-    GENERAL_THEOREM as RANDOMISATION_THEOREM,
-)
-from statclaim.randomisation import (
     RANDOMISATION_KIND,
     RandomisationTest,
     parse_randomisation_payload,
+    randomisation_assumptions,
     randomisation_claims,
     randomisation_payload,
+    randomisation_theorems,
     render_randomisation_proof,
 )
 from statclaim.randomisation import (
-    THEOREMS as RANDOMISATION_THEOREMS,
+    general_theorem as randomisation_theorem,
 )
 
 CLAIMS = [
@@ -257,13 +253,15 @@ def _profile(kind: str, payload: dict) -> dict:
         )
         general_theorem = "StatClaim.Modules.BinomialInterval.joint_coverage"
     elif kind == RANDOMISATION_KIND:
-        claims = randomisation_claims(parse_randomisation_payload(payload))
-        assumptions, theorems = list(RANDOMISATION_ASSUMPTIONS), RANDOMISATION_THEOREMS
+        test = parse_randomisation_payload(payload)
+        claims = randomisation_claims(test)
+        assumptions = list(randomisation_assumptions(test))
+        theorems = randomisation_theorems(test)
         scope = (
-            "The declared randomisation test under complete randomisation, for every statistic "
-            "fixed in advance; no observed results are certified."
+            f"The declared randomisation test under {test.scheme} randomisation, for every "
+            "statistic fixed in advance; no observed results are certified."
         )
-        general_theorem = RANDOMISATION_THEOREM
+        general_theorem = randomisation_theorem(test)
     elif kind == INTERVAL_KIND:
         claims = interval_claims(parse_interval_payload(payload))
         assumptions, theorems = INTERVAL_ASSUMPTIONS, INTERVAL_CHECKED_THEOREMS

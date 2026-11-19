@@ -6,6 +6,7 @@ Nothing here starts Lean; tests/test_randomisation_integration.py does.
 import copy
 import subprocess
 from fractions import Fraction
+from math import comb
 from pathlib import Path
 
 import pytest
@@ -181,8 +182,8 @@ def test_an_assignment_that_does_not_declare_its_randomisation_is_refused():
     assert 'randomisation="complete"' in message and "40 participants" in message
 
 
-@pytest.mark.parametrize("scheme", ["blocked", "stratified", "Complete", ""])
-def test_only_complete_randomisation_can_be_declared(scheme):
+@pytest.mark.parametrize("scheme", ["minimisation", "Complete", ""])
+def test_only_known_schemes_can_be_declared(scheme):
     text = f'let arms = assignment(n_control=20, n_treatment=20, randomisation="{scheme}")\n'
     ((code, message),) = diagnostics(text)
     assert code == "domain" and "not supported yet" in message
@@ -355,6 +356,165 @@ def test_splits_needed(alpha, needed):
 
 def test_the_example_compiles_and_every_derivation_passes():
     path = ROOT / "examples/randomisation.stat"
+    compilation = compile_source(Source(path.read_text(), str(path)))
+    assert compilation.status == "elaborated"
+    assert [check_derivation(d.to_dict()) for d in compilation.derivations] == [[], []]
+
+
+SITES = "strata=[stratum(control=8, treatment=8), stratum(control=12, treatment=12)]"
+
+
+@pytest.mark.parametrize(
+    "declaration,count,groups",
+    [
+        (f'randomisation="stratified", {SITES}', comb(16, 8) * comb(24, 12), 2),
+        ('randomisation="blocked", block_size=4', 6**10, 10),
+        (f'randomisation="blocked", block_size=4, {SITES}', 6**10, 10),
+    ],
+)
+def test_stratified_and_blocked_randomisation_give_checked_derivations(declaration, count, groups):
+    arms = f"let arms = assignment(n_control=20, n_treatment=20, {declaration})\n"
+    compilation = compiled(arms + STUDY + TEST)
+    assert not compilation.diagnostics
+    record = derivation(compilation)
+    assert check_derivation(record) == []
+    assert record["steps"][4]["facts"]["splits"] == str(count)
+    test = compilation.program.bindings[-1].value.lower()
+    assert test.splits == count and len(test.groups) == groups
+    claimed = USES + arms + STUDY + TEST + "verify typeI(analysis)\n"
+    (claim,) = inspect_program(compile_source(Source(claimed, "s.stat")))
+    assert claim["identified_assumptions"][0]["id"] == "stratified_randomisation"
+
+
+def test_pair_matched_clusters_are_blocks_of_two():
+    arms = (
+        "let arms = cluster_assignment(clusters_control=6, clusters_treatment=6, n_control=120, "
+        'n_treatment=120, randomisation="blocked", block_size=2)\n'
+    )
+    compilation = compiled(arms + STUDY + TEST)
+    assert not compilation.diagnostics
+    assert compilation.program.bindings[-1].value.lower().splits == 64
+    assert check_derivation(derivation(compilation)) == []
+
+
+@pytest.mark.parametrize(
+    "declaration,fragment",
+    [
+        (SITES, "declare randomisation="),
+        ("block_size=4", "declare randomisation="),
+        (f'randomisation="complete", {SITES}', "no strata or blocks"),
+        ('randomisation="stratified", strata=[stratum(control=20, treatment=20)]', "two strata"),
+        ('randomisation="stratified", block_size=4, ' + SITES, 'randomisation="blocked"'),
+        ('randomisation="blocked"', "needs block_size"),
+        ('randomisation="blocked", block_size=1', "needs block_size"),
+        ('randomisation="blocked", block_size=6', "whole blocks of 6"),
+        (
+            'randomisation="stratified", '
+            "strata=[stratum(control=8, treatment=8), stratum(control=10, treatment=12)]",
+            "add up to 18 control and 20 treatment",
+        ),
+        ('randomisation="stratified", strata=[1, 2]', "Each stratum must be stratum"),
+    ],
+)
+def test_strata_and_blocks_that_do_not_describe_a_randomisation_are_refused(declaration, fragment):
+    text = f"let arms = assignment(n_control=20, n_treatment=20, {declaration})\n"
+    (code, message), *_ = diagnostics(text)
+    assert code in ("domain", "type") and fragment in message
+
+
+def test_a_stratum_needs_a_unit():
+    text = "let s = stratum(control=0, treatment=0)\n"
+    assert [code for code, _ in diagnostics(text)] == ["domain"]
+
+
+def test_too_many_small_blocks_still_cannot_reach_a_tiny_level():
+    arms = (
+        "let arms = cluster_assignment(clusters_control=2, clusters_treatment=2, n_control=60, "
+        'n_treatment=60, randomisation="blocked", block_size=2)\n'
+    )
+    ((code, message), *_) = diagnostics(arms + STUDY + TEST)
+    assert code == "never_rejects" and "4 equally likely splits" in message
+
+
+def _strata_off(record):
+    for model in (record["subject"]["design"]["model"], record["subject"]["null"]["model"]):
+        model["strata"] = [[8, 8], [12, 10]]
+    record["steps"][3]["facts"]["strata"] = [[8, 8], [12, 10]]
+
+
+def _blocks_changed(record):
+    for model in (record["subject"]["design"]["model"], record["subject"]["null"]["model"]):
+        model["block_size"] = 2
+    record["steps"][3]["facts"]["block_size"] = 2
+
+
+def _called_complete(record):
+    for model in (record["subject"]["design"]["model"], record["subject"]["null"]["model"]):
+        model["randomisation"] = "complete"
+    record["steps"][3]["facts"]["randomisation"] = "complete"
+    record["steps"][3]["conclusion"] = record["steps"][3]["conclusion"].replace(
+        "blocked", "complete"
+    )
+
+
+@pytest.mark.parametrize("change", [_strata_off, _blocks_changed, _called_complete])
+def test_the_checker_rejects_tampered_strata_and_blocks(change):
+    arms = (
+        'let arms = assignment(n_control=20, n_treatment=20, randomisation="blocked", '
+        f"block_size=4, {SITES})\n"
+    )
+    record = derivation(compiled(arms + STUDY + TEST))
+    assert check_derivation(record) == []
+    assert check_derivation(tamper(record, change)) != []
+
+
+def test_grouped_payloads_round_trip_and_reject_tampering():
+    test = RandomisationTest(
+        40,
+        20,
+        Fraction(1, 20),
+        "participant",
+        "two_arm_continuous",
+        20,
+        20,
+        "blocked",
+        ((8, 8), (12, 12)),
+        4,
+    )
+    payload = randomisation_payload(test)
+    assert payload["design"]["strata"] == [[8, 8], [12, 12]]
+    assert parse_randomisation_payload(payload) == test
+    for change in (
+        lambda p: p["design"].update(block_size=8),
+        lambda p: p["design"].update(strata=[[8, 8], [12, 10]]),
+        lambda p: p["design"].update(randomisation="stratified"),
+        lambda p: p["analysis"].update(splits=str(6**10 + 1)),
+    ):
+        altered = copy.deepcopy(payload)
+        change(altered)
+        with pytest.raises((ValueError, KeyError)):
+            parse_randomisation_payload(altered)
+
+
+def test_the_grouped_proof_lists_every_group():
+    test = RandomisationTest(
+        40,
+        20,
+        Fraction(1, 20),
+        "participant",
+        "two_arm_continuous",
+        20,
+        20,
+        "blocked",
+        block_size=4,
+    )
+    proof = render_randomisation_proof(test, "b" * 64)
+    assert "def groups : Randomisation.Groups := [" + ", ".join(["(4, 2)"] * 10) + "]" in proof
+    assert f"card = {6**10}" in proof and "groupedTypeI_of_level" in proof
+
+
+def test_the_stratified_example_compiles():
+    path = ROOT / "examples/stratified_randomisation.stat"
     compilation = compile_source(Source(path.read_text(), str(path)))
     assert compilation.status == "elaborated"
     assert [check_derivation(d.to_dict()) for d in compilation.derivations] == [[], []]

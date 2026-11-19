@@ -58,7 +58,8 @@ FAMILY_LIMITS = (2, 20)
 ONE_ARM_LIMIT, PER_ARM_LIMIT, STAGE_LIMIT, SEARCH_LIMIT, RATIO_LIMIT = 1000, 500, 200, 120, 10
 CITED_ARM_LIMIT = 100_000
 UNIT_LIMIT = 10_000  # randomised units in a randomisation test
-SCHEMES = ["complete"]  # randomisation schemes the randomisation theorem covers
+SCHEMES = ["complete", "stratified", "blocked"]  # schemes the randomisation theorem covers
+GROUP_LIMIT = 1_000  # strata or blocks in a randomisation test
 # The arguments of each kind of planning point a power formula can take.
 POINT_KEYS = {
     "mean_difference": {"mean_difference", "sd"},
@@ -475,6 +476,44 @@ def _randomised(model: dict) -> tuple[str, int, int]:
     return "participant", model["n_control"] + model["n_treatment"], model["n_treatment"]
 
 
+def _blocks(model: dict, units: int, treated: int) -> list[tuple[int, int]] | None:
+    """The independently randomised groups the model declares, worked out here from the
+    serialized model, or None if they do not describe a randomisation."""
+    scheme, strata, size = model.get("randomisation"), model.get("strata"), model.get("block_size")
+    if scheme == "complete":
+        return [(units, treated)] if strata is None and size is None else None
+    if scheme == "stratified" and (size is not None or strata is None or len(strata) < 2):
+        return None
+    if scheme == "blocked" and not (_whole(size, 2)):
+        return None
+    if scheme not in ("stratified", "blocked"):
+        return None
+    layers = strata if strata is not None else [[units - treated, treated]]
+    if not all(
+        isinstance(layer, list)
+        and len(layer) == 2
+        and all(_whole(count, 0) for count in layer)
+        and sum(layer) > 0
+        for layer in layers
+    ):
+        return None
+    if [sum(layer[0] for layer in layers), sum(layer[1] for layer in layers)] != [
+        units - treated,
+        treated,
+    ]:
+        return None
+    if scheme == "stratified":
+        groups = [(control + treat, treat) for control, treat in layers]
+    else:
+        groups = []
+        for control, treat in layers:
+            whole = control + treat
+            if whole % size or (treat * size) % whole:
+                return None
+            groups += [(size, treat * size // whole)] * (whole // size)
+    return groups if len(groups) <= GROUP_LIMIT else None
+
+
 def _randomisation_expected(name: str, subject: dict) -> list[tuple]:
     """The randomisation test's premises, re-evaluated from the serialized subject."""
     if subject.get("test") != "randomisation":
@@ -483,7 +522,10 @@ def _randomisation_expected(name: str, subject: dict) -> list[tuple]:
     model, alpha = design["model"], Fraction(subject["alpha"])
     unit, units, treated = _randomised(model)
     possible = _whole(treated, 1) and _whole(units, treated + 1) and units <= UNIT_LIMIT
-    splits = comb(units, treated) if possible else 0
+    groups = _blocks(model, units, treated) if possible else None
+    splits = 1
+    for size, treat in groups or []:
+        splits *= comb(size, treat)
     steps = [
         (
             "same-model",
@@ -512,14 +554,16 @@ def _randomisation_expected(name: str, subject: dict) -> list[tuple]:
                 "unit": unit,
                 "units": units,
                 "treated": treated,
+                **({"strata": model["strata"]} if "strata" in model else {}),
+                **({"block_size": model["block_size"]} if "block_size" in model else {}),
             },
-            model.get("randomisation") in SCHEMES,
+            model.get("randomisation") in SCHEMES and groups is not None,
             (),
         ),
         (
             "can-reject",
             {"subject": name, "splits": str(splits), "alpha": subject["alpha"]},
-            possible and Fraction(1, splits) <= alpha,
+            groups is not None and Fraction(1, splits) <= alpha,
             (),
         ),
     ]

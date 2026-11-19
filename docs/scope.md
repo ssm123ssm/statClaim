@@ -23,10 +23,11 @@ What is supported:
 - **Two stages.** A single-arm design with an interim stop, using count or
   Beta-posterior rules. Type I error and power are checked for the whole design,
   and the decision for observed counts is checked against the declared rule.
-- **Randomisation tests.** Under declared complete randomisation of participants
-  or clusters, the randomisation test of the sharp null has Type I error at most
-  alpha for any statistic fixed in advance, whatever the outcomes. One Lean
-  theorem covers every design; the p-value counts every split.
+- **Randomisation tests.** Under declared complete, stratified or blocked
+  randomisation of participants or clusters, the randomisation test of the sharp
+  null has Type I error at most alpha for any statistic fixed in advance,
+  whatever the outcomes. One Lean theorem covers every design; the p-value counts
+  every possible assignment.
 
 - **Cluster-randomised trials, cited.** A t-test on one summary per cluster,
   with the clusters as the sample size and at least four per arm. It assumes

@@ -743,13 +743,13 @@ def run_margin_search(
 
 def randomisation_report(test, *, stopping: str = "fixed") -> dict:
     """A randomisation test's Type I claim before it is checked."""
-    from statclaim.randomisation import ASSUMPTIONS, NULL_STATEMENT
+    from statclaim.randomisation import NULL_STATEMENT, randomisation_assumptions
 
     report = planning_report(
         "randomisation_test",
         f"Randomisation test with {test.describe()}: Type I error <= {test.alpha} whenever "
         f"{NULL_STATEMENT}, for every statistic fixed in advance.",
-        list(ASSUMPTIONS),
+        list(randomisation_assumptions(test)),
     )
     report["calculation"] = {
         "units": test.units,

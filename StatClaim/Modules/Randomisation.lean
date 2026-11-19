@@ -101,6 +101,33 @@ theorem uniform_univ [MeasurableSpace Ω] [MeasurableSingletonClass Ω]
   simp only [Set.mem_univ, Finset.filter_true]
   exact ENNReal.div_self (by exact_mod_cast nonempty.card_pos.ne') (ENNReal.natCast_ne_top _)
 
+/-- The general Type I bound: assignments drawn uniformly from any finite set, a
+statistic computed from the assignment and the record it produced, and a record
+that no assignment changes (the sharp null). Complete, stratified and blocked
+designs differ only in the set. -/
+def uniformRejection {Record : Type*} (support : Finset Ω) (statistic : Ω → Record → β)
+    (outcomes : Ω → Record) (alpha : ℝ) : Set Ω :=
+  {assignment | tailShare support (fun other => statistic other (outcomes assignment))
+    assignment ≤ alpha}
+
+theorem uniformRejection_le [MeasurableSpace Ω] [MeasurableSingletonClass Ω] {Record : Type*}
+    (support : Finset Ω) (statistic : Ω → Record → β) (outcomes : Ω → Record)
+    (sharp : ∀ first second, outcomes first = outcomes second)
+    (alpha : ℝ) (alpha_nonneg : 0 ≤ alpha) :
+    (Measure.uniformOfFinset support).real (uniformRejection support statistic outcomes alpha)
+      ≤ alpha := by
+  classical
+  rcases support.eq_empty_or_nonempty with empty | ⟨fixed, _⟩
+  · subst empty
+    simp [Measure.real, Measure.uniformOfFinset_apply, alpha_nonneg]
+  have same : uniformRejection support statistic outcomes alpha =
+      {assignment | tailShare support (fun other => statistic other (outcomes fixed))
+        assignment ≤ alpha} := by
+    ext assignment
+    simp only [uniformRejection, Set.mem_ofPred_eq, sharp assignment fixed]
+  rw [same]
+  exact uniform_tail_le support (fun other => statistic other (outcomes fixed)) alpha alpha_nonneg
+
 end Generic
 
 section Design
@@ -206,5 +233,59 @@ theorem typeI_of_level (n k : ℕ) {β : Type*} [LinearOrder β]
   typeI n k statistic outcomes sharp alpha (by exact_mod_cast alpha_nonneg)
 
 end Design
+
+section Grouped
+
+/-- Strata or blocks: each group's size and its number of treated units. Groups are
+randomised independently of one another, and units are numbered within their group. -/
+abbrev Groups := List (ℕ × ℕ)
+
+/-- An assignment of grouped units: the treated units of each group. -/
+abbrev GroupedAssignment (groups : Groups) := (j : Fin groups.length) → Finset (Fin groups[j.1].1)
+
+/-- Every assignment with each group's declared number of treated units. -/
+def groupedSplits (groups : Groups) : Finset (GroupedAssignment groups) :=
+  Fintype.piFinset (fun j => (Finset.univ : Finset (Fin groups[j.1].1)).powersetCard groups[j.1].2)
+
+/-- The number of splits of one group, computed through factorials so the kernel
+can evaluate it quickly. -/
+def splitCount (group : ℕ × ℕ) : ℕ :=
+  group.1.factorial / (group.2.factorial * (group.1 - group.2).factorial)
+
+theorem groupedSplits_card (groups : Groups) (fits : ∀ group ∈ groups, group.2 ≤ group.1) :
+    (groupedSplits groups).card = (groups.map splitCount).prod := by
+  rw [groupedSplits, Fintype.card_piFinset, ← Fin.prod_univ_fun_getElem groups splitCount]
+  apply Finset.prod_congr rfl
+  intro j _
+  rw [Finset.card_powersetCard, Finset.card_univ, Fintype.card_fin]
+  exact Nat.choose_eq_factorial_div_factorial (fits _ (List.getElem_mem _))
+
+theorem groupedSplits_nonempty (groups : Groups) (fits : ∀ group ∈ groups, group.2 ≤ group.1) :
+    (groupedSplits groups).Nonempty := by
+  rw [groupedSplits, Fintype.piFinset_nonempty]
+  intro j
+  exact Finset.powersetCard_nonempty.mpr (by simpa using fits _ (List.getElem_mem _))
+
+/-- Stratified or blocked randomisation: within each group every split with its
+declared number of treated units is equally likely, independently between groups. -/
+noncomputable def groupedLaw (groups : Groups) : Measure (GroupedAssignment groups) :=
+  Measure.uniformOfFinset (groupedSplits groups)
+
+theorem groupedLaw_univ (groups : Groups) (fits : ∀ group ∈ groups, group.2 ≤ group.1) :
+    groupedLaw groups Set.univ = 1 :=
+  uniform_univ _ (groupedSplits_nonempty groups fits)
+
+/-- The Type I bound for stratified or blocked randomisation, for every statistic and
+every record that no assignment changes. -/
+theorem groupedTypeI_of_level (groups : Groups) {Record : Type*} {β : Type*} [LinearOrder β]
+    (statistic : GroupedAssignment groups → Record → β)
+    (outcomes : GroupedAssignment groups → Record)
+    (sharp : ∀ first second, outcomes first = outcomes second)
+    (alpha : ℚ) (alpha_nonneg : 0 ≤ alpha) :
+    (groupedLaw groups).real
+        (uniformRejection (groupedSplits groups) statistic outcomes alpha) ≤ (alpha : ℝ) :=
+  uniformRejection_le _ statistic outcomes sharp alpha (by exact_mod_cast alpha_nonneg)
+
+end Grouped
 
 end StatClaim.Modules.Randomisation

@@ -37,6 +37,7 @@ Other files in `playground/`:
 | `declared_design.stat` | Repeated measurements and randomised clinics, declared and checked |
 | `randomisation.stat` | Randomisation tests by participant and by clinic, proved in Lean |
 | `cluster_trial.stat` | One clinic trial, a cited cluster-level t-test beside a proved randomisation test |
+| `stratified_randomisation.stat` | Randomisation tests with permuted blocks within sites, and with matched pairs of clinics |
 | `mixed_endpoints.stat` | A proved and a cited test under one error bound |
 
 ## Without Lean

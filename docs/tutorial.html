@@ -1604,6 +1604,12 @@ It needs at least 20 splits: randomise more clusters or use a larger level.</cod
 out <code>randomisation="complete"</code>, and the test is refused with
 <code>undeclared_randomisation</code>: its level comes from the randomisation, so the file
 must say what it was.</p>
+<p>Many trials randomise within strata or in blocks instead. Say so, with
+<code>randomisation="stratified"</code> and <code>strata=[stratum(control=3, treatment=3), ...]</code>,
+or <code>randomisation="blocked"</code> and <code>block_size</code>. Matched pairs of clinics,
+one of each pair treated, are blocks of two: <code>block_size=2</code>. The same theorem
+covers them all, because each stratum or block is randomised on its own; only the count of
+equally likely assignments changes.</p>
 <div class="note"><strong>Not a test of means.</strong> Give the randomisation test
 <code>equal_means(model=practice)</code>, or a t-test <code>no_effect(model=practice)</code>, and
 each is refused with <code>hypothesis_mismatch</code>. When effects differ between

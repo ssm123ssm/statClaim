@@ -79,7 +79,7 @@ verification; a valid specification alone is not a proof.
 | --- | --- | --- |
 | Compare two proportions | `tests.fisher` | Type I error, exact p-value and decision; two-sided or one-sided |
 | Show non-inferiority | `tests.difference` | Type I error over the whole null, power and decision |
-| Test a randomised comparison, by participant or by cluster | `tests.randomisation` | Type I error under the sharp null, for any statistic |
+| Test a randomised comparison, by participant or by cluster, with strata or blocks | `tests.randomisation` | Type I error under the sharp null, for any statistic |
 | Test one proportion | `tests.binomial` | Type I error, exact p-value and decision |
 | Estimate one proportion | `tests.binomial` | Coverage of the exact confidence interval |
 | Estimate a difference | `estimation` | Coverage of a conservative interval |

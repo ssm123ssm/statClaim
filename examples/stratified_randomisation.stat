@@ -1,0 +1,39 @@
+# Randomisation tests for trials randomised within strata or blocks.
+use models.two_arm_continuous
+use sampling
+use tests.randomisation
+
+# Two sites as strata, and permuted blocks of four within each site: every block has
+# two treated and two control participants, each of its six splits equally likely.
+let arms = assignment(
+    n_control=24,
+    n_treatment=24,
+    randomisation="blocked",
+    block_size=4,
+    strata=[stratum(control=10, treatment=10), stratum(control=14, treatment=14)],
+)
+let pain = two_arm(assignment=arms, outcome=continuous_outcome(better="lower"))
+let blocked = randomisation_test(
+    design=fixed(model=pain),
+    null=no_effect(model=pain),
+    alpha=1/20,
+)
+
+# Six pairs of matched clinics, one of each pair treated: blocks of two clusters.
+let pairs = cluster_assignment(
+    clusters_control=6,
+    clusters_treatment=6,
+    n_control=120,
+    n_treatment=120,
+    randomisation="blocked",
+    block_size=2,
+)
+let practice = two_arm(assignment=pairs, outcome=continuous_outcome(better="higher"))
+let matched = randomisation_test(
+    design=fixed(model=practice),
+    null=no_effect(model=practice),
+    alpha=1/20,
+)
+
+let by_block = verify(typeI(blocked))
+let by_pair = verify(typeI(matched))

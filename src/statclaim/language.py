@@ -5,9 +5,8 @@ supported objects to the same validated requests as the TOML and Lean routes.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from fractions import Fraction
-from math import comb
 from typing import Literal as Choice
 
 from statclaim.composition import MODES, Component, Composition
@@ -63,7 +62,14 @@ from statclaim.planning import (
     TwoStageResult,
     TwoStageRule,
 )
-from statclaim.randomisation import MAX_UNITS, SCHEMES, RandomisationTest, splits_needed
+from statclaim.randomisation import (
+    MAX_UNITS,
+    SCHEMES,
+    RandomisationTest,
+    count_splits,
+    groups_of,
+    splits_needed,
+)
 
 LANGUAGE_VERSION = "0.13.0"
 
@@ -112,6 +118,10 @@ class AssignmentIR:
     clusters_treatment: int | None = None
     # A key of randomisation.SCHEMES when declared. Only a randomisation test reads it.
     randomisation: str | None = None
+    # For stratified or blocked randomisation: (control, treatment) randomised units per
+    # stratum, and the block size. Units are clusters when clusters were randomised.
+    strata: tuple[tuple[int, int], ...] = ()
+    block_size: int | None = None
 
     @property
     def clustered(self) -> bool:
@@ -127,6 +137,20 @@ class AssignmentIR:
                 self.clusters_treatment,
             )
         return ("participant", self.n_control + self.n_treatment, self.n_treatment)
+
+    @property
+    def groups(self) -> tuple[tuple[int, int], ...]:
+        """The groups randomised independently, as (units, treated), when declared."""
+        _, units, treated = self.randomised_units
+        return groups_of(units, treated, self.randomisation, self.strata, self.block_size)
+
+
+@dataclass(frozen=True)
+class StratumIR:
+    """One stratum of a stratified assignment: randomised units per arm."""
+
+    control: int
+    treatment: int
 
 
 @dataclass(frozen=True)
@@ -370,6 +394,9 @@ class RandomisationAnalysisIR(LevelTestIR):
             OUTCOMES[model.outcome].constructor,
             model.n_control,
             model.n_treatment,
+            model.assignment.randomisation,
+            model.assignment.strata,
+            model.assignment.block_size,
         )
 
 
@@ -881,7 +908,13 @@ def normalize(value: object) -> object:
                 result.update(clusters_control=cc, clusters_treatment=value.clusters_treatment)
             if value.randomisation is not None:
                 result["randomisation"] = value.randomisation
+            if value.strata:
+                result["strata"] = [list(stratum) for stratum in value.strata]
+            if value.block_size is not None:
+                result["block_size"] = value.block_size
             return result
+        case StratumIR(control=control, treatment=treatment):
+            return {"control": control, "treatment": treatment}
         case OutcomeIR(kind=kind, better=better, measurements=measurements):
             return {
                 "outcome": kind,
@@ -1090,35 +1123,72 @@ def fail(code: str, message: str, span: Span) -> None:
     raise LanguageError(Diagnostic(code, message, span))
 
 
-def _scheme(arguments: dict[str, LocatedValue]) -> str | None:
-    """The declared randomisation scheme, if any. Only complete randomisation is known."""
-    scheme = arguments.get("randomisation")
-    if scheme is None or scheme.value is None:
-        return None
+def _declare_randomisation(
+    assignment: AssignmentIR, arguments: dict[str, LocatedValue], span: Span
+) -> AssignmentIR:
+    """Add the declared randomisation scheme, strata and block size, checked to fit."""
+    scheme, strata, block = (
+        arguments.get(name) for name in ("randomisation", "strata", "block_size")
+    )
+    named = scheme is not None and scheme.value is not None
+    detail = next(
+        (item for item in (strata, block) if item is not None and item.value is not None), None
+    )
+    if not named:
+        if detail is not None:
+            fail(
+                "domain",
+                "strata and block_size describe how the assignment was randomised; declare "
+                'randomisation="stratified" or "blocked" with them.',
+                detail.span,
+            )
+        return assignment
     if scheme.value not in SCHEMES:
         fail(
             "domain",
-            'randomisation must be "complete": every split of the units into arms of the '
-            "declared sizes was equally likely. Blocked, stratified and other schemes are not "
-            "supported yet; leave randomisation out for them.",
+            'randomisation must be "complete", "stratified" or "blocked": every split, within '
+            "each stratum or block where declared, was equally likely. Minimisation and other "
+            "schemes are not supported yet; leave randomisation out for them.",
             scheme.span,
         )
-    return scheme.value
+    layers = []
+    for item in (strata.value or ()) if strata is not None else ():
+        if not isinstance(item.value, StratumIR):
+            fail("type", "Each stratum must be stratum(control=..., treatment=...).", item.span)
+        layers.append((item.value.control, item.value.treatment))
+    size = block.value if block is not None else None
+    declared = replace(
+        assignment, randomisation=scheme.value, strata=tuple(layers), block_size=size
+    )
+    try:
+        groups_of(*declared.randomised_units[1:], scheme.value, tuple(layers), size)
+    except ValueError as error:
+        fail("domain", str(error), (detail or scheme).span)
+    return declared
 
 
-def _assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
+def _arm_sizes(arguments: dict[str, LocatedValue]) -> AssignmentIR:
     for name in ("n_control", "n_treatment"):
         if arguments[name].value <= 0:
             fail("domain", f"{name} must be a positive integer.", arguments[name].span)
-    return AssignmentIR(
-        arguments["n_control"].value,
-        arguments["n_treatment"].value,
-        randomisation=_scheme(arguments),
-    )
+    return AssignmentIR(arguments["n_control"].value, arguments["n_treatment"].value)
+
+
+def _assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
+    return _declare_randomisation(_arm_sizes(arguments), arguments, span)
+
+
+def _stratum(arguments: dict[str, LocatedValue], span: Span) -> StratumIR:
+    for name in ("control", "treatment"):
+        if arguments[name].value < 0:
+            fail("domain", f"{name} must be a whole number, zero or more.", arguments[name].span)
+    if arguments["control"].value + arguments["treatment"].value == 0:
+        fail("domain", "A stratum needs at least one unit.", span)
+    return StratumIR(arguments["control"].value, arguments["treatment"].value)
 
 
 def _cluster_assignment(arguments: dict[str, LocatedValue], span: Span) -> AssignmentIR:
-    sizes = _assignment(arguments, span)
+    sizes = _arm_sizes(arguments)
     for arm in ("control", "treatment"):
         clusters, size = arguments[f"clusters_{arm}"], arguments[f"n_{arm}"].value
         if not 1 <= clusters.value <= size:
@@ -1127,13 +1197,13 @@ def _cluster_assignment(arguments: dict[str, LocatedValue], span: Span) -> Assig
                 f"clusters_{arm} must be a positive integer no larger than n_{arm} ({size}).",
                 clusters.span,
             )
-    return AssignmentIR(
+    clustered = AssignmentIR(
         sizes.n_control,
         sizes.n_treatment,
         arguments["clusters_control"].value,
         arguments["clusters_treatment"].value,
-        sizes.randomisation,
     )
+    return _declare_randomisation(clustered, arguments, span)
 
 
 def _outcome_piece(kind: str) -> Callable:
@@ -1367,7 +1437,8 @@ def _randomisation_test(arguments: dict[str, LocatedValue], span: Span) -> Rando
             "randomisation_test needs the assignment to say how it was randomised: its level "
             "follows from the randomisation alone. If every split of the "
             f"{units} {unit}s into arms of these sizes was equally likely, declare "
-            f'randomisation="complete" in {constructor}(...).',
+            f'randomisation="complete" in {constructor}(...); for strata or blocks, declare '
+            'randomisation="stratified" with strata=[...] or "blocked" with block_size=...',
             design.span,
         )
     if units > MAX_UNITS:
@@ -1379,14 +1450,17 @@ def _randomisation_test(arguments: dict[str, LocatedValue], span: Span) -> Rando
         )
     if alpha.value == 0:
         fail("domain", "alpha must be positive for this test.", alpha.span)
-    splits = comb(units, treated)
+    splits = count_splits(assignment.groups)
     if Fraction(1, splits) > alpha.value:
+        grouped = assignment.randomisation != "complete"
+        layout = f", in {len(assignment.groups)} strata or blocks" if grouped else ""
         fail(
             "never_rejects",
-            f"With {units} {unit}s, {treated} treated, there are {splits} equally likely "
+            f"With {units} {unit}s, {treated} treated{layout}, there are {splits} equally likely "
             f"splits, so no p-value is below 1/{splits}, which is above the level "
             f"{alpha.value}. The test can never reject. It needs at least "
-            f"{splits_needed(alpha.value)} splits: randomise more {unit}s or use a larger level.",
+            f"{splits_needed(alpha.value)} splits: randomise more {unit}s, use fewer strata or "
+            "larger blocks, or use a larger level.",
             design.span,
         )
     return RandomisationAnalysisIR(design.value, arguments["null"].value, alpha.value)
@@ -2147,13 +2221,20 @@ DECLARED_MODULE_SUMMARY = (
 
 RANDOMISATION_DOCUMENTATION = (
     'randomisation is "complete" when every split of the units into arms of these sizes was '
-    "equally likely. Leave it out otherwise; only randomisation_test reads it, and it "
-    "refuses an assignment without it."
+    'equally likely; "stratified" with strata=[stratum(...), ...] when that holds within each '
+    'stratum; "blocked" with block_size=... (and optional strata) when it holds within each '
+    "block of that size. Strata and blocks count randomised units. Leave it out otherwise; "
+    "only randomisation_test reads it, and it refuses an assignment without it."
+)
+RANDOMISATION_PARAMETERS = (
+    ("randomisation", "string", True),
+    ("strata", "list", True),
+    ("block_size", "integer", True),
 )
 # Shared by every two-arm model module, so a file that loads several gets one copy.
 ASSIGNMENT = _constructor(
     "assignment",
-    (("n_control", "integer"), ("n_treatment", "integer"), ("randomisation", "string", True)),
+    (("n_control", "integer"), ("n_treatment", "integer"), *RANDOMISATION_PARAMETERS),
     "Assignment",
     _assignment,
     documentation="How participants are assigned to the two arms: the two arm sizes and, "
@@ -2167,7 +2248,7 @@ CLUSTER_ASSIGNMENT = _constructor(
         ("clusters_treatment", "integer"),
         ("n_control", "integer"),
         ("n_treatment", "integer"),
-        ("randomisation", "string", True),
+        *RANDOMISATION_PARAMETERS,
     ),
     "Assignment",
     _cluster_assignment,
@@ -2177,6 +2258,14 @@ CLUSTER_ASSIGNMENT = _constructor(
     "randomises participants are not clusters: use assignment(...) there. Tests that assume "
     "independent participants are refused. With randomisation, the units are the clusters. "
     + RANDOMISATION_DOCUMENTATION,
+)
+STRATUM = _constructor(
+    "stratum",
+    (("control", "integer"), ("treatment", "integer")),
+    "Stratum",
+    _stratum,
+    documentation="One stratum of a stratified or blocked assignment: how many randomised "
+    "units, participants or clusters, it has in each arm.",
 )
 NO_EFFECT = _constructor(
     "no_effect",
@@ -2245,7 +2334,13 @@ def _outcome_module(outcome) -> "Module":
         documentation=f"{outcome.documentation} The model fixes no distribution; each test "
         f"states the one it assumes. {_shorthand_note(outcome)} {BETTER_DOCUMENTATION}",
     )
-    pieces = (ASSIGNMENT, CLUSTER_ASSIGNMENT, _outcome_piece_constructor(outcome), TWO_ARM)
+    pieces = (
+        ASSIGNMENT,
+        CLUSTER_ASSIGNMENT,
+        STRATUM,
+        _outcome_piece_constructor(outcome),
+        TWO_ARM,
+    )
     return Module(outcome.module, (model, *pieces, *nulls, NO_EFFECT, TYPE_I))
 
 
@@ -2299,6 +2394,7 @@ MODULES = {
                 ),
                 ASSIGNMENT,
                 CLUSTER_ASSIGNMENT,
+                STRATUM,
                 _outcome_piece_constructor(OUTCOMES["binary"]),
                 TWO_ARM,
                 _constructor(

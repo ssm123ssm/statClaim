@@ -91,10 +91,12 @@ RULES = {
     ),
     "declared-randomisation": Rule(
         "The assignment declares how it was randomised, by a scheme the test's theorem "
-        "covers: complete randomisation, every split of the units into arms of the declared "
-        "sizes equally likely.",
+        "covers: complete, stratified or blocked randomisation, every split within the whole "
+        "study, each stratum or each block equally likely and independent between them, with "
+        "strata and blocks that add up to the arm sizes.",
         "{subject}: the assignment declares {randomisation} randomisation of {units} {unit}s, "
         "{treated} treated.",
+        version=2,
     ),
     "can-reject": Rule(
         "One over the number of equally likely splits, the smallest p-value the test can "
@@ -524,6 +526,8 @@ def derive_randomisation(name: str, analysis: RandomisationAnalysisIR) -> Deriva
                 "unit": test.unit,
                 "units": test.units,
                 "treated": test.treated,
+                **({"strata": [list(s) for s in test.strata]} if test.strata else {}),
+                **({"block_size": test.block_size} if test.block_size is not None else {}),
             },
         ),
         builder.apply(

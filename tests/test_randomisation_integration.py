@@ -106,3 +106,56 @@ def test_the_example_verifies_both_claims(tmp_path):
         "verified",
     ]
     assert report["values"]["grade"] == "proved"
+
+
+BLOCKED = RandomisationTest(
+    48,
+    24,
+    Fraction(1, 20),
+    "participant",
+    "two_arm_continuous",
+    24,
+    24,
+    "blocked",
+    ((10, 10), (14, 14)),
+    4,
+)
+
+
+@pytest.fixture(scope="module")
+def grouped(tmp_path_factory):
+    bundle = tmp_path_factory.mktemp("blocked") / "checked"
+    report = run_randomisation(BLOCKED, stopping="fixed", project=ROOT, output=bundle, timeout=300)
+    assert report["status"] == "verified", report.get("verification")
+    return report, bundle
+
+
+def test_a_blocked_design_within_strata_is_proved_and_replays(grouped):
+    report, bundle = grouped
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    assert certificate["general_theorem"] == (
+        "StatClaim.Modules.Randomisation.groupedTypeI_of_level"
+    )
+    assert certificate["inputs"]["analysis"]["splits"] == str(6**12)
+    assert certificate["assumptions"][0].startswith("Within each stratum or block")
+    assert recheck_certificate(bundle, project=ROOT, timeout=300)["status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    "before,after",
+    [
+        (f"card = {6**12}", f"card = {6**12 + 1}"),
+        ("(4, 2), (4, 2)]", "(4, 2), (4, 3)]"),  # one block with a different allocation
+    ],
+)
+def test_the_kernel_rejects_false_grouped_statements(grouped, tmp_path, before, after):
+    _, bundle = grouped
+    source = (bundle / "Proof.lean").read_text()
+    assert before in source
+    proof = tmp_path / "FalseGrouped.lean"
+    proof.write_text(source.replace(before, after))
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=300
+    )
+    assert checked.returncode != 0
+    assert "STATCLAIM_CHECKED" not in checked.stdout

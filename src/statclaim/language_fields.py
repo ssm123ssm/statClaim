@@ -47,6 +47,7 @@ from statclaim.language import (
     SequentialIR,
     SharpNullIR,
     SizingIR,
+    StratumIR,
     StudyModelIR,
     TwoArmTestIR,
     TwoStageAnalysisIR,
@@ -100,9 +101,13 @@ SCHEMAS = {
         "n_control": FieldSpec(int),
         "n_treatment": FieldSpec(int),
         "randomisation": FieldSpec(
-            str, optional=True, description="complete, when the file declares it."
+            str,
+            optional=True,
+            description="complete, stratified or blocked, when the file declares it.",
         ),
+        "block_size": FieldSpec(int, optional=True, description="Units per block, if blocked."),
     },
+    StratumIR: {"control": FieldSpec(int), "treatment": FieldSpec(int)},
     OutcomeIR: {
         "kind": FieldSpec(str, description="binary, continuous, survival, ..."),
         "better": BETTER,

@@ -61,7 +61,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Assignment | How participants reach the two arms: the arm sizes, clusters and, when declared, the randomisation. Shared by outcomes on the same participants. | `n_control: integer`, `n_treatment: integer`, `randomisation: Option[string]` |
+| Assignment | How participants reach the two arms: the arm sizes, clusters and, when declared, the randomisation. Shared by outcomes on the same participants. | `n_control: integer`, `n_treatment: integer`, `randomisation: Option[string]`, `block_size: Option[integer]` |
 | Outcome | What is measured on each participant: its kind and which direction is better. | `kind: string`, `better: Option[string]` |
 | Model | Two binomial arms: an assignment and a binary outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | StudyDesign | Model with a stopping rule. | `model: Model`, `stopping: string` |
@@ -69,6 +69,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
 | OutcomeModel | Two arms: an assignment and a continuous, survival or other registered outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
+| Stratum | One stratum of a stratified or blocked assignment: randomised units per arm. | `control: integer`, `treatment: integer` |
 | SharpNull | The sharp null: treatment changes no participant's outcome. Not a null about means. | `model: Model`, `predicate: string`, `statement: string` |
 | RandomisationAnalysis | Design, sharp null and alpha for a randomisation test; its level is proved in Lean. | `design: StudyDesign`, `null: SharpNull`, `alpha: exact number`, `guarantee: Guarantee` |
 | CitedAnalysis | Design, null and alpha for a test whose guarantee is cited, not proved. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `guarantee: Guarantee` |
@@ -137,10 +138,12 @@ Two arms with a continuous outcome; equal-means and mean-difference nulls. Fixes
 
 - `two_arm_continuous(n_control: integer, n_treatment: integer, better?: string) -> OutcomeModel`
   Two arms with a continuous outcome, such as a change in blood pressure. The model fixes no distribution; each test states the one it assumes. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=continuous_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
-- `assignment(n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
-  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
-- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
-  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `assignment(n_control: integer, n_treatment: integer, randomisation?: string, strata?: list, block_size?: integer) -> Assignment`
+  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely; "stratified" with strata=[stratum(...), ...] when that holds within each stratum; "blocked" with block_size=... (and optional strata) when it holds within each block of that size. Strata and blocks count randomised units. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string, strata?: list, block_size?: integer) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely; "stratified" with strata=[stratum(...), ...] when that holds within each stratum; "blocked" with block_size=... (and optional strata) when it holds within each block of that size. Strata and blocks count randomised units. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `stratum(control: integer, treatment: integer) -> Stratum`
+  One stratum of a stratified or blocked assignment: how many randomised units, participants or clusters, it has in each arm.
 - `continuous_outcome(better?: string, measurements?: integer) -> Outcome`
   The continuous outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption. measurements is how many times the outcome is measured on each participant, 1 if left out. With more than one, tests that take one value per participant are refused.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
@@ -161,10 +164,12 @@ Two arms with a time-to-event outcome, possibly censored; equal-survival null. F
 
 - `two_arm_survival(n_control: integer, n_treatment: integer, better?: string) -> OutcomeModel`
   Two arms followed for the time until an event, such as death or relapse. Some participants may be censored: followed without the event being seen. The model fixes no distribution; each test states the one it assumes. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=survival_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
-- `assignment(n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
-  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
-- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
-  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `assignment(n_control: integer, n_treatment: integer, randomisation?: string, strata?: list, block_size?: integer) -> Assignment`
+  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely; "stratified" with strata=[stratum(...), ...] when that holds within each stratum; "blocked" with block_size=... (and optional strata) when it holds within each block of that size. Strata and blocks count randomised units. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string, strata?: list, block_size?: integer) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely; "stratified" with strata=[stratum(...), ...] when that holds within each stratum; "blocked" with block_size=... (and optional strata) when it holds within each block of that size. Strata and blocks count randomised units. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `stratum(control: integer, treatment: integer) -> Stratum`
+  One stratum of a stratified or blocked assignment: how many randomised units, participants or clusters, it has in each arm.
 - `survival_outcome(better?: string) -> Outcome`
   The survival outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
@@ -243,10 +248,12 @@ Two independent binomial arms, in one call or from an assignment and an outcome;
 
 - `two_arm_binomial(n_control: integer, n_treatment: integer, better?: string) -> Model`
   Two independent binomial arms. Shorthand for two_arm(assignment=assignment(n_control, n_treatment), outcome=binary_outcome(better)). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
-- `assignment(n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
-  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
-- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string) -> Assignment`
-  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `assignment(n_control: integer, n_treatment: integer, randomisation?: string, strata?: list, block_size?: integer) -> Assignment`
+  How participants are assigned to the two arms: the two arm sizes and, when declared, how the assignment was randomised. One assignment can be shared by several outcomes measured on the same participants. randomisation is "complete" when every split of the units into arms of these sizes was equally likely; "stratified" with strata=[stratum(...), ...] when that holds within each stratum; "blocked" with block_size=... (and optional strata) when it holds within each block of that size. Strata and blocks count randomised units. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `cluster_assignment(clusters_control: integer, clusters_treatment: integer, n_control: integer, n_treatment: integer, randomisation?: string, strata?: list, block_size?: integer) -> Assignment`
+  Whole clusters, such as clinics or schools, are assigned to the arms, and everyone in a cluster gets the same arm. clusters_control and clusters_treatment count the clusters; n_control and n_treatment count the participants. Sites in a trial that randomises participants are not clusters: use assignment(...) there. Tests that assume independent participants are refused. With randomisation, the units are the clusters. randomisation is "complete" when every split of the units into arms of these sizes was equally likely; "stratified" with strata=[stratum(...), ...] when that holds within each stratum; "blocked" with block_size=... (and optional strata) when it holds within each block of that size. Strata and blocks count randomised units. Leave it out otherwise; only randomisation_test reads it, and it refuses an assignment without it.
+- `stratum(control: integer, treatment: integer) -> Stratum`
+  One stratum of a stratified or blocked assignment: how many randomised units, participants or clusters, it has in each arm.
 - `binary_outcome(better?: string) -> Outcome`
   The binary outcome measured on each participant. Combine it with an assignment in two_arm(...). better is "higher" or "lower": which direction of the outcome is better. When given, a one-sided null must ask whether the treatment is better in that direction. When left out, a one-sided null's direction is listed as an assumption.
 - `two_arm(assignment: Assignment, outcome: Outcome) -> Model`
@@ -283,7 +290,7 @@ Two-sided Fisher analysis for the equality null and one-sided analysis for "trea
 
 ### `tests.randomisation` — Analyses and claims
 
-Randomisation test of the sharp null that treatment changes no participant's outcome, for any two-arm model. Its level follows from complete randomisation declared on the assignment; Lean proves it for every statistic fixed in advance. With clusters randomised, the test permutes clusters. Up to 10,000 randomised units.
+Randomisation test of the sharp null that treatment changes no participant's outcome, for any two-arm model. Its level follows from the complete, stratified or blocked randomisation declared on the assignment; Lean proves it for every statistic fixed in advance. With clusters randomised, the test permutes clusters. Up to 10,000 randomised units and 1,000 strata or blocks.
 
 - `randomisation_test(design: StudyDesign, null: Hypothesis, alpha: level) -> RandomisationAnalysis`
   Randomisation test of the sharp null. Its level follows from the randomisation declared on the assignment, and Lean proves it for every test statistic fixed in advance; no distribution is assumed. With cluster_assignment the clusters are randomised, so the test permutes clusters. The randomisation test supports only the sharp null no_effect(model=...). It does not test equal means or proportions: when effects differ between participants, its error under those nulls is not guaranteed. Keep your null if it states your question, and choose a test that supports it.
@@ -511,6 +518,8 @@ Verification and calculation run only on explicit execution; the editor plans th
 | Value | Meaning |
 | --- | --- |
 | `complete` | Every split of the units into arms of the declared sizes was equally likely. With cluster_assignment, the units are the clusters. |
+| `stratified` | The same within each declared stratum, independently between strata. Needs strata=[stratum(control=..., treatment=...), ...] adding up to the arm sizes. |
+| `blocked` | The same within each block of block_size units, independently between blocks, every block with its stratum's allocation. Needs block_size; strata optional. |
 
 ### `bonferroni joint_law`
 
@@ -690,6 +699,7 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | Allocation ratio in a planning search | 1 to 10 |
 | Participants, one-sample binomial test | up to 1000 |
 | Randomised units, participants or clusters, randomisation test | up to 10000 |
+| Strata or blocks, randomisation test | up to 1000 |
 | Participants per stage, two-stage design | up to 200 |
 | Total participants, two-stage design search | up to 120 |
 

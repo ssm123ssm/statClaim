@@ -1,11 +1,12 @@
 """The randomisation test: its design, certificate payload, claims and proof.
 
 Under complete randomisation every split of the units into arms of the declared
-sizes is equally likely. If treatment changes no participant's outcome (the
-sharp null), the randomisation p-value has Type I error at most alpha, for any
-statistic fixed in advance. Lean proves this once
-(StatClaim.Modules.Randomisation.typeI); a certificate instantiates it for the
-declared numbers of units and checks how many splits there are.
+sizes is equally likely. Under stratified or blocked randomisation the same holds
+within each stratum or block, independently between them. If treatment changes
+no participant's outcome (the sharp null), the randomisation p-value has Type I
+error at most alpha, for any statistic fixed in advance. Lean proves this once
+(StatClaim.Modules.Randomisation.typeI and groupedTypeI_of_level); a certificate
+instantiates it for the declared units and checks how many assignments there are.
 
 The units are participants, or clusters when whole clusters were randomised.
 """
@@ -13,7 +14,7 @@ The units are participants, or clusters when whole clusters were randomised.
 import re
 from dataclasses import dataclass
 from fractions import Fraction
-from math import comb
+from math import comb, prod
 
 from statclaim.fisher import parse_alpha, validate_alpha
 from statclaim.planning import _audit
@@ -22,13 +23,19 @@ RANDOMISATION_KIND = "statclaim_randomisation_certificate"
 TEST_ID = "randomisation"
 TEST_VERSION = "0.1.0"
 NULL_ID = "no_effect"
-# The randomisation schemes an assignment can declare. Only one is supported.
+# The randomisation schemes an assignment can declare.
 SCHEMES = {
     "complete": "every split of the units into arms of the declared sizes was equally likely",
+    "stratified": "within each declared stratum, every split into its declared numbers per arm "
+    "was equally likely, independently between strata",
+    "blocked": "the units were randomised in blocks of block_size, each with its stratum's "
+    "allocation, every split within a block equally likely, independently between blocks",
 }
 UNITS = ("participant", "cluster")
 # Kernel arithmetic on the number of splits stays fast well beyond this.
 MAX_UNITS = 10_000
+# Strata or blocks, each randomised on its own. A certificate lists every one.
+MAX_GROUPS = 1_000
 
 # Bound into certificates and derivations; methods/identify.py recognises each one.
 RANDOMISED = (
@@ -45,10 +52,85 @@ SHARP_NULL = (
     "The error bound is under the null that treatment changes no participant's outcome "
     "(the sharp null), not under equal means or proportions."
 )
+GROUPED = (
+    "Within each stratum or block, every split of its randomised units into its declared "
+    "numbers per arm was equally likely, independently between strata and blocks, as the "
+    "assignment declares. With clusters, the units are the clusters."
+)
 ASSUMPTIONS = (RANDOMISED, PRESPECIFIED, AS_RANDOMISED, SHARP_NULL)
 THEOREMS = ["checked_sizes", "checked_law", "checked_splits", "checked_attainable", "checked_typeI"]
+GROUPED_THEOREMS = [
+    "checked_groups",
+    "checked_law",
+    "checked_splits",
+    "checked_attainable",
+    "checked_typeI",
+]
 GENERAL_THEOREM = "StatClaim.Modules.Randomisation.typeI"
+GROUPED_GENERAL_THEOREM = "StatClaim.Modules.Randomisation.groupedTypeI_of_level"
 NULL_STATEMENT = "treatment changes no participant's outcome"
+
+
+def groups_of(
+    units: int,
+    treated: int,
+    scheme: str,
+    strata: tuple[tuple[int, int], ...] = (),
+    block_size: int | None = None,
+) -> tuple[tuple[int, int], ...]:
+    """The groups randomised independently, as (units, treated). Raises ValueError saying why
+    the declaration does not describe a randomisation. Strata are (control, treatment)."""
+    if scheme == "complete":
+        if strata or block_size is not None:
+            raise ValueError(
+                'Complete randomisation has no strata or blocks: use randomisation="stratified" '
+                'or "blocked".'
+            )
+        return ((units, treated),)
+    if scheme == "stratified":
+        if block_size is not None:
+            raise ValueError('Blocks within strata are declared with randomisation="blocked".')
+        if len(strata) < 2:
+            raise ValueError("Stratified randomisation needs at least two strata.")
+        parts = strata
+    elif scheme == "blocked":
+        if block_size is None or block_size < 2:
+            raise ValueError("Blocked randomisation needs block_size, at least 2.")
+        parts = strata or ((units - treated, treated),)
+    else:
+        raise ValueError(f"Unknown randomisation {scheme!r}.")
+    if any(
+        type(c) is not int or type(t) is not int or c < 0 or t < 0 or c + t == 0 for c, t in parts
+    ):
+        raise ValueError("Each stratum needs a whole number of units per arm, at least one in all.")
+    if sum(c for c, _ in parts) != units - treated or sum(t for _, t in parts) != treated:
+        raise ValueError(
+            f"The strata add up to {sum(c for c, _ in parts)} control and "
+            f"{sum(t for _, t in parts)} treatment units, but the assignment randomises "
+            f"{units - treated} and {treated}."
+        )
+    if scheme == "stratified":
+        groups = tuple((c + t, t) for c, t in parts)
+    else:
+        found: list[tuple[int, int]] = []
+        for c, t in parts:
+            size = c + t
+            if size % block_size or (t * block_size) % size:
+                where = "the design" if not strata else "a stratum"
+                raise ValueError(
+                    f"The {c} control and {t} treatment units of {where} cannot be split into "
+                    f"whole blocks of {block_size} with the same allocation in every block."
+                )
+            found += [(block_size, t * block_size // size)] * (size // block_size)
+        groups = tuple(found)
+    if len(groups) > MAX_GROUPS:
+        raise ValueError(f"At most {MAX_GROUPS} strata or blocks are supported.")
+    return groups
+
+
+def count_splits(groups: tuple[tuple[int, int], ...]) -> int:
+    """Equally likely assignments: the product of each group's splits."""
+    return prod(comb(size, treated) for size, treated in groups)
 
 
 @dataclass(frozen=True)
@@ -62,6 +144,9 @@ class RandomisationTest:
     module: str = "two_arm_continuous"  # the model's constructor, for the record
     n_control: int = 0  # participants per arm, for the record
     n_treatment: int = 0
+    scheme: str = "complete"
+    strata: tuple[tuple[int, int], ...] = ()  # (control, treatment) units per stratum
+    block_size: int | None = None
 
     def __post_init__(self):
         validate_alpha(self.alpha)
@@ -76,15 +161,24 @@ class RandomisationTest:
             )
         if self.n_control < self.units - self.treated or self.n_treatment < self.treated:
             raise ValueError("Each arm has at least as many participants as units.")
+        groups_of(self.units, self.treated, self.scheme, self.strata, self.block_size)
         if not self.can_reject:
             raise ValueError("The test can never reject at this level.")
         if not isinstance(self.module, str) or not re.fullmatch(r"[a-z_]+", self.module):
             raise ValueError("The model must be named by its constructor.")
 
     @property
+    def groups(self) -> tuple[tuple[int, int], ...]:
+        return groups_of(self.units, self.treated, self.scheme, self.strata, self.block_size)
+
+    @property
+    def grouped(self) -> bool:
+        return self.scheme != "complete"
+
+    @property
     def splits(self) -> int:
-        """How many assignments with these arm sizes there are."""
-        return comb(self.units, self.treated)
+        """How many equally likely assignments there are."""
+        return count_splits(self.groups)
 
     @property
     def smallest_p_value(self) -> Fraction:
@@ -101,9 +195,15 @@ class RandomisationTest:
 
     def describe(self) -> str:
         plural = self.unit_words
-        return (
+        text = (
             f"{self.units} {plural}, {self.treated} treated and {self.units - self.treated} control"
         )
+        if self.scheme == "stratified":
+            return f"{text}, in {len(self.strata)} strata"
+        if self.scheme == "blocked":
+            text += f", in {len(self.groups)} blocks of {self.block_size}"
+            return text + (f" within {len(self.strata)} strata" if self.strata else "")
+        return text
 
 
 def splits_needed(alpha: Fraction) -> int:
@@ -112,7 +212,7 @@ def splits_needed(alpha: Fraction) -> int:
 
 
 def randomisation_payload(test: RandomisationTest) -> dict:
-    return {
+    payload = {
         "schema_version": 1,
         "scope": "randomisation_test",
         "design": {
@@ -134,6 +234,14 @@ def randomisation_payload(test: RandomisationTest) -> dict:
             "splits": str(test.splits),
         },
     }
+    if test.grouped:
+        design = payload["design"]
+        design["randomisation"] = test.scheme
+        if test.strata:
+            design["strata"] = [list(stratum) for stratum in test.strata]
+        if test.block_size is not None:
+            design["block_size"] = test.block_size
+    return payload
 
 
 def parse_randomisation_payload(payload: dict) -> RandomisationTest:
@@ -146,14 +254,41 @@ def parse_randomisation_payload(payload: dict) -> RandomisationTest:
         design["module"],
         design["n_control"],
         design["n_treatment"],
+        design["randomisation"],
+        tuple(tuple(stratum) for stratum in design.get("strata", ())),
+        design.get("block_size"),
     )
     if payload != randomisation_payload(test):
         raise ValueError("Bound randomisation-test inputs are inconsistent.")
     return test
 
 
+def randomisation_assumptions(test: RandomisationTest) -> tuple[str, ...]:
+    return (GROUPED, *ASSUMPTIONS[1:]) if test.grouped else ASSUMPTIONS
+
+
+def randomisation_theorems(test: RandomisationTest) -> list[str]:
+    return GROUPED_THEOREMS if test.grouped else THEOREMS
+
+
+def general_theorem(test: RandomisationTest) -> str:
+    return GROUPED_GENERAL_THEOREM if test.grouped else GENERAL_THEOREM
+
+
 def randomisation_claims(test: RandomisationTest) -> list[str]:
     plural = test.unit_words
+    if test.grouped:
+        return [
+            f"Under {test.scheme} randomisation of {test.describe()}, the {test.splits} possible "
+            "assignments are equally likely, and that uniform law is a probability law.",
+            f"No p-value is below 1/{test.splits}, which does not exceed the level "
+            f"{test.alpha}, so the test can reject.",
+            "For every test statistic fixed in advance, the randomisation p-value, the share of "
+            "possible assignments whose statistic is at least the observed one, is at most "
+            f"{test.alpha} with probability at most {test.alpha} whenever {NULL_STATEMENT}.",
+            f"The bound holds whatever the outcomes are and however the {plural} affect one "
+            "another; no distribution is assumed.",
+        ]
     return [
         f"Under complete randomisation of {test.describe()}, the {test.splits} possible splits "
         "are equally likely, and that uniform law is a probability law.",
@@ -171,6 +306,8 @@ def render_randomisation_proof(test: RandomisationTest, input_sha256: str) -> st
     """Only validated integers and one rational level enter the template."""
     if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
         raise ValueError("Expected a SHA-256 input identifier.")
+    if test.grouped:
+        return _render_grouped_proof(test, input_sha256)
     numerator, denominator = test.alpha.as_integer_ratio()
     units, treated, splits = test.units, test.treated, test.splits
     return f"""import StatClaim
@@ -215,3 +352,50 @@ theorem checked_typeI {{Value : Type}} {{Statistic : Type}} [LinearOrder Statist
 
 end StatClaimCertificate
 {_audit(THEOREMS, input_sha256)}"""
+
+
+def _render_grouped_proof(test: RandomisationTest, input_sha256: str) -> str:
+    numerator, denominator = test.alpha.as_integer_ratio()
+    groups = ", ".join(f"({size}, {treated})" for size, treated in test.groups)
+    splits = test.splits
+    return f"""import StatClaim
+import Lean.Util.CollectAxioms
+
+-- Canonical input SHA-256: {input_sha256}
+-- {test.scheme.capitalize()} randomisation of {test.unit_words}: each group is a stratum or block,
+-- given as (units, treated). The theorem covers every statistic and every record under
+-- the sharp null; nothing here depends on observed data.
+set_option maxRecDepth 100000
+
+namespace StatClaimCertificate
+open StatClaim StatClaim.Modules
+
+def groups : Randomisation.Groups := [{groups}]
+def declaredLevel : SignificanceLevel :=
+  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩
+
+theorem checked_groups : ∀ group ∈ groups, group.2 ≤ group.1 := by decide
+
+theorem checked_law : Randomisation.groupedLaw groups Set.univ = 1 :=
+  Randomisation.groupedLaw_univ groups checked_groups
+
+theorem checked_splits : (Randomisation.groupedSplits groups).card = {splits} := by
+  rw [Randomisation.groupedSplits_card groups checked_groups]
+  decide +kernel
+
+-- The observed assignment always counts itself, so no p-value is below one over the count.
+theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
+  norm_num [declaredLevel]
+
+theorem checked_typeI {{Record : Type}} {{Statistic : Type}} [LinearOrder Statistic]
+    (statistic : Randomisation.GroupedAssignment groups → Record → Statistic)
+    (outcomes : Randomisation.GroupedAssignment groups → Record)
+    (sharp : ∀ first second, outcomes first = outcomes second) :
+    (Randomisation.groupedLaw groups).real
+        (Randomisation.uniformRejection (Randomisation.groupedSplits groups) statistic outcomes
+          declaredLevel.value) ≤ (declaredLevel.value : ℝ) :=
+  Randomisation.groupedTypeI_of_level groups statistic outcomes sharp declaredLevel.value
+    declaredLevel.nonnegative
+
+end StatClaimCertificate
+{_audit(GROUPED_THEOREMS, input_sha256)}"""

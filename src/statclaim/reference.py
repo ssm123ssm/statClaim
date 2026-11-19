@@ -16,7 +16,7 @@ from statclaim.planning import (
     MAX_SEARCH_TOTAL,
     MAX_STAGE,
 )
-from statclaim.randomisation import MAX_UNITS
+from statclaim.randomisation import MAX_GROUPS, MAX_UNITS
 
 GRAMMAR = """\
 file        = { statement NEWLINE } ;
@@ -125,6 +125,10 @@ ENUMERATIONS = {
     "assignment randomisation": {
         "complete": "Every split of the units into arms of the declared sizes was equally "
         "likely. With cluster_assignment, the units are the clusters.",
+        "stratified": "The same within each declared stratum, independently between strata. "
+        "Needs strata=[stratum(control=..., treatment=...), ...] adding up to the arm sizes.",
+        "blocked": "The same within each block of block_size units, independently between "
+        "blocks, every block with its stratum's allocation. Needs block_size; strata optional.",
     },
     "bonferroni joint_law": {
         "binomial_marginals": "The only value, and the default. Allowed only when every "
@@ -151,6 +155,7 @@ LIMITS = {
     "Allocation ratio in a planning search": f"1 to {MAX_RATIO}",
     "Participants, one-sample binomial test": f"up to {MAX_ONE_ARM}",
     "Randomised units, participants or clusters, randomisation test": f"up to {MAX_UNITS}",
+    "Strata or blocks, randomisation test": f"up to {MAX_GROUPS}",
     "Participants per stage, two-stage design": f"up to {MAX_STAGE}",
     "Total participants, two-stage design search": f"up to {MAX_SEARCH_TOTAL}",
 }

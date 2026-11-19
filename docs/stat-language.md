@@ -174,6 +174,23 @@ The claim is `verified`. Its null is the sharp null `no_effect`: treatment
 changes no participant's outcome. It is not `equal_means`, and neither stands in
 for the other: each test's contract refuses the other's null.
 
+Most trials randomise within strata or in blocks. Declare that instead, and the
+same theorem covers it, because each stratum or block is randomised on its own:
+
+```text
+let arms = assignment(n_control=24, n_treatment=24, randomisation="blocked", block_size=4,
+                      strata=[stratum(control=10, treatment=10),
+                              stratum(control=14, treatment=14)])
+```
+
+`randomisation="stratified"` with `strata=[...]` means complete randomisation
+within each stratum; `"blocked"` with `block_size` means every block of that size
+has the allocation of its stratum (or of the whole trial). The strata must add up
+to the arm sizes and the blocks must divide them, or the assignment is refused.
+Strata and blocks count randomised units, so a pair-matched cluster trial is
+`cluster_assignment(..., randomisation="blocked", block_size=2)`. See
+`examples/stratified_randomisation.stat`.
+
 With `cluster_assignment(..., randomisation="complete")` the units are the
 clusters, and the test permutes clusters. This is a proved analysis for a
 cluster-randomised trial. A design with too few splits to reach its level, such

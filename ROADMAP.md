@@ -40,7 +40,8 @@
 - Randomisation by cluster and repeated measurements declared on the model, and
   tests whose independence assumptions they contradict refused.
 - Randomisation tests of the sharp null, proved in Lean once for every design,
-  by participant or by cluster, under declared complete randomisation.
+  by participant or by cluster, under declared complete, stratified or blocked
+  randomisation.
 - A cited t-test on cluster-level summaries for cluster-randomised trials.
 
 ## Direction
@@ -54,8 +55,8 @@ and for rules that combine tests. Each claim shows its
 ## Next
 
 1. Cluster-level tests for binary outcomes, repeated binary measurements, and strata
-   on the assignment once a covariate-adjusted analysis reads them. Stratified
-   and blocked randomisation for the randomisation test, and Monte Carlo p-values.
+   on the assignment once a covariate-adjusted analysis reads them. Monte Carlo
+   p-values for the randomisation test.
 2. Cited group-sequential boundaries that use the correlation between looks.
 3. A narrower exact interval for a difference of two proportions.
 4. Larger sample sizes and p-values for the test with a margin.

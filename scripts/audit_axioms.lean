@@ -83,7 +83,12 @@ run_cmd do
     ``StatClaim.Modules.Randomisation.sharpNull_of_units,
     ``StatClaim.Modules.Randomisation.pValue_ge,
     ``StatClaim.Modules.Randomisation.typeI,
-    ``StatClaim.Modules.Randomisation.typeI_of_level]
+    ``StatClaim.Modules.Randomisation.typeI_of_level,
+    ``StatClaim.Modules.Randomisation.uniformRejection_le,
+    ``StatClaim.Modules.Randomisation.groupedSplits_card,
+    ``StatClaim.Modules.Randomisation.groupedSplits_nonempty,
+    ``StatClaim.Modules.Randomisation.groupedLaw_univ,
+    ``StatClaim.Modules.Randomisation.groupedTypeI_of_level]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()
