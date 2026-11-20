@@ -232,6 +232,30 @@ def test_fast_mode_displays_planned_claim_and_writes_nothing(monkeypatch):
     assert "run_directory" not in report
 
 
+def test_a_run_can_recalculate_without_building_proofs(monkeypatch, tmp_path):
+    import statclaim.language_runner as runner
+
+    original = runner._run_request
+
+    def calculations_only(request, *args, **kwargs):
+        if request.operation != "calculate":
+            pytest.fail("a proof was built")
+        return original(request, *args, **kwargs)
+
+    monkeypatch.setattr(runner, "_run_request", calculations_only)
+    text = (ROOT / "examples/one_sample.stat").read_text()
+    report = check_source(
+        Source(text, "one_sample.stat"),
+        project=ROOT,
+        output=tmp_path / "run",
+        operations={"calculate"},
+    )
+    statuses = {r["operation"]: r["status"] for r in report["requests"]}
+    assert statuses == {"calculate": "calculated", "verify": "not_executed"}
+    assert report["values"]["recommended_n"] == 35
+    assert not report["certificate_issued"]
+
+
 def test_source_code_and_shell_commands_are_never_executed(tmp_path):
     marker = tmp_path / "unexpected"
     code = source().text + f'let malicious = __import__("os").system("touch {marker}")\n'

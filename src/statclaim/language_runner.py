@@ -3,6 +3,7 @@
 import json
 import math
 import tempfile
+from collections.abc import Collection
 from fractions import Fraction
 from pathlib import Path
 
@@ -370,11 +371,16 @@ def check_source(
     output: Path | None = None,
     timeout: float = 120,
     elaborate_only: bool = False,
+    operations: Collection[str] | None = None,
 ) -> dict:
     """Elaborate the entire file before any calculation, build, or certificate write.
 
     Each verified request has its own ordinary certificate. The run receipt is a
     source/IR provenance record, not an additional mathematical certificate.
+
+    `operations` runs only the requests with those operations, such as
+    ("calculate",) to recalculate without building proofs. The others are reported
+    as not executed.
     """
     if not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("Timeout must be a positive, finite number of seconds.")
@@ -428,8 +434,15 @@ def check_source(
         return report
     source_path = Path(source.path)
     original_present = source_path.is_file()
+
     # Purely unsupported files leave no output directory behind.
-    executable = any(not blockers for blockers in obligations)
+    def wanted(request) -> bool:
+        return operations is None or request.operation in operations
+
+    executable = any(
+        not blockers and wanted(request)
+        for request, blockers in zip(program.requests, obligations, strict=True)
+    )
     directory = None
     if executable:
         if output is None:
@@ -446,6 +459,9 @@ def check_source(
         if blockers:
             result = inspect_request(request)
             status = "unresolved_obligation"
+        elif not wanted(request):
+            result = inspect_request(request)
+            status = "not_executed"
         else:
             result = _run_request(request, project, directory / f"request-{index:03d}", timeout)
             result = with_population(result, request.claim.subject)
