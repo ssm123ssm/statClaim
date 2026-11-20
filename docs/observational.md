@@ -11,6 +11,7 @@ fixed, what the study can estimate and how a test is justified.
 | Cohort, one population | `cohort(n)` | the total | as above |
 | Case-control | `case_control(cases, controls)` | the cases and controls | odds ratio only |
 | Matched case-control | `matched_case_control(pairs)` | the pairs of one case and one control | conditional odds ratio |
+| Person-time cohort | `person_time_cohort()` | nothing; it counts events over person-time | incidence rate ratio |
 
 Each constructor takes `exposure` and `outcome` names, which the claims use.
 `no_association(model=...)` is the null: an odds ratio of 1, stated in the
@@ -92,6 +93,26 @@ Only the discordant pairs, where exactly one was exposed, carry information.
 theorem assumes independent groups. The assumptions list one conditional odds
 ratio shared by all pairs.
 
+## Prevalence, risk and incidence rates
+
+- `prevalence(model=..., cases=, level=)` for a cross-sectional study and
+  `cumulative_incidence(model=..., cases=, level=)` for a cohort give a single
+  proportion with its exact interval (`BinomialInterval.coverage`). A cohort that
+  sampled its groups separately takes `group="exposed"` or `"unexposed"`.
+- `person_time_cohort()` with `observed_events(model=..., exposed_events=,
+  exposed_time=, unexposed_events=, unexposed_time=)` records events and
+  person-time, which may be fractional.
+- `rate_test` is the exact test of equal incidence rates: given the total events,
+  a two-sided binomial test at the exposed share of person-time. Lean proves its
+  level for every rate and any person-time, given the total and on average over
+  any law of it (`StatClaim.Modules.Incidence.typeI`). `rate_result` checks the
+  p-value and decision; `rate_ratio` gives the incidence rate ratio, the odds of
+  the exposed share times unexposed over exposed person-time.
+
+A single incidence rate has no exact interval yet: its Poisson tails involve
+powers of e, which the kernel cannot check exactly. Up to 500 events in a checked
+rate result, and up to 1000 participants in a proportion's group.
+
 ## What is refused
 
 Tests and nulls of randomised arms (`fisher`, `t_test`, `randomisation_test`,
@@ -105,5 +126,5 @@ A bound concerns association in the population sampled. It is never a claim
 about an effect of the exposure: confounding is not excluded. Each report says
 so under the claim.
 
-Not yet supported: matching with several controls per case, prevalence and
-incidence estimates, regression with covariates and complex samples.
+Not yet supported: matching with several controls per case, single incidence
+rates, regression with covariates and complex samples.

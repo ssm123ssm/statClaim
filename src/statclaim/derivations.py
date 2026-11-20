@@ -15,6 +15,7 @@ from fractions import Fraction
 from statclaim.association import association_assumptions
 from statclaim.composition import DISCHARGED, MODES
 from statclaim.family import MAX_ENDPOINTS
+from statclaim.incidence import rate_assumptions
 from statclaim.language import (
     AnalysisIR,
     AssociationAnalysisIR,
@@ -29,6 +30,7 @@ from statclaim.language import (
     OneSampleAnalysisIR,
     ProgramIR,
     RandomisationAnalysisIR,
+    RateAnalysisIR,
     RatesIR,
     TwoStageAnalysisIR,
     named_outcomes,
@@ -143,6 +145,15 @@ RULES = {
     "mcnemar-contract": Rule(
         "The same-model, supported-null, level-range and matched-sampling rules hold.",
         "{subject}: the design, the null and the level fit McNemar's exact test.",
+    ),
+    "person-time-sampling": Rule(
+        "The design is a cohort followed over person-time, counting events in the exposed "
+        "and unexposed.",
+        "{subject}: the study follows a cohort over person-time.",
+    ),
+    "rate-test-contract": Rule(
+        "The same-model, supported-null, level-range and person-time-sampling rules hold.",
+        "{subject}: the design, the null and the level fit the exact test of equal rates.",
     ),
     "cited-contract": Rule(
         "The same-model, supported-null, level-interior and enough-data rules hold.",
@@ -313,6 +324,7 @@ RULES = {
 RANDOMISATION_CONTRACT_ID = "tests.randomisation/randomisation_test"
 ASSOCIATION_CONTRACT_ID = "tests.association/fisher_exact"
 MCNEMAR_CONTRACT_ID = "tests.association/mcnemar"
+RATE_CONTRACT_ID = "tests.association/rate_test"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 MARGIN_CONTRACT_ID = "tests.difference/difference_test"
 CONTRACT_IDS = {
@@ -700,6 +712,44 @@ def derive_matched(name: str, analysis: MatchedAnalysisIR) -> Derivation:
         builder.steps[final].conclusion,
         tuple(builder.steps),
         matched_assumptions(),
+        tuple(builder.obligations),
+        normalize(analysis),
+    )
+
+
+def derive_rate(name: str, analysis: RateAnalysisIR) -> Derivation:
+    """Why the exact rate test fits. Its guarantee is proved, not carried."""
+    builder = _Builder()
+    study = normalize(analysis.plan.model)
+    used = (
+        builder.apply(
+            "same-model",
+            {
+                "subject": name,
+                "design_model": study,
+                "null_model": normalize(analysis.hypothesis.model),
+            },
+        ),
+        builder.apply(
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": analysis.hypothesis.predicate,
+                "statement": analysis.hypothesis.statement,
+                "supported": ["no_association"],
+            },
+        ),
+        builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
+        builder.apply("person-time-sampling", {"subject": name}),
+    )
+    final = builder.apply("rate-test-contract", {"subject": name}, used)
+    _sampling(builder, name, analysis)
+    return Derivation(
+        name,
+        RATE_CONTRACT_ID,
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        rate_assumptions(),
         tuple(builder.obligations),
         normalize(analysis),
     )
@@ -1176,6 +1226,8 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
             derivations.append(derive_association(binding.name, value))
         elif isinstance(value, MatchedAnalysisIR):
             derivations.append(derive_matched(binding.name, value))
+        elif isinstance(value, RateAnalysisIR):
+            derivations.append(derive_rate(binding.name, value))
         elif isinstance(value, ComposedFamilyIR):
             derivations.append(derive_composed(binding.name, value))
         elif isinstance(value, FamilyIR):

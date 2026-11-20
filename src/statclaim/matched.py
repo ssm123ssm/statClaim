@@ -319,6 +319,7 @@ def result_assumptions(result: MatchedResult) -> tuple[str, ...]:
 def render_result_proof(result: MatchedResult, input_sha256: str) -> str:
     d, x = result.observed.discordant, result.observed.case_exposed
     upper, lower = tails(d, x)
+    an, ad = result.test.alpha.as_integer_ratio()
     truth = "True" if result.reject_null else "False"
     checks = f"""
 -- The observed pairs: {x} of {d} discordant pairs with the case exposed.
@@ -329,10 +330,12 @@ theorem checked_tails : OneSampleBinomial.tailNumerator {d} 1 2 {x} = {upper} �
 theorem checked_decision :
     (({d}, {x}) ∈ Matched.pairsRejection pairs (declaredLevel.value : ℝ)) ↔ {truth} := by
   simp only [Matched.pairsRejection, Association.given, Set.mem_ofPred_eq, Matched.rejection,
-    Matched.half, pairs, declaredLevel]
+    Matched.half, pairs]
   rw [BinomialInterval.upper_tail_ratPoint, BinomialInterval.lower_tail_ratPoint,
-    checked_tails.1, checked_tails.2]
-  norm_num
+    checked_tails.1, checked_tails.2,
+    Incidence.twice_min_le_iff {upper} {lower} (2 ^ {d}) {an} {ad} _ (by positivity) (by decide)
+      (by norm_num [declaredLevel])]
+  decide +kernel
 """
     return (
         _header(input_sha256, "These observed pairs and the declared test.")

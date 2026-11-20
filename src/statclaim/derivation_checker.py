@@ -41,9 +41,11 @@ from statclaim.derivations import (
     ONE_SAMPLE_ASSUMPTIONS,
     PLANNING_POINT_ASSUMPTION,
     RANDOMISATION_CONTRACT_ID,
+    RATE_CONTRACT_ID,
     RULES,
     TWO_STAGE_ASSUMPTIONS,
 )
+from statclaim.incidence import PERSON_TIME, POISSON_EVENTS, RATE_NULL
 from statclaim.matched import MATCHED_NULL, PAIRS_SAMPLED, WITHIN_PAIRS
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES, SHARP_NULL
 from statclaim.methods.assumptions import (
@@ -1197,6 +1199,41 @@ def _matched_expected(name: str, subject: dict) -> list[tuple]:
     ]
 
 
+def _rate_expected(name: str, subject: dict) -> list[tuple]:
+    """The exact rate test, re-evaluated from the serialized subject."""
+    if subject.get("test") != "rate_test":
+        raise ValueError("the contract does not match the declaration")
+    study, null = subject["design"]["model"], subject["null"]
+    alpha = Fraction(subject["alpha"])
+    return [
+        (
+            "same-model",
+            {"subject": name, "design_model": study, "null_model": null["model"]},
+            study == null["model"],
+            (),
+        ),
+        (
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": null["predicate"],
+                "statement": NULL_STATEMENTS["person_time_cohort"],
+                "supported": ["no_association"],
+            },
+            null["predicate"] == "no_association",
+            (),
+        ),
+        ("level-range", {"subject": name, "alpha": subject["alpha"]}, 0 <= alpha <= 1, ()),
+        (
+            "person-time-sampling",
+            {"subject": name},
+            study.get("study") == "person_time_cohort",
+            (),
+        ),
+        ("rate-test-contract", {"subject": name}, True, (0, 1, 2, 3)),
+    ]
+
+
 def _sampling_expectation(name: str, analysis: dict) -> tuple[str, dict, bool]:
     stopping = analysis["design"]["stopping"]
     return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
@@ -1217,6 +1254,9 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
         ):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+    if contract == RATE_CONTRACT_ID:
+        assumptions = (POISSON_EVENTS, PERSON_TIME, PRESPECIFIED, RATE_NULL)
+        return _rate_expected(name, subject), [_sampling_expectation(name, subject)], assumptions
     if contract == MCNEMAR_CONTRACT_ID:
         assumptions = (PAIRS_SAMPLED, WITHIN_PAIRS, SOURCE_POPULATION, PRESPECIFIED, MATCHED_NULL)
         return _matched_expected(name, subject), [_sampling_expectation(name, subject)], assumptions

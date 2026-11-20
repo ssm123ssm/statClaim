@@ -1,0 +1,29 @@
+# Lesson 26: how common an outcome is, and how fast it occurs.
+use models.observational
+use sampling
+use tests.association
+use estimation.observational
+
+# A survey of 800 adults: 152 report insomnia.
+let survey = cross_sectional(n=800, exposure="night shifts", outcome="insomnia")
+let how_common = verify(prevalence(model=survey, cases=152, level=19/20))
+
+# The cohort of lesson 23: 30 of the 200 smokers developed asthma.
+let followed = cohort(exposed=200, unexposed=400, exposure="smoking", outcome="asthma")
+let smokers_risk = verify(
+    cumulative_incidence(model=followed, cases=30, level=19/20, group="exposed"),
+)
+
+# Nurses followed over person-years: 48 breast cancers in 12,500 person-years with night
+# shifts, 61 in 31,000 without.
+let nurses = person_time_cohort(exposure="night shifts", outcome="breast cancer")
+let by_rates = rate_test(design=fixed(model=nurses), null=no_association(model=nurses), alpha=1/20)
+let counted = observed_events(
+    model=nurses,
+    exposed_events=48,
+    exposed_time=12500,
+    unexposed_events=61,
+    unexposed_time=31000,
+)
+let tested = verify(rate_result(analysis=by_rates, events=counted))
+let faster = verify(rate_ratio(events=counted, level=19/20))

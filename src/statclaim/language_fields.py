@@ -41,6 +41,7 @@ from statclaim.language import (
     ModelIR,
     NullIR,
     ObservationIR,
+    ObservedEventsIR,
     OneArmCandidatesIR,
     OneArmModelIR,
     OneSampleAnalysisIR,
@@ -48,13 +49,18 @@ from statclaim.language import (
     OutcomeIR,
     OutcomeModelIR,
     OutcomeNullIR,
+    PersonTimeStudyIR,
     PlanIR,
     PlannableIR,
     PlanningPointIR,
     PowerTargetIR,
     PriorIR,
+    ProportionIR,
     RandomisationAnalysisIR,
+    RateAnalysisIR,
     RateIR,
+    RateRatioIR,
+    RateResultIR,
     RatesIR,
     RuleIR,
     SequentialIR,
@@ -88,6 +94,7 @@ from statclaim.language_values import (
     OneSampleResultDetails,
     PlanningDetails,
     PolicyDetails,
+    RateResultDetails,
     StageResultDetails,
     VerificationResult,
 )
@@ -154,6 +161,39 @@ SCHEMAS = {
         "model": FieldSpec(StudyModelIR),
         "predicate": FieldSpec(str),
         "statement": FieldSpec(str),
+    },
+    PersonTimeStudyIR: dict(STUDY_FIELDS),
+    RateAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(AssociationNullIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction, description="Exact declared significance level."),
+        "guarantee": FieldSpec(Guarantee, description="The error-rate statement Lean proves."),
+    },
+    ObservedEventsIR: {
+        "model": FieldSpec(PersonTimeStudyIR),
+        "exposed_events": FieldSpec(int),
+        "exposed_time": FieldSpec(Fraction, description="Exposed person-time."),
+        "unexposed_events": FieldSpec(int),
+        "unexposed_time": FieldSpec(Fraction, description="Unexposed person-time."),
+    },
+    RateResultIR: {
+        "analysis": FieldSpec(RateAnalysisIR),
+        "events": FieldSpec(ObservedEventsIR),
+    },
+    RateRatioIR: {"events": FieldSpec(ObservedEventsIR), "level": FieldSpec(Fraction)},
+    ProportionIR: {
+        "measure": FieldSpec(str, description="prevalence or cumulative_incidence."),
+        "model": FieldSpec(StudyModelIR),
+        "cases": FieldSpec(int),
+        "level": FieldSpec(Fraction),
+        "group": FieldSpec(str, optional=True, description="exposed or unexposed, if given."),
+    },
+    RateResultDetails: {
+        "events": FieldSpec(int, description="Total events."),
+        "p_value": FieldSpec(Fraction, description="Exact two-sided p-value."),
+        "alpha": FieldSpec(Fraction),
+        "reject_null": FieldSpec(bool),
+        "test": FieldSpec(str),
     },
     MatchedStudyIR: {
         "pairs": FieldSpec(int, description="Pairs of one case and one control."),
@@ -560,8 +600,10 @@ def details_kind(claim: ClaimIR) -> type:
         return MarginDetails
     if isinstance(claim.subject, DifferenceIntervalIR):
         return DifferenceDetails
-    if isinstance(claim.subject, (EffectIntervalIR, MatchedIntervalIR)):
+    if isinstance(claim.subject, (EffectIntervalIR, MatchedIntervalIR, RateRatioIR, ProportionIR)):
         return EffectIntervalDetails
+    if isinstance(claim.subject, RateResultIR):
+        return RateResultDetails
     if isinstance(claim.subject, MatchedResultIR):
         return MatchedResultDetails
     if isinstance(claim.subject, AssociationResultIR):

@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1981,6 +1981,84 @@ samples. Fisher&#x27;s theorem assumes they are; its bound does not cover matche
     <div class="task"><h4>Try it</h4><p>Set <code>control_exposed_only=0</code> and <code>neither_exposed=75</code>: the odds ratio has no finite upper bound, and the claim says so.</p></div>
   </div>
 </section>
+<section class="lesson" id="rates">
+  <p class="eyebrow">Lesson 26</p>
+  <h2>Prevalence, risk and incidence rates</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>A survey measures how common an outcome is; a cohort measures the risk over its follow-up; a cohort followed over person-time measures how fast events occur. Each gets its own measure, with an exact interval or test proved in Lean.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/26_prevalence_and_rates.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 26: how common an outcome is, and how fast it occurs.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.association
+<span class="k">use</span> estimation.observational
+
+<span class="c"># A survey of 800 adults: 152 report insomnia.</span>
+<span class="k">let</span> survey = <span class="f">cross_sectional</span>(n=800, exposure=&quot;night shifts&quot;, outcome=&quot;insomnia&quot;)
+<span class="k">let</span> how_common = <span class="f">verify</span>(<span class="f">prevalence</span>(model=survey, cases=152, level=19/20))
+
+<span class="c"># The cohort of lesson 23: 30 of the 200 smokers developed asthma.</span>
+<span class="k">let</span> followed = <span class="f">cohort</span>(exposed=200, unexposed=400, exposure=&quot;smoking&quot;, outcome=&quot;asthma&quot;)
+<span class="k">let</span> smokers_risk = <span class="f">verify</span>(
+    <span class="f">cumulative_incidence</span>(model=followed, cases=30, level=19/20, group=&quot;exposed&quot;),
+)
+
+<span class="c"># Nurses followed over person-years: 48 breast cancers in 12,500 person-years with night</span>
+<span class="c"># shifts, 61 in 31,000 without.</span>
+<span class="k">let</span> nurses = <span class="f">person_time_cohort</span>(exposure=&quot;night shifts&quot;, outcome=&quot;breast cancer&quot;)
+<span class="k">let</span> by_rates = <span class="f">rate_test</span>(design=<span class="f">fixed</span>(model=nurses), null=<span class="f">no_association</span>(model=nurses), alpha=1/20)
+<span class="k">let</span> counted = <span class="f">observed_events</span>(
+    model=nurses,
+    exposed_events=48,
+    exposed_time=12500,
+    unexposed_events=61,
+    unexposed_time=31000,
+)
+<span class="k">let</span> tested = <span class="f">verify</span>(<span class="f">rate_result</span>(analysis=by_rates, events=counted))
+<span class="k">let</span> faster = <span class="f">verify</span>(<span class="f">rate_ratio</span>(events=counted, level=19/20))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>prevalence</code>, <code>cumulative_incidence</code></dt>
+  <dd>A single proportion with its exact interval. A cohort that sampled its groups
+  separately says which group with <code>group</code>.</dd>
+  <dt><code>person_time_cohort</code>, <code>observed_events</code></dt>
+  <dd>Events and person-time, such as person-years, in the exposed and unexposed.</dd>
+  <dt><code>rate_test</code>, <code>rate_ratio</code></dt>
+  <dd>Given the total events, the exposed share is binomial; equal rates make it the
+  exposed share of person-time. The rate ratio is that share&#x27;s odds times the ratio of
+  unexposed to exposed person-time.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [how_common]: interval(survey)
+  ...
+  For 152 cases among 800 participants, that confidence set lies within [0.1633, 0.2190].
+<span class="ok">verified</span> [smokers_risk]: interval(followed)
+  ...
+  For 30 cases among the 200 exposed to smoking, that confidence set lies within [0.1035, 0.2072].
+<span class="ok">verified</span> [tested]: result(counted)
+  ...
+  the exact two-sided p-value is about 0.0009546.
+<span class="ok">verified</span> [faster]: interval(counted)
+  ...
+  the incidence rate ratio, its odds times 2.48 (unexposed over exposed person-time), lies within [1.308, 2.896].
+  Assumptions:
+    In each group events occur independently at one constant rate over its person-time, so the counts are Poisson: the total is Poisson and, given it, the exposed share is binomial.
+    Person-time is measured without error and does not depend on the events, and follow-up ends without regard to them.
+    ...
+Program status: verified</code></pre></div>
+<p>The total number of events is itself random. Given it, the test has level 1/20 for
+any person-time; it is Poisson, so averaging keeps the level, as with the number exposed
+in lesson 23 and the discordant pairs in lesson 25.</p>
+<p>Now ask the survey for a risk: <code>cumulative_incidence(model=survey, ...)</code>.</p>
+<div class="scroll output"><pre><code><span class="bad">error [not_estimable]</span>: cumulative_incidence: A cross-sectional study measures prevalence, not
+risk over follow-up. Use prevalence.
+Program status: invalid</code></pre></div>
+<div class="note"><strong>Rates need person-time.</strong> A single incidence rate has no
+exact interval here yet: its tails involve powers of e, which the kernel cannot check
+exactly. The rate ratio needs none, because given the total its law is binomial.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>prevalence</code> and <code>cumulative_incidence</code> fit cross-sectional and cohort studies.</li><li><code>person_time_cohort</code> with <code>rate_test</code> and <code>rate_ratio</code> compares incidence rates.</li><li>Each design refuses the measures it cannot estimate.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Give the exposed nurses 12500.5 person-years: the share of person-time becomes a longer fraction, and the certificate still checks it exactly.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2000,6 +2078,7 @@ samples. Fisher&#x27;s theorem assumes they are; its bound does not cover matche
       <tr><td>Test association in a cohort, case-control or cross-sectional study</td><td><code>models.observational</code>, <code>sampling</code>, <code>tests.association</code></td><td><code>fisher_exact</code> with <code>typeI</code></td><td>23</td></tr>
       <tr><td>Estimate an odds, risk or prevalence ratio from an observed table</td><td><code>estimation.observational</code></td><td><code>odds_ratio</code>, <code>risk_ratio</code>, <code>prevalence_ratio</code> and differences</td><td>24</td></tr>
       <tr><td>Analyse a matched case-control study</td><td><code>models.observational</code>, <code>tests.association</code>, <code>estimation.observational</code></td><td><code>mcnemar</code>, <code>matched_result</code>, <code>conditional_odds_ratio</code></td><td>25</td></tr>
+      <tr><td>Estimate prevalence or risk, or compare incidence rates</td><td><code>estimation.observational</code>, <code>tests.association</code></td><td><code>prevalence</code>, <code>cumulative_incidence</code>, <code>rate_test</code>, <code>rate_ratio</code></td><td>26</td></tr>
       <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
       <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>

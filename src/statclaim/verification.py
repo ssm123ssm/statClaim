@@ -14,6 +14,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from statclaim import __version__
+from statclaim import incidence as incidence_module
 from statclaim import matched as matched_module
 from statclaim.association import (
     ASSOCIATION_KIND,
@@ -352,6 +353,43 @@ def _profile(kind: str, payload: dict) -> dict:
             if interval.table.fixed_groups
             else "StatClaim.Modules.Association.mixture_joint_coverage"
         )
+    elif kind == incidence_module.PROPORTION_KIND:
+        estimate = incidence_module.parse_proportion_payload(payload)
+        claims = incidence_module.proportion_claims(estimate)
+        assumptions = list(incidence_module.proportion_assumptions(estimate))
+        theorems = INTERVAL_CHECKED_THEOREMS
+        scope = (
+            "Coverage of the exact confidence set for this many participants, and the reported "
+            "interval for this observed count."
+        )
+        general_theorem = "StatClaim.Modules.BinomialInterval.coverage"
+    elif kind == incidence_module.RATE_KIND:
+        test = incidence_module.parse_rate_payload(payload)
+        claims = incidence_module.rate_claims(test)
+        assumptions = list(incidence_module.rate_assumptions(test))
+        theorems = incidence_module.DESIGN_THEOREMS
+        scope = (
+            "The declared test of equal incidence rates in a person-time cohort, for every rate "
+            "and any person-time; no observed results are certified."
+        )
+        general_theorem = incidence_module.RATE_THEOREM
+    elif kind == incidence_module.RATE_RESULT_KIND:
+        result = incidence_module.parse_rate_result_payload(payload)
+        claims = incidence_module.rate_result_claims(result)
+        assumptions = list(incidence_module.rate_result_assumptions(result))
+        theorems = incidence_module.RESULT_THEOREMS
+        scope = "These observed events and person-time and the declared rate test; not other data."
+        general_theorem = incidence_module.RATE_THEOREM
+    elif kind == incidence_module.RATE_RATIO_KIND:
+        interval = incidence_module.parse_rate_ratio_payload(payload)
+        claims = incidence_module.rate_ratio_claims(interval)
+        assumptions = list(incidence_module.rate_ratio_assumptions(interval))
+        theorems = incidence_module.RATIO_THEOREMS
+        scope = (
+            "Coverage of the exact interval for the exposed share of events, and the reported "
+            "interval for the incidence rate ratio of these events."
+        )
+        general_theorem = "StatClaim.Modules.Incidence.coverage"
     elif kind == matched_module.MATCHED_KIND:
         test = matched_module.parse_matched_payload(payload)
         claims = matched_module.matched_claims(test)
@@ -550,6 +588,22 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_randomisation_proof(parse_randomisation_payload(payload), input_id)
     if kind == ASSOCIATION_KIND:
         return render_association_proof(parse_association_payload(payload), input_id)
+    if kind == incidence_module.PROPORTION_KIND:
+        return incidence_module.render_proportion_proof(
+            incidence_module.parse_proportion_payload(payload), input_id
+        )
+    if kind == incidence_module.RATE_KIND:
+        return incidence_module.render_rate_proof(
+            incidence_module.parse_rate_payload(payload), input_id
+        )
+    if kind == incidence_module.RATE_RESULT_KIND:
+        return incidence_module.render_rate_result_proof(
+            incidence_module.parse_rate_result_payload(payload), input_id
+        )
+    if kind == incidence_module.RATE_RATIO_KIND:
+        return incidence_module.render_rate_ratio_proof(
+            incidence_module.parse_rate_ratio_payload(payload), input_id
+        )
     if kind == matched_module.MATCHED_KIND:
         return matched_module.render_matched_proof(
             matched_module.parse_matched_payload(payload), input_id
@@ -947,6 +1001,22 @@ def certify_effect_interval(
         output=output,
         timeout=timeout,
     )
+
+
+def certify_incidence(
+    subject, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify a proportion, a rate test, an observed rate result or a rate ratio."""
+    module = incidence_module
+    if isinstance(subject, module.ProportionEstimate):
+        payload, kind = module.proportion_payload(subject), module.PROPORTION_KIND
+    elif isinstance(subject, module.RateResult):
+        payload, kind = module.rate_result_payload(subject), module.RATE_RESULT_KIND
+    elif isinstance(subject, module.RateRatioInterval):
+        payload, kind = module.rate_ratio_payload(subject), module.RATE_RATIO_KIND
+    else:
+        payload, kind = module.rate_payload(subject), module.RATE_KIND
+    return _certify_payload(payload, kind, project=project, output=output, timeout=timeout)
 
 
 def certify_matched(

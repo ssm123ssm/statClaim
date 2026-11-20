@@ -53,6 +53,8 @@
   sampling allows.
 - Matched case-control studies: McNemar's exact test and the conditional odds
   ratio, proved in Lean; unmatched analyses refuse matched pairs.
+- Prevalence and cumulative incidence with exact intervals, and person-time
+  cohorts with an exact test of equal incidence rates and their ratio.
 
 ## Direction
 

@@ -43,21 +43,26 @@ MODULE_CLASSES = {
     ),
     "models.observational": (
         "Observational studies",
-        "Cross-sectional, cohort, case-control and 1:1 matched case-control studies, whose "
-        "exposure was not assigned. Each says what its sampling fixed: only the total, the "
-        "exposed and unexposed groups, the numbers of cases and controls, or the pairs. The "
-        "null of no association, observed tables and observed pairs.",
+        "Cross-sectional, cohort, person-time cohort, case-control and 1:1 matched "
+        "case-control studies, whose exposure was not assigned. Each says what its sampling "
+        "fixed: only the total, the exposed and unexposed groups, the numbers of cases and "
+        "controls, the pairs, or nothing but person-time. The null of no association, and "
+        "observed tables, pairs and events.",
     ),
     "tests.association": (
         "Observational studies",
         "Fisher's exact test of no association in an observational 2x2 study, proved in Lean "
         "for every design: with the group sizes fixed, and with only the total fixed, by "
         "averaging over the number exposed. McNemar's exact test for matched pairs, proved "
-        "given the discordant pairs and on average. Checked p-values for observed data. A "
-        "bound concerns association, not an effect of the exposure.",
+        "given the discordant pairs and on average. The exact test of equal incidence rates "
+        "for any person-time, proved given the total events and on average. Checked p-values "
+        "for observed data. A bound concerns association, not an effect of the exposure.",
     ),
     "estimation.observational": (
         "Observational studies",
+        "Prevalence (cross-sectional) and cumulative incidence (cohort) with exact intervals; "
+        "the incidence rate ratio of a person-time cohort; the conditional odds ratio of "
+        "matched pairs. "
         "Intervals for the odds ratio (any design), the risk ratio and difference (cohort) "
         "and the prevalence ratio and difference (cross-sectional) from an observed table. "
         "Each comes from exact intervals for the two groups' probabilities, with joint "
@@ -291,6 +296,28 @@ OBJECT_CLASSES = {
     "AssociationNull": (
         "Observational studies",
         "No association between exposure and outcome: an odds ratio of 1.",
+    ),
+    "PersonTimeStudy": (
+        "Observational studies",
+        "A cohort followed over person-time; it measures incidence rates.",
+    ),
+    "RateAnalysis": (
+        "Observational studies",
+        "The exact test of equal incidence rates, given the total events.",
+    ),
+    "ObservedEvents": (
+        "Observational studies",
+        "Events and person-time in the exposed and unexposed groups.",
+    ),
+    "RateResult": ("Observational studies", "The rate test applied to observed events."),
+    "RateRatio": ("Observational studies", "An interval for the incidence rate ratio."),
+    "Proportion": (
+        "Observational studies",
+        "Prevalence or cumulative incidence with its exact interval.",
+    ),
+    "RateResultDetails": (
+        "Evidence and inspection",
+        "Exact p-value and decision of the rate test for observed events.",
     ),
     "MatchedStudy": (
         "Observational studies",

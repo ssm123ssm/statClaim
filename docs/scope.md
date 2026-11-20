@@ -40,7 +40,9 @@ What is supported:
   (cross-sectional), with joint coverage proved for every pair of probabilities.
   A design refuses a measure it cannot estimate. A 1:1 matched case-control
   study takes McNemar's exact test and an interval for the conditional odds
-  ratio, both proved, and refuses unmatched analyses. A bound concerns association,
+  ratio, both proved, and refuses unmatched analyses. Prevalence and cumulative
+  incidence have exact intervals; a person-time cohort has an exact test of equal
+  incidence rates and an interval for their ratio. A bound concerns association,
   never an effect of the exposure. See [observational studies](observational.md).
 
 - **Cluster-randomised trials, cited.** A t-test on one summary per cluster, a

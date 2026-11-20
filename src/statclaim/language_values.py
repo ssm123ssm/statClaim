@@ -129,6 +129,10 @@ class MatchedResultDetails(PlanningDetails):
     """Calculated p-value and decision of McNemar's test for observed matched pairs."""
 
 
+class RateResultDetails(PlanningDetails):
+    """Calculated p-value and decision of the exact rate test for observed events."""
+
+
 class EffectIntervalDetails(PlanningDetails):
     """Calculated interval for an odds, risk or prevalence ratio or difference."""
 

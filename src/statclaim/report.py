@@ -34,6 +34,7 @@ from statclaim.verification import (
     certify_difference,
     certify_effect_interval,
     certify_family,
+    certify_incidence,
     certify_interval,
     certify_margin,
     certify_matched,
@@ -980,4 +981,80 @@ def run_matched(subject, *, verify: bool, stopping: str, project: Path, output, 
         report, certify_matched, subject, project=project, output=output, timeout=timeout
     )
     report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def incidence_report(subject, *, stopping: str = "fixed", verify: bool = True) -> dict:
+    """A proportion, rate test, rate result or rate ratio, before it is checked."""
+    from statclaim import incidence
+    from statclaim.association import NOT_CAUSAL
+
+    calculate = "" if verify else " Calculate only."
+    if isinstance(subject, incidence.ProportionEstimate):
+        words = incidence.PROPORTIONS[subject.measure][0]
+        report = planning_report(
+            "interval",
+            f"Exact interval at level {subject.level} for the {words} of {subject.outcome}, "
+            f"from {subject.cases} cases among {subject.who()}.{calculate}",
+            list(incidence.proportion_assumptions(subject)),
+        )
+        return report
+    if isinstance(subject, incidence.RateRatioInterval):
+        report = planning_report(
+            "interval",
+            f"Interval at level {subject.level} for the incidence rate ratio, from the observed "
+            f"events ({subject.events.describe()}).{calculate}",
+            list(incidence.rate_ratio_assumptions(subject)),
+        )
+    elif isinstance(subject, incidence.RateResult):
+        report = planning_report(
+            "result",
+            f"Exact p-value and decision of the rate test for the observed events "
+            f"({subject.events.describe()}) at level {subject.test.alpha}."
+            + (" Also check the test's Type I bound." if verify else " Calculate only."),
+            list(incidence.rate_result_assumptions(subject)),
+        )
+    else:
+        report = planning_report(
+            "rate_test",
+            f"Exact test of equal incidence rates: Type I error <= {subject.alpha} whenever "
+            f"{incidence.rate_null_words(subject)}, for any person-time.",
+            list(incidence.rate_assumptions(subject)),
+        )
+        if stopping != "fixed":
+            report["outstanding_obligations"] = [
+                "Specify the stopping procedure with its own guarantee; the test assumes "
+                "follow-up ends without regard to the events."
+            ]
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def run_incidence(subject, *, verify: bool, stopping: str, project: Path, output, timeout: float):
+    """Calculate a proportion, rate result or rate ratio, and with verify have Lean check it."""
+    from statclaim import incidence
+
+    report = incidence_report(subject, stopping=stopping, verify=verify)
+    if isinstance(subject, incidence.RateResult):
+        report["calculation"] = subject.evaluate()
+        report["decision"] = "reject_null" if subject.reject_null else "do_not_reject"
+    elif not isinstance(subject, incidence.RateTest):
+        report["calculation"] = subject.evaluate()
+        report["decision"] = "interval_reported"
+    if not verify:
+        return report
+    if stopping != "fixed":
+        return _unmet(
+            report,
+            "sampling_scope",
+            "sampling_scope",
+            "Data-dependent stopping changes the law of the events. This is not evidence of "
+            "inflated error.",
+        )
+    limitations = report.get("limitations")
+    report = _certified(
+        report, certify_incidence, subject, project=project, output=output, timeout=timeout
+    )
+    if limitations:
+        report["limitations"] = limitations
     return report

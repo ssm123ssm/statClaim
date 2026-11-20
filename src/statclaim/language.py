@@ -27,6 +27,15 @@ from statclaim.composition import MODES, Component, Composition
 from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statclaim.fisher import validate_alpha
+from statclaim.incidence import (
+    PROPORTIONS,
+    ObservedEvents,
+    ProportionEstimate,
+    RateRatioInterval,
+    RateResult,
+    RateTest,
+    proportion_not_estimable,
+)
 from statclaim.language_contracts import (
     FISHER_CONTRACT,
     MARGIN_CONTRACT,
@@ -97,7 +106,7 @@ from statclaim.randomisation import (
     splits_needed,
 )
 
-LANGUAGE_VERSION = "0.19.0"
+LANGUAGE_VERSION = "0.20.0"
 
 
 class PlannableIR:
@@ -539,6 +548,18 @@ class MatchedStudyIR(ObservationalStudyIR):
 
 
 @dataclass(frozen=True)
+class PersonTimeStudyIR(ObservationalStudyIR):
+    """A cohort followed over person-time, counting events in the exposed and unexposed. It
+    measures incidence rates; no group size is fixed."""
+
+    design = "person_time_cohort"
+
+    @property
+    def n(self) -> None:
+        return None
+
+
+@dataclass(frozen=True)
 class AssociationNullIR(NullIR):
     """No association between an observational study's exposure and outcome: an odds ratio
     of 1, stated in the terms the design can estimate."""
@@ -697,6 +718,98 @@ class MatchedIntervalIR:
 
     def lower(self) -> MatchedInterval:
         return MatchedInterval(self.observed.lower(), self.level)
+
+
+@dataclass(frozen=True)
+class RateAnalysisIR(LevelTestIR):
+    """The conditional exact test of equal incidence rates, given the total events."""
+
+    plan: PlanIR
+    hypothesis: AssociationNullIR
+    alpha: Fraction
+
+    @property
+    def guarantee(self) -> Guarantee:
+        return Guarantee(
+            "type_I_error", "at_most", self.alpha, self.hypothesis.statement, "finite_sample"
+        )
+
+    def lower(self) -> RateTest:
+        model = self.plan.model
+        return RateTest(self.alpha, model.exposure, model.outcome)
+
+
+@dataclass(frozen=True)
+class ObservedEventsIR:
+    """Events and person-time in a person-time cohort's exposed and unexposed groups."""
+
+    model: PersonTimeStudyIR
+    exposed_events: int
+    exposed_time: Fraction
+    unexposed_events: int
+    unexposed_time: Fraction
+
+    def lower(self) -> ObservedEvents:
+        return ObservedEvents(
+            self.exposed_events,
+            self.exposed_time,
+            self.unexposed_events,
+            self.unexposed_time,
+            self.model.exposure,
+            self.model.outcome,
+        )
+
+
+@dataclass(frozen=True)
+class RateResultIR:
+    """The conditional rate test applied to observed events."""
+
+    analysis: RateAnalysisIR
+    events: ObservedEventsIR
+
+    def lower(self) -> RateResult:
+        return RateResult(self.analysis.lower(), self.events.lower())
+
+
+@dataclass(frozen=True)
+class RateRatioIR:
+    """An interval for the incidence rate ratio from observed events."""
+
+    events: ObservedEventsIR
+    level: Fraction
+
+    def lower(self) -> RateRatioInterval:
+        return RateRatioInterval(self.events.lower(), self.level)
+
+
+@dataclass(frozen=True)
+class ProportionIR:
+    """Prevalence or cumulative incidence, with its exact interval."""
+
+    measure: str
+    model: ObservationalStudyIR
+    cases: int
+    level: Fraction
+    group: str | None = None
+
+    @property
+    def size(self) -> int:
+        groups = self.model.groups
+        if groups is None:
+            return self.model.n
+        return groups[1] if self.group == "exposed" else groups[0]
+
+    def lower(self) -> ProportionEstimate:
+        return ProportionEstimate(
+            self.measure,
+            self.model.design,
+            self.size,
+            self.cases,
+            self.level,
+            self.model.exposure,
+            self.model.outcome,
+            self.group,
+        )
 
 
 class FamilyLikeIR:
@@ -1046,7 +1159,13 @@ class ClaimIR:
         subject = self.subject
         if isinstance(
             subject,
-            (CitedAnalysisIR, RandomisationAnalysisIR, AssociationAnalysisIR, MatchedAnalysisIR),
+            (
+                CitedAnalysisIR,
+                RandomisationAnalysisIR,
+                AssociationAnalysisIR,
+                MatchedAnalysisIR,
+                RateAnalysisIR,
+            ),
         ):
             return subject.guarantee
         if isinstance(subject, ComposedFamilyIR):
@@ -1260,6 +1379,35 @@ def normalize(value: object) -> object:
                 "controls": controls,
                 "exposure": exposure,
                 "outcome": outcome,
+            }
+        case PersonTimeStudyIR(exposure=exposure, outcome=outcome):
+            return {"study": "person_time_cohort", "exposure": exposure, "outcome": outcome}
+        case RateAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
+            return {
+                "test": "rate_test",
+                "design": normalize(plan),
+                "null": normalize(hypothesis),
+                "alpha": str(alpha),
+            }
+        case ObservedEventsIR(model=model):
+            return {
+                "model": normalize(model),
+                "exposed_events": value.exposed_events,
+                "exposed_time": str(value.exposed_time),
+                "unexposed_events": value.unexposed_events,
+                "unexposed_time": str(value.unexposed_time),
+            }
+        case RateResultIR(analysis=analysis, events=events):
+            return {"analysis": normalize(analysis), "events": normalize(events)}
+        case RateRatioIR(events=events, level=level):
+            return {"events": normalize(events), "level": str(level)}
+        case ProportionIR(measure=measure, model=model, cases=cases, level=level, group=group):
+            return {
+                "measure": measure,
+                "model": normalize(model),
+                "cases": cases,
+                "level": str(level),
+                **({"group": group} if group else {}),
             }
         case MatchedStudyIR(pairs=pairs, exposure=exposure, outcome=outcome):
             return {
@@ -2052,6 +2200,11 @@ def _fisher_exact(arguments: dict[str, LocatedValue], span: Span) -> Association
         "fisher_exact ignores the matching, so its guarantee does not apply to matched pairs. "
         "Use mcnemar for a matched study.",
     )
+    _rates_refused(
+        design,
+        "fisher_exact compares counts of participants; a person-time cohort counts events over "
+        "person-time. Use rate_test.",
+    )
     if not isinstance(design.value.model, ObservationalStudyIR):
         fail(
             "type",
@@ -2144,7 +2297,127 @@ def _conditional_odds_ratio(arguments: dict[str, LocatedValue], span: Span) -> C
     return ClaimIR("interval", interval, observed.name or "<expression>")
 
 
+def _rates_refused(argument: LocatedValue, message: str) -> None:
+    model = argument.value.model if isinstance(argument.value, PlanIR) else argument.value
+    if isinstance(model, PersonTimeStudyIR):
+        fail("type", message, argument.span)
+
+
+def _person_time_cohort(arguments: dict[str, LocatedValue], span: Span) -> PersonTimeStudyIR:
+    return PersonTimeStudyIR(_study_name(arguments, "exposure"), _study_name(arguments, "outcome"))
+
+
+def _observed_events(arguments: dict[str, LocatedValue], span: Span) -> ObservedEventsIR:
+    values = {}
+    for key in ("exposed_events", "unexposed_events"):
+        if arguments[key].value < 0:
+            fail("domain", f"{key} must be a whole number, zero or more.", arguments[key].span)
+        values[key] = arguments[key].value
+    for key in ("exposed_time", "unexposed_time"):
+        if arguments[key].value <= 0:
+            fail("domain", f"{key} must be positive person-time.", arguments[key].span)
+        values[key] = arguments[key].value
+    events = ObservedEventsIR(
+        arguments["model"].value,
+        values["exposed_events"],
+        values["exposed_time"],
+        values["unexposed_events"],
+        values["unexposed_time"],
+    )
+    try:
+        events.lower()
+    except ValueError as error:
+        fail("domain", str(error), span)
+    return events
+
+
+def _rate_test(arguments: dict[str, LocatedValue], span: Span) -> RateAnalysisIR:
+    design, null = arguments["design"], arguments["null"]
+    if not isinstance(design.value.model, PersonTimeStudyIR):
+        fail(
+            "type",
+            "rate_test compares incidence rates over person-time, but this design does not "
+            "count person-time. Use person_time_cohort, or fisher_exact to compare counts.",
+            design.span,
+        )
+    if design.value.model != null.value.model:
+        fail(
+            "model_mismatch",
+            "rate_test: the null belongs to a different study. Declare "
+            "no_association(model=...) over the study the design samples.",
+            null.span,
+        )
+    return RateAnalysisIR(design.value, null.value, arguments["alpha"].value)
+
+
+def _rate_result(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    analysis, events = arguments["analysis"], arguments["events"]
+    if analysis.value.plan.model != events.value.model:
+        fail(
+            "model_mismatch",
+            "rate_result: the events belong to another study than the analysis.",
+            events.span,
+        )
+    return ClaimIR(
+        "result",
+        RateResultIR(analysis.value, events.value),
+        events.name or analysis.name or "<expression>",
+    )
+
+
+def _rate_ratio(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    events, level = arguments["events"], arguments["level"]
+    if not 0 < level.value < 1:
+        fail("domain", "level must lie strictly between 0 and 1.", level.span)
+    interval = RateRatioIR(events.value, level.value)
+    try:
+        interval.lower()
+    except ValueError as error:
+        fail("domain", str(error), events.span)
+    return ClaimIR("interval", interval, events.name or "<expression>")
+
+
+def _proportion(measure: str) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+        model, cases, level = arguments["model"], arguments["cases"], arguments["level"]
+        group = arguments.get("group")
+        group = group.value if group is not None else None
+        reason = proportion_not_estimable(measure, model.value.design)
+        if reason:
+            fail("not_estimable", f"{measure}: {reason}", model.span)
+        if model.value.groups is not None and group is None:
+            fail(
+                "domain",
+                "This cohort sampled exposed and unexposed groups separately, so say which: "
+                'group="exposed" or group="unexposed".',
+                span,
+            )
+        if model.value.groups is None and group is not None:
+            fail(
+                "domain",
+                "This study did not fix exposed and unexposed groups; leave group out.",
+                arguments["group"].span,
+            )
+        if not 0 < level.value < 1:
+            fail("domain", "level must lie strictly between 0 and 1.", level.span)
+        estimate = ProportionIR(measure, model.value, cases.value, level.value, group)
+        if not 0 <= cases.value <= estimate.size:
+            fail("domain", f"cases must be between 0 and {estimate.size}.", cases.span)
+        try:
+            estimate.lower()
+        except ValueError as error:
+            fail("domain", str(error), span)
+        return ClaimIR("interval", estimate, model.name or "<expression>")
+
+    return build
+
+
 def _observed_table(arguments: dict[str, LocatedValue], span: Span) -> AssociationTableIR:
+    _rates_refused(
+        arguments["model"],
+        "A person-time cohort records events and person-time, not a table of participants. "
+        "Use observed_events.",
+    )
     _matched_refused(
         arguments["model"],
         "observed_table records two unmatched groups, which loses the pairs. Use "
@@ -3321,6 +3594,29 @@ MODULES = {
                     "fixed how many have the outcome. " + STUDY_NAMES_DOCUMENTATION,
                 ),
                 _constructor(
+                    "person_time_cohort",
+                    STUDY_NAMES,
+                    "PersonTimeStudy",
+                    _person_time_cohort,
+                    documentation="A cohort followed over person-time, counting events in the "
+                    "exposed and unexposed. It measures incidence rates; no group size is "
+                    "fixed. " + STUDY_NAMES_DOCUMENTATION,
+                ),
+                _constructor(
+                    "observed_events",
+                    (
+                        ("model", PersonTimeStudyIR),
+                        ("exposed_events", "integer"),
+                        ("exposed_time", "number"),
+                        ("unexposed_events", "integer"),
+                        ("unexposed_time", "number"),
+                    ),
+                    "ObservedEvents",
+                    _observed_events,
+                    documentation="Events and person-time, such as person-years, in the exposed "
+                    "and unexposed groups of a person-time cohort.",
+                ),
+                _constructor(
                     "matched_case_control",
                     (("pairs", "integer"), *STUDY_NAMES),
                     "MatchedStudy",
@@ -3376,6 +3672,24 @@ MODULES = {
                     "not an effect of the exposure.",
                 ),
                 _constructor(
+                    "rate_test",
+                    (("design", PlanIR), ("null", AssociationNullIR), ("alpha", "level")),
+                    "RateAnalysis",
+                    _rate_test,
+                    documentation="The exact test of equal incidence rates: given the total "
+                    "events, a two-sided binomial test of the exposed share at the exposed "
+                    "share of person-time. Lean proves its level for every rate and any "
+                    "person-time, given the total and on average over it.",
+                ),
+                _constructor(
+                    "rate_result",
+                    (("analysis", RateAnalysisIR), ("events", ObservedEventsIR)),
+                    "ResultClaim",
+                    _rate_result,
+                    documentation="Claim about the exact p-value and decision of the rate test "
+                    "for the observed events, with the test's Type I bound.",
+                ),
+                _constructor(
                     "mcnemar",
                     (("design", PlanIR), ("null", AssociationNullIR), ("alpha", "level")),
                     "MatchedAnalysis",
@@ -3408,6 +3722,31 @@ MODULES = {
         Module(
             "estimation.observational",
             (
+                _constructor(
+                    "rate_ratio",
+                    (("events", ObservedEventsIR), ("level", "level")),
+                    "IntervalClaim",
+                    _rate_ratio,
+                    documentation="Interval for the incidence rate ratio of a person-time "
+                    "cohort, from the exact interval for the exposed share of events.",
+                ),
+                *(
+                    _constructor(
+                        measure,
+                        (
+                            ("model", ObservationalStudyIR),
+                            ("cases", "integer"),
+                            ("level", "level"),
+                            ("group", "string", True),
+                        ),
+                        "IntervalClaim",
+                        _proportion(measure),
+                        documentation=f"The {words} with its exact interval. Only a "
+                        f"{designs[0].replace('_', '-')} study estimates it. For a cohort that "
+                        'sampled groups separately, group="exposed" or "unexposed" says which.',
+                    )
+                    for measure, (words, designs) in PROPORTIONS.items()
+                ),
                 _constructor(
                     "conditional_odds_ratio",
                     (("pairs", MatchedPairsIR), ("level", "level")),

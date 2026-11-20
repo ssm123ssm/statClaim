@@ -123,6 +123,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | IntervalDetails | Estimate and exact confidence interval endpoints. | `n: integer`, `responses: integer`, `level: exact number`, `estimate: exact number`, `lower: exact number`, `upper: exact number`, `method: string` |
 | StageResultDetails | Decision and error bound for observed two-stage counts. | `n_stage1: integer`, `n_stage2: integer`, `stage1_responses: integer`, `stage2_responses: Option[integer]`, `continued: boolean`, `reject_null: boolean`, `typeI_bound: exact number` |
 | PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: Option[integer]`, `n_stage2: Option[integer]`, `continue_above: Option[integer]`, `reject_above: Option[integer]`, `maximum_sample_size: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `expected_sample_size_null: Option[exact number]`, `expected_sample_size_alternative: Option[exact number]`, `early_stop_probability_null: Option[exact number]`, `criterion: Option[string]`, `candidates_evaluated: Option[integer]` |
+| RateResultDetails | Exact p-value and decision of the rate test for observed events. | `events: integer`, `p_value: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | MatchedResultDetails | Exact p-value and decision of McNemar's test for observed pairs. | `discordant_pairs: integer`, `p_value: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | AssociationResultDetails | Exact p-value and decision of Fisher's test for an observed table. | `p_value: exact number`, `observed_table_probability: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | EffectIntervalDetails | An effect measure's interval, estimate and the level used per group. | `measure: string`, `level: exact number`, `arm_level: exact number`, `estimate: Option[exact number]`, `lower: exact number`, `upper: Option[exact number]`, `method: string` |
@@ -137,6 +138,12 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | CohortStudy | Participants followed from exposure to outcome, with the groups or only the total fixed. | `exposed: Option[integer]`, `unexposed: Option[integer]`, `n: Option[integer]`, `exposure: string`, `outcome: string` |
 | CaseControlStudy | Cases and controls sampled in fixed numbers; estimates odds ratios only. | `cases: integer`, `controls: integer`, `exposure: string`, `outcome: string` |
 | AssociationNull | No association between exposure and outcome: an odds ratio of 1. | `model: Model`, `predicate: string`, `statement: string` |
+| PersonTimeStudy | A cohort followed over person-time; it measures incidence rates. | `exposure: string`, `outcome: string` |
+| RateAnalysis | The exact test of equal incidence rates, given the total events. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `guarantee: Guarantee` |
+| ObservedEvents | Events and person-time in the exposed and unexposed groups. | `model: PersonTimeStudy`, `exposed_events: integer`, `exposed_time: exact number`, `unexposed_events: integer`, `unexposed_time: exact number` |
+| RateResult | The rate test applied to observed events. | `analysis: RateAnalysis`, `events: ObservedEvents` |
+| RateRatio | An interval for the incidence rate ratio. | `events: ObservedEvents`, `level: exact number` |
+| Proportion | Prevalence or cumulative incidence with its exact interval. | `measure: string`, `model: Model`, `cases: integer`, `level: exact number`, `group: Option[string]` |
 | MatchedStudy | A 1:1 matched case-control study: pairs of one case and one control. | `pairs: integer`, `exposure: string`, `outcome: string` |
 | MatchedAnalysis | McNemar's exact test of no association within matched pairs. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `guarantee: Guarantee` |
 | MatchedPairs | Observed pairs by who was exposed: both, only the case, only the control, neither. | `model: MatchedStudy`, `both_exposed: integer`, `case_exposed_only: integer`, `control_exposed_only: integer`, `neither_exposed: integer` |
@@ -323,7 +330,7 @@ Randomisation test of the sharp null that treatment changes no participant's out
 
 ### `models.observational` — Observational studies
 
-Cross-sectional, cohort, case-control and 1:1 matched case-control studies, whose exposure was not assigned. Each says what its sampling fixed: only the total, the exposed and unexposed groups, the numbers of cases and controls, or the pairs. The null of no association, observed tables and observed pairs.
+Cross-sectional, cohort, person-time cohort, case-control and 1:1 matched case-control studies, whose exposure was not assigned. Each says what its sampling fixed: only the total, the exposed and unexposed groups, the numbers of cases and controls, the pairs, or nothing but person-time. The null of no association, and observed tables, pairs and events.
 
 - `cross_sectional(n: integer, exposure?: string, outcome?: string) -> CrossSectionalStudy`
   A cross-sectional study: n participants sampled from one population, with exposure and outcome measured at the same time. Only n is fixed, not how many are exposed. It measures prevalence, not incidence. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
@@ -331,6 +338,10 @@ Cross-sectional, cohort, case-control and 1:1 matched case-control studies, whos
   A cohort study: participants followed from exposure to outcome. Give exposed and unexposed when the groups were sampled in fixed numbers, or n when one population was sampled and exposure measured. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
 - `case_control(cases: integer, controls: integer, exposure?: string, outcome?: string) -> CaseControlStudy`
   A case-control study: cases with the outcome and controls without it, sampled in fixed numbers and asked about past exposure. It estimates odds ratios only, never risk or prevalence, because the design fixed how many have the outcome. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
+- `person_time_cohort(exposure?: string, outcome?: string) -> PersonTimeStudy`
+  A cohort followed over person-time, counting events in the exposed and unexposed. It measures incidence rates; no group size is fixed. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
+- `observed_events(model: PersonTimeStudy, exposed_events: integer, exposed_time: number, unexposed_events: integer, unexposed_time: number) -> ObservedEvents`
+  Events and person-time, such as person-years, in the exposed and unexposed groups of a person-time cohort.
 - `matched_case_control(pairs: integer, exposure?: string, outcome?: string) -> MatchedStudy`
   A 1:1 matched case-control study: each case matched to one control on chosen characteristics. Its tests and intervals use the pairs where exactly one was exposed; unmatched analyses refuse it. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
 - `observed_pairs(model: MatchedStudy, both_exposed: integer, case_exposed_only: integer, control_exposed_only: integer, neither_exposed: integer) -> MatchedPairs`
@@ -343,10 +354,14 @@ Cross-sectional, cohort, case-control and 1:1 matched case-control studies, whos
 
 ### `tests.association` — Observational studies
 
-Fisher's exact test of no association in an observational 2x2 study, proved in Lean for every design: with the group sizes fixed, and with only the total fixed, by averaging over the number exposed. McNemar's exact test for matched pairs, proved given the discordant pairs and on average. Checked p-values for observed data. A bound concerns association, not an effect of the exposure.
+Fisher's exact test of no association in an observational 2x2 study, proved in Lean for every design: with the group sizes fixed, and with only the total fixed, by averaging over the number exposed. McNemar's exact test for matched pairs, proved given the discordant pairs and on average. The exact test of equal incidence rates for any person-time, proved given the total events and on average. Checked p-values for observed data. A bound concerns association, not an effect of the exposure.
 
 - `fisher_exact(design: StudyDesign, null: AssociationNull, alpha: level) -> AssociationAnalysis`
   Fisher's exact test of no association in an observational 2x2 study. Lean proves its level for every design: with group sizes fixed by a cohort or case-control study, and with only the total fixed, by averaging over the number exposed. The bound concerns association, not an effect of the exposure.
+- `rate_test(design: StudyDesign, null: AssociationNull, alpha: level) -> RateAnalysis`
+  The exact test of equal incidence rates: given the total events, a two-sided binomial test of the exposed share at the exposed share of person-time. Lean proves its level for every rate and any person-time, given the total and on average over it.
+- `rate_result(analysis: RateAnalysis, events: ObservedEvents) -> ResultClaim`
+  Claim about the exact p-value and decision of the rate test for the observed events, with the test's Type I bound.
 - `mcnemar(design: StudyDesign, null: AssociationNull, alpha: level) -> MatchedAnalysis`
   McNemar's exact test of no association within matched pairs: given the discordant pairs, a two-sided binomial test at one half. Lean proves its level given the number of discordant pairs and on average over it.
 - `matched_result(analysis: MatchedAnalysis, pairs: MatchedPairs) -> ResultClaim`
@@ -357,8 +372,14 @@ Fisher's exact test of no association in an observational 2x2 study, proved in L
 
 ### `estimation.observational` — Observational studies
 
-Intervals for the odds ratio (any design), the risk ratio and difference (cohort) and the prevalence ratio and difference (cross-sectional) from an observed table. Each comes from exact intervals for the two groups' probabilities, with joint coverage proved in Lean; valid for every pair of probabilities, and conservative. A design refuses what it cannot estimate.
+Prevalence (cross-sectional) and cumulative incidence (cohort) with exact intervals; the incidence rate ratio of a person-time cohort; the conditional odds ratio of matched pairs. Intervals for the odds ratio (any design), the risk ratio and difference (cohort) and the prevalence ratio and difference (cross-sectional) from an observed table. Each comes from exact intervals for the two groups' probabilities, with joint coverage proved in Lean; valid for every pair of probabilities, and conservative. A design refuses what it cannot estimate.
 
+- `rate_ratio(events: ObservedEvents, level: level) -> IntervalClaim`
+  Interval for the incidence rate ratio of a person-time cohort, from the exact interval for the exposed share of events.
+- `prevalence(model: ObservationalStudy, cases: integer, level: level, group?: string) -> IntervalClaim`
+  The prevalence with its exact interval. Only a cross-sectional study estimates it. For a cohort that sampled groups separately, group="exposed" or "unexposed" says which.
+- `cumulative_incidence(model: ObservationalStudy, cases: integer, level: level, group?: string) -> IntervalClaim`
+  The cumulative incidence with its exact interval. Only a cohort study estimates it. For a cohort that sampled groups separately, group="exposed" or "unexposed" says which.
 - `conditional_odds_ratio(pairs: MatchedPairs, level: level) -> IntervalClaim`
   Interval for the conditional odds ratio of a matched study, the odds that the case is the exposed one in a discordant pair, from the exact interval for that probability.
 - `odds_ratio(table: AssociationTable, level: level) -> IntervalClaim`
@@ -643,6 +664,7 @@ Other string inputs, such as `name`, take free text.
 | `joint_law` | `binomial_marginals` | `bonferroni` |
 | `criterion` | `optimal`, `minimax` | `two_stage_designs` |
 | `scope` | `finite_sample`, `asymptotic` | `declared_test` |
+| `group` | `exposed`, `unexposed` | `prevalence`, `cumulative_incidence` |
 
 ## Cited methods
 

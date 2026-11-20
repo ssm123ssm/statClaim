@@ -24,7 +24,11 @@ from statclaim.language import (
     ObservationIR,
     OneArmCandidatesIR,
     OneSampleObservationIR,
+    ProportionIR,
     RandomisationAnalysisIR,
+    RateAnalysisIR,
+    RateRatioIR,
+    RateResultIR,
     RequestIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
@@ -57,6 +61,7 @@ from statclaim.report import (
     run_binomial_result,
     run_composition,
     run_effect_interval,
+    run_incidence,
     run_interval,
     run_margin,
     run_margin_search,
@@ -161,6 +166,16 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             ratio=candidates.ratio,
             alternative=candidates.analysis.alternative,
             **options,
+        )
+    if isinstance(subject, (RateAnalysisIR, RateResultIR, RateRatioIR, ProportionIR)):
+        plan = getattr(getattr(subject, "analysis", subject), "plan", None)
+        return run_incidence(
+            subject.lower(),
+            verify=request.operation == "verify",
+            stopping=plan.stopping if plan is not None else "fixed",
+            project=project,
+            output=output,
+            timeout=timeout,
         )
     if isinstance(subject, (MatchedAnalysisIR, MatchedResultIR, MatchedIntervalIR)):
         analysis = getattr(subject, "analysis", subject)
@@ -664,6 +679,17 @@ def render_report(report: dict, source: Source) -> str:
             lines.extend(_planning_lines(details))
         elif request["status"] == "calculated" and "measure" in details["calculation"]:
             lines.append(_effect_line(details["calculation"]))
+        elif (
+            request["status"] == "calculated"
+            and "exposed_time" in details["calculation"]
+            and ("p_value" in details["calculation"])
+        ):
+            calculation = details["calculation"]
+            p_value = float(Fraction(calculation["p_value"]["fraction"]))
+            lines.append(
+                f"  {calculation['events']} events; p-value ~ {p_value:.4g}; "
+                f"decision = {details['decision']}; no formal certificate issued."
+            )
         elif request["status"] == "calculated" and "discordant_pairs" in details["calculation"]:
             calculation = details["calculation"]
             p_value = float(Fraction(calculation["p_value"]["fraction"]))

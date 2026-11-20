@@ -16,6 +16,13 @@ from statclaim.association import (
     EffectInterval,
     association_payload,
 )
+from statclaim.incidence import (
+    ObservedEvents,
+    ProportionEstimate,
+    RateRatioInterval,
+    RateResult,
+    RateTest,
+)
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
 from statclaim.matched import MatchedInterval, MatchedPairs, MatchedResult, MatchedTest
@@ -23,6 +30,7 @@ from statclaim.report import (
     run_association,
     run_association_result,
     run_effect_interval,
+    run_incidence,
     run_matched,
 )
 from statclaim.verification import VerificationError, canonical_bytes, digest, recheck_certificate
@@ -268,6 +276,45 @@ def test_a_flipped_mcnemar_decision_is_refused(tmp_path):
     )
     assert report["status"] == "verified"
     source = (tmp_path / "m/Proof.lean").read_text()
+    assert "↔ True := by" in source
+    proof = tmp_path / "Flipped.lean"
+    proof.write_text(source.replace("↔ True := by", "↔ False := by"))
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=300
+    )
+    assert checked.returncode != 0
+
+
+# Prevalence, cumulative incidence and incidence rates --------------------------------------
+NIGHT_SHIFTS = ObservedEvents(48, Fraction(12500), 61, Fraction(31000), "night shifts", "cancer")
+RATE_TEST_OBJECT = RateTest(Fraction(1, 20), "night shifts", "cancer")
+
+
+@pytest.mark.parametrize(
+    "subject",
+    [
+        RATE_TEST_OBJECT,
+        RateResult(RATE_TEST_OBJECT, NIGHT_SHIFTS),
+        RateRatioInterval(NIGHT_SHIFTS, Fraction(19, 20)),
+        ProportionEstimate("prevalence", "cross_sectional", 800, 152, Fraction(19, 20)),
+    ],
+    ids=["rate test", "rate result", "rate ratio", "prevalence"],
+)
+def test_incidence_claims_are_proved_and_replay(subject, tmp_path):
+    report = run_incidence(
+        subject, verify=True, stopping="fixed", project=ROOT, output=tmp_path / "i", timeout=300
+    )
+    assert report["status"] == "verified", report.get("verification")
+    assert recheck_certificate(tmp_path / "i", project=ROOT, timeout=300)["status"] == "verified"
+
+
+def test_a_flipped_rate_decision_is_refused(tmp_path):
+    result = RateResult(RATE_TEST_OBJECT, NIGHT_SHIFTS)
+    report = run_incidence(
+        result, verify=True, stopping="fixed", project=ROOT, output=tmp_path / "i", timeout=300
+    )
+    assert report["status"] == "verified"
+    source = (tmp_path / "i/Proof.lean").read_text()
     assert "↔ True := by" in source
     proof = tmp_path / "Flipped.lean"
     proof.write_text(source.replace("↔ True := by", "↔ False := by"))

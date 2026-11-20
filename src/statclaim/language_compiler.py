@@ -23,7 +23,11 @@ from statclaim.language import (
     ObservationIR,
     OneSampleObservationIR,
     ProgramIR,
+    ProportionIR,
     RandomisationAnalysisIR,
+    RateAnalysisIR,
+    RateRatioIR,
+    RateResultIR,
     RequestIR,
     TwoStageObservationIR,
     elaborate,
@@ -136,11 +140,26 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
             DifferenceIntervalIR,
             EffectIntervalIR,
             MatchedIntervalIR,
+            RateRatioIR,
+            ProportionIR,
         ),
     ):
         return ()
-    if isinstance(subject, (AssociationResultIR, MatchedResultIR)):
+    if isinstance(subject, (AssociationResultIR, MatchedResultIR, RateResultIR)):
         subject = subject.analysis
+    if isinstance(subject, RateAnalysisIR):
+        if request.operation != "verify" or subject.plan.stopping == "fixed":
+            return ()
+        return (
+            Diagnostic(
+                "sampling_scope",
+                f"{name}: the rate test assumes follow-up ends without regard to the events. "
+                "Data-dependent stopping needs a design with its own guarantee. This is not "
+                "evidence of inflated error.",
+                _origin(program, subject.plan, request.span),
+                "obligation",
+            ),
+        )
     if isinstance(subject, MatchedAnalysisIR):
         if request.operation != "verify" or subject.plan.stopping == "fixed":
             return ()

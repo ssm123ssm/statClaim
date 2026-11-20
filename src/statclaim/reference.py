@@ -165,6 +165,10 @@ PARAMETER_CHOICES = {
         "minimax": "Minimises the largest possible sample size.",
     },
     "scope": SCOPES,
+    "group": {
+        "exposed": "The cohort's exposed group.",
+        "unexposed": "The cohort's unexposed group.",
+    },
 }
 LIMITS = {
     "Analyses in a family, or looks in a sequential design": f"2 to {MAX_MEMBERS}",

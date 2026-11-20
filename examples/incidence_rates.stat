@@ -1,0 +1,20 @@
+# A cohort followed over person-time. Events in each group occur at a constant rate, so the
+# exposed share of events, given their total, is binomial; equal rates make it the exposed
+# share of person-time. Person-time may be fractional, such as person-years.
+use models.observational
+use sampling
+use tests.association
+use estimation.observational
+
+let workers = person_time_cohort(exposure="solvent exposure", outcome="kidney cancer")
+let test = rate_test(design=fixed(model=workers), null=no_association(model=workers), alpha=1/40)
+let counted = observed_events(
+    model=workers,
+    exposed_events=19,
+    exposed_time=8421.5,
+    unexposed_events=34,
+    unexposed_time=26310.25,
+)
+let design_claim = verify(typeI(test))
+let result = verify(rate_result(analysis=test, events=counted))
+let ratio = verify(rate_ratio(events=counted, level=39/40))
