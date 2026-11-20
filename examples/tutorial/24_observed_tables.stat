@@ -1,0 +1,35 @@
+# Lesson 24: the observed table, its p-value, and what each design can estimate.
+use models.observational
+use sampling
+use tests.association
+use estimation.observational
+
+# The cohort of lesson 23 with its data: 30 of 200 smokers and 25 of 400 non-smokers
+# developed asthma.
+let followed = cohort(exposed=200, unexposed=400, exposure="smoking", outcome="asthma")
+let by_cohort = fisher_exact(
+    design=fixed(model=followed),
+    null=no_association(model=followed),
+    alpha=1/20,
+)
+let seen = observed_table(
+    model=followed,
+    exposed_cases=30,
+    exposed_noncases=170,
+    unexposed_cases=25,
+    unexposed_noncases=375,
+)
+let tested = verify(association_result(analysis=by_cohort, table=seen))
+let risk = verify(risk_ratio(table=seen, level=19/20))
+let excess = verify(risk_difference(table=seen, level=19/20))
+
+# The case-control study: 90 of 150 cases and 140 of 300 controls had smoked.
+let sampled = case_control(cases=150, controls=300, exposure="smoking", outcome="lung cancer")
+let asked = observed_table(
+    model=sampled,
+    exposed_cases=90,
+    exposed_noncases=140,
+    unexposed_cases=60,
+    unexposed_noncases=160,
+)
+let odds = verify(odds_ratio(table=asked, level=19/20))

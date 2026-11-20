@@ -12,8 +12,10 @@ from statclaim.language import (
     LANGUAGE_VERSION,
     AnalysisIR,
     AssociationAnalysisIR,
+    AssociationResultIR,
     CitedAnalysisIR,
     ComposedFamilyIR,
+    EffectIntervalIR,
     FamilyIR,
     FeasibilityIR,
     ObservationIR,
@@ -48,8 +50,10 @@ from statclaim.methods.identify import identify
 from statclaim.reference import SCOPE_NOTE
 from statclaim.report import (
     run_association,
+    run_association_result,
     run_binomial_result,
     run_composition,
+    run_effect_interval,
     run_interval,
     run_margin,
     run_margin_search,
@@ -154,6 +158,23 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             alternative=candidates.analysis.alternative,
             **options,
         )
+    if isinstance(subject, EffectIntervalIR):
+        return run_effect_interval(
+            subject.lower(),
+            verify=request.operation == "verify",
+            project=project,
+            output=output,
+            timeout=timeout,
+        )
+    if isinstance(subject, AssociationResultIR):
+        return run_association_result(
+            subject.lower(),
+            verify=request.operation == "verify",
+            stopping=subject.analysis.plan.stopping,
+            project=project,
+            output=output,
+            timeout=timeout,
+        )
     if request.claim.kind == "interval":
         return run_interval(
             subject.lower(),
@@ -237,6 +258,20 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         return test_design(subject.analysis.lower(), **options)
     return verify_design(
         subject.analysis.lower(), **options, project=project, output=output, timeout=timeout
+    )
+
+
+def _effect_line(calculation: dict) -> str:
+    """An effect measure's estimate and interval, in decimals."""
+    decimal = lambda record: f"{float(Fraction(record['fraction'])):.4g}"  # noqa: E731
+    estimate = calculation["estimate"]
+    upper = calculation["upper"]
+    return (
+        f"  {calculation['measure'].replace('_', ' ')} "
+        + (f"~ {decimal(estimate)}" if estimate else "undefined (a zero count)")
+        + f"; interval = [{decimal(calculation['lower'])}, "
+        + (decimal(upper) if upper else "no finite bound")
+        + f"] at level {calculation['level']['fraction']}; no formal certificate issued."
     )
 
 
@@ -612,6 +647,15 @@ def render_report(report: dict, source: Source) -> str:
             lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
         elif request["status"] == "calculated" and request["claim"] in ("meets", "sample_size"):
             lines.extend(_planning_lines(details))
+        elif request["status"] == "calculated" and "measure" in details["calculation"]:
+            lines.append(_effect_line(details["calculation"]))
+        elif request["status"] == "calculated" and "exposed_cases" in details["calculation"]:
+            calculation = details["calculation"]
+            p_value = float(Fraction(calculation["p_value"]["fraction"]))
+            lines.append(
+                f"  p-value ~ {p_value:.4g} (exact: {calculation['p_value']['fraction']}); "
+                f"decision = {details['decision']}; no formal certificate issued."
+            )
         elif request["status"] == "calculated" and request["claim"] == "interval":
             calculation = details["calculation"]
             lines.append(

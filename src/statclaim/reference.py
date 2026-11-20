@@ -221,6 +221,10 @@ DIAGNOSTICS = {
         "error",
         "A one-sided null asks about the direction the model's better= does not call better.",
     ),
+    "not_estimable": (
+        "error",
+        "The design cannot estimate the measure, such as a risk ratio from a case-control study.",
+    ),
     "observational_design": (
         "error",
         "A test that relies on randomised arms is given an observational study, whose "

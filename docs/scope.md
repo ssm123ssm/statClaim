@@ -34,7 +34,11 @@ What is supported:
   whose exposure was not assigned. Fisher's exact test of no association is
   proved for each: with the two group sizes fixed by a cohort or case-control
   design, and with only the total fixed, by averaging over the number exposed.
-  Tests of randomised arms refuse these designs. A bound concerns association,
+  Tests of randomised arms refuse these designs. An observed table gives a
+  checked p-value and decision, and intervals for the odds ratio, the risk ratio
+  and difference (cohort) or the prevalence ratio and difference
+  (cross-sectional), with joint coverage proved for every pair of probabilities.
+  A design refuses a measure it cannot estimate. A bound concerns association,
   never an effect of the exposure. See [observational studies](observational.md).
 
 - **Cluster-randomised trials, cited.** A t-test on one summary per cluster, a

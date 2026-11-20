@@ -12,6 +12,8 @@ from statclaim.language import (
     AssignmentIR,
     AssociationAnalysisIR,
     AssociationNullIR,
+    AssociationResultIR,
+    AssociationTableIR,
     CalculationResultIR,
     CandidatesIR,
     CandidateSpaceIR,
@@ -22,6 +24,7 @@ from statclaim.language import (
     ComposedFamilyIR,
     CrossSectionalStudyIR,
     DifferenceIntervalIR,
+    EffectIntervalIR,
     FamilyIR,
     FeasibilityIR,
     FieldIR,
@@ -66,10 +69,12 @@ from statclaim.language import (
 from statclaim.language_syntax import Diagnostic, Span
 from statclaim.language_values import (
     ApproximatePowerDetails,
+    AssociationResultDetails,
     CalculationDetails,
     CalculationResult,
     CertificateReference,
     DifferenceDetails,
+    EffectIntervalDetails,
     Evidence,
     IntervalDetails,
     MarginDetails,
@@ -143,6 +148,36 @@ SCHEMAS = {
         "model": FieldSpec(StudyModelIR),
         "predicate": FieldSpec(str),
         "statement": FieldSpec(str),
+    },
+    AssociationTableIR: {
+        "model": FieldSpec(StudyModelIR),
+        **{cell: FieldSpec(int) for cell in ("exposed_cases", "exposed_noncases")},
+        **{cell: FieldSpec(int) for cell in ("unexposed_cases", "unexposed_noncases")},
+    },
+    AssociationResultIR: {
+        "analysis": FieldSpec(AssociationAnalysisIR),
+        "table": FieldSpec(AssociationTableIR),
+    },
+    EffectIntervalIR: {
+        "measure": FieldSpec(str, description="odds_ratio, risk_ratio, prevalence_ratio, ..."),
+        "table": FieldSpec(AssociationTableIR),
+        "level": FieldSpec(Fraction),
+    },
+    AssociationResultDetails: {
+        "p_value": FieldSpec(Fraction, description="Exact two-sided p-value."),
+        "observed_table_probability": FieldSpec(Fraction),
+        "alpha": FieldSpec(Fraction),
+        "reject_null": FieldSpec(bool),
+        "test": FieldSpec(str),
+    },
+    EffectIntervalDetails: {
+        "measure": FieldSpec(str),
+        "level": FieldSpec(Fraction),
+        "arm_level": FieldSpec(Fraction, description="Level used for each group's interval."),
+        "estimate": FieldSpec(Fraction, optional=True, description="Absent when undefined."),
+        "lower": FieldSpec(Fraction),
+        "upper": FieldSpec(Fraction, optional=True, description="Absent when unbounded."),
+        "method": FieldSpec(str),
     },
     AssociationAnalysisIR: {
         "design": FieldSpec(PlanIR, attribute="plan"),
@@ -489,6 +524,10 @@ def details_kind(claim: ClaimIR) -> type:
         return MarginDetails
     if isinstance(claim.subject, DifferenceIntervalIR):
         return DifferenceDetails
+    if isinstance(claim.subject, EffectIntervalIR):
+        return EffectIntervalDetails
+    if isinstance(claim.subject, AssociationResultIR):
+        return AssociationResultDetails
     if isinstance(claim.subject, IntervalIR):
         return IntervalDetails
     if isinstance(claim.subject, OneSampleObservationIR):

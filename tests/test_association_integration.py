@@ -8,10 +8,17 @@ from pathlib import Path
 
 import pytest
 
-from statclaim.association import NOT_CAUSAL, AssociationTest, association_payload
+from statclaim.association import (
+    NOT_CAUSAL,
+    AssociationResult,
+    AssociationTable,
+    AssociationTest,
+    EffectInterval,
+    association_payload,
+)
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
-from statclaim.report import run_association
+from statclaim.report import run_association, run_association_result, run_effect_interval
 from statclaim.verification import VerificationError, canonical_bytes, digest, recheck_certificate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -133,3 +140,92 @@ def test_a_stronger_claim_than_proved_fails_the_check(mixture, tmp_path):
     )
     assert checked.returncode != 0
     assert "error" in checked.stdout
+
+
+# Observed tables and effect intervals ------------------------------------------------------
+SURVEY_TABLE = AssociationTable(
+    "cross_sectional", (40, 160, 30, 370), None, 600, "smoking", "wheeze"
+)
+CASE_TABLE = AssociationTable(
+    "case_control", (90, 140, 60, 160), (300, 150), None, "smoking", "glioma"
+)
+
+
+@pytest.mark.parametrize(
+    "table",
+    [SURVEY_TABLE, CASE_TABLE],
+    ids=["random number exposed", "fixed groups"],
+)
+def test_an_observed_tables_p_value_and_decision_are_proved_and_replay(table, tmp_path):
+    test = AssociationTest(
+        table.design, Fraction(1, 20), table.groups, table.n, table.exposure, table.outcome
+    )
+    result = AssociationResult(test, table)
+    report = run_association_result(
+        result, verify=True, stopping="fixed", project=ROOT, output=tmp_path / "result", timeout=300
+    )
+    assert report["status"] == "verified", report.get("verification")
+    assert report["decision"] == ("reject_null" if result.fisher.reject_null else "do_not_reject")
+    certificate = json.loads((tmp_path / "result/certificate.json").read_text())
+    assert certificate["kind"] == "statclaim_association_result_certificate"
+    assert "checked_decision" in " ".join(certificate["theorems"])
+    assert (
+        recheck_certificate(tmp_path / "result", project=ROOT, timeout=300)["status"] == "verified"
+    )
+    # A flipped decision is a false statement the kernel refuses.
+    source = (tmp_path / "result/Proof.lean").read_text()
+    truth = "True" if result.fisher.reject_null else "False"
+    other = "False" if truth == "True" else "True"
+    proof = tmp_path / "Flipped.lean"
+    proof.write_text(source.replace(f"↔ {truth} := by", f"↔ {other} := by"))
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=300
+    )
+    assert checked.returncode != 0
+
+
+@pytest.mark.parametrize(
+    "measure,table",
+    [
+        ("prevalence_ratio", SURVEY_TABLE),
+        ("odds_ratio", CASE_TABLE),
+        ("risk_difference", AssociationTable("cohort", (30, 170, 25, 375), (400, 200))),
+    ],
+)
+def test_effect_intervals_are_proved_and_replay(measure, table, tmp_path):
+    interval = EffectInterval(measure, table, Fraction(19, 20))
+    report = run_effect_interval(
+        interval, verify=True, project=ROOT, output=tmp_path / "interval", timeout=300
+    )
+    assert report["status"] == "verified", report.get("verification")
+    certificate = json.loads((tmp_path / "interval/certificate.json").read_text())
+    assert certificate["kind"] == "statclaim_effect_interval_certificate"
+    expected = (
+        "StatClaim.Modules.BinomialInterval.joint_coverage"
+        if table.fixed_groups
+        else "StatClaim.Modules.Association.mixture_joint_coverage"
+    )
+    assert certificate["general_theorem"] == expected
+    assert (
+        recheck_certificate(tmp_path / "interval", project=ROOT, timeout=300)["status"]
+        == "verified"
+    )
+
+
+def test_a_narrower_interval_than_proved_is_refused(tmp_path):
+    interval = EffectInterval("odds_ratio", CASE_TABLE, Fraction(19, 20))
+    report = run_effect_interval(
+        interval, verify=True, project=ROOT, output=tmp_path / "interval", timeout=300
+    )
+    assert report["status"] == "verified"
+    source = (tmp_path / "interval/Proof.lean").read_text()
+    # Claim a lower end above the proved one: the odds of the cases' lower end, doubled.
+    lower_n, lower_d = interval.groups.treatment.lower.as_integer_ratio()
+    before = f"Association.odds ((({lower_n} : ℕ) : ℝ) / (({lower_d} : ℕ) : ℝ))"
+    assert before in source
+    proof = tmp_path / "Narrower.lean"
+    proof.write_text(source.replace(before, f"(2 * {before})", 1))
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=300
+    )
+    assert checked.returncode != 0

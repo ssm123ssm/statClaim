@@ -123,6 +123,8 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | IntervalDetails | Estimate and exact confidence interval endpoints. | `n: integer`, `responses: integer`, `level: exact number`, `estimate: exact number`, `lower: exact number`, `upper: exact number`, `method: string` |
 | StageResultDetails | Decision and error bound for observed two-stage counts. | `n_stage1: integer`, `n_stage2: integer`, `stage1_responses: integer`, `stage2_responses: Option[integer]`, `continued: boolean`, `reject_null: boolean`, `typeI_bound: exact number` |
 | PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: Option[integer]`, `n_stage2: Option[integer]`, `continue_above: Option[integer]`, `reject_above: Option[integer]`, `maximum_sample_size: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `expected_sample_size_null: Option[exact number]`, `expected_sample_size_alternative: Option[exact number]`, `early_stop_probability_null: Option[exact number]`, `criterion: Option[string]`, `candidates_evaluated: Option[integer]` |
+| AssociationResultDetails | Exact p-value and decision of Fisher's test for an observed table. | `p_value: exact number`, `observed_table_probability: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
+| EffectIntervalDetails | An effect measure's interval, estimate and the level used per group. | `measure: string`, `level: exact number`, `arm_level: exact number`, `estimate: Option[exact number]`, `lower: exact number`, `upper: Option[exact number]`, `method: string` |
 | ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
@@ -134,6 +136,9 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | CohortStudy | Participants followed from exposure to outcome, with the groups or only the total fixed. | `exposed: Option[integer]`, `unexposed: Option[integer]`, `n: Option[integer]`, `exposure: string`, `outcome: string` |
 | CaseControlStudy | Cases and controls sampled in fixed numbers; estimates odds ratios only. | `cases: integer`, `controls: integer`, `exposure: string`, `outcome: string` |
 | AssociationNull | No association between exposure and outcome: an odds ratio of 1. | `model: Model`, `predicate: string`, `statement: string` |
+| AssociationTable | An observed 2x2 table: exposed and unexposed cases and noncases. | `model: Model`, `exposed_cases: integer`, `exposed_noncases: integer`, `unexposed_cases: integer`, `unexposed_noncases: integer` |
+| AssociationResult | Fisher's test applied to an observed table. | `analysis: AssociationAnalysis`, `table: AssociationTable` |
+| EffectInterval | An interval for an effect measure the design can estimate. | `measure: string`, `table: AssociationTable`, `level: exact number` |
 | AssociationAnalysis | Fisher's exact test of no association, with an exact alpha. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `guarantee: Guarantee` |
 
 Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `PlanningClaim`, all represented by Claim. Exact numbers, strings, booleans and lists are value types. Optional evidence stays optional through field access.
@@ -320,6 +325,8 @@ Cross-sectional, cohort and case-control studies, whose exposure was not assigne
   A cohort study: participants followed from exposure to outcome. Give exposed and unexposed when the groups were sampled in fixed numbers, or n when one population was sampled and exposure measured. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
 - `case_control(cases: integer, controls: integer, exposure?: string, outcome?: string) -> CaseControlStudy`
   A case-control study: cases with the outcome and controls without it, sampled in fixed numbers and asked about past exposure. It estimates odds ratios only, never risk or prevalence, because the design fixed how many have the outcome. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
+- `observed_table(model: ObservationalStudy, exposed_cases: integer, exposed_noncases: integer, unexposed_cases: integer, unexposed_noncases: integer) -> AssociationTable`
+  The observed 2x2 table: exposed and unexposed cases, who have the outcome, and noncases. It must fit what the design fixed: a cohort's group sizes, a case-control study's numbers of cases and controls, or the total.
 - `no_association(model: ObservationalStudy) -> AssociationNull`
   Null: no association between the study's exposure and outcome, an odds ratio of 1. For a cohort, equal risk with and without exposure; for a case-control study, exposure as common among cases as among controls; for a cross-sectional study, equal prevalence.
 - `typeI(analysis: Analysis) -> TypeIClaim`
@@ -330,7 +337,24 @@ Fisher's exact test of no association in an observational 2x2 study, proved in L
 
 - `fisher_exact(design: StudyDesign, null: AssociationNull, alpha: level) -> AssociationAnalysis`
   Fisher's exact test of no association in an observational 2x2 study. Lean proves its level for every design: with group sizes fixed by a cohort or case-control study, and with only the total fixed, by averaging over the number exposed. The bound concerns association, not an effect of the exposure.
+- `association_result(analysis: AssociationAnalysis, table: AssociationTable) -> ResultClaim`
+  Claim about the exact p-value and decision of Fisher's test for the observed table, with the test's Type I bound. For a design that fixed only the total, the p-value is given the number exposed.
 - `typeI(analysis: Analysis) -> TypeIClaim`
+
+### `estimation.observational` — Observational studies
+
+Intervals for the odds ratio (any design), the risk ratio and difference (cohort) and the prevalence ratio and difference (cross-sectional) from an observed table. Each comes from exact intervals for the two groups' probabilities, with joint coverage proved in Lean; valid for every pair of probabilities, and conservative. A design refuses what it cannot estimate.
+
+- `odds_ratio(table: AssociationTable, level: level) -> IntervalClaim`
+  Interval for the odds ratio at the given confidence level, from exact intervals for each group's probability; valid for every pair of probabilities, and conservative. Any design: for a case-control study it is the odds ratio of exposure, which equals that of the outcome.
+- `risk_ratio(table: AssociationTable, level: level) -> IntervalClaim`
+  Interval for the risk ratio at the given confidence level, from exact intervals for each group's probability; valid for every pair of probabilities, and conservative. Only a cohort study estimates it.
+- `risk_difference(table: AssociationTable, level: level) -> IntervalClaim`
+  Interval for the risk difference at the given confidence level, from exact intervals for each group's probability; valid for every pair of probabilities, and conservative. Only a cohort study estimates it.
+- `prevalence_ratio(table: AssociationTable, level: level) -> IntervalClaim`
+  Interval for the prevalence ratio at the given confidence level, from exact intervals for each group's probability; valid for every pair of probabilities, and conservative. Only a cross-sectional study estimates it.
+- `prevalence_difference(table: AssociationTable, level: level) -> IntervalClaim`
+  Interval for the prevalence difference at the given confidence level, from exact intervals for each group's probability; valid for every pair of probabilities, and conservative. Only a cross-sectional study estimates it.
 
 ### `tests.difference` — Analyses and claims
 
@@ -798,6 +822,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `alternative_in_null` | error | The planning point lies inside the null. |
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
 | `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
+| `not_estimable` | error | The design cannot estimate the measure, such as a risk ratio from a case-control study. |
 | `observational_design` | error | A test that relies on randomised arms is given an observational study, whose exposure was not assigned. |
 | `unit_mismatch` | error | The test's unit does not fit the declared design: it assumes independent participants or observations where clusters or repeated measurements are declared, or it takes one summary per cluster where participants were randomised. |
 | `undeclared_randomisation` | error | A randomisation test is declared on an assignment that does not say how it was randomised. |

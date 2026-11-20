@@ -16,7 +16,11 @@ from pathlib import Path
 from statclaim import __version__
 from statclaim.association import (
     ASSOCIATION_KIND,
+    INTERVAL_THEOREMS,
+    RESULT_THEOREMS,
+    AssociationResult,
     AssociationTest,
+    EffectInterval,
     association_assumptions,
     association_claims,
     association_payload,
@@ -25,7 +29,43 @@ from statclaim.association import (
     render_association_proof,
 )
 from statclaim.association import (
+    INTERVAL_KIND as EFFECT_INTERVAL_KIND,
+)
+from statclaim.association import (
+    RESULT_KIND as ASSOCIATION_RESULT_KIND,
+)
+from statclaim.association import (
     general_theorem as association_theorem,
+)
+from statclaim.association import (
+    interval_assumptions as effect_interval_assumptions,
+)
+from statclaim.association import (
+    interval_claims as effect_interval_claims,
+)
+from statclaim.association import (
+    interval_payload as effect_interval_payload,
+)
+from statclaim.association import (
+    parse_interval_payload as parse_effect_interval_payload,
+)
+from statclaim.association import (
+    parse_result_payload as parse_association_result_payload,
+)
+from statclaim.association import (
+    render_interval_proof as render_effect_interval_proof,
+)
+from statclaim.association import (
+    render_result_proof as render_association_result_proof,
+)
+from statclaim.association import (
+    result_assumptions as association_result_assumptions,
+)
+from statclaim.association import (
+    result_claims as association_result_claims,
+)
+from statclaim.association import (
+    result_payload as association_result_payload,
 )
 from statclaim.composition import (
     COMPOSITION_KIND,
@@ -286,6 +326,31 @@ def _profile(kind: str, payload: dict) -> dict:
             "association, not an effect of the exposure."
         )
         general_theorem = association_theorem(test)
+    elif kind == ASSOCIATION_RESULT_KIND:
+        result = parse_association_result_payload(payload)
+        claims = association_result_claims(result)
+        assumptions = list(association_result_assumptions(result))
+        theorems = association_theorems(result.test) + RESULT_THEOREMS
+        scope = (
+            "This observed table and the declared test of association; not other data. It "
+            "concerns association, not an effect of the exposure."
+        )
+        general_theorem = association_theorem(result.test)
+    elif kind == EFFECT_INTERVAL_KIND:
+        interval = parse_effect_interval_payload(payload)
+        claims = effect_interval_claims(interval)
+        assumptions = list(effect_interval_assumptions(interval))
+        theorems = INTERVAL_THEOREMS
+        scope = (
+            "Joint coverage of the two groups' exact confidence sets, and the reported "
+            "interval for this observed table. It concerns association, not an effect of the "
+            "exposure."
+        )
+        general_theorem = (
+            "StatClaim.Modules.BinomialInterval.joint_coverage"
+            if interval.table.fixed_groups
+            else "StatClaim.Modules.Association.mixture_joint_coverage"
+        )
     elif kind == INTERVAL_KIND:
         claims = interval_claims(parse_interval_payload(payload))
         assumptions, theorems = INTERVAL_ASSUMPTIONS, INTERVAL_CHECKED_THEOREMS
@@ -457,6 +522,10 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_randomisation_proof(parse_randomisation_payload(payload), input_id)
     if kind == ASSOCIATION_KIND:
         return render_association_proof(parse_association_payload(payload), input_id)
+    if kind == ASSOCIATION_RESULT_KIND:
+        return render_association_result_proof(parse_association_result_payload(payload), input_id)
+    if kind == EFFECT_INTERVAL_KIND:
+        return render_effect_interval_proof(parse_effect_interval_payload(payload), input_id)
     raise VerificationError("integrity", "Unsupported certificate kind.")
 
 
@@ -811,6 +880,32 @@ def certify_association(
     """Certify Fisher's test of association for an observational design."""
     return _certify_payload(
         association_payload(test), ASSOCIATION_KIND, project=project, output=output, timeout=timeout
+    )
+
+
+def certify_association_result(
+    result: AssociationResult, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify the p-value and decision of Fisher's test for an observed table."""
+    return _certify_payload(
+        association_result_payload(result),
+        ASSOCIATION_RESULT_KIND,
+        project=project,
+        output=output,
+        timeout=timeout,
+    )
+
+
+def certify_effect_interval(
+    interval: EffectInterval, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify an interval for an effect measure and the joint coverage behind it."""
+    return _certify_payload(
+        effect_interval_payload(interval),
+        EFFECT_INTERVAL_KIND,
+        project=project,
+        output=output,
+        timeout=timeout,
     )
 
 

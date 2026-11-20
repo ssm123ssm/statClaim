@@ -98,7 +98,10 @@ run_cmd do
     ``StatClaim.Modules.Randomisation.drawnShare_ge,
     ``StatClaim.Modules.Association.groups_typeI_le_alpha,
     ``StatClaim.Modules.Association.mixtureLaw_univ,
-    ``StatClaim.Modules.Association.mixture_typeI_le_alpha]
+    ``StatClaim.Modules.Association.mixture_typeI_le_alpha,
+    ``StatClaim.Modules.Association.mixture_joint_coverage,
+    ``StatClaim.Modules.Association.ratio_contains,
+    ``StatClaim.Modules.Association.odds_ratio_contains]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

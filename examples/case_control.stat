@@ -4,6 +4,7 @@
 use models.observational
 use sampling
 use tests.association
+use estimation.observational
 
 let study = case_control(cases=120, controls=240, exposure="mobile phone use", outcome="glioma")
 let analysis = fisher_exact(
@@ -12,3 +13,12 @@ let analysis = fisher_exact(
     alpha=1/20,
 )
 let checked = verify(typeI(analysis))
+
+let asked = observed_table(
+    model=study,
+    exposed_cases=64,
+    exposed_noncases=112,
+    unexposed_cases=56,
+    unexposed_noncases=128,
+)
+let odds = verify(odds_ratio(table=asked, level=19/20))

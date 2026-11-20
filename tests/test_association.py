@@ -11,12 +11,25 @@ from pathlib import Path
 import pytest
 
 from statclaim.association import (
+    MEASURES,
+    AssociationResult,
+    AssociationTable,
     AssociationTest,
+    EffectInterval,
     association_assumptions,
     association_claims,
     association_payload,
+    interval_assumptions,
+    interval_claims,
+    interval_payload,
     parse_association_payload,
+    parse_interval_payload,
+    parse_result_payload,
     render_association_proof,
+    render_interval_proof,
+    render_result_proof,
+    result_assumptions,
+    result_payload,
 )
 from statclaim.derivation_checker import check_derivation
 from statclaim.language_compiler import compile_source
@@ -338,3 +351,171 @@ def test_the_examples_and_lesson_compile_with_checked_derivations():
         assert compilation.status == "elaborated", (name, compilation.diagnostics)
         assert compilation.derivations
         assert all(check_derivation(d.to_dict()) == [] for d in compilation.derivations)
+
+
+# Observed tables, results and effect intervals --------------------------------------------
+ESTIMATION = USES + "use estimation.observational\n"
+COHORT_TABLE = (
+    "let seen = observed_table(model=study, exposed_cases=30, exposed_noncases=70, "
+    "unexposed_cases=25, unexposed_noncases=275)\n"
+)
+CASE_TABLE = (
+    "let seen = observed_table(model=study, exposed_cases=50, exposed_noncases=60, "
+    "unexposed_cases=30, unexposed_noncases=100)\n"
+)
+SURVEY_TABLE = (
+    "let seen = observed_table(model=study, exposed_cases=40, exposed_noncases=60, "
+    "unexposed_cases=30, unexposed_noncases=270)\n"
+)
+
+
+@pytest.mark.parametrize(
+    "design,table,fragment",
+    [
+        ("cohort", COHORT_TABLE.replace("70", "71"), "101 exposed"),
+        ("case_control", CASE_TABLE.replace("50", "51"), "81 cases"),
+        ("cross_sectional", SURVEY_TABLE.replace("270", "271"), "401 participants"),
+        (
+            "cross_sectional",
+            "let seen = observed_table(model=study, exposed_cases=0, exposed_noncases=0, "
+            "unexposed_cases=30, unexposed_noncases=370)\n",
+            "at least one exposed",
+        ),
+        ("cohort", COHORT_TABLE.replace("=30", "=-1"), "zero or more"),
+    ],
+)
+def test_a_table_must_fit_what_the_design_fixed(design, table, fragment):
+    diagnostics = compiled(STUDIES[design] + table, ESTIMATION).diagnostics
+    assert [d.code for d in diagnostics] == ["domain"]
+    assert fragment in diagnostics[0].message
+
+
+@pytest.mark.parametrize(
+    "design,table,allowed",
+    [
+        ("cohort", COHORT_TABLE, {"odds_ratio", "risk_ratio", "risk_difference"}),
+        (
+            "population_cohort",
+            SURVEY_TABLE.replace("270", "770"),
+            {"odds_ratio", "risk_ratio", "risk_difference"},
+        ),
+        ("case_control", CASE_TABLE, {"odds_ratio"}),
+        (
+            "cross_sectional",
+            SURVEY_TABLE,
+            {"odds_ratio", "prevalence_ratio", "prevalence_difference"},
+        ),
+    ],
+)
+def test_each_design_estimates_only_what_its_sampling_allows(design, table, allowed):
+    for measure in MEASURES:
+        text = STUDIES[design] + table + f"let effect = {measure}(table=seen, level=19/20)\n"
+        found = codes(text, ESTIMATION)
+        if measure in allowed:
+            assert found == [], (design, measure, found)
+        else:
+            assert found == ["not_estimable"], (design, measure, found)
+
+
+def test_a_case_control_study_explains_why_it_has_no_risk_ratio():
+    text = (
+        STUDIES["case_control"] + CASE_TABLE + "let effect = risk_ratio(table=seen, level=19/20)\n"
+    )
+    message = compiled(text, ESTIMATION).diagnostics[0].message
+    assert "fixed how many have the outcome" in message and "odds_ratio" in message
+
+
+def test_results_and_intervals_calculate_exactly_without_lean(tmp_path):
+    text = (
+        STUDIES["cohort"]
+        + TEST
+        + COHORT_TABLE
+        + "let found = calculate(association_result(analysis=analysis, table=seen))\n"
+        + "let ratio = calculate(risk_ratio(table=seen, level=19/20))\n"
+        + "let p = found.calculation.p_value\nlet low = ratio.calculation.lower\n"
+    )
+    report = check_source(
+        Source(ESTIMATION + text, "study.stat"), project=ROOT, output=tmp_path / "r"
+    )
+    assert report["status"] == "calculated"
+    found, ratio = (request["report"]["calculation"] for request in report["requests"])
+    from statclaim.fisher import fisher_exact
+
+    expected = fisher_exact(
+        n_control=300, n_treatment=100, control_successes=25, treatment_successes=30
+    )
+    assert Fraction(found["p_value"]["fraction"]) == expected.p_value
+    assert report["values"]["p"] == str(expected.p_value)
+    assert Fraction(ratio["estimate"]["fraction"]) == Fraction(30 * 300, 100 * 25)
+    assert (
+        Fraction(ratio["lower"]["fraction"])
+        < Fraction(36, 10)
+        < Fraction(ratio["upper"]["fraction"])
+    )
+
+
+def test_a_result_needs_the_analysis_and_the_table_of_one_study():
+    text = (
+        STUDIES["cohort"]
+        + TEST
+        + 'let other = cohort(exposed=100, unexposed=300, outcome="wheeze")\n'
+        + COHORT_TABLE.replace("model=study", "model=other")
+        + "let found = calculate(association_result(analysis=analysis, table=seen))\n"
+    )
+    assert codes(text, ESTIMATION) == ["model_mismatch"]
+
+
+TABLES = [
+    AssociationTable("cohort", (30, 70, 25, 275), (300, 100), None, "smoking", "asthma"),
+    AssociationTable("case_control", (50, 60, 30, 100), (160, 80)),
+    AssociationTable("cross_sectional", (40, 60, 30, 270), None, 400),
+    AssociationTable("cohort", (5, 95, 0, 300), (300, 100)),
+]
+
+
+@pytest.mark.parametrize("table", TABLES)
+def test_effect_intervals_contain_the_estimate_and_round_trip(table):
+    for measure, (_, _, designs) in MEASURES.items():
+        if table.design not in designs:
+            with pytest.raises(ValueError):
+                EffectInterval(measure, table, Fraction(19, 20))
+            continue
+        interval = EffectInterval(measure, table, Fraction(19, 20))
+        lower, upper = interval.bounds
+        estimate = interval.estimate
+        if estimate is not None:
+            assert lower <= estimate and (upper is None or estimate <= upper)
+        payload = interval_payload(interval)
+        assert parse_interval_payload(copy.deepcopy(payload)) == interval
+        changed = copy.deepcopy(payload)
+        changed["interval"]["lower"] = "0"
+        with pytest.raises(ValueError):
+            parse_interval_payload(changed)
+        claims = " ".join(interval_claims(interval))
+        assert "both groups' exact confidence sets" in claims
+        assert all(identify(text)["id"] for text in interval_assumptions(interval))
+        proof = render_interval_proof(interval, "a" * 64)
+        assert "theorem checked_interval" in proof and "sorry" not in proof
+
+
+def test_a_zero_reference_count_gives_no_finite_upper_bound():
+    interval = EffectInterval("risk_ratio", TABLES[3], Fraction(19, 20))
+    assert interval.bounds[1] is None and interval.estimate is None
+    assert "no finite upper bound" in interval_claims(interval)[1]
+
+
+@pytest.mark.parametrize("table", TABLES[:3])
+def test_result_payloads_round_trip_and_reject_tampering(table):
+    test = AssociationTest(
+        table.design, Fraction(1, 20), table.groups, table.n, table.exposure, table.outcome
+    )
+    result = AssociationResult(test, table)
+    payload = result_payload(result)
+    assert parse_result_payload(copy.deepcopy(payload)) == result
+    changed = copy.deepcopy(payload)
+    changed["result"]["reject_null"] = not changed["result"]["reject_null"]
+    with pytest.raises(ValueError):
+        parse_result_payload(changed)
+    assert all(identify(text)["id"] for text in result_assumptions(result))
+    proof = render_result_proof(result, "a" * 64)
+    assert "theorem checked_decision" in proof and proof.count("STATCLAIM_CHECKED") == 1

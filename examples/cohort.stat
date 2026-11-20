@@ -1,0 +1,20 @@
+# A cohort that sampled exposed and unexposed groups in fixed numbers. It estimates risk,
+# so the risk ratio and difference are available as well as the odds ratio.
+use models.observational
+use sampling
+use tests.association
+use estimation.observational
+
+let followed = cohort(exposed=150, unexposed=300, exposure="statin use", outcome="dementia")
+let test = fisher_exact(design=fixed(model=followed), null=no_association(model=followed), alpha=1/20)
+let seen = observed_table(
+    model=followed,
+    exposed_cases=9,
+    exposed_noncases=141,
+    unexposed_cases=33,
+    unexposed_noncases=267,
+)
+let result = verify(association_result(analysis=test, table=seen))
+let ratio = verify(risk_ratio(table=seen, level=19/20))
+let difference = calculate(risk_difference(table=seen, level=19/20))
+let odds = calculate(odds_ratio(table=seen, level=19/20))

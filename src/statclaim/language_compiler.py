@@ -9,9 +9,11 @@ from dataclasses import dataclass
 from statclaim.language import (
     AnalysisIR,
     AssociationAnalysisIR,
+    AssociationResultIR,
     CitedAnalysisIR,
     ComposedFamilyIR,
     DifferenceIntervalIR,
+    EffectIntervalIR,
     FamilyIR,
     FeasibilityIR,
     IntervalIR,
@@ -123,9 +125,18 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
             )
         return tuple(diagnostics)
     if isinstance(
-        subject, (OneSampleObservationIR, TwoStageObservationIR, IntervalIR, DifferenceIntervalIR)
+        subject,
+        (
+            OneSampleObservationIR,
+            TwoStageObservationIR,
+            IntervalIR,
+            DifferenceIntervalIR,
+            EffectIntervalIR,
+        ),
     ):
         return ()
+    if isinstance(subject, AssociationResultIR):
+        subject = subject.analysis
     if isinstance(subject, CitedAnalysisIR):
         if request.operation != "verify" or subject.plan.stopping == "fixed":
             return ()

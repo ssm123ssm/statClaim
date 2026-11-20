@@ -54,6 +54,14 @@ MODULE_CLASSES = {
         "averaging over the number exposed. Its bound concerns association, not an effect of "
         "the exposure.",
     ),
+    "estimation.observational": (
+        "Observational studies",
+        "Intervals for the odds ratio (any design), the risk ratio and difference (cohort) "
+        "and the prevalence ratio and difference (cross-sectional) from an observed table. "
+        "Each comes from exact intervals for the two groups' probabilities, with joint "
+        "coverage proved in Lean; valid for every pair of probabilities, and conservative. "
+        "A design refuses what it cannot estimate.",
+    ),
     "tests.difference": (
         "Analyses and claims",
         "Exact test of p_treatment - p_control <= margin, for non-inferiority (negative "
@@ -281,6 +289,26 @@ OBJECT_CLASSES = {
     "AssociationNull": (
         "Observational studies",
         "No association between exposure and outcome: an odds ratio of 1.",
+    ),
+    "AssociationTable": (
+        "Observational studies",
+        "An observed 2x2 table: exposed and unexposed cases and noncases.",
+    ),
+    "AssociationResult": (
+        "Observational studies",
+        "Fisher's test applied to an observed table.",
+    ),
+    "EffectInterval": (
+        "Observational studies",
+        "An interval for an effect measure the design can estimate.",
+    ),
+    "AssociationResultDetails": (
+        "Evidence and inspection",
+        "Exact p-value and decision of Fisher's test for an observed table.",
+    ),
+    "EffectIntervalDetails": (
+        "Evidence and inspection",
+        "An effect measure's interval, estimate and the level used per group.",
     ),
     "AssociationAnalysis": (
         "Observational studies",

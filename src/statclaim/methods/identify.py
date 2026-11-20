@@ -20,6 +20,9 @@ RECOGNISED = [
     (r"^Participants' outcomes are independent of one another", "independent_outcomes", "sampling"),
     (r"^Participants' exposures are independent", "independent_exposures", "sampling"),
     (r"^Controls come from the population that gave rise", "source_population", "sampling"),
+    (r"^The odds ratio of exposure between cases and controls", "odds_ratio_identity", "sampling"),
+    (r"^The confidence level was chosen before", "prespecified_analysis", "design"),
+    (r"supplied table describes the declared", "data_match_declaration", "data"),
     # The randomisation test (statclaim.randomisation).
     (r"^Every split of the randomised units", "complete_randomisation", "design"),
     (r"^Within each stratum or block, every split", "stratified_randomisation", "design"),

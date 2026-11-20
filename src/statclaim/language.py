@@ -10,7 +10,19 @@ from dataclasses import dataclass, replace
 from fractions import Fraction
 from typing import Literal as Choice
 
-from statclaim.association import MAX_PARTICIPANTS, NAME, AssociationTest, null_statement
+from statclaim.association import (
+    CELLS,
+    MAX_PARTICIPANTS,
+    MEASURES,
+    NAME,
+    AssociationResult,
+    AssociationTable,
+    AssociationTest,
+    EffectInterval,
+    not_estimable,
+    null_statement,
+    table_problem,
+)
 from statclaim.composition import MODES, Component, Composition
 from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
@@ -76,7 +88,7 @@ from statclaim.randomisation import (
     splits_needed,
 )
 
-LANGUAGE_VERSION = "0.17.0"
+LANGUAGE_VERSION = "0.18.0"
 
 
 class PlannableIR:
@@ -544,6 +556,60 @@ class AssociationAnalysisIR(LevelTestIR):
             model.exposure,
             model.outcome,
         )
+
+
+@dataclass(frozen=True)
+class AssociationTableIR:
+    """An observed 2x2 table of an observational study. Cases have the outcome."""
+
+    model: ObservationalStudyIR
+    exposed_cases: int
+    exposed_noncases: int
+    unexposed_cases: int
+    unexposed_noncases: int
+
+    @property
+    def cells(self) -> tuple[int, int, int, int]:
+        return (
+            self.exposed_cases,
+            self.exposed_noncases,
+            self.unexposed_cases,
+            self.unexposed_noncases,
+        )
+
+    def lower(self) -> AssociationTable:
+        model = self.model
+        return AssociationTable(
+            model.design,
+            self.cells,
+            model.groups,
+            None if model.groups is not None else model.n,
+            model.exposure,
+            model.outcome,
+        )
+
+
+@dataclass(frozen=True)
+class AssociationResultIR:
+    """Fisher's exact test applied to an observed table: its p-value and decision."""
+
+    analysis: AssociationAnalysisIR
+    table: AssociationTableIR
+
+    def lower(self) -> AssociationResult:
+        return AssociationResult(self.analysis.lower(), self.table.lower())
+
+
+@dataclass(frozen=True)
+class EffectIntervalIR:
+    """An interval for an effect measure the design can estimate, from an observed table."""
+
+    measure: str
+    table: AssociationTableIR
+    level: Fraction
+
+    def lower(self) -> EffectInterval:
+        return EffectInterval(self.measure, self.table.lower(), self.level)
 
 
 class FamilyLikeIR:
@@ -1105,6 +1171,12 @@ def normalize(value: object) -> object:
                 "exposure": exposure,
                 "outcome": outcome,
             }
+        case AssociationTableIR(model=model):
+            return {"model": normalize(model), **dict(zip(CELLS, value.cells, strict=True))}
+        case AssociationResultIR(analysis=analysis, table=table):
+            return {"analysis": normalize(analysis), "table": normalize(table)}
+        case EffectIntervalIR(measure=measure, table=table, level=level):
+            return {"measure": measure, "table": normalize(table), "level": str(level)}
         case AssociationNullIR(model=model, predicate=predicate):
             return {"predicate": predicate, "model": normalize(model)}
         case AssociationAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
@@ -1880,6 +1952,56 @@ def _fisher_exact(arguments: dict[str, LocatedValue], span: Span) -> Association
             null.span,
         )
     return AssociationAnalysisIR(design.value, null.value, arguments["alpha"].value)
+
+
+def _observed_table(arguments: dict[str, LocatedValue], span: Span) -> AssociationTableIR:
+    model = arguments["model"].value
+    cells = []
+    for key in CELLS:
+        argument = arguments[key]
+        if argument.value < 0:
+            fail("domain", f"{key} must be a whole number, zero or more.", argument.span)
+        cells.append(argument.value)
+    problem = table_problem(
+        model.design, model.groups, None if model.groups is not None else model.n, cells
+    )
+    if problem:
+        fail("domain", problem, span)
+    return AssociationTableIR(model, *cells)
+
+
+def _association_result(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    analysis, table = arguments["analysis"], arguments["table"]
+    if analysis.value.plan.model != table.value.model:
+        fail(
+            "model_mismatch",
+            "association_result: the table belongs to another study than the analysis. "
+            "Declare observed_table(model=...) over the study the analysis tests.",
+            table.span,
+        )
+    return ClaimIR(
+        "result",
+        AssociationResultIR(analysis.value, table.value),
+        table.name or analysis.name or "<expression>",
+    )
+
+
+def _effect_interval(measure: str) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+        table, level = arguments["table"], arguments["level"]
+        reason = not_estimable(measure, table.value.model.design)
+        if reason:
+            fail("not_estimable", f"{measure}: {reason}", table.span)
+        if not 0 < level.value < 1:
+            fail("domain", "level must lie strictly between 0 and 1.", level.span)
+        interval = EffectIntervalIR(measure, table.value, level.value)
+        try:
+            interval.lower()
+        except ValueError as error:
+            fail("domain", str(error), level.span)
+        return ClaimIR("interval", interval, table.name or "<expression>")
+
+    return build
 
 
 def _fisher(alternative: str) -> Callable:
@@ -3004,6 +3126,16 @@ MODULES = {
                     "fixed how many have the outcome. " + STUDY_NAMES_DOCUMENTATION,
                 ),
                 _constructor(
+                    "observed_table",
+                    (("model", ObservationalStudyIR), *((cell, "integer") for cell in CELLS)),
+                    "AssociationTable",
+                    _observed_table,
+                    documentation="The observed 2x2 table: exposed and unexposed cases, who "
+                    "have the outcome, and noncases. It must fit what the design fixed: a "
+                    "cohort's group sizes, a case-control study's numbers of cases and "
+                    "controls, or the total.",
+                ),
+                _constructor(
                     "no_association",
                     (("model", ObservationalStudyIR),),
                     "AssociationNull",
@@ -3030,7 +3162,37 @@ MODULES = {
                     "by averaging over the number exposed. The bound concerns association, "
                     "not an effect of the exposure.",
                 ),
+                _constructor(
+                    "association_result",
+                    (("analysis", AssociationAnalysisIR), ("table", AssociationTableIR)),
+                    "ResultClaim",
+                    _association_result,
+                    documentation="Claim about the exact p-value and decision of Fisher's "
+                    "test for the observed table, with the test's Type I bound. For a design "
+                    "that fixed only the total, the p-value is given the number exposed.",
+                ),
                 TYPE_I,
+            ),
+        ),
+        Module(
+            "estimation.observational",
+            tuple(
+                _constructor(
+                    measure,
+                    (("table", AssociationTableIR), ("level", "level")),
+                    "IntervalClaim",
+                    _effect_interval(measure),
+                    documentation=f"Interval for the {words} at the given confidence level, "
+                    "from exact intervals for each group's probability; valid for every pair "
+                    "of probabilities, and conservative. "
+                    + {
+                        "odds": "Any design: for a case-control study it is the odds ratio "
+                        "of exposure, which equals that of the outcome.",
+                        "ratio": f"Only a {designs[0].replace('_', '-')} study estimates it.",
+                        "difference": f"Only a {designs[0].replace('_', '-')} study estimates it.",
+                    }[kind],
+                )
+                for measure, (words, kind, designs) in MEASURES.items()
             ),
         ),
         Module(

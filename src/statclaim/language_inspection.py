@@ -7,11 +7,13 @@ from statclaim.family import inspect_family
 from statclaim.language import (
     AnalysisIR,
     AssociationAnalysisIR,
+    AssociationResultIR,
     CalculationResultIR,
     CitedAnalysisIR,
     ClaimIR,
     ComposedFamilyIR,
     DifferenceIntervalIR,
+    EffectIntervalIR,
     FamilyIR,
     FeasibilityIR,
     IntervalIR,
@@ -42,6 +44,8 @@ from statclaim.planning import (
 )
 from statclaim.report import (
     association_report,
+    association_result_report,
+    effect_interval_report,
     interval_report,
     margin_report,
     planning_report,
@@ -231,6 +235,10 @@ def _inspect(request: RequestIR) -> dict:
     subject = request.claim.subject
     if request.claim.kind in ("meets", "sample_size"):
         return inspect_planning(request)
+    if isinstance(subject, EffectIntervalIR):
+        return effect_interval_report(subject.lower(), verify=request.operation == "verify")
+    if isinstance(subject, AssociationResultIR):
+        return association_result_report(subject.lower(), verify=request.operation == "verify")
     if isinstance(subject, (IntervalIR, DifferenceIntervalIR)):
         return interval_report(subject.lower(), verify=request.operation == "verify")
     if isinstance(subject, TwoStageObservationIR):

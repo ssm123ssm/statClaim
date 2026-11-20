@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1818,6 +1818,97 @@ report says so under each claim.</div>
     <div class="task"><h4>Try it</h4><p>Change the cohort to <code>cohort(n=600, exposure="smoking", outcome="asthma")</code>, a population cohort, and check it again: the claim now averages over the number exposed, like the survey.</p></div>
   </div>
 </section>
+<section class="lesson" id="observed-tables">
+  <p class="eyebrow">Lesson 24</p>
+  <h2>The observed table, and what each design can estimate</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Give a study its 2&times;2 table. StatClaim checks it against what the design fixed, proves the p-value and decision, and gives intervals only for the measures the design can estimate.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/24_observed_tables.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 24: the observed table, its p-value, and what each design can estimate.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.association
+<span class="k">use</span> estimation.observational
+
+<span class="c"># The cohort of lesson 23 with its data: 30 of 200 smokers and 25 of 400 non-smokers</span>
+<span class="c"># developed asthma.</span>
+<span class="k">let</span> followed = <span class="f">cohort</span>(exposed=200, unexposed=400, exposure=&quot;smoking&quot;, outcome=&quot;asthma&quot;)
+<span class="k">let</span> by_cohort = <span class="f">fisher_exact</span>(
+    design=<span class="f">fixed</span>(model=followed),
+    null=<span class="f">no_association</span>(model=followed),
+    alpha=1/20,
+)
+<span class="k">let</span> seen = <span class="f">observed_table</span>(
+    model=followed,
+    exposed_cases=30,
+    exposed_noncases=170,
+    unexposed_cases=25,
+    unexposed_noncases=375,
+)
+<span class="k">let</span> tested = <span class="f">verify</span>(<span class="f">association_result</span>(analysis=by_cohort, table=seen))
+<span class="k">let</span> risk = <span class="f">verify</span>(<span class="f">risk_ratio</span>(table=seen, level=19/20))
+<span class="k">let</span> excess = <span class="f">verify</span>(<span class="f">risk_difference</span>(table=seen, level=19/20))
+
+<span class="c"># The case-control study: 90 of 150 cases and 140 of 300 controls had smoked.</span>
+<span class="k">let</span> sampled = <span class="f">case_control</span>(cases=150, controls=300, exposure=&quot;smoking&quot;, outcome=&quot;lung cancer&quot;)
+<span class="k">let</span> asked = <span class="f">observed_table</span>(
+    model=sampled,
+    exposed_cases=90,
+    exposed_noncases=140,
+    unexposed_cases=60,
+    unexposed_noncases=160,
+)
+<span class="k">let</span> odds = <span class="f">verify</span>(<span class="f">odds_ratio</span>(table=asked, level=19/20))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>observed_table(model=..., exposed_cases=..., ...)</code></dt>
+  <dd>Cases have the outcome. The table must match what the design fixed: 200 exposed and
+  400 unexposed for this cohort, 150 cases and 300 controls for the case-control study.</dd>
+  <dt><code>association_result(analysis=..., table=...)</code></dt>
+  <dd>The exact p-value and decision of Fisher&#x27;s test for the table, with the test&#x27;s Type I bound.</dd>
+  <dt><code>risk_ratio</code>, <code>risk_difference</code>, <code>odds_ratio</code></dt>
+  <dd>Intervals from exact intervals for each group&#x27;s probability, which hold together at
+  the requested level. A cohort estimates risk; a cross-sectional study takes
+  <code>prevalence_ratio</code> and <code>prevalence_difference</code>; a case-control study only
+  <code>odds_ratio</code>.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [tested]: result(seen)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  For the observed table (30 exposed and 25 unexposed cases of asthma; 170 exposed and 375 unexposed without it), the exact two-sided p-value equals the Lean Fisher definition: ... (about 0.0008184).
+  The observed table&#x27;s probability and support equal the Lean definitions, and the test rejects no association at level 1/20, as membership in the formal rejection event says.
+  ...
+<span class="ok">verified</span> [risk]: interval(seen)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  For every pair of true probabilities of asthma with and without smoking, both groups&#x27; exact confidence sets contain them with probability at least 19/20.
+  For the observed table (...), whenever both sets contain the true probabilities, the risk ratio lies within [1.029, 5.627], for any positive probability in the reference group.
+  ...
+<span class="ok">verified</span> [odds]: interval(asked)
+  ...
+  the odds ratio lies within [0.8964, 3.311], ...
+  Assumptions:
+    ...
+    The odds ratio of exposure between cases and controls equals the odds ratio of the outcome between exposed and unexposed in the source population; this holds when cases and controls are sampled without regard to exposure.
+Program status: verified</code></pre></div>
+<p>The risk ratio estimate is 2.4, and the interval [1.029, 5.627] is wide. Each group&#x27;s
+exact interval is built at a level whose square is at least 19/20, so both hold together;
+the ratio then lies between the ratios of their ends. That is valid for every pair of
+risks, at the price of width. The odds ratio of the case-control study needs one more
+assumption, listed under it: that its odds ratio of exposure is the population&#x27;s odds
+ratio of the outcome.</p>
+<p>Now ask the case-control study for a risk ratio: add
+<code>let wrong = verify(risk_ratio(table=asked, level=19/20))</code>.</p>
+<div class="scroll output"><pre><code>24_observed_tables.stat:36:37: <span class="bad">error [not_estimable]</span>: risk_ratio: A case-control study fixed how
+many have the outcome, so it cannot estimate risk or prevalence, or the risk ratio. Use
+odds_ratio; when the outcome is rare in the population, the odds ratio approximates the
+risk ratio.
+Program status: invalid</code></pre></div>
+<div class="note"><strong>The same 2&times;2 table, three studies.</strong> Fisher&#x27;s
+p-value does not depend on which margin the design fixed, but what the table can estimate
+does. The design declaration is what lets StatClaim tell them apart.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>observed_table</code> records the data and is checked against the design.</li><li><code>association_result</code> proves the p-value and decision.</li><li>Each design gives intervals only for what it can estimate.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Make 0 of the 400 non-smokers develop asthma (and 400 not) and check <code>risk</code> again: the risk ratio has no finite upper bound, and the claim says so.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1835,6 +1926,7 @@ report says so under each claim.</div>
       <tr><td>Test a randomised comparison without assumptions about outcomes</td><td><code>tests.randomisation</code></td><td><code>randomisation_test</code> with <code>typeI</code></td><td>21</td></tr>
       <tr><td>Say who is analysed, or name an outcome</td><td>any two-arm model module</td><td><code>assignment(population=...)</code>, <code>binary_outcome(name=...)</code></td><td>22</td></tr>
       <tr><td>Test association in a cohort, case-control or cross-sectional study</td><td><code>models.observational</code>, <code>sampling</code>, <code>tests.association</code></td><td><code>fisher_exact</code> with <code>typeI</code></td><td>23</td></tr>
+      <tr><td>Estimate an odds, risk or prevalence ratio from an observed table</td><td><code>estimation.observational</code></td><td><code>odds_ratio</code>, <code>risk_ratio</code>, <code>prevalence_ratio</code> and differences</td><td>24</td></tr>
       <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
       <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>

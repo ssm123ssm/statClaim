@@ -4,6 +4,7 @@
 use models.observational
 use sampling
 use tests.association
+use estimation.observational
 
 let survey = cross_sectional(n=800, exposure="night shifts", outcome="insomnia")
 let prevalence_test = fisher_exact(
@@ -21,3 +22,12 @@ let risk_test = fisher_exact(
 
 let survey_checked = verify(typeI(prevalence_test))
 let cohort_checked = verify(typeI(risk_test))
+
+let counted = observed_table(
+    model=survey,
+    exposed_cases=62,
+    exposed_noncases=138,
+    unexposed_cases=90,
+    unexposed_noncases=510,
+)
+let prevalence = verify(prevalence_ratio(table=counted, level=19/20))

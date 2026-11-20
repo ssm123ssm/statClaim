@@ -121,6 +121,14 @@ class DifferenceDetails(PlanningDetails):
     """Calculated interval for a difference of two proportions."""
 
 
+class AssociationResultDetails(PlanningDetails):
+    """Calculated p-value and decision of Fisher's test for an observed 2x2 table."""
+
+
+class EffectIntervalDetails(PlanningDetails):
+    """Calculated interval for an odds, risk or prevalence ratio or difference."""
+
+
 class MarginDetails(PlanningDetails):
     """Calculated critical value, power and decision of an exact difference test."""
 

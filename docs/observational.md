@@ -42,6 +42,34 @@ Both hold for every probability under the null. The assumptions list how the
 study sampled, independence between participants and, for a case-control study,
 that the controls come from the population that gave rise to the cases.
 
+## Observed tables and effect measures
+
+`observed_table(model=..., exposed_cases=, exposed_noncases=, unexposed_cases=,
+unexposed_noncases=)` records the data. Cases have the outcome. The table must fit
+what the design fixed, or it is refused.
+
+- `association_result(analysis=..., table=...)` gives the exact p-value and
+  decision of Fisher's test. `verify` checks both in Lean, with the test's bound.
+  For a design that fixed only the total, the p-value is given the number exposed.
+- `estimation.observational` gives intervals at a declared level:
+
+| Measure | Designs |
+|---|---|
+| `odds_ratio` | any; for a case-control study, the odds ratio of exposure |
+| `risk_ratio`, `risk_difference` | cohort |
+| `prevalence_ratio`, `prevalence_difference` | cross-sectional |
+
+Any other pairing is refused with `not_estimable`, which says what the design can
+estimate instead. Each interval comes from exact intervals for the two groups'
+probabilities, built at a level whose square is at least the requested one, so
+both hold together. The measure then lies between its values at the ends:
+`ratio_contains` and `odds_ratio_contains` in Lean, and
+`BinomialInterval.difference_contains` for differences. When only the total is
+fixed, joint coverage holds given the number exposed and so on average:
+`mixture_joint_coverage`. The intervals are valid for every pair of
+probabilities and wider than large-sample ones. A ratio has no finite upper
+bound when the reference group's lower end is zero.
+
 ## What is refused
 
 Tests and nulls of randomised arms (`fisher`, `t_test`, `randomisation_test`,
@@ -55,6 +83,5 @@ A bound concerns association in the population sampled. It is never a claim
 about an effect of the exposure: confounding is not excluded. Each report says
 so under the claim.
 
-Not yet supported: intervals for odds, risk and prevalence ratios, observed
-tables, matched designs, prevalence and incidence estimates, regression with
-covariates and complex samples.
+Not yet supported: matched designs, prevalence and incidence estimates,
+regression with covariates and complex samples.

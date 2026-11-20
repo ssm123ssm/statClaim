@@ -27,10 +27,12 @@ from statclaim.verification import (
     DESIGN_ASSUMPTIONS,
     VerificationError,
     certify_association,
+    certify_association_result,
     certify_binomial_result,
     certify_composition,
     certify_design,
     certify_difference,
+    certify_effect_interval,
     certify_family,
     certify_interval,
     certify_margin,
@@ -834,4 +836,80 @@ def run_association(test, *, stopping: str, project: Path, output, timeout: floa
     )
     if report["status"] == "verified":
         report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def association_result_report(result, *, verify: bool) -> dict:
+    """Fisher's test for an observed table, before it is checked."""
+    from statclaim.association import NOT_CAUSAL, result_assumptions
+
+    report = planning_report(
+        "result",
+        f"Exact p-value and decision of Fisher's test of no association for the observed "
+        f"table ({result.table.describe()}) at level {result.test.alpha}."
+        + (" Also check the test's Type I bound." if verify else " Calculate only."),
+        list(result_assumptions(result)),
+    )
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def run_association_result(
+    result, *, verify: bool, stopping: str, project: Path, output, timeout: float
+) -> dict:
+    """Calculate the p-value and decision; with verify, Lean checks them and the bound."""
+    from statclaim.association import NOT_CAUSAL
+
+    report = association_result_report(result, verify=verify)
+    report["calculation"] = result.evaluate()
+    report["decision"] = "reject_null" if result.fisher.reject_null else "do_not_reject"
+    if not verify:
+        return report
+    if stopping != "fixed":
+        return _unmet(
+            report,
+            "sampling_scope",
+            "sampling_scope",
+            "Data-dependent stopping changes the sampling law of the table. This is not "
+            "evidence of inflated error.",
+        )
+    report = _certified(
+        report, certify_association_result, result, project=project, output=output, timeout=timeout
+    )
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def effect_interval_report(interval, *, verify: bool) -> dict:
+    """An interval for an effect measure, before it is checked."""
+    from statclaim.association import MEASURES, NOT_CAUSAL, interval_assumptions
+
+    report = planning_report(
+        "interval",
+        f"Interval at level {interval.level} for the {MEASURES[interval.measure][0]}, from the "
+        f"observed table ({interval.table.describe()})"
+        + (
+            ", with joint coverage for every pair of probabilities."
+            if verify
+            else ". Calculate only."
+        ),
+        list(interval_assumptions(interval)),
+    )
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def run_effect_interval(interval, *, verify: bool, project: Path, output, timeout: float) -> dict:
+    """Calculate, and optionally certify, an interval for an effect measure."""
+    from statclaim.association import NOT_CAUSAL
+
+    report = effect_interval_report(interval, verify=verify)
+    report["calculation"] = interval.evaluate()
+    report["decision"] = "interval_reported"
+    if not verify:
+        return report
+    report = _certified(
+        report, certify_effect_interval, interval, project=project, output=output, timeout=timeout
+    )
+    report["limitations"] = [NOT_CAUSAL]
     return report

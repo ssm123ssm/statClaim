@@ -48,6 +48,9 @@
 - Named outcomes, so a family cannot ask the same question of one outcome twice.
 - Observational studies: cross-sectional, cohort and case-control designs, and
   Fisher's exact test of no association proved for each.
+- Observed 2x2 tables with checked p-values, and conservative intervals for odds,
+  risk and prevalence ratios and differences; each design estimates only what its
+  sampling allows.
 
 ## Direction
 
