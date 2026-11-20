@@ -42,7 +42,9 @@ What is supported:
   study takes McNemar's exact test and an interval for the conditional odds
   ratio, both proved, and refuses unmatched analyses. Prevalence and cumulative
   incidence have exact intervals; a person-time cohort has an exact test of equal
-  incidence rates and an interval for their ratio. A bound concerns association,
+  incidence rates and an interval for their ratio. Regression with covariates,
+  correlations and design-based survey analyses are cited; proved methods refuse
+  continuous variables and complex samples. A bound concerns association,
   never an effect of the exposure. See [observational studies](observational.md).
 
 - **Cluster-randomised trials, cited.** A t-test on one summary per cluster, a

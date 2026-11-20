@@ -113,6 +113,29 @@ A single incidence rate has no exact interval yet: its Poisson tails involve
 powers of e, which the kernel cannot check exactly. Up to 500 events in a checked
 rate result, and up to 1000 participants in a proportion's group.
 
+## Covariates, continuous variables and complex surveys
+
+These methods are cited, not proved. The compiler checks that each fits the
+study's design, measurement scales and survey, and the null; the report gives the
+cited guarantee, its scope and its assumptions.
+
+- Studies declare `exposure_scale` and `outcome_scale`, `"binary"` unless
+  `"continuous"`, and a cross-sectional study declares `survey` (`"simple_random"`,
+  `"stratified"`, `"cluster"` with `clusters=`, or `"weighted"`).
+- `tests.regression`: `logistic_association` (cross-sectional, cohort,
+  case-control), `conditional_logistic` (matched pairs), `poisson_rate_regression`
+  (person-time cohorts), `modified_poisson` (risk or prevalence ratio; refused for
+  case-control studies) and `linear_association` (continuous outcome). Each takes
+  `adjusted_for=[...]`.
+- `tests.correlation`: `pearson_correlation` (bivariate normality) and
+  `spearman_correlation` (exact permutation), for two continuous variables.
+- `tests.survey`: `survey_logistic`, `survey_linear` and `rao_scott_test`,
+  design-based, needing at least 20 sampled clusters in a cluster survey.
+
+Proved methods need yes-or-no variables and simple random sampling. They refuse a
+continuous variable with a type error and a complex sample with
+`complex_sample`, and a refusal names the methods that fit the study.
+
 ## What is refused
 
 Tests and nulls of randomised arms (`fisher`, `t_test`, `randomisation_test`,
@@ -127,4 +150,4 @@ about an effect of the exposure: confounding is not excluded. Each report says
 so under the claim.
 
 Not yet supported: matching with several controls per case, single incidence
-rates, regression with covariates and complex samples.
+rates, intervals from regression models, and proofs for any cited method.

@@ -4,6 +4,7 @@ from statclaim.language import DECLARED_MODULE_SUMMARY, MODULES, OPERATIONS, Val
 from statclaim.language_fields import SCHEMAS
 from statclaim.methods import ASSUMPTIONS, METHOD_MODULES, METHODS, OUTCOMES, POWER_FORMULAS
 from statclaim.methods.core import ASSUMPTION_KINDS, CHECKS, GRADES, SCOPES, SOURCES
+from statclaim.methods.observational import MODULE_SUMMARIES as OBSERVATIONAL_SUMMARIES
 from statclaim.reference import (
     DIAGNOSTICS,
     ENUMERATIONS,
@@ -140,6 +141,9 @@ MODULE_CLASSES.update(
     }
 )
 MODULE_CLASSES["tests.declared"] = ("Declared analyses", DECLARED_MODULE_SUMMARY)
+MODULE_CLASSES.update(
+    {name: ("Cited analyses", summary) for name, summary in OBSERVATIONAL_SUMMARIES.items()}
+)
 OBJECT_CLASSES = {
     "Guarantee": (
         "Claims and results",
@@ -339,6 +343,11 @@ OBJECT_CLASSES = {
     "MatchedResultDetails": (
         "Evidence and inspection",
         "Exact p-value and decision of McNemar's test for observed pairs.",
+    ),
+    "CitedAssociation": (
+        "Observational studies",
+        "A cited test of no association: regression with covariates, correlation or a survey "
+        "analysis.",
     ),
     "AssociationTable": (
         "Observational studies",

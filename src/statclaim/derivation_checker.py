@@ -62,6 +62,7 @@ from statclaim.methods.assumptions import (
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
+from statclaim.methods.observational import METHODS as OBSERVATIONAL_METHODS
 from statclaim.randomisation import (
     AS_DRAWN,
     AS_RANDOMISED,
@@ -1234,6 +1235,84 @@ def _rate_expected(name: str, subject: dict) -> list[tuple]:
     ]
 
 
+def _cited_association_expected(name: str, subject: dict, contract: str):
+    """A cited observational test, re-evaluated from the subject and the method registry."""
+    method = OBSERVATIONAL_METHODS.get(subject.get("test"))
+    if method is None or contract != f"{method.module}/{method.key}":
+        raise ValueError("the contract does not match the declaration")
+    study, null = subject["design"]["model"], subject["null"]
+    kind = study["study"]
+    outcome_scale = study.get("outcome_scale", "binary")
+    exposure_scale = study.get("exposure_scale", "binary")
+    survey = study.get("survey", "simple_random")
+    covariates = subject.get("adjusted_for", [])
+    if kind == "matched_case_control":
+        total = study.get("pairs")
+    elif kind == "case_control":
+        total = study.get("cases", 0) + study.get("controls", 0)
+    elif kind == "person_time_cohort":
+        total = None
+    else:
+        total = study.get("n") or study.get("exposed", 0) + study.get("unexposed", 0)
+    fits = (
+        kind in method.designs
+        and outcome_scale in method.outcome_scales
+        and exposure_scale in method.exposure_scales
+        and survey in method.surveys
+        and (total is None or total >= method.min_total)
+        and (
+            not method.min_clusters
+            or survey != "cluster"
+            or study.get("clusters", 0) >= method.min_clusters
+        )
+        and (method.covariates or not covariates)
+    )
+    statement = (
+        "exposure_coefficient = 0"
+        if "continuous" in (outcome_scale, exposure_scale)
+        else NULL_STATEMENTS[kind]
+    )
+    alpha = Fraction(subject["alpha"])
+    steps = [
+        (
+            "same-model",
+            {"subject": name, "design_model": study, "null_model": null["model"]},
+            study == null["model"],
+            (),
+        ),
+        (
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": null["predicate"],
+                "statement": statement,
+                "supported": ["no_association"],
+            },
+            null["predicate"] == "no_association",
+            (),
+        ),
+        ("level-interior", {"subject": name, "alpha": subject["alpha"]}, 0 < alpha < 1, ()),
+        (
+            "method-fits-study",
+            {
+                "subject": name,
+                "study": kind.replace("_", "-"),
+                "method": method.key,
+                "covariates": len(covariates),
+            },
+            fits,
+            (),
+        ),
+        (
+            "cited-association-contract",
+            {"subject": name, "method": method.key},
+            True,
+            (0, 1, 2, 3),
+        ),
+    ]
+    return steps, tuple(item.text for item in method.assumptions)
+
+
 def _sampling_expectation(name: str, analysis: dict) -> tuple[str, dict, bool]:
     stopping = analysis["design"]["stopping"]
     return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
@@ -1254,6 +1333,9 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
         ):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+    if contract.split("/")[0] in ("tests.regression", "tests.correlation", "tests.survey"):
+        steps, assumptions = _cited_association_expected(name, subject, contract)
+        return steps, [_sampling_expectation(name, subject)], assumptions
     if contract == RATE_CONTRACT_ID:
         assumptions = (POISSON_EVENTS, PERSON_TIME, PRESPECIFIED, RATE_NULL)
         return _rate_expected(name, subject), [_sampling_expectation(name, subject)], assumptions

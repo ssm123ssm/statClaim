@@ -10,6 +10,7 @@ from statclaim.language import (
     AssociationResultIR,
     CalculationResultIR,
     CitedAnalysisIR,
+    CitedAssociationIR,
     ClaimIR,
     ComposedFamilyIR,
     DifferenceIntervalIR,
@@ -155,15 +156,24 @@ def inspect_planning(request: RequestIR) -> dict:
     return planning_report("policy", text, policy_assumptions(plan))
 
 
-def cited_report(analysis: CitedAnalysisIR) -> dict:
+def cited_report(analysis: "CitedAnalysisIR | CitedAssociationIR") -> dict:
     """Describe a cited guarantee. Nothing is calculated, proved or certified."""
     method = analysis.method
-    report = planning_report(
-        "cited", analysis.guarantee.sentence, [item.text for item in analysis.assumptions]
-    )
+    sentence = analysis.guarantee.sentence
+    if isinstance(analysis, CitedAssociationIR):
+        study = analysis.plan.model
+        about = f"About {study.exposure} and {study.outcome}"
+        if analysis.covariates:
+            about += f", adjusted for {', '.join(analysis.covariates)}"
+        sentence = f"{about}: {sentence}"
+    report = planning_report("cited", sentence, [item.text for item in analysis.assumptions])
     report["method"] = method.to_dict()
     report["assumptions"] = [mark(item) for item in analysis.assumptions]
     report["references"] = list(method.references)
+    if isinstance(analysis, CitedAssociationIR):
+        from statclaim.association import NOT_CAUSAL
+
+        report["limitations"] = [NOT_CAUSAL]
     return report
 
 
@@ -279,7 +289,7 @@ def _inspect(request: RequestIR) -> dict:
             ),
             RESULT_ASSUMPTIONS,
         )
-    if isinstance(subject, CitedAnalysisIR):
+    if isinstance(subject, (CitedAnalysisIR, CitedAssociationIR)):
         return cited_report(subject)
     if isinstance(subject, ComposedFamilyIR):
         return composed_report(subject)
@@ -315,7 +325,7 @@ def _inspect(request: RequestIR) -> dict:
 
 def best_status(claim: ClaimIR) -> str:
     """The strongest status verify(...) can give this claim. Nothing is run."""
-    if isinstance(claim.subject, CitedAnalysisIR):
+    if isinstance(claim.subject, (CitedAnalysisIR, CitedAssociationIR)):
         return claim.subject.method.grade
     if isinstance(claim.subject, ComposedFamilyIR):
         return claim.subject.lower().rules.grade
@@ -342,7 +352,7 @@ def weakest_link(subject: object) -> dict:
             found.setdefault(item.lower().rules.grade, []).append(f"{name}: its rule")
             for member, analysis in item.analyses:
                 visit(member, analysis)
-        elif isinstance(item, CitedAnalysisIR):
+        elif isinstance(item, (CitedAnalysisIR, CitedAssociationIR)):
             found.setdefault(item.method.grade, []).append(name)
         elif isinstance(item, (FeasibilityIR, SizingIR)):
             visit(name, planned_analysis(item))

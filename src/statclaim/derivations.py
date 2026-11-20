@@ -21,6 +21,7 @@ from statclaim.language import (
     AssociationAnalysisIR,
     CandidatesIR,
     CitedAnalysisIR,
+    CitedAssociationIR,
     ClaimIR,
     ComposedFamilyIR,
     FamilyIR,
@@ -154,6 +155,16 @@ RULES = {
     "rate-test-contract": Rule(
         "The same-model, supported-null, level-range and person-time-sampling rules hold.",
         "{subject}: the design, the null and the level fit the exact test of equal rates.",
+    ),
+    "method-fits-study": Rule(
+        "The study's design, measurement scales and survey are among those the cited method "
+        "fits, with enough participants and sampled clusters, and covariates only where the "
+        "method takes them.",
+        "{subject}: the {study} study fits {method}.",
+    ),
+    "cited-association-contract": Rule(
+        "The same-model, supported-null, level-interior and method-fits-study rules hold.",
+        "{subject}: the design, the null and the level fit {method}, whose guarantee is cited.",
     ),
     "cited-contract": Rule(
         "The same-model, supported-null, level-interior and enough-data rules hold.",
@@ -755,6 +766,56 @@ def derive_rate(name: str, analysis: RateAnalysisIR) -> Derivation:
     )
 
 
+def derive_cited_association(name: str, analysis: CitedAssociationIR) -> Derivation:
+    """Why a cited observational test fits. Its guarantee is cited and is not carried here:
+    the derivation concerns compatibility only."""
+    builder = _Builder()
+    study = normalize(analysis.plan.model)
+    method = analysis.method
+    used = (
+        builder.apply(
+            "same-model",
+            {
+                "subject": name,
+                "design_model": study,
+                "null_model": normalize(analysis.hypothesis.model),
+            },
+        ),
+        builder.apply(
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": analysis.hypothesis.predicate,
+                "statement": analysis.hypothesis.statement,
+                "supported": ["no_association"],
+            },
+        ),
+        builder.apply("level-interior", {"subject": name, "alpha": str(analysis.alpha)}),
+        builder.apply(
+            "method-fits-study",
+            {
+                "subject": name,
+                "study": study["study"].replace("_", "-"),
+                "method": method.key,
+                "covariates": len(analysis.covariates),
+            },
+        ),
+    )
+    final = builder.apply(
+        "cited-association-contract", {"subject": name, "method": method.key}, used
+    )
+    _sampling(builder, name, analysis)
+    return Derivation(
+        name,
+        f"{method.module}/{method.key}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        tuple(item.text for item in method.assumptions),
+        tuple(builder.obligations),
+        normalize(analysis),
+    )
+
+
 def cited_guarantee(analysis: CitedAnalysisIR) -> dict:
     """The guarantee a satisfied cited contract carries, with what it rests on."""
     method = analysis.method
@@ -1228,6 +1289,8 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
             derivations.append(derive_matched(binding.name, value))
         elif isinstance(value, RateAnalysisIR):
             derivations.append(derive_rate(binding.name, value))
+        elif isinstance(value, CitedAssociationIR):
+            derivations.append(derive_cited_association(binding.name, value))
         elif isinstance(value, ComposedFamilyIR):
             derivations.append(derive_composed(binding.name, value))
         elif isinstance(value, FamilyIR):

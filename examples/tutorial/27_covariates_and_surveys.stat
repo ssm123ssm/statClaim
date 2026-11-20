@@ -1,0 +1,51 @@
+# Lesson 27: adjusting for covariates, continuous variables, and complex surveys.
+use models.observational
+use sampling
+use tests.regression
+use tests.correlation
+use tests.survey
+
+# The case-control study of lesson 23, now adjusted for age, sex and asbestos exposure.
+let sampled = case_control(cases=150, controls=300, exposure="smoking", outcome="lung cancer")
+let adjusted = logistic_association(
+    design=fixed(model=sampled),
+    null=no_association(model=sampled),
+    alpha=1/20,
+    adjusted_for=["age", "sex", "asbestos"],
+)
+
+# A clinic survey with two measured variables: body mass index and systolic pressure.
+let clinic = cross_sectional(
+    n=250,
+    exposure="BMI",
+    outcome="systolic pressure",
+    exposure_scale="continuous",
+    outcome_scale="continuous",
+)
+let slope = linear_association(
+    design=fixed(model=clinic),
+    null=no_association(model=clinic),
+    alpha=1/20,
+    adjusted_for=["age"],
+)
+let rho = pearson_correlation(design=fixed(model=clinic), null=no_association(model=clinic), alpha=1/20)
+
+# A national survey that sampled 400 households first: a cluster sample.
+let national = cross_sectional(
+    n=12000,
+    exposure="smoking",
+    outcome="asthma",
+    survey="cluster",
+    clusters=400,
+)
+let weighted = survey_logistic(
+    design=fixed(model=national),
+    null=no_association(model=national),
+    alpha=1/20,
+    adjusted_for=["age"],
+)
+
+let adjusted_claim = verify(typeI(adjusted))
+let slope_claim = verify(typeI(slope))
+let rho_claim = verify(typeI(rho))
+let survey_claim = verify(typeI(weighted))

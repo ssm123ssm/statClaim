@@ -134,21 +134,22 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| CrossSectionalStudy | A sample from one population with exposure and outcome measured at once; only the total is fixed. | `n: integer`, `exposure: string`, `outcome: string` |
-| CohortStudy | Participants followed from exposure to outcome, with the groups or only the total fixed. | `exposed: Option[integer]`, `unexposed: Option[integer]`, `n: Option[integer]`, `exposure: string`, `outcome: string` |
-| CaseControlStudy | Cases and controls sampled in fixed numbers; estimates odds ratios only. | `cases: integer`, `controls: integer`, `exposure: string`, `outcome: string` |
+| CrossSectionalStudy | A sample from one population with exposure and outcome measured at once; only the total is fixed. | `n: integer`, `exposure: string`, `outcome: string`, `exposure_scale: string`, `outcome_scale: string`, `survey: string`, `clusters: Option[integer]` |
+| CohortStudy | Participants followed from exposure to outcome, with the groups or only the total fixed. | `exposed: Option[integer]`, `unexposed: Option[integer]`, `n: Option[integer]`, `exposure: string`, `outcome: string`, `exposure_scale: string`, `outcome_scale: string`, `survey: string`, `clusters: Option[integer]` |
+| CaseControlStudy | Cases and controls sampled in fixed numbers; estimates odds ratios only. | `cases: integer`, `controls: integer`, `exposure: string`, `outcome: string`, `exposure_scale: string`, `outcome_scale: string`, `survey: string`, `clusters: Option[integer]` |
 | AssociationNull | No association between exposure and outcome: an odds ratio of 1. | `model: Model`, `predicate: string`, `statement: string` |
-| PersonTimeStudy | A cohort followed over person-time; it measures incidence rates. | `exposure: string`, `outcome: string` |
+| PersonTimeStudy | A cohort followed over person-time; it measures incidence rates. | `exposure: string`, `outcome: string`, `exposure_scale: string`, `outcome_scale: string`, `survey: string`, `clusters: Option[integer]` |
 | RateAnalysis | The exact test of equal incidence rates, given the total events. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `guarantee: Guarantee` |
 | ObservedEvents | Events and person-time in the exposed and unexposed groups. | `model: PersonTimeStudy`, `exposed_events: integer`, `exposed_time: exact number`, `unexposed_events: integer`, `unexposed_time: exact number` |
 | RateResult | The rate test applied to observed events. | `analysis: RateAnalysis`, `events: ObservedEvents` |
 | RateRatio | An interval for the incidence rate ratio. | `events: ObservedEvents`, `level: exact number` |
 | Proportion | Prevalence or cumulative incidence with its exact interval. | `measure: string`, `model: Model`, `cases: integer`, `level: exact number`, `group: Option[string]` |
-| MatchedStudy | A 1:1 matched case-control study: pairs of one case and one control. | `pairs: integer`, `exposure: string`, `outcome: string` |
+| MatchedStudy | A 1:1 matched case-control study: pairs of one case and one control. | `pairs: integer`, `exposure: string`, `outcome: string`, `exposure_scale: string`, `outcome_scale: string`, `survey: string`, `clusters: Option[integer]` |
 | MatchedAnalysis | McNemar's exact test of no association within matched pairs. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `guarantee: Guarantee` |
 | MatchedPairs | Observed pairs by who was exposed: both, only the case, only the control, neither. | `model: MatchedStudy`, `both_exposed: integer`, `case_exposed_only: integer`, `control_exposed_only: integer`, `neither_exposed: integer` |
 | MatchedResult | McNemar's test applied to observed pairs. | `analysis: MatchedAnalysis`, `pairs: MatchedPairs` |
 | MatchedInterval | An interval for the conditional odds ratio of a matched study. | `pairs: MatchedPairs`, `level: exact number` |
+| CitedAssociation | A cited test of no association: regression with covariates, correlation or a survey analysis. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `adjusted_for: list`, `guarantee: Guarantee` |
 | AssociationTable | An observed 2x2 table: exposed and unexposed cases and noncases. | `model: Model`, `exposed_cases: integer`, `exposed_noncases: integer`, `unexposed_cases: integer`, `unexposed_noncases: integer` |
 | AssociationResult | Fisher's test applied to an observed table. | `analysis: AssociationAnalysis`, `table: AssociationTable` |
 | EffectInterval | An interval for an effect measure the design can estimate. | `measure: string`, `table: AssociationTable`, `level: exact number` |
@@ -332,17 +333,17 @@ Randomisation test of the sharp null that treatment changes no participant's out
 
 Cross-sectional, cohort, person-time cohort, case-control and 1:1 matched case-control studies, whose exposure was not assigned. Each says what its sampling fixed: only the total, the exposed and unexposed groups, the numbers of cases and controls, the pairs, or nothing but person-time. The null of no association, and observed tables, pairs and events.
 
-- `cross_sectional(n: integer, exposure?: string, outcome?: string) -> CrossSectionalStudy`
+- `cross_sectional(n: integer, exposure?: string, outcome?: string, exposure_scale?: string, outcome_scale?: string, survey?: string, clusters?: integer) -> CrossSectionalStudy`
   A cross-sectional study: n participants sampled from one population, with exposure and outcome measured at the same time. Only n is fixed, not how many are exposed. It measures prevalence, not incidence. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
-- `cohort(exposed?: integer, unexposed?: integer, n?: integer, exposure?: string, outcome?: string) -> CohortStudy`
+- `cohort(exposed?: integer, unexposed?: integer, n?: integer, exposure?: string, outcome?: string, exposure_scale?: string, outcome_scale?: string) -> CohortStudy`
   A cohort study: participants followed from exposure to outcome. Give exposed and unexposed when the groups were sampled in fixed numbers, or n when one population was sampled and exposure measured. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
-- `case_control(cases: integer, controls: integer, exposure?: string, outcome?: string) -> CaseControlStudy`
+- `case_control(cases: integer, controls: integer, exposure?: string, outcome?: string, exposure_scale?: string) -> CaseControlStudy`
   A case-control study: cases with the outcome and controls without it, sampled in fixed numbers and asked about past exposure. It estimates odds ratios only, never risk or prevalence, because the design fixed how many have the outcome. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
-- `person_time_cohort(exposure?: string, outcome?: string) -> PersonTimeStudy`
+- `person_time_cohort(exposure?: string, outcome?: string, exposure_scale?: string) -> PersonTimeStudy`
   A cohort followed over person-time, counting events in the exposed and unexposed. It measures incidence rates; no group size is fixed. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
 - `observed_events(model: PersonTimeStudy, exposed_events: integer, exposed_time: number, unexposed_events: integer, unexposed_time: number) -> ObservedEvents`
   Events and person-time, such as person-years, in the exposed and unexposed groups of a person-time cohort.
-- `matched_case_control(pairs: integer, exposure?: string, outcome?: string) -> MatchedStudy`
+- `matched_case_control(pairs: integer, exposure?: string, outcome?: string, exposure_scale?: string) -> MatchedStudy`
   A 1:1 matched case-control study: each case matched to one control on chosen characteristics. Its tests and intervals use the pairs where exactly one was exposed; unmatched analyses refuse it. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
 - `observed_pairs(model: MatchedStudy, both_exposed: integer, case_exposed_only: integer, control_exposed_only: integer, neither_exposed: integer) -> MatchedPairs`
   The observed pairs of a matched study: both exposed, only the case, only the control, or neither. They must add up to the pairs.
@@ -392,6 +393,44 @@ Prevalence (cross-sectional) and cumulative incidence (cohort) with exact interv
   Interval for the prevalence ratio at the given confidence level, from exact intervals for each group's probability; valid for every pair of probabilities, and conservative. Only a cross-sectional study estimates it.
 - `prevalence_difference(table: AssociationTable, level: level) -> IntervalClaim`
   Interval for the prevalence difference at the given confidence level, from exact intervals for each group's probability; valid for every pair of probabilities, and conservative. Only a cross-sectional study estimates it.
+
+### `tests.regression` — Cited analyses
+
+Regression tests of the exposure with covariates for observational studies: logistic (cross-sectional, cohort, case-control), conditional logistic (matched pairs), Poisson rates (person-time cohorts), modified Poisson for risk and prevalence ratios, and linear regression for a continuous outcome. Guarantees are cited.
+
+- `logistic_association(design: StudyDesign, null: AssociationNull, alpha: level, adjusted_for?: list) -> CitedAssociation`
+  Wald or likelihood-ratio test of the exposure in a logistic regression. Fits cross-sectional, cohort or case-control studies with a binary outcome. Its guarantee is cited from the literature and not checked by Lean. adjusted_for lists the covariates, by name.
+- `conditional_logistic(design: StudyDesign, null: AssociationNull, alpha: level, adjusted_for?: list) -> CitedAssociation`
+  Test of the exposure in a conditional logistic regression of matched pairs. Fits matched-case-control studies with a binary outcome. Its guarantee is cited from the literature and not checked by Lean. adjusted_for lists the covariates, by name.
+- `poisson_rate_regression(design: StudyDesign, null: AssociationNull, alpha: level, adjusted_for?: list) -> CitedAssociation`
+  Test of the exposure in a Poisson regression of rates with a person-time offset. Fits person-time-cohort studies with a binary outcome. Its guarantee is cited from the literature and not checked by Lean. adjusted_for lists the covariates, by name.
+- `modified_poisson(design: StudyDesign, null: AssociationNull, alpha: level, adjusted_for?: list) -> CitedAssociation`
+  Test of the exposure's risk or prevalence ratio by Poisson regression with a robust variance. Fits cross-sectional or cohort studies with a binary outcome. Its guarantee is cited from the literature and not checked by Lean. adjusted_for lists the covariates, by name.
+- `linear_association(design: StudyDesign, null: AssociationNull, alpha: level, adjusted_for?: list) -> CitedAssociation`
+  t-test of the exposure's slope in a linear regression. Fits cross-sectional or cohort studies with a continuous outcome. Its guarantee is cited from the literature and not checked by Lean. adjusted_for lists the covariates, by name.
+- `typeI(analysis: Analysis) -> TypeIClaim`
+
+### `tests.correlation` — Cited analyses
+
+Pearson's correlation under bivariate normality and Spearman's rank correlation by exact permutation, for two continuous variables of a cross-sectional study. Guarantees are cited.
+
+- `pearson_correlation(design: StudyDesign, null: AssociationNull, alpha: level) -> CitedAssociation`
+  t-test of Pearson's correlation coefficient. Fits cross-sectional studies with a continuous outcome. Its guarantee is cited from the literature and not checked by Lean.
+- `spearman_correlation(design: StudyDesign, null: AssociationNull, alpha: level) -> CitedAssociation`
+  Exact permutation test of Spearman's rank correlation. Fits cross-sectional studies with a continuous outcome. Its guarantee is cited from the literature and not checked by Lean.
+- `typeI(analysis: Analysis) -> TypeIClaim`
+
+### `tests.survey` — Cited analyses
+
+Design-based tests for complex survey samples, with strata, clusters or weights: survey-weighted logistic and linear regression and the Rao-Scott test of a 2x2 table. Guarantees are cited and need enough sampled clusters.
+
+- `survey_logistic(design: StudyDesign, null: AssociationNull, alpha: level, adjusted_for?: list) -> CitedAssociation`
+  Design-based Wald test of the exposure in a survey-weighted logistic regression. Fits cross-sectional studies with a binary outcome. Its guarantee is cited from the literature and not checked by Lean. adjusted_for lists the covariates, by name.
+- `survey_linear(design: StudyDesign, null: AssociationNull, alpha: level, adjusted_for?: list) -> CitedAssociation`
+  Design-based Wald test of the exposure in a survey-weighted linear regression. Fits cross-sectional studies with a continuous outcome. Its guarantee is cited from the literature and not checked by Lean. adjusted_for lists the covariates, by name.
+- `rao_scott_test(design: StudyDesign, null: AssociationNull, alpha: level) -> CitedAssociation`
+  Rao-Scott adjusted chi-squared test of association in a 2x2 survey table. Fits cross-sectional studies with a binary outcome. Its guarantee is cited from the literature and not checked by Lean.
+- `typeI(analysis: Analysis) -> TypeIClaim`
 
 ### `tests.difference` — Analyses and claims
 
@@ -665,6 +704,9 @@ Other string inputs, such as `name`, take free text.
 | `criterion` | `optimal`, `minimax` | `two_stage_designs` |
 | `scope` | `finite_sample`, `asymptotic` | `declared_test` |
 | `group` | `exposed`, `unexposed` | `prevalence`, `cumulative_incidence` |
+| `exposure_scale` | `binary`, `continuous` | `cross_sectional`, `cohort`, `case_control`, `person_time_cohort`, `matched_case_control` |
+| `outcome_scale` | `binary`, `continuous` | `cross_sectional`, `cohort` |
+| `survey` | `simple_random`, `stratified`, `cluster`, `weighted` | `cross_sectional` |
 
 ## Cited methods
 
@@ -860,6 +902,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `alternative_in_null` | error | The planning point lies inside the null. |
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
 | `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
+| `complex_sample` | error | A method that assumes simple random sampling is given a stratified, cluster or weighted survey. |
 | `matched_design` | error | An unmatched analysis or table is given a matched study, whose matching it ignores. |
 | `not_estimable` | error | The design cannot estimate the measure, such as a risk ratio from a case-control study. |
 | `observational_design` | error | A test that relies on randomised arms is given an observational study, whose exposure was not assigned. |

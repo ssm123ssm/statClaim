@@ -71,6 +71,9 @@ zero difference only. See `examples/trial_models.stat`.
 
 All assume independent participants, a plan fixed in advance and one analysis.
 
+Observational studies have their own cited tests, for regression with covariates,
+correlation and complex survey samples: see [observational studies](observational.md).
+
 ## Clusters and repeated measurements
 
 A model can declare that whole clusters were randomised (`cluster_assignment`)

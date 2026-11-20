@@ -11,6 +11,7 @@ from statclaim.language import (
     AssociationAnalysisIR,
     AssociationResultIR,
     CitedAnalysisIR,
+    CitedAssociationIR,
     ComposedFamilyIR,
     DifferenceIntervalIR,
     EffectIntervalIR,
@@ -169,6 +170,19 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 f"{name}: McNemar's test assumes the number of pairs was fixed in advance. "
                 "Data-dependent stopping needs a design with its own guarantee. This is not "
                 "evidence of inflated error.",
+                _origin(program, subject.plan, request.span),
+                "obligation",
+            ),
+        )
+    if isinstance(subject, CitedAssociationIR):
+        if request.operation != "verify" or subject.plan.stopping == "fixed":
+            return ()
+        return (
+            Diagnostic(
+                "sampling_scope",
+                f"{name}: the cited guarantee assumes the study's size was fixed in advance and "
+                "a single analysis. Data-dependent stopping is outside it. This is not evidence "
+                "of inflated error.",
                 _origin(program, subject.plan, request.span),
                 "obligation",
             ),

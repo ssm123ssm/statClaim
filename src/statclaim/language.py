@@ -77,6 +77,18 @@ from statclaim.methods.assumptions import (
     POPULATIONS,
 )
 from statclaim.methods.core import SCOPES, Assumption, CitedMethod, Guarantee
+from statclaim.methods.observational import (
+    CORRELATION,
+    MAX_COVARIATES,
+    REGRESSION,
+    SCALES,
+    SURVEY,
+    SURVEYS,
+    ObservationalMethod,
+)
+from statclaim.methods.observational import (
+    METHODS as OBSERVATIONAL_METHODS,
+)
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
@@ -106,7 +118,7 @@ from statclaim.randomisation import (
     splits_needed,
 )
 
-LANGUAGE_VERSION = "0.20.0"
+LANGUAGE_VERSION = "0.21.0"
 
 
 class PlannableIR:
@@ -480,6 +492,12 @@ class ObservationalStudyIR(StudyModelIR):
 
     exposure: str
     outcome: str
+    # How each variable is measured, and how a survey sampled. Proved methods need binary
+    # variables and simple random sampling; cited methods say what they take.
+    exposure_scale: str = "binary"
+    outcome_scale: str = "binary"
+    survey: str = "simple_random"
+    clusters: int | None = None
 
     observational = True
     design = ""
@@ -570,7 +588,10 @@ class AssociationNullIR(NullIR):
 
     @property
     def statement(self) -> str:
-        return null_statement(self.model.design)
+        model = self.model
+        if "continuous" in (model.exposure_scale, model.outcome_scale):
+            return "exposure_coefficient = 0"
+        return null_statement(model.design)
 
 
 @dataclass(frozen=True)
@@ -599,6 +620,26 @@ class AssociationAnalysisIR(LevelTestIR):
             model.exposure,
             model.outcome,
         )
+
+
+@dataclass(frozen=True)
+class CitedAssociationIR(LevelTestIR):
+    """A test of no association whose guarantee is cited, not proved: regression with
+    covariates, correlation, or an analysis of a complex survey sample."""
+
+    plan: PlanIR
+    hypothesis: AssociationNullIR
+    alpha: Fraction
+    method: ObservationalMethod
+    covariates: tuple[str, ...] = ()
+
+    @property
+    def guarantee(self) -> Guarantee:
+        return self.method.guarantee(self.alpha)
+
+    @property
+    def assumptions(self) -> tuple[Assumption, ...]:
+        return self.method.assumptions
 
 
 @dataclass(frozen=True)
@@ -1165,6 +1206,7 @@ class ClaimIR:
                 AssociationAnalysisIR,
                 MatchedAnalysisIR,
                 RateAnalysisIR,
+                CitedAssociationIR,
             ),
         ):
             return subject.guarantee
@@ -1319,6 +1361,20 @@ class ProgramIR:
         }
 
 
+def _study_extras(study: "ObservationalStudyIR") -> dict:
+    """Scales and survey designs, recorded only when they differ from the defaults."""
+    extras = {}
+    if study.exposure_scale != "binary":
+        extras["exposure_scale"] = study.exposure_scale
+    if study.outcome_scale != "binary":
+        extras["outcome_scale"] = study.outcome_scale
+    if study.survey != "simple_random":
+        extras["survey"] = study.survey
+    if study.clusters is not None:
+        extras["clusters"] = study.clusters
+    return extras
+
+
 def normalize(value: object) -> object:
     """Serialize semantic objects, without implying a proof or executing a backend."""
     match value:
@@ -1364,14 +1420,26 @@ def normalize(value: object) -> object:
         case SharpNullIR(model=model, predicate=predicate):
             return {"predicate": predicate, "model": normalize(model)}
         case CrossSectionalStudyIR(n=n, exposure=exposure, outcome=outcome):
-            return {"study": "cross_sectional", "n": n, "exposure": exposure, "outcome": outcome}
+            return {
+                "study": "cross_sectional",
+                "n": n,
+                "exposure": exposure,
+                "outcome": outcome,
+                **_study_extras(value),
+            }
         case CohortStudyIR(exposure=exposure, outcome=outcome):
             sizes = (
                 {"n": value.n}
                 if value.groups is None
                 else {"exposed": value.exposed, "unexposed": value.unexposed}
             )
-            return {"study": "cohort", **sizes, "exposure": exposure, "outcome": outcome}
+            return {
+                "study": "cohort",
+                **sizes,
+                "exposure": exposure,
+                "outcome": outcome,
+                **_study_extras(value),
+            }
         case CaseControlStudyIR(cases=cases, controls=controls, exposure=exposure, outcome=outcome):
             return {
                 "study": "case_control",
@@ -1379,9 +1447,15 @@ def normalize(value: object) -> object:
                 "controls": controls,
                 "exposure": exposure,
                 "outcome": outcome,
+                **_study_extras(value),
             }
         case PersonTimeStudyIR(exposure=exposure, outcome=outcome):
-            return {"study": "person_time_cohort", "exposure": exposure, "outcome": outcome}
+            return {
+                "study": "person_time_cohort",
+                "exposure": exposure,
+                "outcome": outcome,
+                **_study_extras(value),
+            }
         case RateAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
             return {
                 "test": "rate_test",
@@ -1415,6 +1489,7 @@ def normalize(value: object) -> object:
                 "pairs": pairs,
                 "exposure": exposure,
                 "outcome": outcome,
+                **_study_extras(value),
             }
         case MatchedAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
             return {
@@ -1437,6 +1512,14 @@ def normalize(value: object) -> object:
             return {"measure": measure, "table": normalize(table), "level": str(level)}
         case AssociationNullIR(model=model, predicate=predicate):
             return {"predicate": predicate, "model": normalize(model)}
+        case CitedAssociationIR(plan=plan, hypothesis=hypothesis, alpha=alpha, method=method):
+            return {
+                "test": method.key,
+                "design": normalize(plan),
+                "null": normalize(hypothesis),
+                "alpha": str(alpha),
+                **({"adjusted_for": list(value.covariates)} if value.covariates else {}),
+            }
         case AssociationAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
             return {
                 "test": "fisher_exact",
@@ -2150,10 +2233,80 @@ def _size(arguments: dict[str, LocatedValue], key: str) -> int | None:
     return argument.value
 
 
+def _choice(arguments: dict[str, LocatedValue], key: str, choices: dict, default: str) -> str:
+    argument = arguments.get(key)
+    if argument is None or argument.value is None:
+        return default
+    if argument.value not in choices:
+        fail("domain", f"{key} must be one of: {', '.join(choices)}.", argument.span)
+    return argument.value
+
+
+def _study_options(arguments: dict[str, LocatedValue], span: Span, n: int | None = None) -> dict:
+    """Names, measurement scales and the survey design, as a study declares them."""
+    options = {
+        "exposure": _study_name(arguments, "exposure"),
+        "outcome": _study_name(arguments, "outcome"),
+        "exposure_scale": _choice(arguments, "exposure_scale", SCALES, "binary"),
+        "outcome_scale": _choice(arguments, "outcome_scale", SCALES, "binary"),
+        "survey": _choice(arguments, "survey", SURVEYS, "simple_random"),
+    }
+    clusters = _size(arguments, "clusters")
+    if options["survey"] == "cluster":
+        if clusters is None:
+            fail(
+                "domain",
+                "A cluster survey declares how many clusters it sampled: clusters=....",
+                span,
+            )
+        if clusters < 2 or (n is not None and clusters > n):
+            fail(
+                "domain",
+                "clusters must be at least 2 and at most the number sampled.",
+                arguments["clusters"].span,
+            )
+    elif clusters is not None:
+        fail(
+            "domain",
+            'clusters belongs to a cluster survey: declare survey="cluster" with it.',
+            arguments["clusters"].span,
+        )
+    options["clusters"] = clusters
+    return options
+
+
+def _simple_binary(
+    argument: LocatedValue, test: str, *, outcome: bool = True, exposure: bool = True
+) -> None:
+    """Proved methods need yes-or-no variables and simple random sampling."""
+    model = argument.value.model if isinstance(argument.value, PlanIR) else argument.value
+    if not isinstance(model, ObservationalStudyIR):
+        return
+    for wanted, which, scale in (
+        (outcome, "outcome", model.outcome_scale),
+        (exposure, "exposure", model.exposure_scale),
+    ):
+        if wanted and scale != "binary":
+            fail(
+                "type",
+                f"{test} needs a yes-or-no {which}; this study declares a continuous {which}. "
+                "For continuous variables use linear_association from tests.regression or "
+                "pearson_correlation from tests.correlation.",
+                argument.span,
+            )
+    if model.survey != "simple_random":
+        fail(
+            "complex_sample",
+            f"{test} assumes participants were sampled independently with equal probability; "
+            f"this survey declares {model.survey} sampling. Use a design-based test from "
+            "tests.survey, such as survey_logistic or rao_scott_test.",
+            argument.span,
+        )
+
+
 def _cross_sectional(arguments: dict[str, LocatedValue], span: Span) -> CrossSectionalStudyIR:
-    return CrossSectionalStudyIR(
-        _study_name(arguments, "exposure"), _study_name(arguments, "outcome"), _size(arguments, "n")
-    )
+    n = _size(arguments, "n")
+    return CrossSectionalStudyIR(n=n, **_study_options(arguments, span, n))
 
 
 def _cohort(arguments: dict[str, LocatedValue], span: Span) -> CohortStudyIR:
@@ -2176,7 +2329,7 @@ def _cohort(arguments: dict[str, LocatedValue], span: Span) -> CohortStudyIR:
     if total > MAX_PARTICIPANTS:
         fail("domain", f"A study may have at most {MAX_PARTICIPANTS} participants.", span)
     return CohortStudyIR(
-        _study_name(arguments, "exposure"), _study_name(arguments, "outcome"), exposed, unexposed, n
+        exposed=exposed, unexposed=unexposed, n=n, **_study_options(arguments, span, total)
     )
 
 
@@ -2185,7 +2338,7 @@ def _case_control(arguments: dict[str, LocatedValue], span: Span) -> CaseControl
     if cases + controls > MAX_PARTICIPANTS:
         fail("domain", f"A study may have at most {MAX_PARTICIPANTS} participants.", span)
     return CaseControlStudyIR(
-        _study_name(arguments, "exposure"), _study_name(arguments, "outcome"), cases, controls
+        cases=cases, controls=controls, **_study_options(arguments, span, cases + controls)
     )
 
 
@@ -2205,6 +2358,7 @@ def _fisher_exact(arguments: dict[str, LocatedValue], span: Span) -> Association
         "fisher_exact compares counts of participants; a person-time cohort counts events over "
         "person-time. Use rate_test.",
     )
+    _simple_binary(design, "fisher_exact")
     if not isinstance(design.value.model, ObservationalStudyIR):
         fail(
             "type",
@@ -2232,12 +2386,11 @@ def _matched_case_control(arguments: dict[str, LocatedValue], span: Span) -> Mat
     pairs = arguments["pairs"]
     if not 1 <= pairs.value <= MAX_PAIRS:
         fail("domain", f"pairs must be a whole number from 1 to {MAX_PAIRS}.", pairs.span)
-    return MatchedStudyIR(
-        _study_name(arguments, "exposure"), _study_name(arguments, "outcome"), pairs.value
-    )
+    return MatchedStudyIR(pairs=pairs.value, **_study_options(arguments, span, pairs.value))
 
 
 def _observed_pairs(arguments: dict[str, LocatedValue], span: Span) -> MatchedPairsIR:
+    _simple_binary(arguments["model"], "observed_pairs", outcome=False)
     model = arguments["model"].value
     cells = []
     for key in PAIR_CELLS:
@@ -2253,6 +2406,7 @@ def _observed_pairs(arguments: dict[str, LocatedValue], span: Span) -> MatchedPa
 
 def _mcnemar(arguments: dict[str, LocatedValue], span: Span) -> MatchedAnalysisIR:
     design, null = arguments["design"], arguments["null"]
+    _simple_binary(design, "mcnemar", outcome=False)
     if not isinstance(design.value.model, MatchedStudyIR):
         fail(
             "type",
@@ -2304,10 +2458,11 @@ def _rates_refused(argument: LocatedValue, message: str) -> None:
 
 
 def _person_time_cohort(arguments: dict[str, LocatedValue], span: Span) -> PersonTimeStudyIR:
-    return PersonTimeStudyIR(_study_name(arguments, "exposure"), _study_name(arguments, "outcome"))
+    return PersonTimeStudyIR(**_study_options(arguments, span))
 
 
 def _observed_events(arguments: dict[str, LocatedValue], span: Span) -> ObservedEventsIR:
+    _simple_binary(arguments["model"], "observed_events", outcome=False)
     values = {}
     for key in ("exposed_events", "unexposed_events"):
         if arguments[key].value < 0:
@@ -2333,6 +2488,7 @@ def _observed_events(arguments: dict[str, LocatedValue], span: Span) -> Observed
 
 def _rate_test(arguments: dict[str, LocatedValue], span: Span) -> RateAnalysisIR:
     design, null = arguments["design"], arguments["null"]
+    _simple_binary(design, "rate_test", outcome=False)
     if not isinstance(design.value.model, PersonTimeStudyIR):
         fail(
             "type",
@@ -2380,6 +2536,7 @@ def _rate_ratio(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
 def _proportion(measure: str) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         model, cases, level = arguments["model"], arguments["cases"], arguments["level"]
+        _simple_binary(model, measure, exposure=False)
         group = arguments.get("group")
         group = group.value if group is not None else None
         reason = proportion_not_estimable(measure, model.value.design)
@@ -2412,7 +2569,142 @@ def _proportion(measure: str) -> Callable:
     return build
 
 
+def _words(items) -> str:
+    items = [item.replace("_", "-") for item in items]
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " or " + items[-1]
+
+
+def _fitting_methods(model: "ObservationalStudyIR") -> str:
+    """The cited methods whose design, scales and survey fit a study, as a hint."""
+    keys = [
+        m.key
+        for m in OBSERVATIONAL_METHODS.values()
+        if model.design in m.designs
+        and model.outcome_scale in m.outcome_scales
+        and model.exposure_scale in m.exposure_scales
+        and model.survey in m.surveys
+    ]
+    return f" Methods that fit this study: {', '.join(keys)}." if keys else ""
+
+
+def _cited_association(method: ObservationalMethod) -> Callable:
+    """The contract of a cited observational method: design, scales, survey, size, covariates."""
+
+    def build(arguments: dict[str, LocatedValue], span: Span) -> CitedAssociationIR:
+        design, null, alpha = arguments["design"], arguments["null"], arguments["alpha"]
+        model = design.value.model
+        key = method.key
+        if not isinstance(model, ObservationalStudyIR):
+            fail(
+                "type",
+                f"{key} is for observational studies; this design is a randomised trial.",
+                design.span,
+            )
+        if model != null.value.model:
+            fail(
+                "model_mismatch",
+                f"{key}: the null belongs to a different study. Declare "
+                "no_association(model=...) over the study the design samples.",
+                null.span,
+            )
+        if model.design not in method.designs:
+            kinds = _words(method.designs)
+            code = (
+                "not_estimable"
+                if key == "modified_poisson" and model.design.endswith("case_control")
+                else "type"
+            )
+            fail(
+                code,
+                f"{key} fits {kinds} studies; this is a {model.design.replace('_', '-')} study."
+                + (
+                    " A case-control study cannot estimate a risk or prevalence ratio."
+                    if code == "not_estimable"
+                    else ""
+                )
+                + _fitting_methods(model),
+                design.span,
+            )
+        for which, scale, allowed in (
+            ("outcome", model.outcome_scale, method.outcome_scales),
+            ("exposure", model.exposure_scale, method.exposure_scales),
+        ):
+            if scale not in allowed:
+                fail(
+                    "type",
+                    f"{key} needs a {' or '.join(allowed)} {which}; this study declares a "
+                    f"{scale} {which}." + _fitting_methods(model),
+                    design.span,
+                )
+        if model.survey not in method.surveys:
+            fail(
+                "complex_sample",
+                f"{key} assumes participants were sampled independently with equal "
+                f"probability; this survey declares {model.survey} sampling."
+                + _fitting_methods(model),
+                design.span,
+            )
+        total = (
+            model.pairs
+            if isinstance(model, MatchedStudyIR)
+            else (model.total if not isinstance(model, PersonTimeStudyIR) else None)
+        )
+        if total is not None and total < method.min_total:
+            fail(
+                "domain",
+                f"{key} needs at least {method.min_total} participants; this study has {total}.",
+                design.span,
+            )
+        clustered = model.survey == "cluster"
+        if method.min_clusters and clustered and model.clusters < method.min_clusters:
+            fail(
+                "domain",
+                f"{key} needs at least {method.min_clusters} sampled clusters for its "
+                f"design-based variance; this survey sampled {model.clusters}.",
+                design.span,
+            )
+        if not 0 < alpha.value < 1:
+            fail("domain", "alpha must lie strictly between 0 and 1 for this test.", alpha.span)
+        covariates: list[str] = []
+        listed = arguments.get("adjusted_for")
+        if listed is not None and listed.value is not None:
+            for item in listed.value:
+                if not isinstance(item.value, str) or not NAME.fullmatch(item.value):
+                    fail("domain", "Each covariate is a name in a few plain words.", item.span)
+                if item.value in covariates or item.value in (model.exposure, model.outcome):
+                    fail(
+                        "domain",
+                        "Each covariate is named once, and is neither the exposure nor the "
+                        "outcome.",
+                        item.span,
+                    )
+                covariates.append(item.value)
+            if len(covariates) > MAX_COVARIATES:
+                fail("domain", f"At most {MAX_COVARIATES} covariates.", listed.span)
+        return CitedAssociationIR(design.value, null.value, alpha.value, method, tuple(covariates))
+
+    return build
+
+
+def _cited_association_constructor(method: ObservationalMethod) -> Constructor:
+    parameters = [("design", PlanIR), ("null", AssociationNullIR), ("alpha", "level")]
+    if method.covariates:
+        parameters.append(("adjusted_for", "list", True))
+    designs = _words(method.designs)
+    return _constructor(
+        method.key,
+        tuple(parameters),
+        "CitedAssociation",
+        _cited_association(method),
+        documentation=f"{method.title}. Fits {designs} studies with a "
+        f"{' or '.join(method.outcome_scales)} outcome. Its guarantee is cited from the "
+        "literature and not checked by Lean."
+        + (" adjusted_for lists the covariates, by name." if method.covariates else ""),
+    )
+
+
 def _observed_table(arguments: dict[str, LocatedValue], span: Span) -> AssociationTableIR:
+    _simple_binary(arguments["model"], "observed_table")
     _rates_refused(
         arguments["model"],
         "A person-time cohort records events and person-time, not a table of participants. "
@@ -3392,6 +3684,7 @@ def _outcome_module(outcome) -> "Module":
 
 
 STUDY_NAMES = (("exposure", "string", True), ("outcome", "string", True))
+STUDY_SCALES = (("exposure_scale", "string", True), ("outcome_scale", "string", True))
 STUDY_NAMES_DOCUMENTATION = (
     'exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.'
 )
@@ -3560,7 +3853,13 @@ MODULES = {
             (
                 _constructor(
                     "cross_sectional",
-                    (("n", "integer"), *STUDY_NAMES),
+                    (
+                        ("n", "integer"),
+                        *STUDY_NAMES,
+                        *STUDY_SCALES,
+                        ("survey", "string", True),
+                        ("clusters", "integer", True),
+                    ),
                     "CrossSectionalStudy",
                     _cross_sectional,
                     documentation="A cross-sectional study: n participants sampled from one "
@@ -3575,6 +3874,7 @@ MODULES = {
                         ("unexposed", "integer", True),
                         ("n", "integer", True),
                         *STUDY_NAMES,
+                        *STUDY_SCALES,
                     ),
                     "CohortStudy",
                     _cohort,
@@ -3585,7 +3885,12 @@ MODULES = {
                 ),
                 _constructor(
                     "case_control",
-                    (("cases", "integer"), ("controls", "integer"), *STUDY_NAMES),
+                    (
+                        ("cases", "integer"),
+                        ("controls", "integer"),
+                        *STUDY_NAMES,
+                        ("exposure_scale", "string", True),
+                    ),
                     "CaseControlStudy",
                     _case_control,
                     documentation="A case-control study: cases with the outcome and controls "
@@ -3595,7 +3900,7 @@ MODULES = {
                 ),
                 _constructor(
                     "person_time_cohort",
-                    STUDY_NAMES,
+                    (*STUDY_NAMES, ("exposure_scale", "string", True)),
                     "PersonTimeStudy",
                     _person_time_cohort,
                     documentation="A cohort followed over person-time, counting events in the "
@@ -3618,7 +3923,7 @@ MODULES = {
                 ),
                 _constructor(
                     "matched_case_control",
-                    (("pairs", "integer"), *STUDY_NAMES),
+                    (("pairs", "integer"), *STUDY_NAMES, ("exposure_scale", "string", True)),
                     "MatchedStudy",
                     _matched_case_control,
                     documentation="A 1:1 matched case-control study: each case matched to one "
@@ -3775,6 +4080,17 @@ MODULES = {
                 )
                 for measure, (words, kind, designs) in MEASURES.items()
             ),
+        ),
+        *(
+            Module(
+                name,
+                (*(_cited_association_constructor(m) for m in group), TYPE_I),
+            )
+            for name, group in (
+                ("tests.regression", REGRESSION),
+                ("tests.correlation", CORRELATION),
+                ("tests.survey", SURVEY),
+            )
         ),
         Module(
             "tests.difference",

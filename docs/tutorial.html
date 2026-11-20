@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2059,6 +2059,102 @@ exactly. The rate ratio needs none, because given the total its law is binomial.
     <div class="task"><h4>Try it</h4><p>Give the exposed nurses 12500.5 person-years: the share of person-time becomes a longer fraction, and the certificate still checks it exactly.</p></div>
   </div>
 </section>
+<section class="lesson" id="covariates">
+  <p class="eyebrow">Lesson 27</p>
+  <h2>Covariates, continuous variables and complex surveys</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Adjust for covariates, relate two measured variables, and analyse a cluster sample. These methods are cited, not proved: StatClaim checks that each fits the design, the measurement scales and the survey, and lists what it assumes.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/27_covariates_and_surveys.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 27: adjusting for covariates, continuous variables, and complex surveys.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.regression
+<span class="k">use</span> tests.correlation
+<span class="k">use</span> tests.survey
+
+<span class="c"># The case-control study of lesson 23, now adjusted for age, sex and asbestos exposure.</span>
+<span class="k">let</span> sampled = <span class="f">case_control</span>(cases=150, controls=300, exposure=&quot;smoking&quot;, outcome=&quot;lung cancer&quot;)
+<span class="k">let</span> adjusted = <span class="f">logistic_association</span>(
+    design=<span class="f">fixed</span>(model=sampled),
+    null=<span class="f">no_association</span>(model=sampled),
+    alpha=1/20,
+    adjusted_for=[&quot;age&quot;, &quot;sex&quot;, &quot;asbestos&quot;],
+)
+
+<span class="c"># A clinic survey with two measured variables: body mass index and systolic pressure.</span>
+<span class="k">let</span> clinic = <span class="f">cross_sectional</span>(
+    n=250,
+    exposure=&quot;BMI&quot;,
+    outcome=&quot;systolic pressure&quot;,
+    exposure_scale=&quot;continuous&quot;,
+    outcome_scale=&quot;continuous&quot;,
+)
+<span class="k">let</span> slope = <span class="f">linear_association</span>(
+    design=<span class="f">fixed</span>(model=clinic),
+    null=<span class="f">no_association</span>(model=clinic),
+    alpha=1/20,
+    adjusted_for=[&quot;age&quot;],
+)
+<span class="k">let</span> rho = <span class="f">pearson_correlation</span>(design=<span class="f">fixed</span>(model=clinic), null=<span class="f">no_association</span>(model=clinic), alpha=1/20)
+
+<span class="c"># A national survey that sampled 400 households first: a cluster sample.</span>
+<span class="k">let</span> national = <span class="f">cross_sectional</span>(
+    n=12000,
+    exposure=&quot;smoking&quot;,
+    outcome=&quot;asthma&quot;,
+    survey=&quot;cluster&quot;,
+    clusters=400,
+)
+<span class="k">let</span> weighted = <span class="f">survey_logistic</span>(
+    design=<span class="f">fixed</span>(model=national),
+    null=<span class="f">no_association</span>(model=national),
+    alpha=1/20,
+    adjusted_for=[&quot;age&quot;],
+)
+
+<span class="k">let</span> adjusted_claim = <span class="f">verify</span>(typeI(adjusted))
+<span class="k">let</span> slope_claim = <span class="f">verify</span>(typeI(slope))
+<span class="k">let</span> rho_claim = <span class="f">verify</span>(typeI(rho))
+<span class="k">let</span> survey_claim = <span class="f">verify</span>(typeI(weighted))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>adjusted_for=[...]</code></dt>
+  <dd>The covariates in the model, by name. Methods without covariates, such as
+  correlations, refuse the argument.</dd>
+  <dt><code>exposure_scale</code>, <code>outcome_scale</code></dt>
+  <dd><code>"binary"</code> unless declared <code>"continuous"</code>. Proved methods need
+  yes-or-no variables; linear regression and correlations take measured ones.</dd>
+  <dt><code>survey="cluster", clusters=400</code></dt>
+  <dd>How the survey sampled: simple random, stratified, cluster or weighted. Design-based
+  methods in <code>tests.survey</code> need enough sampled clusters.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">cited</span> [adjusted_claim]: typeI(adjusted)
+  Evidence: cited from the literature; not machine-checked; guarantee: large-sample approximation
+  Method: Wald or likelihood-ratio test of the exposure in a logistic regression (logistic_association, version 1)
+  About smoking and lung cancer, adjusted for age, sex, asbestos: Null rejection probability approaches 1/20 in the limit as the numbers with and without the outcome grow, whenever the log odds ratio of the exposure, given the covariates, is 0. No bound is claimed at the declared sample sizes.
+  ...
+<span class="calc">cited</span> [rho_claim]: typeI(rho)
+  Evidence: cited from the literature; not machine-checked; guarantee: finite-sample bound
+  Method: t-test of Pearson&#x27;s correlation coefficient (pearson_correlation, version 1)
+  About BMI and systolic pressure: Null rejection probability equals 1/20 whenever the correlation between exposure and outcome is 0.
+  ...
+Program status: cited</code></pre></div>
+<p>Pearson&#x27;s test is exact under bivariate normality, so its cited guarantee is a
+finite-sample one; the logistic and survey tests are large-sample approximations, and
+say so. Neither is proved in Lean: the program&#x27;s status is <em>cited</em>, its weakest
+part.</p>
+<p>Now test the national survey with Fisher&#x27;s exact test:</p>
+<div class="scroll output"><pre><code><span class="bad">error [complex_sample]</span>: fisher_exact assumes participants were sampled independently with
+equal probability; this survey declares cluster sampling. Use a design-based test from
+tests.survey, such as survey_logistic or rao_scott_test.
+Program status: invalid</code></pre></div>
+<div class="note"><strong>Why refuse?</strong> People in one household are alike, so a
+cluster sample holds less information than its size suggests. Fisher&#x27;s theorem assumes
+independent participants; its bound does not cover a cluster sample.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>tests.regression</code>, <code>tests.correlation</code> and <code>tests.survey</code> are cited methods for observational studies.</li><li>Studies declare their measurement scales and survey design.</li><li>Proved methods refuse continuous variables and complex samples; a refusal names the methods that fit.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Use <code>logistic_association</code> on the matched pairs of lesson 25 and read the message: it names <code>conditional_logistic</code>.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2079,6 +2175,7 @@ exactly. The rate ratio needs none, because given the total its law is binomial.
       <tr><td>Estimate an odds, risk or prevalence ratio from an observed table</td><td><code>estimation.observational</code></td><td><code>odds_ratio</code>, <code>risk_ratio</code>, <code>prevalence_ratio</code> and differences</td><td>24</td></tr>
       <tr><td>Analyse a matched case-control study</td><td><code>models.observational</code>, <code>tests.association</code>, <code>estimation.observational</code></td><td><code>mcnemar</code>, <code>matched_result</code>, <code>conditional_odds_ratio</code></td><td>25</td></tr>
       <tr><td>Estimate prevalence or risk, or compare incidence rates</td><td><code>estimation.observational</code>, <code>tests.association</code></td><td><code>prevalence</code>, <code>cumulative_incidence</code>, <code>rate_test</code>, <code>rate_ratio</code></td><td>26</td></tr>
+      <tr><td>Adjust an observational study for covariates, correlate measured variables, or analyse a complex survey</td><td><code>tests.regression</code>, <code>tests.correlation</code>, <code>tests.survey</code></td><td><code>logistic_association</code>, <code>linear_association</code>, <code>pearson_correlation</code>, <code>survey_logistic</code> (cited)</td><td>27</td></tr>
       <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
       <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>

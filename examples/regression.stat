@@ -1,0 +1,33 @@
+# Regression tests of an exposure with covariates. Guarantees are cited, not proved: the
+# compiler checks that each method fits the design, the measurement scales and the null.
+use models.observational
+use sampling
+use tests.regression
+
+let paired = matched_case_control(pairs=220, exposure="benzodiazepine use", outcome="hip fracture")
+let conditional = conditional_logistic(
+    design=fixed(model=paired),
+    null=no_association(model=paired),
+    alpha=1/20,
+    adjusted_for=["dementia", "visual impairment"],
+)
+
+let workers = person_time_cohort(exposure="solvent exposure", outcome="kidney cancer")
+let rates = poisson_rate_regression(
+    design=fixed(model=workers),
+    null=no_association(model=workers),
+    alpha=1/20,
+    adjusted_for=["age band", "calendar period"],
+)
+
+let followed = cohort(exposed=600, unexposed=1200, exposure="statin use", outcome="dementia")
+let risk = modified_poisson(
+    design=fixed(model=followed),
+    null=no_association(model=followed),
+    alpha=1/20,
+    adjusted_for=["age", "diabetes"],
+)
+
+let conditional_claim = verify(typeI(conditional))
+let rates_claim = verify(typeI(rates))
+let risk_claim = verify(typeI(risk))

@@ -14,6 +14,7 @@ from statclaim.language import (
     AssociationAnalysisIR,
     AssociationResultIR,
     CitedAnalysisIR,
+    CitedAssociationIR,
     ComposedFamilyIR,
     EffectIntervalIR,
     FamilyIR,
@@ -95,7 +96,7 @@ def _weakest_line(request: dict) -> list[str]:
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
-    if isinstance(subject, CitedAnalysisIR):
+    if isinstance(subject, (CitedAnalysisIR, CitedAssociationIR)):
         # The contract checks passed during compilation. No backend runs: the
         # guarantee is the published result, restated with its assumptions.
         report = cited_report(subject)

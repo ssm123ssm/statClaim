@@ -1,0 +1,20 @@
+# A weighted national survey with a continuous outcome. Proved methods assume simple random
+# sampling and refuse it; design-based methods use the weights, strata and clusters.
+use models.observational
+use sampling
+use tests.survey
+
+let survey = cross_sectional(
+    n=8000,
+    exposure="sugary drinks",
+    outcome="waist circumference",
+    outcome_scale="continuous",
+    survey="weighted",
+)
+let weighted = survey_linear(
+    design=fixed(model=survey),
+    null=no_association(model=survey),
+    alpha=1/20,
+    adjusted_for=["age", "sex", "income"],
+)
+let checked = verify(typeI(weighted))

@@ -8,6 +8,8 @@ listed, and the grammar's examples are run through the real parser.
 from statclaim.composition import MAX_MEMBERS
 from statclaim.methods.assumptions import POPULATIONS
 from statclaim.methods.core import SCOPES
+from statclaim.methods.observational import SCALES as OBSERVATIONAL_SCALES
+from statclaim.methods.observational import SURVEYS as OBSERVATIONAL_SURVEYS
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
@@ -169,6 +171,9 @@ PARAMETER_CHOICES = {
         "exposed": "The cohort's exposed group.",
         "unexposed": "The cohort's unexposed group.",
     },
+    "exposure_scale": OBSERVATIONAL_SCALES,
+    "outcome_scale": OBSERVATIONAL_SCALES,
+    "survey": OBSERVATIONAL_SURVEYS,
 }
 LIMITS = {
     "Analyses in a family, or looks in a sequential design": f"2 to {MAX_MEMBERS}",
@@ -224,6 +229,11 @@ DIAGNOSTICS = {
     "direction_mismatch": (
         "error",
         "A one-sided null asks about the direction the model's better= does not call better.",
+    ),
+    "complex_sample": (
+        "error",
+        "A method that assumes simple random sampling is given a stratified, cluster or "
+        "weighted survey.",
     ),
     "matched_design": (
         "error",

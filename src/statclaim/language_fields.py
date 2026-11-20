@@ -19,6 +19,7 @@ from statclaim.language import (
     CandidateSpaceIR,
     CaseControlStudyIR,
     CitedAnalysisIR,
+    CitedAssociationIR,
     ClaimIR,
     CohortStudyIR,
     ComposedFamilyIR,
@@ -123,6 +124,12 @@ TWO_ARM_FIELDS = {
 STUDY_FIELDS = {
     "exposure": FieldSpec(str, description="The exposure's name."),
     "outcome": FieldSpec(str, description="The outcome's name."),
+    "exposure_scale": FieldSpec(str, description="binary or continuous."),
+    "outcome_scale": FieldSpec(str, description="binary or continuous."),
+    "survey": FieldSpec(str, description="simple_random, stratified, cluster or weighted."),
+    "clusters": FieldSpec(
+        int, optional=True, description="Sampled clusters, for a cluster survey."
+    ),
 }
 
 SCHEMAS = {
@@ -224,6 +231,13 @@ SCHEMAS = {
         "alpha": FieldSpec(Fraction),
         "reject_null": FieldSpec(bool),
         "test": FieldSpec(str),
+    },
+    CitedAssociationIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(AssociationNullIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction),
+        "adjusted_for": FieldSpec("list", attribute="covariates"),
+        "guarantee": FieldSpec(Guarantee, description="The cited error-rate statement."),
     },
     AssociationTableIR: {
         "model": FieldSpec(StudyModelIR),
