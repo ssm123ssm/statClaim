@@ -18,7 +18,13 @@ from statclaim.association import (
 )
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
-from statclaim.report import run_association, run_association_result, run_effect_interval
+from statclaim.matched import MatchedInterval, MatchedPairs, MatchedResult, MatchedTest
+from statclaim.report import (
+    run_association,
+    run_association_result,
+    run_effect_interval,
+    run_matched,
+)
 from statclaim.verification import VerificationError, canonical_bytes, digest, recheck_certificate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -225,6 +231,46 @@ def test_a_narrower_interval_than_proved_is_refused(tmp_path):
     assert before in source
     proof = tmp_path / "Narrower.lean"
     proof.write_text(source.replace(before, f"(2 * {before})", 1))
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=300
+    )
+    assert checked.returncode != 0
+
+
+# Matched pairs ----------------------------------------------------------------------------
+PAIRED = MatchedTest(150, Fraction(1, 20), "smoking", "lung cancer")
+OBSERVED_PAIRS = MatchedPairs(150, (40, 35, 15, 60), "smoking", "lung cancer")
+
+
+@pytest.mark.parametrize(
+    "subject",
+    [
+        PAIRED,
+        MatchedResult(PAIRED, OBSERVED_PAIRS),
+        MatchedInterval(OBSERVED_PAIRS, Fraction(19, 20)),
+        MatchedInterval(MatchedPairs(150, (40, 20, 0, 90)), Fraction(19, 20)),
+    ],
+    ids=["design", "result", "interval", "unbounded interval"],
+)
+def test_matched_claims_are_proved_and_replay(subject, tmp_path):
+    report = run_matched(
+        subject, verify=True, stopping="fixed", project=ROOT, output=tmp_path / "m", timeout=300
+    )
+    assert report["status"] == "verified", report.get("verification")
+    assert report["limitations"] == [NOT_CAUSAL]
+    assert recheck_certificate(tmp_path / "m", project=ROOT, timeout=300)["status"] == "verified"
+
+
+def test_a_flipped_mcnemar_decision_is_refused(tmp_path):
+    result = MatchedResult(PAIRED, OBSERVED_PAIRS)
+    report = run_matched(
+        result, verify=True, stopping="fixed", project=ROOT, output=tmp_path / "m", timeout=300
+    )
+    assert report["status"] == "verified"
+    source = (tmp_path / "m/Proof.lean").read_text()
+    assert "↔ True := by" in source
+    proof = tmp_path / "Flipped.lean"
+    proof.write_text(source.replace("↔ True := by", "↔ False := by"))
     checked = subprocess.run(
         ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=300
     )

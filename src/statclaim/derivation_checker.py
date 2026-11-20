@@ -36,6 +36,7 @@ from statclaim.derivations import (
     CONTRACT_IDS,
     DECLARED_NOT_ESTABLISHED,
     FAMILY_ASSUMPTIONS,
+    MCNEMAR_CONTRACT_ID,
     NOT_ESTABLISHED,
     ONE_SAMPLE_ASSUMPTIONS,
     PLANNING_POINT_ASSUMPTION,
@@ -43,6 +44,7 @@ from statclaim.derivations import (
     RULES,
     TWO_STAGE_ASSUMPTIONS,
 )
+from statclaim.matched import MATCHED_NULL, PAIRS_SAMPLED, WITHIN_PAIRS
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES, SHARP_NULL
 from statclaim.methods.assumptions import (
     ACCOUNTS_FOR,
@@ -1157,6 +1159,44 @@ def _association_expected(name: str, subject: dict) -> tuple[list[tuple], tuple[
     return steps, assumptions
 
 
+def _matched_expected(name: str, subject: dict) -> list[tuple]:
+    """McNemar's test, re-evaluated from the serialized subject."""
+    if subject.get("test") != "mcnemar":
+        raise ValueError("the contract does not match the declaration")
+    study, null = subject["design"]["model"], subject["null"]
+    if study.get("study") != "matched_case_control":
+        raise ValueError("McNemar's test needs a matched design")
+    pairs = study.get("pairs")
+    alpha = Fraction(subject["alpha"])
+    return [
+        (
+            "same-model",
+            {"subject": name, "design_model": study, "null_model": null["model"]},
+            study == null["model"],
+            (),
+        ),
+        (
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": null["predicate"],
+                "statement": NULL_STATEMENTS["matched_case_control"],
+                "supported": ["no_association"],
+            },
+            null["predicate"] == "no_association",
+            (),
+        ),
+        ("level-range", {"subject": name, "alpha": subject["alpha"]}, 0 <= alpha <= 1, ()),
+        (
+            "matched-sampling",
+            {"subject": name, "pairs": pairs},
+            isinstance(pairs, int) and pairs >= 1,
+            (),
+        ),
+        ("mcnemar-contract", {"subject": name}, True, (0, 1, 2, 3)),
+    ]
+
+
 def _sampling_expectation(name: str, analysis: dict) -> tuple[str, dict, bool]:
     stopping = analysis["design"]["stopping"]
     return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
@@ -1177,6 +1217,9 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
         ):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+    if contract == MCNEMAR_CONTRACT_ID:
+        assumptions = (PAIRS_SAMPLED, WITHIN_PAIRS, SOURCE_POPULATION, PRESPECIFIED, MATCHED_NULL)
+        return _matched_expected(name, subject), [_sampling_expectation(name, subject)], assumptions
     if contract == ASSOCIATION_CONTRACT_ID:
         steps, assumptions = _association_expected(name, subject)
         return steps, [_sampling_expectation(name, subject)], assumptions

@@ -17,6 +17,9 @@ from statclaim.language import (
     FamilyIR,
     FeasibilityIR,
     IntervalIR,
+    MatchedAnalysisIR,
+    MatchedIntervalIR,
+    MatchedResultIR,
     ObservationIR,
     OneSampleObservationIR,
     ProgramIR,
@@ -132,11 +135,25 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
             IntervalIR,
             DifferenceIntervalIR,
             EffectIntervalIR,
+            MatchedIntervalIR,
         ),
     ):
         return ()
-    if isinstance(subject, AssociationResultIR):
+    if isinstance(subject, (AssociationResultIR, MatchedResultIR)):
         subject = subject.analysis
+    if isinstance(subject, MatchedAnalysisIR):
+        if request.operation != "verify" or subject.plan.stopping == "fixed":
+            return ()
+        return (
+            Diagnostic(
+                "sampling_scope",
+                f"{name}: McNemar's test assumes the number of pairs was fixed in advance. "
+                "Data-dependent stopping needs a design with its own guarantee. This is not "
+                "evidence of inflated error.",
+                _origin(program, subject.plan, request.span),
+                "obligation",
+            ),
+        )
     if isinstance(subject, CitedAnalysisIR):
         if request.operation != "verify" or subject.plan.stopping == "fixed":
             return ()

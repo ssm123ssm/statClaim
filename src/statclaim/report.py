@@ -36,6 +36,7 @@ from statclaim.verification import (
     certify_family,
     certify_interval,
     certify_margin,
+    certify_matched,
     certify_planning,
     certify_policy,
     certify_randomisation,
@@ -910,6 +911,73 @@ def run_effect_interval(interval, *, verify: bool, project: Path, output, timeou
         return report
     report = _certified(
         report, certify_effect_interval, interval, project=project, output=output, timeout=timeout
+    )
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def matched_report(subject, *, stopping: str = "fixed", verify: bool = True) -> dict:
+    """A matched design's test, result or interval, before it is checked."""
+    from statclaim import matched
+
+    if isinstance(subject, matched.MatchedInterval):
+        report = planning_report(
+            "interval",
+            f"Interval at level {subject.level} for the conditional odds ratio, from the "
+            f"observed pairs ({subject.observed.describe()})"
+            + (", with coverage for every probability." if verify else ". Calculate only."),
+            list(matched.interval_assumptions(subject)),
+        )
+    elif isinstance(subject, matched.MatchedResult):
+        report = planning_report(
+            "result",
+            f"Exact p-value and decision of McNemar's test for the observed pairs "
+            f"({subject.observed.describe()}) at level {subject.test.alpha}."
+            + (" Also check the test's Type I bound." if verify else " Calculate only."),
+            list(matched.result_assumptions(subject)),
+        )
+    else:
+        report = planning_report(
+            "matched_test",
+            f"McNemar's exact test of no association within {subject.pairs} matched pairs: "
+            f"Type I error <= {subject.alpha} whenever {matched.null_words(subject)}.",
+            list(matched.matched_assumptions(subject)),
+        )
+        if stopping != "fixed":
+            report["outstanding_obligations"] = [
+                "Specify the stopping procedure with its own guarantee; the test assumes the "
+                "number of pairs was fixed in advance."
+            ]
+    from statclaim.association import NOT_CAUSAL
+
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def run_matched(subject, *, verify: bool, stopping: str, project: Path, output, timeout: float):
+    """Calculate a matched result or interval, and with verify have Lean check it."""
+    from statclaim import matched
+    from statclaim.association import NOT_CAUSAL
+
+    report = matched_report(subject, stopping=stopping, verify=verify)
+    if isinstance(subject, matched.MatchedResult):
+        report["calculation"] = subject.evaluate()
+        report["decision"] = "reject_null" if subject.reject_null else "do_not_reject"
+    elif isinstance(subject, matched.MatchedInterval):
+        report["calculation"] = subject.evaluate()
+        report["decision"] = "interval_reported"
+    if not verify:
+        return report
+    if stopping != "fixed":
+        return _unmet(
+            report,
+            "sampling_scope",
+            "sampling_scope",
+            "Data-dependent stopping changes the law of the pairs. This is not evidence of "
+            "inflated error.",
+        )
+    report = _certified(
+        report, certify_matched, subject, project=project, output=output, timeout=timeout
     )
     report["limitations"] = [NOT_CAUSAL]
     return report

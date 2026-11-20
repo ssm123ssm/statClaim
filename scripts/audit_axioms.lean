@@ -101,7 +101,11 @@ run_cmd do
     ``StatClaim.Modules.Association.mixture_typeI_le_alpha,
     ``StatClaim.Modules.Association.mixture_joint_coverage,
     ``StatClaim.Modules.Association.ratio_contains,
-    ``StatClaim.Modules.Association.odds_ratio_contains]
+    ``StatClaim.Modules.Association.odds_ratio_contains,
+    ``StatClaim.Modules.Matched.level,
+    ``StatClaim.Modules.Matched.typeI,
+    ``StatClaim.Modules.Matched.pairs_coverage,
+    ``StatClaim.Modules.Matched.odds_contains]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

@@ -38,7 +38,9 @@ What is supported:
   checked p-value and decision, and intervals for the odds ratio, the risk ratio
   and difference (cohort) or the prevalence ratio and difference
   (cross-sectional), with joint coverage proved for every pair of probabilities.
-  A design refuses a measure it cannot estimate. A bound concerns association,
+  A design refuses a measure it cannot estimate. A 1:1 matched case-control
+  study takes McNemar's exact test and an interval for the conditional odds
+  ratio, both proved, and refuses unmatched analyses. A bound concerns association,
   never an effect of the exposure. See [observational studies](observational.md).
 
 - **Cluster-randomised trials, cited.** A t-test on one summary per cluster, a

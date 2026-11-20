@@ -123,6 +123,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | IntervalDetails | Estimate and exact confidence interval endpoints. | `n: integer`, `responses: integer`, `level: exact number`, `estimate: exact number`, `lower: exact number`, `upper: exact number`, `method: string` |
 | StageResultDetails | Decision and error bound for observed two-stage counts. | `n_stage1: integer`, `n_stage2: integer`, `stage1_responses: integer`, `stage2_responses: Option[integer]`, `continued: boolean`, `reject_null: boolean`, `typeI_bound: exact number` |
 | PolicyDetails | Calculated error, power and expected sample size of a two-stage policy. | `n_stage1: Option[integer]`, `n_stage2: Option[integer]`, `continue_above: Option[integer]`, `reject_above: Option[integer]`, `maximum_sample_size: Option[integer]`, `typeI: Option[exact number]`, `typeI_target_met: Option[boolean]`, `power: Option[exact number]`, `power_target_met: boolean`, `expected_sample_size_null: Option[exact number]`, `expected_sample_size_alternative: Option[exact number]`, `early_stop_probability_null: Option[exact number]`, `criterion: Option[string]`, `candidates_evaluated: Option[integer]` |
+| MatchedResultDetails | Exact p-value and decision of McNemar's test for observed pairs. | `discordant_pairs: integer`, `p_value: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | AssociationResultDetails | Exact p-value and decision of Fisher's test for an observed table. | `p_value: exact number`, `observed_table_probability: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | EffectIntervalDetails | An effect measure's interval, estimate and the level used per group. | `measure: string`, `level: exact number`, `arm_level: exact number`, `estimate: Option[exact number]`, `lower: exact number`, `upper: Option[exact number]`, `method: string` |
 | ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
@@ -136,6 +137,11 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | CohortStudy | Participants followed from exposure to outcome, with the groups or only the total fixed. | `exposed: Option[integer]`, `unexposed: Option[integer]`, `n: Option[integer]`, `exposure: string`, `outcome: string` |
 | CaseControlStudy | Cases and controls sampled in fixed numbers; estimates odds ratios only. | `cases: integer`, `controls: integer`, `exposure: string`, `outcome: string` |
 | AssociationNull | No association between exposure and outcome: an odds ratio of 1. | `model: Model`, `predicate: string`, `statement: string` |
+| MatchedStudy | A 1:1 matched case-control study: pairs of one case and one control. | `pairs: integer`, `exposure: string`, `outcome: string` |
+| MatchedAnalysis | McNemar's exact test of no association within matched pairs. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `guarantee: Guarantee` |
+| MatchedPairs | Observed pairs by who was exposed: both, only the case, only the control, neither. | `model: MatchedStudy`, `both_exposed: integer`, `case_exposed_only: integer`, `control_exposed_only: integer`, `neither_exposed: integer` |
+| MatchedResult | McNemar's test applied to observed pairs. | `analysis: MatchedAnalysis`, `pairs: MatchedPairs` |
+| MatchedInterval | An interval for the conditional odds ratio of a matched study. | `pairs: MatchedPairs`, `level: exact number` |
 | AssociationTable | An observed 2x2 table: exposed and unexposed cases and noncases. | `model: Model`, `exposed_cases: integer`, `exposed_noncases: integer`, `unexposed_cases: integer`, `unexposed_noncases: integer` |
 | AssociationResult | Fisher's test applied to an observed table. | `analysis: AssociationAnalysis`, `table: AssociationTable` |
 | EffectInterval | An interval for an effect measure the design can estimate. | `measure: string`, `table: AssociationTable`, `level: exact number` |
@@ -317,7 +323,7 @@ Randomisation test of the sharp null that treatment changes no participant's out
 
 ### `models.observational` — Observational studies
 
-Cross-sectional, cohort and case-control studies, whose exposure was not assigned. Each says what its sampling fixed: only the total, the exposed and unexposed groups, or the numbers of cases and controls. The null of no association.
+Cross-sectional, cohort, case-control and 1:1 matched case-control studies, whose exposure was not assigned. Each says what its sampling fixed: only the total, the exposed and unexposed groups, the numbers of cases and controls, or the pairs. The null of no association, observed tables and observed pairs.
 
 - `cross_sectional(n: integer, exposure?: string, outcome?: string) -> CrossSectionalStudy`
   A cross-sectional study: n participants sampled from one population, with exposure and outcome measured at the same time. Only n is fixed, not how many are exposed. It measures prevalence, not incidence. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
@@ -325,6 +331,10 @@ Cross-sectional, cohort and case-control studies, whose exposure was not assigne
   A cohort study: participants followed from exposure to outcome. Give exposed and unexposed when the groups were sampled in fixed numbers, or n when one population was sampled and exposure measured. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
 - `case_control(cases: integer, controls: integer, exposure?: string, outcome?: string) -> CaseControlStudy`
   A case-control study: cases with the outcome and controls without it, sampled in fixed numbers and asked about past exposure. It estimates odds ratios only, never risk or prevalence, because the design fixed how many have the outcome. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
+- `matched_case_control(pairs: integer, exposure?: string, outcome?: string) -> MatchedStudy`
+  A 1:1 matched case-control study: each case matched to one control on chosen characteristics. Its tests and intervals use the pairs where exactly one was exposed; unmatched analyses refuse it. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
+- `observed_pairs(model: MatchedStudy, both_exposed: integer, case_exposed_only: integer, control_exposed_only: integer, neither_exposed: integer) -> MatchedPairs`
+  The observed pairs of a matched study: both exposed, only the case, only the control, or neither. They must add up to the pairs.
 - `observed_table(model: ObservationalStudy, exposed_cases: integer, exposed_noncases: integer, unexposed_cases: integer, unexposed_noncases: integer) -> AssociationTable`
   The observed 2x2 table: exposed and unexposed cases, who have the outcome, and noncases. It must fit what the design fixed: a cohort's group sizes, a case-control study's numbers of cases and controls, or the total.
 - `no_association(model: ObservationalStudy) -> AssociationNull`
@@ -333,10 +343,14 @@ Cross-sectional, cohort and case-control studies, whose exposure was not assigne
 
 ### `tests.association` — Observational studies
 
-Fisher's exact test of no association in an observational 2x2 study, proved in Lean for every design: with the group sizes fixed, and with only the total fixed, by averaging over the number exposed. Its bound concerns association, not an effect of the exposure.
+Fisher's exact test of no association in an observational 2x2 study, proved in Lean for every design: with the group sizes fixed, and with only the total fixed, by averaging over the number exposed. McNemar's exact test for matched pairs, proved given the discordant pairs and on average. Checked p-values for observed data. A bound concerns association, not an effect of the exposure.
 
 - `fisher_exact(design: StudyDesign, null: AssociationNull, alpha: level) -> AssociationAnalysis`
   Fisher's exact test of no association in an observational 2x2 study. Lean proves its level for every design: with group sizes fixed by a cohort or case-control study, and with only the total fixed, by averaging over the number exposed. The bound concerns association, not an effect of the exposure.
+- `mcnemar(design: StudyDesign, null: AssociationNull, alpha: level) -> MatchedAnalysis`
+  McNemar's exact test of no association within matched pairs: given the discordant pairs, a two-sided binomial test at one half. Lean proves its level given the number of discordant pairs and on average over it.
+- `matched_result(analysis: MatchedAnalysis, pairs: MatchedPairs) -> ResultClaim`
+  Claim about the exact p-value and decision of McNemar's test for the observed pairs, with the test's Type I bound.
 - `association_result(analysis: AssociationAnalysis, table: AssociationTable) -> ResultClaim`
   Claim about the exact p-value and decision of Fisher's test for the observed table, with the test's Type I bound. For a design that fixed only the total, the p-value is given the number exposed.
 - `typeI(analysis: Analysis) -> TypeIClaim`
@@ -345,6 +359,8 @@ Fisher's exact test of no association in an observational 2x2 study, proved in L
 
 Intervals for the odds ratio (any design), the risk ratio and difference (cohort) and the prevalence ratio and difference (cross-sectional) from an observed table. Each comes from exact intervals for the two groups' probabilities, with joint coverage proved in Lean; valid for every pair of probabilities, and conservative. A design refuses what it cannot estimate.
 
+- `conditional_odds_ratio(pairs: MatchedPairs, level: level) -> IntervalClaim`
+  Interval for the conditional odds ratio of a matched study, the odds that the case is the exposed one in a discordant pair, from the exact interval for that probability.
 - `odds_ratio(table: AssociationTable, level: level) -> IntervalClaim`
   Interval for the odds ratio at the given confidence level, from exact intervals for each group's probability; valid for every pair of probabilities, and conservative. Any design: for a case-control study it is the odds ratio of exposure, which equals that of the outcome.
 - `risk_ratio(table: AssociationTable, level: level) -> IntervalClaim`
@@ -822,6 +838,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `alternative_in_null` | error | The planning point lies inside the null. |
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
 | `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
+| `matched_design` | error | An unmatched analysis or table is given a matched study, whose matching it ignores. |
 | `not_estimable` | error | The design cannot estimate the measure, such as a risk ratio from a case-control study. |
 | `observational_design` | error | A test that relies on randomised arms is given an observational study, whose exposure was not assigned. |
 | `unit_mismatch` | error | The test's unit does not fit the declared design: it assumes independent participants or observations where clusters or repeated measurements are declared, or it takes one summary per cluster where participants were randomised. |

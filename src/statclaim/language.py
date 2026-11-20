@@ -48,6 +48,15 @@ from statclaim.language_syntax import (
     Statement,
     parse,
 )
+from statclaim.matched import (
+    MAX_PAIRS,
+    PAIR_CELLS,
+    MatchedInterval,
+    MatchedPairs,
+    MatchedResult,
+    MatchedTest,
+    pairs_problem,
+)
 from statclaim.methods import METHOD_MODULES, NULL_FORMS, OUTCOMES, SHARP_NULL, methods_for
 from statclaim.methods.assumptions import (
     ACCOUNTS_FOR,
@@ -88,7 +97,7 @@ from statclaim.randomisation import (
     splits_needed,
 )
 
-LANGUAGE_VERSION = "0.18.0"
+LANGUAGE_VERSION = "0.19.0"
 
 
 class PlannableIR:
@@ -517,6 +526,19 @@ class CaseControlStudyIR(ObservationalStudyIR):
 
 
 @dataclass(frozen=True)
+class MatchedStudyIR(ObservationalStudyIR):
+    """A 1:1 matched case-control study: each case matched to one control on chosen
+    characteristics. Only the pairs where exactly one was exposed carry information."""
+
+    pairs: int = 0
+    design = "matched_case_control"
+
+    @property
+    def n(self) -> int:
+        return self.pairs
+
+
+@dataclass(frozen=True)
 class AssociationNullIR(NullIR):
     """No association between an observational study's exposure and outcome: an odds ratio
     of 1, stated in the terms the design can estimate."""
@@ -610,6 +632,71 @@ class EffectIntervalIR:
 
     def lower(self) -> EffectInterval:
         return EffectInterval(self.measure, self.table.lower(), self.level)
+
+
+@dataclass(frozen=True)
+class MatchedAnalysisIR(LevelTestIR):
+    """McNemar's exact test of no association within matched pairs."""
+
+    plan: PlanIR
+    hypothesis: AssociationNullIR
+    alpha: Fraction
+
+    @property
+    def guarantee(self) -> Guarantee:
+        return Guarantee(
+            "type_I_error", "at_most", self.alpha, self.hypothesis.statement, "finite_sample"
+        )
+
+    def lower(self) -> MatchedTest:
+        model = self.plan.model
+        return MatchedTest(model.pairs, self.alpha, model.exposure, model.outcome)
+
+
+@dataclass(frozen=True)
+class MatchedPairsIR:
+    """Observed pairs of a matched study, classified by who was exposed."""
+
+    model: MatchedStudyIR
+    both_exposed: int
+    case_exposed_only: int
+    control_exposed_only: int
+    neither_exposed: int
+
+    @property
+    def cells(self) -> tuple[int, int, int, int]:
+        return (
+            self.both_exposed,
+            self.case_exposed_only,
+            self.control_exposed_only,
+            self.neither_exposed,
+        )
+
+    def lower(self) -> MatchedPairs:
+        model = self.model
+        return MatchedPairs(model.pairs, self.cells, model.exposure, model.outcome)
+
+
+@dataclass(frozen=True)
+class MatchedResultIR:
+    """McNemar's exact test applied to observed pairs."""
+
+    analysis: MatchedAnalysisIR
+    observed: MatchedPairsIR
+
+    def lower(self) -> MatchedResult:
+        return MatchedResult(self.analysis.lower(), self.observed.lower())
+
+
+@dataclass(frozen=True)
+class MatchedIntervalIR:
+    """An interval for the conditional odds ratio of a matched study."""
+
+    observed: MatchedPairsIR
+    level: Fraction
+
+    def lower(self) -> MatchedInterval:
+        return MatchedInterval(self.observed.lower(), self.level)
 
 
 class FamilyLikeIR:
@@ -957,7 +1044,10 @@ class ClaimIR:
     def guarantee(self) -> Guarantee | None:
         """The error-rate statement this claim asks for, when it is a single bound."""
         subject = self.subject
-        if isinstance(subject, (CitedAnalysisIR, RandomisationAnalysisIR, AssociationAnalysisIR)):
+        if isinstance(
+            subject,
+            (CitedAnalysisIR, RandomisationAnalysisIR, AssociationAnalysisIR, MatchedAnalysisIR),
+        ):
             return subject.guarantee
         if isinstance(subject, ComposedFamilyIR):
             return subject.lower().guarantee
@@ -1171,6 +1261,26 @@ def normalize(value: object) -> object:
                 "exposure": exposure,
                 "outcome": outcome,
             }
+        case MatchedStudyIR(pairs=pairs, exposure=exposure, outcome=outcome):
+            return {
+                "study": "matched_case_control",
+                "pairs": pairs,
+                "exposure": exposure,
+                "outcome": outcome,
+            }
+        case MatchedAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
+            return {
+                "test": "mcnemar",
+                "design": normalize(plan),
+                "null": normalize(hypothesis),
+                "alpha": str(alpha),
+            }
+        case MatchedPairsIR(model=model):
+            return {"model": normalize(model), **dict(zip(PAIR_CELLS, value.cells, strict=True))}
+        case MatchedResultIR(analysis=analysis, observed=observed):
+            return {"analysis": normalize(analysis), "pairs": normalize(observed)}
+        case MatchedIntervalIR(observed=observed, level=level):
+            return {"pairs": normalize(observed), "level": str(level)}
         case AssociationTableIR(model=model):
             return {"model": normalize(model), **dict(zip(CELLS, value.cells, strict=True))}
         case AssociationResultIR(analysis=analysis, table=table):
@@ -1937,6 +2047,11 @@ def _no_association(arguments: dict[str, LocatedValue], span: Span) -> Associati
 
 def _fisher_exact(arguments: dict[str, LocatedValue], span: Span) -> AssociationAnalysisIR:
     design, null = arguments["design"], arguments["null"]
+    _matched_refused(
+        design,
+        "fisher_exact ignores the matching, so its guarantee does not apply to matched pairs. "
+        "Use mcnemar for a matched study.",
+    )
     if not isinstance(design.value.model, ObservationalStudyIR):
         fail(
             "type",
@@ -1954,7 +2069,87 @@ def _fisher_exact(arguments: dict[str, LocatedValue], span: Span) -> Association
     return AssociationAnalysisIR(design.value, null.value, arguments["alpha"].value)
 
 
+def _matched_refused(argument: LocatedValue, message: str) -> None:
+    model = argument.value.model if isinstance(argument.value, PlanIR) else argument.value
+    if isinstance(model, MatchedStudyIR):
+        fail("matched_design", message, argument.span)
+
+
+def _matched_case_control(arguments: dict[str, LocatedValue], span: Span) -> MatchedStudyIR:
+    pairs = arguments["pairs"]
+    if not 1 <= pairs.value <= MAX_PAIRS:
+        fail("domain", f"pairs must be a whole number from 1 to {MAX_PAIRS}.", pairs.span)
+    return MatchedStudyIR(
+        _study_name(arguments, "exposure"), _study_name(arguments, "outcome"), pairs.value
+    )
+
+
+def _observed_pairs(arguments: dict[str, LocatedValue], span: Span) -> MatchedPairsIR:
+    model = arguments["model"].value
+    cells = []
+    for key in PAIR_CELLS:
+        argument = arguments[key]
+        if argument.value < 0:
+            fail("domain", f"{key} must be a whole number, zero or more.", argument.span)
+        cells.append(argument.value)
+    problem = pairs_problem(model.pairs, cells)
+    if problem:
+        fail("domain", problem, span)
+    return MatchedPairsIR(model, *cells)
+
+
+def _mcnemar(arguments: dict[str, LocatedValue], span: Span) -> MatchedAnalysisIR:
+    design, null = arguments["design"], arguments["null"]
+    if not isinstance(design.value.model, MatchedStudyIR):
+        fail(
+            "type",
+            "mcnemar tests matched pairs, but this design is not matched. For unmatched "
+            "groups use fisher_exact.",
+            design.span,
+        )
+    if design.value.model != null.value.model:
+        fail(
+            "model_mismatch",
+            "mcnemar: the null belongs to a different study. Declare no_association(model=...) "
+            "over the study the design samples.",
+            null.span,
+        )
+    return MatchedAnalysisIR(design.value, null.value, arguments["alpha"].value)
+
+
+def _matched_result(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    analysis, observed = arguments["analysis"], arguments["pairs"]
+    if analysis.value.plan.model != observed.value.model:
+        fail(
+            "model_mismatch",
+            "matched_result: the pairs belong to another study than the analysis.",
+            observed.span,
+        )
+    return ClaimIR(
+        "result",
+        MatchedResultIR(analysis.value, observed.value),
+        observed.name or analysis.name or "<expression>",
+    )
+
+
+def _conditional_odds_ratio(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    observed, level = arguments["pairs"], arguments["level"]
+    if not 0 < level.value < 1:
+        fail("domain", "level must lie strictly between 0 and 1.", level.span)
+    interval = MatchedIntervalIR(observed.value, level.value)
+    try:
+        interval.lower()
+    except ValueError as error:
+        fail("domain", str(error), observed.span)
+    return ClaimIR("interval", interval, observed.name or "<expression>")
+
+
 def _observed_table(arguments: dict[str, LocatedValue], span: Span) -> AssociationTableIR:
+    _matched_refused(
+        arguments["model"],
+        "observed_table records two unmatched groups, which loses the pairs. Use "
+        "observed_pairs for a matched study.",
+    )
     model = arguments["model"].value
     cells = []
     for key in CELLS:
@@ -3126,6 +3321,24 @@ MODULES = {
                     "fixed how many have the outcome. " + STUDY_NAMES_DOCUMENTATION,
                 ),
                 _constructor(
+                    "matched_case_control",
+                    (("pairs", "integer"), *STUDY_NAMES),
+                    "MatchedStudy",
+                    _matched_case_control,
+                    documentation="A 1:1 matched case-control study: each case matched to one "
+                    "control on chosen characteristics. Its tests and intervals use the "
+                    "pairs where exactly one was exposed; unmatched analyses refuse it. "
+                    + STUDY_NAMES_DOCUMENTATION,
+                ),
+                _constructor(
+                    "observed_pairs",
+                    (("model", MatchedStudyIR), *((cell, "integer") for cell in PAIR_CELLS)),
+                    "MatchedPairs",
+                    _observed_pairs,
+                    documentation="The observed pairs of a matched study: both exposed, only "
+                    "the case, only the control, or neither. They must add up to the pairs.",
+                ),
+                _constructor(
                     "observed_table",
                     (("model", ObservationalStudyIR), *((cell, "integer") for cell in CELLS)),
                     "AssociationTable",
@@ -3163,6 +3376,24 @@ MODULES = {
                     "not an effect of the exposure.",
                 ),
                 _constructor(
+                    "mcnemar",
+                    (("design", PlanIR), ("null", AssociationNullIR), ("alpha", "level")),
+                    "MatchedAnalysis",
+                    _mcnemar,
+                    documentation="McNemar's exact test of no association within matched "
+                    "pairs: given the discordant pairs, a two-sided binomial test at one half. "
+                    "Lean proves its level given the number of discordant pairs and on "
+                    "average over it.",
+                ),
+                _constructor(
+                    "matched_result",
+                    (("analysis", MatchedAnalysisIR), ("pairs", MatchedPairsIR)),
+                    "ResultClaim",
+                    _matched_result,
+                    documentation="Claim about the exact p-value and decision of McNemar's "
+                    "test for the observed pairs, with the test's Type I bound.",
+                ),
+                _constructor(
                     "association_result",
                     (("analysis", AssociationAnalysisIR), ("table", AssociationTableIR)),
                     "ResultClaim",
@@ -3176,7 +3407,18 @@ MODULES = {
         ),
         Module(
             "estimation.observational",
-            tuple(
+            (
+                _constructor(
+                    "conditional_odds_ratio",
+                    (("pairs", MatchedPairsIR), ("level", "level")),
+                    "IntervalClaim",
+                    _conditional_odds_ratio,
+                    documentation="Interval for the conditional odds ratio of a matched "
+                    "study, the odds that the case is the exposed one in a discordant pair, "
+                    "from the exact interval for that probability.",
+                ),
+            )
+            + tuple(
                 _constructor(
                     measure,
                     (("table", AssociationTableIR), ("level", "level")),

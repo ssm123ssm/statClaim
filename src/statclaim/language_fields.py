@@ -32,6 +32,11 @@ from statclaim.language import (
     HypothesisIR,
     IntervalIR,
     LocatedValue,
+    MatchedAnalysisIR,
+    MatchedIntervalIR,
+    MatchedPairsIR,
+    MatchedResultIR,
+    MatchedStudyIR,
     MeanDifferenceIR,
     ModelIR,
     NullIR,
@@ -78,6 +83,7 @@ from statclaim.language_values import (
     Evidence,
     IntervalDetails,
     MarginDetails,
+    MatchedResultDetails,
     OneSampleDetails,
     OneSampleResultDetails,
     PlanningDetails,
@@ -148,6 +154,36 @@ SCHEMAS = {
         "model": FieldSpec(StudyModelIR),
         "predicate": FieldSpec(str),
         "statement": FieldSpec(str),
+    },
+    MatchedStudyIR: {
+        "pairs": FieldSpec(int, description="Pairs of one case and one control."),
+        **STUDY_FIELDS,
+    },
+    MatchedAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(AssociationNullIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction, description="Exact declared significance level."),
+        "guarantee": FieldSpec(Guarantee, description="The error-rate statement Lean proves."),
+    },
+    MatchedPairsIR: {
+        "model": FieldSpec(MatchedStudyIR),
+        **{cell: FieldSpec(int) for cell in ("both_exposed", "case_exposed_only")},
+        **{cell: FieldSpec(int) for cell in ("control_exposed_only", "neither_exposed")},
+    },
+    MatchedResultIR: {
+        "analysis": FieldSpec(MatchedAnalysisIR),
+        "pairs": FieldSpec(MatchedPairsIR, attribute="observed"),
+    },
+    MatchedIntervalIR: {
+        "pairs": FieldSpec(MatchedPairsIR, attribute="observed"),
+        "level": FieldSpec(Fraction),
+    },
+    MatchedResultDetails: {
+        "discordant_pairs": FieldSpec(int),
+        "p_value": FieldSpec(Fraction, description="Exact two-sided p-value."),
+        "alpha": FieldSpec(Fraction),
+        "reject_null": FieldSpec(bool),
+        "test": FieldSpec(str),
     },
     AssociationTableIR: {
         "model": FieldSpec(StudyModelIR),
@@ -524,8 +560,10 @@ def details_kind(claim: ClaimIR) -> type:
         return MarginDetails
     if isinstance(claim.subject, DifferenceIntervalIR):
         return DifferenceDetails
-    if isinstance(claim.subject, EffectIntervalIR):
+    if isinstance(claim.subject, (EffectIntervalIR, MatchedIntervalIR)):
         return EffectIntervalDetails
+    if isinstance(claim.subject, MatchedResultIR):
+        return MatchedResultDetails
     if isinstance(claim.subject, AssociationResultIR):
         return AssociationResultDetails
     if isinstance(claim.subject, IntervalIR):

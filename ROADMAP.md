@@ -51,6 +51,8 @@
 - Observed 2x2 tables with checked p-values, and conservative intervals for odds,
   risk and prevalence ratios and differences; each design estimates only what its
   sampling allows.
+- Matched case-control studies: McNemar's exact test and the conditional odds
+  ratio, proved in Lean; unmatched analyses refuse matched pairs.
 
 ## Direction
 

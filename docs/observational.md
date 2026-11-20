@@ -10,6 +10,7 @@ fixed, what the study can estimate and how a test is justified.
 | Cohort, groups sampled | `cohort(exposed, unexposed)` | the exposed and unexposed groups | risk, risk ratio and difference, odds ratio |
 | Cohort, one population | `cohort(n)` | the total | as above |
 | Case-control | `case_control(cases, controls)` | the cases and controls | odds ratio only |
+| Matched case-control | `matched_case_control(pairs)` | the pairs of one case and one control | conditional odds ratio |
 
 Each constructor takes `exposure` and `outcome` names, which the claims use.
 `no_association(model=...)` is the null: an odds ratio of 1, stated in the
@@ -70,6 +71,27 @@ fixed, joint coverage holds given the number exposed and so on average:
 probabilities and wider than large-sample ones. A ratio has no finite upper
 bound when the reference group's lower end is zero.
 
+## Matched pairs
+
+`matched_case_control(pairs)` declares a 1:1 matched study, and
+`observed_pairs(model=..., both_exposed=, case_exposed_only=,
+control_exposed_only=, neither_exposed=)` records who was exposed in each pair.
+Only the discordant pairs, where exactly one was exposed, carry information.
+
+- `mcnemar(design, null, alpha)` is McNemar's exact test: given the discordant
+  pairs, a two-sided binomial test at one half. Lean proves its level given their
+  number and, since that number is binomial too, on average
+  (`StatClaim.Modules.Matched.typeI`). `matched_result` checks the p-value and
+  decision for observed pairs.
+- `conditional_odds_ratio(pairs, level)` is the odds that the case is the exposed
+  one in a discordant pair, from the exact interval for that probability
+  (`pairs_coverage`, `odds_contains`).
+
+`fisher_exact` and `observed_table` refuse a matched study with
+`matched_design`: an unmatched analysis ignores the matching, and Fisher's
+theorem assumes independent groups. The assumptions list one conditional odds
+ratio shared by all pairs.
+
 ## What is refused
 
 Tests and nulls of randomised arms (`fisher`, `t_test`, `randomisation_test`,
@@ -83,5 +105,5 @@ A bound concerns association in the population sampled. It is never a claim
 about an effect of the exposure: confounding is not excluded. Each report says
 so under the claim.
 
-Not yet supported: matched designs, prevalence and incidence estimates,
-regression with covariates and complex samples.
+Not yet supported: matching with several controls per case, prevalence and
+incidence estimates, regression with covariates and complex samples.

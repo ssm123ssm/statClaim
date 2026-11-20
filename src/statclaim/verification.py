@@ -14,6 +14,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from statclaim import __version__
+from statclaim import matched as matched_module
 from statclaim.association import (
     ASSOCIATION_KIND,
     INTERVAL_THEOREMS,
@@ -351,6 +352,33 @@ def _profile(kind: str, payload: dict) -> dict:
             if interval.table.fixed_groups
             else "StatClaim.Modules.Association.mixture_joint_coverage"
         )
+    elif kind == matched_module.MATCHED_KIND:
+        test = matched_module.parse_matched_payload(payload)
+        claims = matched_module.matched_claims(test)
+        assumptions = list(matched_module.matched_assumptions(test))
+        theorems = matched_module.DESIGN_THEOREMS
+        scope = (
+            "The declared McNemar test in a matched case-control study, under no association "
+            "within pairs; no observed results are certified."
+        )
+        general_theorem = matched_module.GENERAL_THEOREM
+    elif kind == matched_module.MATCHED_RESULT_KIND:
+        result = matched_module.parse_result_payload(payload)
+        claims = matched_module.result_claims(result)
+        assumptions = list(matched_module.result_assumptions(result))
+        theorems = matched_module.DESIGN_THEOREMS + matched_module.RESULT_THEOREMS
+        scope = "These observed pairs and the declared McNemar test; not other data."
+        general_theorem = matched_module.GENERAL_THEOREM
+    elif kind == matched_module.MATCHED_INTERVAL_KIND:
+        interval = matched_module.parse_interval_payload(payload)
+        claims = matched_module.interval_claims(interval)
+        assumptions = list(matched_module.interval_assumptions(interval))
+        theorems = matched_module.INTERVAL_THEOREMS
+        scope = (
+            "Coverage of the exact interval for the probability that the case is the exposed "
+            "one, and the reported interval for the conditional odds ratio of these pairs."
+        )
+        general_theorem = "StatClaim.Modules.Matched.pairs_coverage"
     elif kind == INTERVAL_KIND:
         claims = interval_claims(parse_interval_payload(payload))
         assumptions, theorems = INTERVAL_ASSUMPTIONS, INTERVAL_CHECKED_THEOREMS
@@ -522,6 +550,18 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_randomisation_proof(parse_randomisation_payload(payload), input_id)
     if kind == ASSOCIATION_KIND:
         return render_association_proof(parse_association_payload(payload), input_id)
+    if kind == matched_module.MATCHED_KIND:
+        return matched_module.render_matched_proof(
+            matched_module.parse_matched_payload(payload), input_id
+        )
+    if kind == matched_module.MATCHED_RESULT_KIND:
+        return matched_module.render_result_proof(
+            matched_module.parse_result_payload(payload), input_id
+        )
+    if kind == matched_module.MATCHED_INTERVAL_KIND:
+        return matched_module.render_interval_proof(
+            matched_module.parse_interval_payload(payload), input_id
+        )
     if kind == ASSOCIATION_RESULT_KIND:
         return render_association_result_proof(parse_association_result_payload(payload), input_id)
     if kind == EFFECT_INTERVAL_KIND:
@@ -907,6 +947,20 @@ def certify_effect_interval(
         output=output,
         timeout=timeout,
     )
+
+
+def certify_matched(
+    subject, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify a matched design's test, an observed result or a conditional odds ratio."""
+    if isinstance(subject, matched_module.MatchedResult):
+        payload, kind = matched_module.result_payload(subject), matched_module.MATCHED_RESULT_KIND
+    elif isinstance(subject, matched_module.MatchedInterval):
+        payload = matched_module.interval_payload(subject)
+        kind = matched_module.MATCHED_INTERVAL_KIND
+    else:
+        payload, kind = matched_module.matched_payload(subject), matched_module.MATCHED_KIND
+    return _certify_payload(payload, kind, project=project, output=output, timeout=timeout)
 
 
 def _certify_payload(

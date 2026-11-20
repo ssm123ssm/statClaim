@@ -18,6 +18,9 @@ from statclaim.language import (
     FeasibilityIR,
     IntervalIR,
     LocatedValue,
+    MatchedAnalysisIR,
+    MatchedIntervalIR,
+    MatchedResultIR,
     ObservationIR,
     OneSampleObservationIR,
     RandomisationAnalysisIR,
@@ -48,6 +51,7 @@ from statclaim.report import (
     effect_interval_report,
     interval_report,
     margin_report,
+    matched_report,
     planning_report,
     randomisation_report,
     stage_result_report,
@@ -235,6 +239,13 @@ def _inspect(request: RequestIR) -> dict:
     subject = request.claim.subject
     if request.claim.kind in ("meets", "sample_size"):
         return inspect_planning(request)
+    if isinstance(subject, (MatchedAnalysisIR, MatchedResultIR, MatchedIntervalIR)):
+        plan = getattr(getattr(subject, "analysis", subject), "plan", None)
+        return matched_report(
+            subject.lower(),
+            stopping=plan.stopping if plan is not None else "fixed",
+            verify=request.operation == "verify",
+        )
     if isinstance(subject, EffectIntervalIR):
         return effect_interval_report(subject.lower(), verify=request.operation == "verify")
     if isinstance(subject, AssociationResultIR):

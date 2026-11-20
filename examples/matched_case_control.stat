@@ -1,0 +1,19 @@
+# A 1:1 matched case-control study. Each case of hip fracture was matched to one control of
+# the same age, sex and practice. Only discordant pairs, where one of the two used the
+# drug, carry information; an unmatched test would ignore the matching and is refused.
+use models.observational
+use sampling
+use tests.association
+use estimation.observational
+
+let paired = matched_case_control(pairs=220, exposure="benzodiazepine use", outcome="hip fracture")
+let analysis = mcnemar(design=fixed(model=paired), null=no_association(model=paired), alpha=1/20)
+let seen = observed_pairs(
+    model=paired,
+    both_exposed=18,
+    case_exposed_only=31,
+    control_exposed_only=17,
+    neither_exposed=154,
+)
+let result = verify(matched_result(analysis=analysis, pairs=seen))
+let odds = verify(conditional_odds_ratio(pairs=seen, level=19/20))

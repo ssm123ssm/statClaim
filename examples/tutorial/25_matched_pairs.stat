@@ -1,0 +1,26 @@
+# Lesson 25: a matched case-control study, where each case has its own control.
+use models.observational
+use sampling
+use tests.association
+use estimation.observational
+
+# 150 people with lung cancer, each matched to one control of the same age and sex.
+let paired = matched_case_control(pairs=150, exposure="smoking", outcome="lung cancer")
+let by_pairs = mcnemar(
+    design=fixed(model=paired),
+    null=no_association(model=paired),
+    alpha=1/20,
+)
+
+# Who smoked in each pair: in 35 pairs only the case did, in 15 only the control.
+let seen = observed_pairs(
+    model=paired,
+    both_exposed=40,
+    case_exposed_only=35,
+    control_exposed_only=15,
+    neither_exposed=60,
+)
+
+let design_claim = verify(typeI(by_pairs))
+let tested = verify(matched_result(analysis=by_pairs, pairs=seen))
+let odds = verify(conditional_odds_ratio(pairs=seen, level=19/20))

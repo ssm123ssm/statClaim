@@ -24,6 +24,7 @@ from statclaim.language import (
     ComposedFamilyIR,
     FamilyIR,
     FeasibilityIR,
+    MatchedAnalysisIR,
     OneArmCandidatesIR,
     OneSampleAnalysisIR,
     ProgramIR,
@@ -33,6 +34,7 @@ from statclaim.language import (
     named_outcomes,
     normalize,
 )
+from statclaim.matched import matched_assumptions
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
 from statclaim.randomisation import randomisation_assumptions
 
@@ -133,6 +135,14 @@ RULES = {
     "association-contract": Rule(
         "The same-model, supported-null, level-range and observational-sampling rules hold.",
         "{subject}: the design, the null and the level fit Fisher's exact test of association.",
+    ),
+    "matched-sampling": Rule(
+        "The design is a 1:1 matched case-control study with a positive number of pairs.",
+        "{subject}: the study matches {pairs} pairs of one case and one control.",
+    ),
+    "mcnemar-contract": Rule(
+        "The same-model, supported-null, level-range and matched-sampling rules hold.",
+        "{subject}: the design, the null and the level fit McNemar's exact test.",
     ),
     "cited-contract": Rule(
         "The same-model, supported-null, level-interior and enough-data rules hold.",
@@ -302,6 +312,7 @@ RULES = {
 
 RANDOMISATION_CONTRACT_ID = "tests.randomisation/randomisation_test"
 ASSOCIATION_CONTRACT_ID = "tests.association/fisher_exact"
+MCNEMAR_CONTRACT_ID = "tests.association/mcnemar"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 MARGIN_CONTRACT_ID = "tests.difference/difference_test"
 CONTRACT_IDS = {
@@ -651,6 +662,44 @@ def derive_association(name: str, analysis: AssociationAnalysisIR) -> Derivation
         builder.steps[final].conclusion,
         tuple(builder.steps),
         association_assumptions(analysis.lower()),
+        tuple(builder.obligations),
+        normalize(analysis),
+    )
+
+
+def derive_matched(name: str, analysis: MatchedAnalysisIR) -> Derivation:
+    """Why McNemar's test fits. Its guarantee is proved, not carried."""
+    builder = _Builder()
+    study = normalize(analysis.plan.model)
+    used = (
+        builder.apply(
+            "same-model",
+            {
+                "subject": name,
+                "design_model": study,
+                "null_model": normalize(analysis.hypothesis.model),
+            },
+        ),
+        builder.apply(
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": analysis.hypothesis.predicate,
+                "statement": analysis.hypothesis.statement,
+                "supported": ["no_association"],
+            },
+        ),
+        builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
+        builder.apply("matched-sampling", {"subject": name, "pairs": study["pairs"]}),
+    )
+    final = builder.apply("mcnemar-contract", {"subject": name}, used)
+    _sampling(builder, name, analysis)
+    return Derivation(
+        name,
+        MCNEMAR_CONTRACT_ID,
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        matched_assumptions(),
         tuple(builder.obligations),
         normalize(analysis),
     )
@@ -1125,6 +1174,8 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
             derivations.append(derive_randomisation(binding.name, value))
         elif isinstance(value, AssociationAnalysisIR):
             derivations.append(derive_association(binding.name, value))
+        elif isinstance(value, MatchedAnalysisIR):
+            derivations.append(derive_matched(binding.name, value))
         elif isinstance(value, ComposedFamilyIR):
             derivations.append(derive_composed(binding.name, value))
         elif isinstance(value, FamilyIR):

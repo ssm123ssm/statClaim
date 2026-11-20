@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1909,6 +1909,78 @@ does. The design declaration is what lets StatClaim tell them apart.</div>
     <div class="task"><h4>Try it</h4><p>Make 0 of the 400 non-smokers develop asthma (and 400 not) and check <code>risk</code> again: the risk ratio has no finite upper bound, and the claim says so.</p></div>
   </div>
 </section>
+<section class="lesson" id="matched">
+  <p class="eyebrow">Lesson 25</p>
+  <h2>Matched pairs</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Match each case to its own control, and the analysis must use the pairs. StatClaim proves McNemar&#x27;s exact test and an interval for the conditional odds ratio, and refuses an unmatched test.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/25_matched_pairs.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 25: a matched case-control study, where each case has its own control.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.association
+<span class="k">use</span> estimation.observational
+
+<span class="c"># 150 people with lung cancer, each matched to one control of the same age and sex.</span>
+<span class="k">let</span> paired = <span class="f">matched_case_control</span>(pairs=150, exposure=&quot;smoking&quot;, outcome=&quot;lung cancer&quot;)
+<span class="k">let</span> by_pairs = <span class="f">mcnemar</span>(
+    design=<span class="f">fixed</span>(model=paired),
+    null=<span class="f">no_association</span>(model=paired),
+    alpha=1/20,
+)
+
+<span class="c"># Who smoked in each pair: in 35 pairs only the case did, in 15 only the control.</span>
+<span class="k">let</span> seen = <span class="f">observed_pairs</span>(
+    model=paired,
+    both_exposed=40,
+    case_exposed_only=35,
+    control_exposed_only=15,
+    neither_exposed=60,
+)
+
+<span class="k">let</span> design_claim = <span class="f">verify</span>(typeI(by_pairs))
+<span class="k">let</span> tested = <span class="f">verify</span>(<span class="f">matched_result</span>(analysis=by_pairs, pairs=seen))
+<span class="k">let</span> odds = <span class="f">verify</span>(<span class="f">conditional_odds_ratio</span>(pairs=seen, level=19/20))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>matched_case_control(pairs=150, ...)</code></dt>
+  <dd>Each case matched to one control on chosen characteristics, such as age and sex.</dd>
+  <dt><code>observed_pairs(...)</code></dt>
+  <dd>Pairs by who was exposed. Only the 50 discordant pairs, where exactly one smoked,
+  carry information.</dd>
+  <dt><code>mcnemar</code>, <code>conditional_odds_ratio</code></dt>
+  <dd>Given the discordant pairs, a two-sided binomial test at one half, and the odds that
+  the case is the smoker, 35 to 15.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [tested]: result(seen)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  For the observed pairs (35 pairs with only the case exposed and 15 with only the control, of 50 discordant; 40 with both and 60 with neither), both binomial tails at one half equal the Lean definitions; the exact two-sided p-value is 928930468869/140737488355328 (about 0.0066).
+  The test rejects no association within pairs at level 1/20, as membership in the formal rejection event says.
+  ...
+<span class="ok">verified</span> [odds]: interval(seen)
+  ...
+  For the observed pairs (...), whenever the set contains it, the conditional odds ratio lies within [1.242, 4.599], for probabilities below 1.
+  Assumptions:
+    Each case was matched to one control on the declared characteristics, and the pairs were sampled independently of one another, in the declared number.
+    In every discordant pair the case has the same probability of being the exposed one: one conditional odds ratio for all pairs.
+    ...
+Program status: verified</code></pre></div>
+<p>How many pairs are discordant is not fixed in advance. Given that number, the test has
+level 1/20; it is binomial, so the average keeps the level, the same step that lesson 23
+used for the number exposed. The interval for the probability that the case is the smoker
+becomes one for its odds, the conditional odds ratio.</p>
+<p>Now analyse the pairs as two unmatched groups: change <code>mcnemar</code> to
+<code>fisher_exact</code> in <code>by_pairs</code>.</p>
+<div class="scroll output"><pre><code>25_matched_pairs.stat:10:12: <span class="bad">error [matched_design]</span>: fisher_exact ignores the matching, so its
+guarantee does not apply to matched pairs. Use mcnemar for a matched study.
+Program status: invalid</code></pre></div>
+<div class="note"><strong>Why not ignore the matching?</strong> Matching makes cases and
+controls alike on the matched characteristics, so the two groups are not independent
+samples. Fisher&#x27;s theorem assumes they are; its bound does not cover matched pairs.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>matched_case_control</code> declares the pairs; <code>observed_pairs</code> records them.</li><li><code>mcnemar</code> and <code>conditional_odds_ratio</code> use the discordant pairs, proved in Lean.</li><li>Unmatched tests and tables refuse a matched study.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Set <code>control_exposed_only=0</code> and <code>neither_exposed=75</code>: the odds ratio has no finite upper bound, and the claim says so.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1927,6 +1999,7 @@ does. The design declaration is what lets StatClaim tell them apart.</div>
       <tr><td>Say who is analysed, or name an outcome</td><td>any two-arm model module</td><td><code>assignment(population=...)</code>, <code>binary_outcome(name=...)</code></td><td>22</td></tr>
       <tr><td>Test association in a cohort, case-control or cross-sectional study</td><td><code>models.observational</code>, <code>sampling</code>, <code>tests.association</code></td><td><code>fisher_exact</code> with <code>typeI</code></td><td>23</td></tr>
       <tr><td>Estimate an odds, risk or prevalence ratio from an observed table</td><td><code>estimation.observational</code></td><td><code>odds_ratio</code>, <code>risk_ratio</code>, <code>prevalence_ratio</code> and differences</td><td>24</td></tr>
+      <tr><td>Analyse a matched case-control study</td><td><code>models.observational</code>, <code>tests.association</code>, <code>estimation.observational</code></td><td><code>mcnemar</code>, <code>matched_result</code>, <code>conditional_odds_ratio</code></td><td>25</td></tr>
       <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
       <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>

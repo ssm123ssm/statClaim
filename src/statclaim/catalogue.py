@@ -43,16 +43,18 @@ MODULE_CLASSES = {
     ),
     "models.observational": (
         "Observational studies",
-        "Cross-sectional, cohort and case-control studies, whose exposure was not assigned. "
-        "Each says what its sampling fixed: only the total, the exposed and unexposed groups, "
-        "or the numbers of cases and controls. The null of no association.",
+        "Cross-sectional, cohort, case-control and 1:1 matched case-control studies, whose "
+        "exposure was not assigned. Each says what its sampling fixed: only the total, the "
+        "exposed and unexposed groups, the numbers of cases and controls, or the pairs. The "
+        "null of no association, observed tables and observed pairs.",
     ),
     "tests.association": (
         "Observational studies",
         "Fisher's exact test of no association in an observational 2x2 study, proved in Lean "
         "for every design: with the group sizes fixed, and with only the total fixed, by "
-        "averaging over the number exposed. Its bound concerns association, not an effect of "
-        "the exposure.",
+        "averaging over the number exposed. McNemar's exact test for matched pairs, proved "
+        "given the discordant pairs and on average. Checked p-values for observed data. A "
+        "bound concerns association, not an effect of the exposure.",
     ),
     "estimation.observational": (
         "Observational studies",
@@ -289,6 +291,27 @@ OBJECT_CLASSES = {
     "AssociationNull": (
         "Observational studies",
         "No association between exposure and outcome: an odds ratio of 1.",
+    ),
+    "MatchedStudy": (
+        "Observational studies",
+        "A 1:1 matched case-control study: pairs of one case and one control.",
+    ),
+    "MatchedAnalysis": (
+        "Observational studies",
+        "McNemar's exact test of no association within matched pairs.",
+    ),
+    "MatchedPairs": (
+        "Observational studies",
+        "Observed pairs by who was exposed: both, only the case, only the control, neither.",
+    ),
+    "MatchedResult": ("Observational studies", "McNemar's test applied to observed pairs."),
+    "MatchedInterval": (
+        "Observational studies",
+        "An interval for the conditional odds ratio of a matched study.",
+    ),
+    "MatchedResultDetails": (
+        "Evidence and inspection",
+        "Exact p-value and decision of McNemar's test for observed pairs.",
     ),
     "AssociationTable": (
         "Observational studies",

@@ -18,6 +18,9 @@ from statclaim.language import (
     EffectIntervalIR,
     FamilyIR,
     FeasibilityIR,
+    MatchedAnalysisIR,
+    MatchedIntervalIR,
+    MatchedResultIR,
     ObservationIR,
     OneArmCandidatesIR,
     OneSampleObservationIR,
@@ -57,6 +60,7 @@ from statclaim.report import (
     run_interval,
     run_margin,
     run_margin_search,
+    run_matched,
     run_one_sample_search,
     run_policy_plan,
     run_power_plan,
@@ -157,6 +161,17 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             ratio=candidates.ratio,
             alternative=candidates.analysis.alternative,
             **options,
+        )
+    if isinstance(subject, (MatchedAnalysisIR, MatchedResultIR, MatchedIntervalIR)):
+        analysis = getattr(subject, "analysis", subject)
+        plan = getattr(analysis, "plan", None)
+        return run_matched(
+            subject.lower(),
+            verify=request.operation == "verify",
+            stopping=plan.stopping if plan is not None else "fixed",
+            project=project,
+            output=output,
+            timeout=timeout,
         )
     if isinstance(subject, EffectIntervalIR):
         return run_effect_interval(
@@ -649,6 +664,13 @@ def render_report(report: dict, source: Source) -> str:
             lines.extend(_planning_lines(details))
         elif request["status"] == "calculated" and "measure" in details["calculation"]:
             lines.append(_effect_line(details["calculation"]))
+        elif request["status"] == "calculated" and "discordant_pairs" in details["calculation"]:
+            calculation = details["calculation"]
+            p_value = float(Fraction(calculation["p_value"]["fraction"]))
+            lines.append(
+                f"  {calculation['discordant_pairs']} discordant pairs; p-value ~ {p_value:.4g}; "
+                f"decision = {details['decision']}; no formal certificate issued."
+            )
         elif request["status"] == "calculated" and "exposed_cases" in details["calculation"]:
             calculation = details["calculation"]
             p_value = float(Fraction(calculation["p_value"]["fraction"]))

@@ -221,6 +221,10 @@ DIAGNOSTICS = {
         "error",
         "A one-sided null asks about the direction the model's better= does not call better.",
     ),
+    "matched_design": (
+        "error",
+        "An unmatched analysis or table is given a matched study, whose matching it ignores.",
+    ),
     "not_estimable": (
         "error",
         "The design cannot estimate the measure, such as a risk ratio from a case-control study.",

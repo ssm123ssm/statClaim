@@ -45,6 +45,7 @@ NULL_STATEMENTS = {
     "cohort": "risk_exposed = risk_unexposed",
     "case_control": "exposure_cases = exposure_controls",
     "cross_sectional": "prevalence_exposed = prevalence_unexposed",
+    "matched_case_control": "conditional_odds_ratio = 1",
 }
 
 # Bound into certificates and derivations; methods/identify.py recognises each one.

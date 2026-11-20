@@ -125,6 +125,10 @@ class AssociationResultDetails(PlanningDetails):
     """Calculated p-value and decision of Fisher's test for an observed 2x2 table."""
 
 
+class MatchedResultDetails(PlanningDetails):
+    """Calculated p-value and decision of McNemar's test for observed matched pairs."""
+
+
 class EffectIntervalDetails(PlanningDetails):
     """Calculated interval for an odds, risk or prevalence ratio or difference."""
 

@@ -21,6 +21,9 @@ RECOGNISED = [
     (r"^Participants' exposures are independent", "independent_exposures", "sampling"),
     (r"^Controls come from the population that gave rise", "source_population", "sampling"),
     (r"^The odds ratio of exposure between cases and controls", "odds_ratio_identity", "sampling"),
+    (r"^Each case was matched to one control", "matched_pairs", "design"),
+    (r"^In every discordant pair the case has the same", "common_conditional_odds", "sampling"),
+    (r"supplied pairs describe the declared", "data_match_declaration", "data"),
     (r"^The confidence level was chosen before", "prespecified_analysis", "design"),
     (r"supplied table describes the declared", "data_match_declaration", "data"),
     # The randomisation test (statclaim.randomisation).

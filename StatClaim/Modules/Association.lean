@@ -47,21 +47,24 @@ theorem groups_typeI_le_alpha (first second : ℕ) (p : unitInterval) (alpha : �
 outcome counts among the unexposed and among the exposed. -/
 abbrev Table := ℕ × (ℕ × ℕ)
 
+variable {α : Type} [MeasurableSpace α] [MeasurableSingletonClass α] [Countable α]
+
 /-- `n` participants, each exposed with probability `q`; given `k` exposed, the counts
-follow `inner k`. -/
-noncomputable def mixture (n : ℕ) (q : unitInterval) (inner : ℕ → Measure (ℕ × ℕ)) :
-    Measure Table :=
+follow `inner k`. Matched pairs use the same form: `k` is the number of discordant pairs. -/
+noncomputable def mixture (n : ℕ) (q : unitInterval) (inner : ℕ → Measure α) :
+    Measure (ℕ × α) :=
   ∑ k ∈ Finset.range (n + 1),
     ENNReal.ofReal (binomialMass n (q : ℝ) k) • (Measure.dirac k).prod (inner k)
 
 /-- An event that depends on the number exposed. -/
-def given (n : ℕ) (event : ℕ → Set (ℕ × ℕ)) : Set Table :=
+def given (n : ℕ) (event : ℕ → Set α) : Set (ℕ × α) :=
   {table | table.1 ≤ n ∧ table.2 ∈ event table.1}
 
-theorem term_apply (n k : ℕ) (k_le : k ≤ n) (inner : Measure (ℕ × ℕ)) [SFinite inner]
-    (event : ℕ → Set (ℕ × ℕ)) :
+theorem term_apply (n k : ℕ) (k_le : k ≤ n) (inner : Measure α) [SFinite inner]
+    (event : ℕ → Set α) :
     (Measure.dirac k).prod inner (given n event) = inner (event k) := by
-  rw [Measure.dirac_prod, Measure.map_apply measurable_prodMk_left (.of_discrete)]
+  rw [Measure.dirac_prod,
+    Measure.map_apply measurable_prodMk_left (Set.to_countable _).measurableSet]
   congr 1
   ext counts
   simp [given, k_le]
@@ -72,8 +75,8 @@ theorem weights_sum (n : ℕ) (q : unitInterval) :
     (fun k _ => binomialMass_nonnegative n (q : ℝ) k q.property.1 q.property.2),
     binomialMass_sum_one, ENNReal.ofReal_one]
 
-theorem mixture_apply (n : ℕ) (q : unitInterval) (inner : ℕ → Measure (ℕ × ℕ))
-    [∀ k, SFinite (inner k)] (event : ℕ → Set (ℕ × ℕ)) :
+theorem mixture_apply (n : ℕ) (q : unitInterval) (inner : ℕ → Measure α)
+    [∀ k, SFinite (inner k)] (event : ℕ → Set α) :
     mixture n q inner (given n event) =
       ∑ k ∈ Finset.range (n + 1),
         ENNReal.ofReal (binomialMass n (q : ℝ) k) * inner k (event k) := by
@@ -82,19 +85,21 @@ theorem mixture_apply (n : ℕ) (q : unitInterval) (inner : ℕ → Measure (ℕ
   intro k member
   rw [term_apply n k (Nat.lt_succ_iff.mp (Finset.mem_range.mp member))]
 
-theorem mixture_univ (n : ℕ) (q : unitInterval) (inner : ℕ → Measure (ℕ × ℕ))
+omit [MeasurableSingletonClass α] [Countable α] in
+theorem mixture_univ (n : ℕ) (q : unitInterval) (inner : ℕ → Measure α)
     [∀ k, IsProbabilityMeasure (inner k)] : mixture n q inner Set.univ = 1 := by
   simp only [mixture, Measure.coe_finsetSum, Finset.sum_apply, Measure.smul_apply, smul_eq_mul,
     measure_univ, mul_one]
   exact weights_sum n q
 
-instance mixture_isProbabilityMeasure (n : ℕ) (q : unitInterval) (inner : ℕ → Measure (ℕ × ℕ))
+omit [MeasurableSingletonClass α] [Countable α] in
+instance mixture_isProbabilityMeasure (n : ℕ) (q : unitInterval) (inner : ℕ → Measure α)
     [∀ k, IsProbabilityMeasure (inner k)] : IsProbabilityMeasure (mixture n q inner) :=
   ⟨mixture_univ n q inner⟩
 
 /-- Averaging keeps an upper bound that holds for every number exposed. -/
-theorem mixture_le (n : ℕ) (q : unitInterval) (inner : ℕ → Measure (ℕ × ℕ))
-    [∀ k, IsProbabilityMeasure (inner k)] (event : ℕ → Set (ℕ × ℕ)) (c : ℝ) (hc : 0 ≤ c)
+theorem mixture_le (n : ℕ) (q : unitInterval) (inner : ℕ → Measure α)
+    [∀ k, IsProbabilityMeasure (inner k)] (event : ℕ → Set α) (c : ℝ) (hc : 0 ≤ c)
     (bound : ∀ k ≤ n, (inner k).real (event k) ≤ c) :
     (mixture n q inner).real (given n event) ≤ c := by
   have total : mixture n q inner (given n event) ≤ ENNReal.ofReal c := by
@@ -111,8 +116,8 @@ theorem mixture_le (n : ℕ) (q : unitInterval) (inner : ℕ → Measure (ℕ ×
   exact ENNReal.toReal_le_of_le_ofReal hc total
 
 /-- Averaging keeps a lower bound that holds for every number exposed. -/
-theorem le_mixture (n : ℕ) (q : unitInterval) (inner : ℕ → Measure (ℕ × ℕ))
-    [∀ k, IsProbabilityMeasure (inner k)] (event : ℕ → Set (ℕ × ℕ)) (c : ℝ)
+theorem le_mixture (n : ℕ) (q : unitInterval) (inner : ℕ → Measure α)
+    [∀ k, IsProbabilityMeasure (inner k)] (event : ℕ → Set α) (c : ℝ)
     (bound : ∀ k ≤ n, c ≤ (inner k).real (event k)) :
     c ≤ (mixture n q inner).real (given n event) := by
   rcases le_or_gt c 0 with nonpositive | positive
