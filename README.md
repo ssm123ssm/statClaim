@@ -1,9 +1,10 @@
 # StatClaim
 
-**Check that a statistical guarantee applies to your study.**
+**Study designs as types. Protocols as programs. Statistical claims as proof obligations.**
 
-StatClaim helps researchers make study assumptions explicit, catch incompatible
-analyses, and obtain machine-checked evidence for supported statistical claims.
+StatClaim checks that a statistical guarantee applies to your study. It helps
+researchers make study assumptions explicit, catch incompatible analyses, and
+obtain machine-checked evidence for supported statistical claims.
 
 [![Check](https://img.shields.io/github/actions/workflow/status/ssm123ssm/statClaim/check.yml?branch=main&style=flat&label=Check&logo=github&logoColor=white)](https://github.com/ssm123ssm/statClaim/actions/workflows/check.yml)
 [![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in_GitHub_Codespaces-24292f?style=flat&logo=github&logoColor=white)](https://codespaces.new/ssm123ssm/statClaim)
