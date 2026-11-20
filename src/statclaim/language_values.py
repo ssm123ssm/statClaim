@@ -101,6 +101,10 @@ class PlanningDetails:
         return thaw(self.record)
 
 
+class SimulationDetails(PlanningDetails):
+    """Power and Type I error estimated by simulation, with 95% intervals. Not evidence."""
+
+
 class OneSampleDetails(PlanningDetails):
     """Calculated critical value, error and power of a one-sample test."""
 
@@ -268,6 +272,8 @@ class CalculationResult:
     calculation: Mapping | None = None
     decision: str | None = None
     diagnostics: tuple[Diagnostic, ...] = ()
+    # calculate or simulate: which request made it, and so what its calculation holds.
+    operation: str = "calculate"
 
     def __post_init__(self):
         object.__setattr__(self, "calculation", freeze(self.calculation))
@@ -282,6 +288,7 @@ class CalculationResult:
             "calculation": thaw(self.calculation),
             "decision": self.decision,
             "diagnostics": [d.to_dict() for d in self.diagnostics],
+            **({"operation": self.operation} if self.operation != "calculate" else {}),
         }
 
 

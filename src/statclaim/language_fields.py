@@ -96,6 +96,7 @@ from statclaim.language_values import (
     PlanningDetails,
     PolicyDetails,
     RateResultDetails,
+    SimulationDetails,
     StageResultDetails,
     VerificationResult,
 )
@@ -502,6 +503,41 @@ SCHEMAS = {
         "candidates_evaluated": FieldSpec(int, optional=True),
         "minimum_sample_size_claim": FieldSpec(str, optional=True),
     },
+    SimulationDetails: {
+        "n_control": FieldSpec(int, optional=True),
+        "n_treatment": FieldSpec(int, optional=True),
+        "total_sample_size": FieldSpec(int, optional=True),
+        "power": FieldSpec(
+            Fraction,
+            optional=True,
+            description="Share of simulated studies in which the test rejected at the planning "
+            "point. An estimate with Monte Carlo error; not a bound.",
+        ),
+        "power_lower": FieldSpec(
+            Fraction, optional=True, description="Lower end of the 95% interval for power."
+        ),
+        "power_upper": FieldSpec(
+            Fraction, optional=True, description="Upper end of the 95% interval for power."
+        ),
+        "power_target_met": FieldSpec(
+            bool, description="Whether the whole 95% interval is at or above the minimum."
+        ),
+        "typeI": FieldSpec(
+            Fraction,
+            optional=True,
+            description="Share of simulated studies at the null's boundary in which the test "
+            "rejected. An estimate.",
+        ),
+        "typeI_lower": FieldSpec(Fraction, optional=True),
+        "typeI_upper": FieldSpec(Fraction, optional=True),
+        "alpha": FieldSpec(Fraction, optional=True, description="The test's declared level."),
+        "typeI_target_met": FieldSpec(
+            bool, optional=True, description="Whether alpha is at most maximum_typeI."
+        ),
+        "runs": FieldSpec(int, optional=True, description="Simulated studies per estimate."),
+        "seed": FieldSpec(int, optional=True),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+    },
     ApproximatePowerDetails: {
         "n_control": FieldSpec(int, optional=True),
         "n_treatment": FieldSpec(int, optional=True),
@@ -599,8 +635,10 @@ for kind in (CalculationResultIR, CalculationResult):
     SCHEMAS[kind] = CALCULATION_FIELDS
 
 
-def details_kind(claim: ClaimIR) -> type:
-    """The calculation record published for this claim's kind."""
+def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
+    """The calculation record published for this claim's kind and the request's operation."""
+    if operation == "simulate":
+        return SimulationDetails
     if isinstance(claim.subject, TwoStageObservationIR):
         return StageResultDetails
     margin = claim.subject
@@ -661,7 +699,7 @@ def read_field(value: object, name: str, span: Span) -> object:
     if isinstance(value, CalculationResult) and name == "calculation":
         if value.calculation is None:
             return None
-        return details_kind(value.claim)(value.calculation)
+        return details_kind(value.claim, value.operation)(value.calculation)
     if isinstance(value, (FamilyIR, ComposedFamilyIR)) and name in ("analyses", "looks"):
         return tuple(LocatedValue(analysis, span, label) for label, analysis in value.analyses)
     return getattr(value, spec.attribute or name)
@@ -686,7 +724,8 @@ def project(value: object, name: str, span: Span, requests) -> object:
     if isinstance(value, (VerificationResultIR, CalculationResultIR)) and name == "claim":
         return requests[value.request_id - 1].claim
     if isinstance(value, CalculationResultIR) and name == "calculation":
-        kind = details_kind(requests[value.request_id - 1].claim)
+        request = requests[value.request_id - 1]
+        kind = details_kind(request.claim, request.operation)
         return FieldIR(value, name, ValueType(kind, True), span)
     if isinstance(value, (FieldIR, VerificationResultIR, CalculationResultIR)):
         optional = spec.optional or (isinstance(value, FieldIR) and value.value_type.optional)

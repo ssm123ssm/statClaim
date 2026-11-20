@@ -10,6 +10,8 @@ from statclaim.methods.assumptions import (
 )
 from statclaim.methods.core import CitedMethod, MethodModule
 from statclaim.methods.power import TWO_MEANS
+from statclaim.methods.simulation import STUDENT as STUDENT_SIMULATION
+from statclaim.methods.simulation import WELCH as WELCH_SIMULATION
 
 STUDENT = "Student (1908). The probable error of a mean. Biometrika 6(1), 1-25."
 FISHER = "Fisher, R. A. (1925). Applications of 'Student's' distribution. Metron 5, 90-104."
@@ -36,6 +38,7 @@ _POOLED = dict(
     min_per_arm=1,
     min_total=3,
     power=TWO_MEANS,
+    simulation=STUDENT_SIMULATION,
 )
 # Needs no normality or common variance, but its level is only approximate.
 _WELCH = dict(
@@ -47,6 +50,7 @@ _WELCH = dict(
     min_per_arm=2,
     min_total=4,
     power=TWO_MEANS,
+    simulation=WELCH_SIMULATION,
 )
 
 MODULE = MethodModule(

@@ -7,7 +7,7 @@ from collections.abc import Collection
 from fractions import Fraction
 from pathlib import Path
 
-from statclaim import cited_planning
+from statclaim import cited_planning, simulated_planning
 from statclaim.composition import composition_claims
 from statclaim.language import (
     LANGUAGE_VERSION,
@@ -119,6 +119,9 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             "timeout": timeout,
         }
         report = inspect_planning(request)
+        if request.operation == "simulate":
+            # Refused while compiling unless the analysis has a simulation model.
+            return simulated_planning.run(report, subject, request.settings)
         analysis = (
             subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
         )
@@ -315,7 +318,7 @@ def _result_value(
     details: dict,
     diagnostics: tuple[Diagnostic, ...],
 ) -> ExecutionResult:
-    if request.operation == "calculate":
+    if request.operation in ("calculate", "simulate"):
         return CalculationResult(
             index,
             request.claim,
@@ -324,6 +327,7 @@ def _result_value(
             details.get("calculation"),
             details.get("decision"),
             diagnostics,
+            request.operation,
         )
     evidence = None
     if status in ("verified", "conditional"):
@@ -466,8 +470,9 @@ def check_source(
             result = _run_request(request, project, directory / f"request-{index:03d}", timeout)
             result = with_population(result, request.claim.subject)
             status = result["status"]
-            if request.operation == "calculate":
-                status = "calculated" if result["decision"] is not None else "unresolved_obligation"
+            if request.operation in ("calculate", "simulate"):
+                done = "calculated" if request.operation == "calculate" else "simulated"
+                status = done if result["decision"] is not None else "unresolved_obligation"
             if status == "unresolved_obligation":
                 message = result.get("verification", {}).get(
                     "message",
@@ -509,7 +514,14 @@ def check_source(
     report["status"] = next(
         (
             status
-            for status in ("unresolved_obligation", "declared", "cited", "conditional", "verified")
+            for status in (
+                "unresolved_obligation",
+                "declared",
+                "cited",
+                "conditional",
+                "verified",
+                "simulated",
+            )
             if status in statuses
         ),
         "calculated",
@@ -581,6 +593,46 @@ def _approximate_lines(details: dict) -> list[str]:
     lines.append("  References:")
     lines.extend(f"    {reference}" for reference in details["references"])
     lines.append(f"  decision = {details['decision']}; no formal certificate issued.")
+    return lines
+
+
+def _simulated_lines(details: dict) -> list[str]:
+    """A simulated estimate: what was simulated, the numbers with intervals, and the basis."""
+    calculation = details["calculation"]
+    show = lambda record: f"{float(record['decimal_approximation']):.4f}"  # noqa: E731
+    lines = [f"  {details['target_property']}"]
+    if "power_lower" in calculation:
+        lines += [
+            f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
+            f"total = {calculation['total_sample_size']}",
+            f"  power ~ {show(calculation['power'])} "
+            f"(95% interval {show(calculation['power_lower'])} to "
+            f"{show(calculation['power_upper'])}); power target met = "
+            f"{str(calculation['power_target_met']).lower()}",
+            f"  Type I at the null ~ {show(calculation['typeI'])} (95% interval "
+            f"{show(calculation['typeI_lower'])} to {show(calculation['typeI_upper'])}); "
+            f"level {calculation['alpha']['fraction']}; Type I target met = "
+            f"{str(calculation['typeI_target_met']).lower()}",
+            f"  scenario: {calculation['scenario']}",
+        ]
+    if "candidates_evaluated" in calculation:
+        lines.append(
+            f"  candidates evaluated = {calculation['candidates_evaluated']}; "
+            f"confirmation runs = {calculation['confirmations']}"
+        )
+    simulation = details["simulation"]
+    lines.append(
+        f"  Simulation: {simulation['title']} ({simulation['key']}, version "
+        f"{simulation['version']}); {simulation['runs']:,} runs, seed {simulation['seed']}; "
+        f"engine version {simulation['engine_version']}; {simulation['interval']} intervals"
+    )
+    lines.append("  Assumptions:")
+    lines.extend(
+        f"    [{item['id']}] {item['text']} ({item['status']})" for item in details["assumptions"]
+    )
+    lines.append("  References:")
+    lines.extend(f"    {reference}" for reference in details["references"])
+    lines.append(f"  decision = {details['decision']}; an estimate, not evidence.")
     return lines
 
 
@@ -692,6 +744,8 @@ def render_report(report: dict, source: Source) -> str:
             lines.append(f"  {details['target_property']}")
             lines.append("  Assumptions:")
             lines.extend(f"    {assumption}" for assumption in details["required_assumptions"])
+        elif request["status"] == "simulated":
+            lines.extend(_simulated_lines(details))
         elif request["status"] == "calculated" and request["claim"] in ("meets", "sample_size"):
             lines.extend(_planning_lines(details))
         elif request["status"] == "calculated" and "measure" in details["calculation"]:

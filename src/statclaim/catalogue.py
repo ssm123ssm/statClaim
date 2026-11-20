@@ -377,6 +377,11 @@ OBJECT_CLASSES = {
         "Evidence and inspection",
         "Approximate power and critical estimate of a cited test; not a bound.",
     ),
+    "SimulationDetails": (
+        "Evidence and inspection",
+        "Power and Type I error estimated by simulate(...), with 95% intervals, the number "
+        "of runs and the seed. Estimates, not bounds and not evidence.",
+    ),
     "Diagnostic": ("Evidence and inspection", "A diagnostic code, severity and message."),
 }
 CLAIM_TYPES = {"TypeIClaim", "ResultClaim", "FamilywiseClaim", "PlanningClaim", "IntervalClaim"}

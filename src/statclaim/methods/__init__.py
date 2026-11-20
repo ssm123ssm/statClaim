@@ -9,6 +9,7 @@ serves. See docs/cited-methods.md.
 import hashlib
 import inspect
 
+from statclaim import simulation as engine
 from statclaim.methods import assumptions, cluster, logistic, mixed_models, survival, t_tests
 from statclaim.methods.core import (
     Assumption,
@@ -17,6 +18,7 @@ from statclaim.methods.core import (
     NullForm,
     Outcome,
     PowerFormula,
+    SimulationModel,
 )
 from statclaim.methods.outcomes import OUTCOMES as _OUTCOMES
 from statclaim.methods.outcomes import SHARP_NULL
@@ -72,12 +74,23 @@ for _method in METHODS.values():
     if POWER_FORMULAS.setdefault(_formula.key, _formula) is not _formula:
         raise ValueError(f"Power formula {_formula.key!r} is defined twice.")
 
+# Simulation models, by key. Each serves methods at its outcome's planning point.
+SIMULATIONS: dict[str, SimulationModel] = {}
+for _method in METHODS.values():
+    _model = _method.simulation
+    if _model is None:
+        continue
+    if _model.point != POINT_OF_OUTCOME.get(_method.outcome):
+        raise ValueError(f"Method {_method.key!r} has a simulation model for another outcome.")
+    if SIMULATIONS.setdefault(_model.key, _model) is not _model:
+        raise ValueError(f"Simulation model {_model.key!r} is defined twice.")
+
 # Every assumption in use, by id. Two different assumptions may not share an id.
 ASSUMPTIONS: dict[str, Assumption] = {
     value.id: value for value in vars(assumptions).values() if isinstance(value, Assumption)
 }
 ASSUMPTIONS.update({value.id: value for value in assumptions.ACCOUNTS_FOR.values()})
-for _item in (*METHODS.values(), *POWER_FORMULAS.values()):
+for _item in (*METHODS.values(), *POWER_FORMULAS.values(), *SIMULATIONS.values()):
     for _assumption in _item.assumptions:
         if ASSUMPTIONS.setdefault(_assumption.id, _assumption) != _assumption:
             raise ValueError(f"Assumption id {_assumption.id!r} has two meanings.")
@@ -111,4 +124,18 @@ def versions() -> dict:
         users = sorted(m.key for m in METHODS.values() if m.power is formula)
         content = repr(formula) + inspect.getsource(formula.function) + repr(users)
         recorded[f"power:{key}"] = {"version": formula.version, "sha256": _sha256(content)}
+    for key, model in SIMULATIONS.items():
+        users = sorted(m.key for m in METHODS.values() if m.simulation is model)
+        content = (
+            repr(model)
+            + inspect.getsource(model.trial)
+            + inspect.getsource(model.scenario)
+            + repr(users)
+        )
+        recorded[f"simulation:{key}"] = {"version": model.version, "sha256": _sha256(content)}
+    # The engine draws every simulated study; any change to it can change results.
+    recorded["simulation:engine"] = {
+        "version": engine.ENGINE_VERSION,
+        "sha256": _sha256(inspect.getsource(engine)),
+    }
     return recorded

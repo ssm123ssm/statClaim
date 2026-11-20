@@ -1,6 +1,6 @@
 """Pure claim descriptions and inspection data for reports and editor views."""
 
-from statclaim import cited_planning
+from statclaim import cited_planning, simulated_planning
 from statclaim.composition import DISCHARGED, composition_assumptions
 from statclaim.design import inspect_design
 from statclaim.family import inspect_family
@@ -77,6 +77,8 @@ def _scope(sizing) -> str:
 def inspect_planning(request: RequestIR) -> dict:
     """Describe a planning claim from its declaration, without calculating."""
     subject = request.claim.subject
+    if request.operation == "simulate":
+        return simulated_planning.describe(subject, request.settings)
     target = subject.target
     feasibility = isinstance(subject, FeasibilityIR)
     analysis = subject.analysis if feasibility else subject.candidates.analysis

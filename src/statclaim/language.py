@@ -117,8 +117,9 @@ from statclaim.randomisation import (
     groups_of,
     splits_needed,
 )
+from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.21.0"
+LANGUAGE_VERSION = "0.22.0"
 
 
 class PlannableIR:
@@ -1254,10 +1255,20 @@ class BindingIR:
 
 
 @dataclass(frozen=True)
+class SimulationIR:
+    """How a simulate(...) request draws its studies: a seed and the number of runs."""
+
+    seed: int
+    runs: int
+
+
+@dataclass(frozen=True)
 class RequestIR:
-    operation: Choice["verify", "calculate"]
+    operation: Choice["verify", "calculate", "simulate"]
     claim: ClaimIR
     span: Span
+    # Only for simulate(...): the seed and the number of simulated studies.
+    settings: SimulationIR | None = None
 
 
 @dataclass(frozen=True)
@@ -1355,6 +1366,11 @@ class ProgramIR:
                     "operation": r.operation,
                     "claim": normalize(r.claim),
                     "source": r.span.to_dict(),
+                    **(
+                        {"settings": {"seed": r.settings.seed, "runs": r.settings.runs}}
+                        if r.settings
+                        else {}
+                    ),
                 }
                 for index, r in enumerate(self.requests, 1)
             ],
@@ -3463,12 +3479,82 @@ def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     return claim.value
 
 
+def simulation_settings(arguments: dict[str, LocatedValue]) -> SimulationIR:
+    """The seed and number of runs of simulate(...), with the number of runs checked."""
+    seed, runs = arguments["seed"], arguments["runs"]
+    if seed.value < 0:
+        fail("domain", "seed must be a whole number of at least 0.", seed.span)
+    count = DEFAULT_RUNS if runs.value is None else runs.value
+    if not MIN_RUNS <= count <= MAX_RUNS:
+        fail(
+            "domain",
+            f"runs must be from {MIN_RUNS:,} to {MAX_RUNS:,}; the default is {DEFAULT_RUNS:,}.",
+            runs.span,
+        )
+    return SimulationIR(seed.value, count)
+
+
+def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
+    """Power by simulation, for planning claims about tests that have a simulation model."""
+    claim = arguments["claim"]
+    if claim.value.kind not in ("meets", "sample_size"):
+        fail(
+            "type",
+            "Only planning claims are simulated: meets(...) and sample-size searches. "
+            "Use verify(claim) for guarantees and calculate(claim) for results.",
+            claim.span,
+        )
+    subject = claim.value.subject
+    analysis = planned_analysis(subject)
+    if not isinstance(analysis, CitedAnalysisIR):
+        fail(
+            "unsupported_claim",
+            "This analysis has exact power, so there is nothing to simulate. "
+            "Use calculate(...) for the exact value, or verify(...) to prove it.",
+            claim.span,
+        )
+    method = analysis.method
+    if method.simulation is None:
+        others = ", ".join(m.key for m in methods_for(method.outcome) if m.simulation) or "none"
+        fail(
+            "no_simulation_model",
+            f"{method.key} has no simulation model yet. Tests for this outcome with one: "
+            f"{others}." + (" calculate(...) gives its approximate power." if method.power else ""),
+            claim.span,
+        )
+    kind, signature = POINT_SIGNATURES[method.simulation.point]
+    if not isinstance(subject.target.at, kind):
+        fail("planning_point", f"Simulate {method.key} at {signature}.", claim.span)
+    settings = simulation_settings(arguments)
+    if isinstance(subject, SizingIR):
+        candidates = subject.candidates.max_per_arm - subject.candidates.min_per_arm + 1
+        if candidates * settings.runs > MAX_SIMULATED_STUDIES:
+            fail(
+                "domain",
+                f"Searching {candidates:,} sizes with {settings.runs:,} runs each could "
+                f"simulate more than {MAX_SIMULATED_STUDIES:,} studies. Narrow the range or "
+                "use fewer runs.",
+                claim.span,
+            )
+    return claim.value
+
+
 # Always available, with the same argument checking as module constructors.
 # Their builders validate claims only; evaluate records execution slots below.
 OPERATIONS = {
     "verify": _constructor("verify", (("claim", ClaimIR),), "VerificationResult", _verification),
     "calculate": _constructor(
         "calculate", (("claim", ClaimIR),), "CalculationResult", _calculation
+    ),
+    "simulate": _constructor(
+        "simulate",
+        (("claim", ClaimIR), ("seed", int), ("runs", int, True)),
+        "CalculationResult",
+        _simulation,
+        documentation=(
+            "Estimate power by simulating the study runs times from seed, for a cited test "
+            "with a simulation model. Gives estimates with 95% intervals; never evidence."
+        ),
     ),
 }
 
@@ -4625,7 +4711,8 @@ class Elaborator:
                     constructor.hypothesis_contract.check(name, fields)
                 value = constructor.build(fields, span)
                 if name in OPERATIONS:
-                    self.requests.append(RequestIR(name, value, span))
+                    settings = simulation_settings(fields) if name == "simulate" else None
+                    self.requests.append(RequestIR(name, value, span, settings))
                     result_type = VerificationResultIR if name == "verify" else CalculationResultIR
                     value = result_type(len(self.requests))
                 return LocatedValue(value, span)

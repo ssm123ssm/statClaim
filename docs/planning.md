@@ -300,11 +300,50 @@ range that reaches the target. It is not offered for `hazard_ratio`.
 A test without a formula, such as a declared test, gets `no_power_formula`. See
 `examples/cited_power.stat`.
 
+## Power by simulation
+
+`simulate` runs the test itself on simulated studies and counts how often it
+rejects. It takes the same planning claims as `calculate`, a seed and, if you
+like, the number of runs (10,000 by default, from 1,000 to 200,000).
+
+```stat
+let estimate = simulate(meets(analysis=analysis, target=target), seed=2026)
+let sizing = simulate(smallest_sample_size(candidates=sizes, target=target), seed=2026)
+```
+
+```text
+simulated [estimate]: meets(analysis)
+  power ~ 0.6025 (95% interval 0.5928 to 0.6121); power target met = false
+  Type I at the null ~ 0.0509 (95% interval 0.0467 to 0.0554); ...
+```
+
+- The status is `simulated`: an estimate, never evidence. A file of calculations
+  and simulations reports `simulated`; simulations do not weaken a proof.
+- Power is the share of studies that rejected at the planning point, with a 95%
+  Clopper-Pearson interval. Type I error is simulated at the null's boundary and
+  reported; the Type I target is judged on the test's `alpha`.
+- `power_target_met` needs the whole interval at or above the minimum. When the
+  interval contains it, the decision is `undecided`; more runs may settle it.
+- A search goes up the range and simulates every size, so it never assumes power
+  rises with n. The first size that passes is simulated again from an independent
+  stream; its reported power comes from that run. `curve` lists every size tried.
+- The same seed gives the same numbers. The engine uses only Python's
+  `random.Random(...).random()`, seeded from SHA-256 of the seed and a label, and
+  records its version.
+- Each study draws its summary statistics directly, so a run costs the same at
+  any size: a search of 100 sizes with 10,000 runs takes about a second. A search
+  may simulate at most 20 million studies.
+
+Simulation covers the t-tests, Student's and Welch's, on normal outcomes with the
+planning SD in both arms. Other tests get `no_simulation_model`; exact tests are
+refused, since `calculate` gives their exact power. See lesson 28 of the tutorial.
+
 ## What is checked
 
 | Result | Meaning |
 | --- | --- |
 | `calculate(...)` | Exact fractions computed in Python, or for a cited test an approximate power. Not proof evidence. |
+| `simulate(...)` | Power and Type I error estimated from simulated studies, with 95% intervals. Not proof evidence. |
 | `verify(...)` | Lean recomputes the rejection probability from the formal definitions and checks the requested bounds. No calculated value is trusted. |
 
 Published fields include `calculation.power`, `power_target_met`,

@@ -26,9 +26,10 @@ GRAMMAR = """\
 file        = { statement NEWLINE } ;
 statement   = "use" module
             | "let" NAME "=" expression
-            | operation ;                      (* only verify and calculate *)
+            | operation ;                      (* verify, calculate or simulate *)
 operation   = ( "verify" | "calculate" ) "(" expression ")"
-            | ( "verify" | "calculate" ) expression ;      (* older spelling *)
+            | ( "verify" | "calculate" ) expression       (* older spelling *)
+            | "simulate" "(" expression "," arguments ")" ;   (* seed, and runs *)
 module      = NAME { "." NAME } ;
 expression  = primary { "." NAME } ;           (* field access *)
 primary     = NAME                             (* a name declared earlier *)
@@ -55,6 +56,7 @@ GRAMMAR_ACCEPTS = (
     "let file = verify(claim).evidence.certificate.file",
     "verify(typeI(analysis))",
     "verify typeI(analysis)",
+    "simulate(meets(analysis=a, target=t), seed=7, runs=20000)",
     "let x = f(  # a comment inside a call\n    1,\n)",
 )
 GRAMMAR_REJECTS = (
@@ -96,6 +98,8 @@ RESULT_STATUSES = {
     "declared": "The author named and vouched for the test or one of its parts. Nothing "
     "about that guarantee was checked or cited. Evidence grade `declared`.",
     "calculated": "A `calculate` request produced numbers. No evidence.",
+    "simulated": "A `simulate` request estimated power and Type I error from simulated "
+    "studies, with 95% intervals. An estimate with Monte Carlo error. No evidence.",
     "unresolved_obligation": "A requirement is unmet or a target is missed. No evidence. "
     "Not a finding that the claim is false.",
     "backend_error": "Lean could not be run or failed for a technical reason. No evidence.",
@@ -109,7 +113,10 @@ PROGRAM_STATUSES = {
     "cited": "Every claim went through; the weakest part anywhere is cited.",
     "conditional": "Every claim went through; the weakest part is a proved combination "
     "of tests that are themselves provable.",
-    "verified": "Every verified claim was proved; calculations may also be present.",
+    "verified": "Every verified claim was proved; calculations and simulations may also be "
+    "present.",
+    "simulated": "Only calculations and simulations were requested; simulated values are "
+    "estimates.",
     "calculated": "Only calculations were requested.",
     "stale_source": "The file changed while it was being checked. Run it again.",
 }
@@ -226,6 +233,11 @@ DIAGNOSTICS = {
     ),
     "alternative_in_null": ("error", "The planning point lies inside the null."),
     "no_power_formula": ("error", "A cited or declared test with no power formula is planned."),
+    "no_simulation_model": (
+        "error",
+        "A test with no simulation model is simulated, or simulate(...) is given a claim it "
+        "cannot simulate.",
+    ),
     "direction_mismatch": (
         "error",
         "A one-sided null asks about the direction the model's better= does not call better.",

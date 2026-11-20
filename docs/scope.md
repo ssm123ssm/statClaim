@@ -121,8 +121,11 @@ are never shown as the same thing.
 
 The exact modules are `proved` and `finite_sample`. The t-tests are `cited`;
 Welch's is also `asymptotic`. A Bonferroni family with a cited member is
-`conditional`. No module uses `simulated` yet. Read them with `evidence.grade`
-and `claim.scope`.
+`conditional`. Read them with `evidence.grade` and `claim.scope`.
+
+`simulate(...)` requests have the status `simulated`: power and Type I error
+estimated from simulated studies, with 95% intervals. Like calculations, they
+give numbers, not evidence, and do not weaken a file's status.
 
 Each grade has its own result status, so a status never overstates its evidence:
 `proved` gives `verified`, `conditional` gives `conditional`, `cited` gives

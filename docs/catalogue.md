@@ -12,9 +12,10 @@ Contents: [grammar](#grammar), [value types](#value-types), [objects](#objects),
 file        = { statement NEWLINE } ;
 statement   = "use" module
             | "let" NAME "=" expression
-            | operation ;                      (* only verify and calculate *)
+            | operation ;                      (* verify, calculate or simulate *)
 operation   = ( "verify" | "calculate" ) "(" expression ")"
-            | ( "verify" | "calculate" ) expression ;      (* older spelling *)
+            | ( "verify" | "calculate" ) expression       (* older spelling *)
+            | "simulate" "(" expression "," arguments ")" ;   (* seed, and runs *)
 module      = NAME { "." NAME } ;
 expression  = primary { "." NAME } ;           (* field access *)
 primary     = NAME                             (* a name declared earlier *)
@@ -128,6 +129,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | AssociationResultDetails | Exact p-value and decision of Fisher's test for an observed table. | `p_value: exact number`, `observed_table_probability: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | EffectIntervalDetails | An effect measure's interval, estimate and the level used per group. | `measure: string`, `level: exact number`, `arm_level: exact number`, `estimate: Option[exact number]`, `lower: exact number`, `upper: Option[exact number]`, `method: string` |
 | ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
+| SimulationDetails | Power and Type I error estimated by simulate(...), with 95% intervals, the number of runs and the seed. Estimates, not bounds and not evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_lower: Option[exact number]`, `power_upper: Option[exact number]`, `power_target_met: boolean`, `typeI: Option[exact number]`, `typeI_lower: Option[exact number]`, `typeI_upper: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `runs: Option[integer]`, `seed: Option[integer]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
 ### Observational studies
@@ -548,6 +550,7 @@ One-sided exact binomial test for a single arm. Type I error is checked for ever
 
 - `verify(claim: Claim) -> VerificationResult`
 - `calculate(claim: Claim) -> CalculationResult`
+- `simulate(claim: Claim, seed: integer, runs?: integer) -> CalculationResult`
 
 Verification and calculation run only on explicit execution; the editor plans them. Compilation cannot create evidence.
 
@@ -562,6 +565,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `cited` | The study fits a published method's contract; the guarantee is cited, not machine-checked. Evidence grade `cited`. |
 | `declared` | The author named and vouched for the test or one of its parts. Nothing about that guarantee was checked or cited. Evidence grade `declared`. |
 | `calculated` | A `calculate` request produced numbers. No evidence. |
+| `simulated` | A `simulate` request estimated power and Type I error from simulated studies, with 95% intervals. An estimate with Monte Carlo error. No evidence. |
 | `unresolved_obligation` | A requirement is unmet or a target is missed. No evidence. Not a finding that the claim is false. |
 | `backend_error` | Lean could not be run or failed for a technical reason. No evidence. |
 | `not_executed` | The request was planned by `compile` and has not been run. |
@@ -576,7 +580,8 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `declared` | Every claim went through; the weakest part anywhere is a declared test. |
 | `cited` | Every claim went through; the weakest part anywhere is cited. |
 | `conditional` | Every claim went through; the weakest part is a proved combination of tests that are themselves provable. |
-| `verified` | Every verified claim was proved; calculations may also be present. |
+| `verified` | Every verified claim was proved; calculations and simulations may also be present. |
+| `simulated` | Only calculations and simulations were requested; simulated values are estimates. |
 | `calculated` | Only calculations were requested. |
 | `stale_source` | The file changed while it was being checked. Run it again. |
 
@@ -629,6 +634,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | `vouched` | The author vouches for it. StatClaim has no contract or source for it. |
 | `approximation` | A simplification used to compute a number, such as a normal approximation. Not checkable from a declaration. |
 | `meaning` | About what the declared quantities mean, such as which direction of the outcome is better. Checked only when the file declares it. |
+| `monte_carlo` | About a simulation: the data it draws and the Monte Carlo error of its estimates. The intervals show the error; the scenario is not checkable. |
 
 ### `Claim.kind`
 
@@ -849,6 +855,8 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `per_protocol_population` | scope | The bound covers the per-protocol population only, as the assignment declares: participants excluded after randomisation are left out. Randomisation does not make the arms' remaining groups comparable, so a difference between them need not be caused by treatment. |
 | `prespecified_exclusions` | sampling | Who is excluded after randomisation was decided by rules fixed before outcomes were observed, so the arm sizes analysed were not chosen by looking at the results. |
 | `normal_approximation_power` | approximation | Power comes from a normal approximation to the test statistic, with its variance at the planning values. It is an approximation, not a bound. |
+| `simulated_normal_outcomes` | monte_carlo | The simulation draws normal outcomes with the planning standard deviation in both arms. Power for outcomes with another distribution or unequal spreads may differ. |
+| `monte_carlo_error` | monte_carlo | Simulated power and Type I error are estimates with Monte Carlo error. Each 95% interval covers the true rate in 95% of simulations; a size found by search is confirmed by an independent run. An estimate is not a bound. |
 | `planning_standard_deviation` | scope | The standard deviation is a planning input, not an established fact. It is the standard deviation of one participant's outcome on the analysed scale; for a mixed model, the effective standard deviation of the contrast. |
 | `unadjusted_proportions` | approximation | Power is for an unadjusted comparison of two proportions. Covariates in the analysis model change it. |
 | `proportional_hazards` | distribution | The hazard ratio is constant over time. The log-rank test's error rate does not need this; its power formula does. |
@@ -901,6 +909,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `hypothesis_mismatch` | error | The test does not support the declared null. Not a finding that the null is false. |
 | `alternative_in_null` | error | The planning point lies inside the null. |
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
+| `no_simulation_model` | error | A test with no simulation model is simulated, or simulate(...) is given a claim it cannot simulate. |
 | `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
 | `complex_sample` | error | A method that assumes simple random sampling is given a stratified, cluster or weighted survey. |
 | `matched_design` | error | An unmatched analysis or table is given a matched study, whose matching it ignores. |

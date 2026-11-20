@@ -181,6 +181,11 @@ sizes, the null's value, alpha and the sidedness, with its own assumptions,
 references and version. A formula is versioned separately from the test, since
 the test's error guarantee does not depend on it.
 
+To let `simulate` estimate its power, set its `simulation` to a `SimulationModel`
+from `methods/simulation.py`: a function that returns one simulated study's
+verdict for given sizes, with its scenario in words, assumptions, references and
+version. `simulation.py` holds the engine; bump `ENGINE_VERSION` when it changes.
+
 A new kind of endpoint is also data. Add an `Outcome` with its null forms to
 `methods/outcomes.py`, as `SURVIVAL` does. Its model, its outcome piece (such as
 `survival_outcome`) and its null constructors then exist in `.stat` files.

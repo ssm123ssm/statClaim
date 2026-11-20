@@ -54,5 +54,17 @@
   "power:normal_two_proportions": {
     "version": 2,
     "sha256": "15a9192b2ed84573251d9334f11e6da247f1fe98759e10d7a88d8a7b2884ce9e"
+  },
+  "simulation:normal_two_means_student": {
+    "version": 1,
+    "sha256": "8f0f8bc71adacb7ec6c005df8f4c243970b98d245396194a8d2b4cf4a491bd7b"
+  },
+  "simulation:normal_two_means_welch": {
+    "version": 1,
+    "sha256": "005d005aec52a8ca8f4bf36c91c791b35d2c7d2845eefa12b2eadde08bb944b0"
+  },
+  "simulation:engine": {
+    "version": 1,
+    "sha256": "2d95ce3e2667364b352b7e8a9d783505e252598076d1478203212ecf7695f8da"
   }
 }

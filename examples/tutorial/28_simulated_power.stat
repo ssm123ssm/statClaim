@@ -1,0 +1,21 @@
+# Lesson 28: power by simulation.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use planning
+
+let study = two_arm_continuous(n_control=40, n_treatment=40)
+let analysis = t_test(design=fixed(model=study), null=equal_means(model=study), alpha=1/20)
+
+# We expect a difference of 5 points, with a standard deviation of 10.
+let expected = mean_difference(value=5, sd=10)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20)
+
+# The normal formula of lesson 18, then the t-test itself on 10,000 simulated studies.
+let formula = calculate(meets(analysis=analysis, target=target))
+let simulated = simulate(meets(analysis=analysis, target=target), seed=2026)
+
+# The first size whose simulated power is at least 80%, confirmed by an independent run.
+let sizes = equal_arm_sizes(analysis=analysis, min_per_arm=20, max_per_arm=120)
+let sizing = simulate(smallest_sample_size(candidates=sizes, target=target), seed=2026)
+let per_arm = sizing.calculation.n_control

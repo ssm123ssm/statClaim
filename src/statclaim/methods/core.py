@@ -60,6 +60,8 @@ ASSUMPTION_KINDS = {
     "approximation. Not checkable from a declaration.",
     "meaning": "About what the declared quantities mean, such as which direction of the "
     "outcome is better. Checked only when the file declares it.",
+    "monte_carlo": "About a simulation: the data it draws and the Monte Carlo error of its "
+    "estimates. The intervals show the error; the scenario is not checkable.",
 }
 
 
@@ -200,6 +202,29 @@ class PowerFormula:
 
 
 @dataclass(frozen=True)
+class SimulationModel:
+    """How to simulate one study for a test at one kind of planning point.
+
+    `trial(point, n_control, n_treatment, null_value, alpha, side)` returns a function
+    that takes a random stream, simulates one study and says whether the test rejects.
+    `point` and `side` are as for PowerFormula. `scenario(point)` describes the data in
+    words. Bump `version` whenever the trial, its scenario, assumptions or references change.
+    """
+
+    key: str
+    title: str
+    version: int
+    point: str  # the planning point's constructor, such as "mean_difference"
+    trial: Callable[..., Callable] = field(repr=False, compare=False)
+    scenario: Callable[[dict], str] = field(repr=False, compare=False)
+    assumptions: tuple[Assumption, ...] = ()
+    references: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict:
+        return {"key": self.key, "version": self.version, "title": self.title}
+
+
+@dataclass(frozen=True)
 class CitedMethod:
     """A test whose guarantee is taken from the literature, not proved in Lean.
 
@@ -231,6 +256,8 @@ class CitedMethod:
     # How to approximate the test's power, if it can be. Versioned on its own, since the
     # Type I guarantee does not depend on it.
     power: PowerFormula | None = field(default=None, repr=False, compare=False)
+    # How to estimate its power by simulation, if it can be. Versioned on its own.
+    simulation: SimulationModel | None = field(default=None, repr=False, compare=False)
     # What min_per_arm and min_total count: participants, or clusters for a test of one
     # summary per cluster, which needs cluster_assignment. Part of the hash when not the
     # default; see versions().

@@ -106,6 +106,11 @@ MEANINGS = {
         "Plans an exact numerical calculation returning a CalculationResult, "
         "without formal evidence. Runs only on an explicit check."
     ),
+    "simulate": (
+        "Plans a simulation returning a CalculationResult with status simulated: power and "
+        "Type I error estimated from runs simulated studies drawn from seed, with 95% "
+        "intervals. An estimate, never evidence. Runs only on an explicit check."
+    ),
 }
 
 

@@ -224,6 +224,19 @@ NORMAL_APPROXIMATION_POWER = Assumption(
     "Power comes from a normal approximation to the test statistic, with its variance at "
     "the planning values. It is an approximation, not a bound.",
 )
+SIMULATED_NORMAL = Assumption(
+    "simulated_normal_outcomes",
+    "monte_carlo",
+    "The simulation draws normal outcomes with the planning standard deviation in both arms. "
+    "Power for outcomes with another distribution or unequal spreads may differ.",
+)
+MONTE_CARLO_ERROR = Assumption(
+    "monte_carlo_error",
+    "monte_carlo",
+    "Simulated power and Type I error are estimates with Monte Carlo error. Each 95% "
+    "interval covers the true rate in 95% of simulations; a size found by search is "
+    "confirmed by an independent run. An estimate is not a bound.",
+)
 PLANNING_SD = Assumption(
     "planning_standard_deviation",
     "scope",

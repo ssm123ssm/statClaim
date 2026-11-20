@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2155,6 +2155,79 @@ independent participants; its bound does not cover a cluster sample.</div>
     <div class="task"><h4>Try it</h4><p>Use <code>logistic_association</code> on the matched pairs of lesson 25 and read the message: it names <code>conditional_logistic</code>.</p></div>
   </div>
 </section>
+<section class="lesson" id="simulated-power">
+  <p class="eyebrow">Lesson 28</p>
+  <h2>Power by simulation</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Lesson 18 approximated a cited test&#x27;s power with a normal formula. <code>simulate</code> instead runs the test itself on thousands of simulated studies and counts how often it rejects. The result is an estimate with a 95% interval: closer to the truth than the formula, never evidence.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/28_simulated_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 28: power by simulation.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.t
+<span class="k">use</span> planning
+
+<span class="k">let</span> study = <span class="f">two_arm_continuous</span>(n_control=40, n_treatment=40)
+<span class="k">let</span> analysis = <span class="f">t_test</span>(design=<span class="f">fixed</span>(model=study), null=<span class="f">equal_means</span>(model=study), alpha=1/20)
+
+<span class="c"># We expect a difference of 5 points, with a standard deviation of 10.</span>
+<span class="k">let</span> expected = <span class="f">mean_difference</span>(value=5, sd=10)
+<span class="k">let</span> target = <span class="f">power_target</span>(at=expected, minimum=4/5, maximum_typeI=1/20)
+
+<span class="c"># The normal formula of lesson 18, then the t-test itself on 10,000 simulated studies.</span>
+<span class="k">let</span> formula = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=analysis, target=target))
+<span class="k">let</span> simulated = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=analysis, target=target), seed=2026)
+
+<span class="c"># The first size whose simulated power is at least 80%, confirmed by an independent run.</span>
+<span class="k">let</span> sizes = <span class="f">equal_arm_sizes</span>(analysis=analysis, min_per_arm=20, max_per_arm=120)
+<span class="k">let</span> sizing = <span class="f">simulate</span>(<span class="f">smallest_sample_size</span>(candidates=sizes, target=target), seed=2026)
+<span class="k">let</span> per_arm = sizing.calculation.n_control</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>simulate(claim, seed=..., runs=...)</code></dt>
+  <dd>Takes the same planning claims as <code>calculate</code>. The seed is required, so
+  the same file always gives the same numbers; <code>runs</code> is the number of
+  simulated studies for each estimate, 10,000 unless you say otherwise.</dd>
+  <dt><code>smallest_sample_size</code></dt>
+  <dd>Goes up the range and simulates every size on the way. A size passes when its
+  whole 95% interval is at or above the target. The first that passes is simulated
+  again from an independent stream, and the power reported is from that second run.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [formula]: meets(analysis)
+  arm sizes = (40, 40); total = 80
+  power ~ 0.6088 (normal approximation, not a bound); power target met = false
+  ...
+<span class="calc">simulated</span> [simulated]: meets(analysis)
+  ...
+  power ~ 0.6025 (95% interval 0.5928 to 0.6121); power target met = false
+  Type I at the null ~ 0.0509 (95% interval 0.0467 to 0.0554); level 1/20; Type I target met = true
+  scenario: normal outcomes with standard deviation 10 in both arms and a true mean difference of 5
+  ...
+<span class="calc">simulated</span> [sizing]: sample_size(sizes)
+  ...
+  arm sizes = (65, 65); total = 130
+  power ~ 0.8090 (95% interval 0.8012 to 0.8167); power target met = true
+  candidates evaluated = 46; confirmation runs = 1
+  Simulation: Student&#x27;s t-test on simulated normal outcomes (normal_two_means_student, version 1); 10,000 runs, seed 2026; engine version 1; Clopper-Pearson, 95% intervals
+  Assumptions:
+    ...
+    [monte_carlo_error] Simulated power and Type I error are estimates with Monte Carlo error. ... (assumed)
+  decision = target_met; an estimate, not evidence.
+Program status: simulated</code></pre></div>
+<p>The formula treats the standard deviation as known, so it is a little optimistic: the
+t-test itself rejects in about 60% of studies with 40 per arm, not 61%. The exact power,
+from R&#x27;s <code>power.t.test</code>, is 0.598, inside the interval.</p>
+<p>The search needs 65 per arm. The exact answer is 64; asking for the whole interval to
+clear 80% adds a participant or two, so a lucky run cannot pick a size that is too small.</p>
+<div class="note"><strong>Estimates, not bounds.</strong> A simulated status never counts as
+evidence, and a file of calculations and simulations reports <em>simulated</em>. The
+simulation draws normal outcomes with the planning standard deviation; it shows what
+happens under that scenario, not under every one. Simulation is available for the
+t-tests so far; other tests are refused with a message.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>simulate</code> estimates power by running the test on simulated studies.</li><li>Every estimate has a 95% interval, a seed and a number of runs.</li><li>A searched size must clear the target with its whole interval, and is confirmed by an independent run.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Set both arm sizes to 64 and add <code>runs=1000</code> to <code>simulated</code>. The interval then contains 80%, and the decision is <em>undecided</em>: 1,000 runs cannot tell 0.80 from 0.78. Change the seed and run again.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2181,6 +2254,7 @@ independent participants; its bound does not cover a cluster sample.</div>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
+      <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>
       <tr><td>Test endpoints in a fixed order</td><td><code>multiplicity.fixed_sequence</code></td><td><code>fixed_sequence</code> with <code>familywise</code></td><td>15</td></tr>
@@ -2190,8 +2264,8 @@ independent participants; its bound does not cover a cluster sample.</div>
       <tr><td>See why a declaration passed, or what an edit affects</td><td>(built in)</td><td><code>explain</code>, <code>report</code>, <code>impact</code> commands</td><td>6</td></tr>
     </tbody>
   </table></div>
-  <p>Every claim goes through <code>calculate</code> for numbers or <code>verify</code> for
-  checked evidence. <code>statclaim catalogue</code> prints the full language reference: grammar, constructors
+  <p>Every claim goes through <code>calculate</code> for numbers, <code>simulate</code> for
+  estimates or <code>verify</code> for checked evidence. <code>statclaim catalogue</code> prints the full language reference: grammar, constructors
   with argument types, statuses, limits and diagnostic codes. It is also in
   <code>docs/catalogue.md</code>.</p>
   <h3>Habits worth keeping</h3>
