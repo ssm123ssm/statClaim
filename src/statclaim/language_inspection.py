@@ -6,6 +6,7 @@ from statclaim.design import inspect_design
 from statclaim.family import inspect_family
 from statclaim.language import (
     AnalysisIR,
+    AssociationAnalysisIR,
     CalculationResultIR,
     CitedAnalysisIR,
     ClaimIR,
@@ -40,6 +41,7 @@ from statclaim.planning import (
     policy_assumptions,
 )
 from statclaim.report import (
+    association_report,
     interval_report,
     margin_report,
     planning_report,
@@ -254,6 +256,8 @@ def _inspect(request: RequestIR) -> dict:
         return inspect_family(subject.lower())
     if isinstance(subject, RandomisationAnalysisIR):
         return randomisation_report(subject.lower(), stopping=subject.plan.stopping)
+    if isinstance(subject, AssociationAnalysisIR):
+        return association_report(subject.lower(), stopping=subject.plan.stopping)
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject
     if analysis.alternative == "margin":
         observed = None

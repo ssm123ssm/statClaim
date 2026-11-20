@@ -26,6 +26,7 @@ from statclaim.planning import (
 from statclaim.verification import (
     DESIGN_ASSUMPTIONS,
     VerificationError,
+    certify_association,
     certify_binomial_result,
     certify_composition,
     certify_design,
@@ -791,4 +792,46 @@ def run_randomisation(test, *, stopping: str, project: Path, output, timeout: fl
             else "Complete randomisation and analysis as randomised are assumed, as listed.",
             "The bound is under the sharp null only; it says nothing about equal means.",
         ]
+    return report
+
+
+def association_report(test, *, stopping: str = "fixed") -> dict:
+    """Fisher's test of association in an observational study, before it is checked."""
+    from statclaim.association import NOT_CAUSAL, association_assumptions, null_words
+
+    report = planning_report(
+        "association_test",
+        f"Fisher's exact test of no association in {test.describe()}: Type I error <= "
+        f"{test.alpha} whenever {null_words(test)}.",
+        list(association_assumptions(test)),
+    )
+    sizes = {"group_sizes": list(test.groups)} if test.groups is not None else {"total": test.n}
+    report["calculation"] = {"design": test.design, **sizes, "alpha": str(test.alpha)}
+    report["limitations"] = [NOT_CAUSAL]
+    if stopping != "fixed":
+        report["outstanding_obligations"] = [
+            "Specify the stopping procedure with its own guarantee; the test assumes the "
+            "study's size was fixed in advance."
+        ]
+    return report
+
+
+def run_association(test, *, stopping: str, project: Path, output, timeout: float) -> dict:
+    """Have Lean check the test's error bound for the declared observational design."""
+    from statclaim.association import NOT_CAUSAL
+
+    report = association_report(test, stopping=stopping)
+    if stopping != "fixed":
+        return _unmet(
+            report,
+            "sampling_scope",
+            "sampling_scope",
+            "Data-dependent stopping changes the sampling law of the table. This is not "
+            "evidence of inflated error.",
+        )
+    report = _certified(
+        report, certify_association, test, project=project, output=output, timeout=timeout
+    )
+    if report["status"] == "verified":
+        report["limitations"] = [NOT_CAUSAL]
     return report

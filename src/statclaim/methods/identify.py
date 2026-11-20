@@ -13,6 +13,13 @@ from statclaim.methods.core import ASSUMPTION_KINDS
 
 # (pattern, id, kind). The first match wins, so put specific patterns first.
 RECOGNISED = [
+    # Observational studies (statclaim.association).
+    (r"^The exposed and unexposed groups were sampled separately", "cohort_groups", "design"),
+    (r"^Cases and controls were sampled separately", "case_control_groups", "design"),
+    (r"^Participants were sampled independently from one population", "random_sample", "sampling"),
+    (r"^Participants' outcomes are independent of one another", "independent_outcomes", "sampling"),
+    (r"^Participants' exposures are independent", "independent_exposures", "sampling"),
+    (r"^Controls come from the population that gave rise", "source_population", "sampling"),
     # The randomisation test (statclaim.randomisation).
     (r"^Every split of the randomised units", "complete_randomisation", "design"),
     (r"^Within each stratum or block, every split", "stratified_randomisation", "design"),

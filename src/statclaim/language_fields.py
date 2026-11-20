@@ -10,12 +10,17 @@ from fractions import Fraction
 from statclaim.language import (
     AnalysisIR,
     AssignmentIR,
+    AssociationAnalysisIR,
+    AssociationNullIR,
     CalculationResultIR,
     CandidatesIR,
     CandidateSpaceIR,
+    CaseControlStudyIR,
     CitedAnalysisIR,
     ClaimIR,
+    CohortStudyIR,
     ComposedFamilyIR,
+    CrossSectionalStudyIR,
     DifferenceIntervalIR,
     FamilyIR,
     FeasibilityIR,
@@ -96,6 +101,12 @@ TWO_ARM_FIELDS = {
     "better": BETTER,
 }
 
+# What an observational study measures, by name.
+STUDY_FIELDS = {
+    "exposure": FieldSpec(str, description="The exposure's name."),
+    "outcome": FieldSpec(str, description="The outcome's name."),
+}
+
 SCHEMAS = {
     AssignmentIR: {
         "n_control": FieldSpec(int),
@@ -113,6 +124,32 @@ SCHEMAS = {
         ),
     },
     StratumIR: {"control": FieldSpec(int), "treatment": FieldSpec(int)},
+    CrossSectionalStudyIR: {
+        "n": FieldSpec(int, description="Participants sampled; how many are exposed is not fixed."),
+        **STUDY_FIELDS,
+    },
+    CohortStudyIR: {
+        "exposed": FieldSpec(int, optional=True, description="Exposed group size, if fixed."),
+        "unexposed": FieldSpec(int, optional=True, description="Unexposed group size, if fixed."),
+        "n": FieldSpec(int, optional=True, description="Total, when exposure was not fixed."),
+        **STUDY_FIELDS,
+    },
+    CaseControlStudyIR: {
+        "cases": FieldSpec(int),
+        "controls": FieldSpec(int),
+        **STUDY_FIELDS,
+    },
+    AssociationNullIR: {
+        "model": FieldSpec(StudyModelIR),
+        "predicate": FieldSpec(str),
+        "statement": FieldSpec(str),
+    },
+    AssociationAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(AssociationNullIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction, description="Exact declared significance level."),
+        "guarantee": FieldSpec(Guarantee, description="The error-rate statement Lean proves."),
+    },
     OutcomeIR: {
         "kind": FieldSpec(str, description="binary, continuous, survival, ..."),
         "better": BETTER,

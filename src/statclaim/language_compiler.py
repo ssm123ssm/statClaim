@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from statclaim.language import (
     AnalysisIR,
+    AssociationAnalysisIR,
     CitedAnalysisIR,
     ComposedFamilyIR,
     DifferenceIntervalIR,
@@ -134,6 +135,19 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 f"{name}: the cited guarantee assumes arm sizes fixed in advance and a single "
                 "analysis. Data-dependent stopping is outside it and needs a design with its "
                 "own guarantee. This is not evidence of inflated error.",
+                _origin(program, subject.plan, request.span),
+                "obligation",
+            ),
+        )
+    if isinstance(subject, AssociationAnalysisIR):
+        if request.operation != "verify" or subject.plan.stopping == "fixed":
+            return ()
+        return (
+            Diagnostic(
+                "sampling_scope",
+                f"{name}: Fisher's test of association assumes the study's size was fixed in "
+                "advance. Data-dependent stopping needs a design with its own guarantee. This "
+                "is not evidence of inflated error.",
                 _origin(program, subject.plan, request.span),
                 "obligation",
             ),

@@ -126,6 +126,16 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
+### Observational studies
+
+| Object | Meaning | Public fields |
+| --- | --- | --- |
+| CrossSectionalStudy | A sample from one population with exposure and outcome measured at once; only the total is fixed. | `n: integer`, `exposure: string`, `outcome: string` |
+| CohortStudy | Participants followed from exposure to outcome, with the groups or only the total fixed. | `exposed: Option[integer]`, `unexposed: Option[integer]`, `n: Option[integer]`, `exposure: string`, `outcome: string` |
+| CaseControlStudy | Cases and controls sampled in fixed numbers; estimates odds ratios only. | `cases: integer`, `controls: integer`, `exposure: string`, `outcome: string` |
+| AssociationNull | No association between exposure and outcome: an odds ratio of 1. | `model: Model`, `predicate: string`, `statement: string` |
+| AssociationAnalysis | Fisher's exact test of no association, with an exact alpha. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `guarantee: Guarantee` |
+
 Claim constructors return `TypeIClaim`, `ResultClaim`, `FamilywiseClaim` or `PlanningClaim`, all represented by Claim. Exact numbers, strings, booleans and lists are value types. Optional evidence stays optional through field access.
 
 ## Modules
@@ -298,6 +308,28 @@ Randomisation test of the sharp null that treatment changes no participant's out
 - `randomisation_test(design: StudyDesign, null: Hypothesis, alpha: level, draws?: integer) -> RandomisationAnalysis`
   Randomisation test of the sharp null. Its level follows from the randomisation declared on the assignment, and Lean proves it for every test statistic fixed in advance; no distribution is assumed. With cluster_assignment the clusters are randomised, so the test permutes clusters. Without draws the p-value counts every possible assignment; with draws=B it compares the observed assignment with B drawn at random, which Lean also proves. The randomisation test supports only the sharp null no_effect(model=...). It does not test equal means or proportions: when effects differ between participants, its error under those nulls is not guaranteed. Keep your null if it states your question, and choose a test that supports it.
   Required null: treatment changes no participant's outcome (the sharp null); same model required.
+- `typeI(analysis: Analysis) -> TypeIClaim`
+
+### `models.observational` — Observational studies
+
+Cross-sectional, cohort and case-control studies, whose exposure was not assigned. Each says what its sampling fixed: only the total, the exposed and unexposed groups, or the numbers of cases and controls. The null of no association.
+
+- `cross_sectional(n: integer, exposure?: string, outcome?: string) -> CrossSectionalStudy`
+  A cross-sectional study: n participants sampled from one population, with exposure and outcome measured at the same time. Only n is fixed, not how many are exposed. It measures prevalence, not incidence. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
+- `cohort(exposed?: integer, unexposed?: integer, n?: integer, exposure?: string, outcome?: string) -> CohortStudy`
+  A cohort study: participants followed from exposure to outcome. Give exposed and unexposed when the groups were sampled in fixed numbers, or n when one population was sampled and exposure measured. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
+- `case_control(cases: integer, controls: integer, exposure?: string, outcome?: string) -> CaseControlStudy`
+  A case-control study: cases with the outcome and controls without it, sampled in fixed numbers and asked about past exposure. It estimates odds ratios only, never risk or prevalence, because the design fixed how many have the outcome. exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.
+- `no_association(model: ObservationalStudy) -> AssociationNull`
+  Null: no association between the study's exposure and outcome, an odds ratio of 1. For a cohort, equal risk with and without exposure; for a case-control study, exposure as common among cases as among controls; for a cross-sectional study, equal prevalence.
+- `typeI(analysis: Analysis) -> TypeIClaim`
+
+### `tests.association` — Observational studies
+
+Fisher's exact test of no association in an observational 2x2 study, proved in Lean for every design: with the group sizes fixed, and with only the total fixed, by averaging over the number exposed. Its bound concerns association, not an effect of the exposure.
+
+- `fisher_exact(design: StudyDesign, null: AssociationNull, alpha: level) -> AssociationAnalysis`
+  Fisher's exact test of no association in an observational 2x2 study. Lean proves its level for every design: with group sizes fixed by a cohort or case-control study, and with only the total fixed, by averaging over the number exposed. The bound concerns association, not an effect of the exposure.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
 ### `tests.difference` — Analyses and claims
@@ -766,6 +798,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `alternative_in_null` | error | The planning point lies inside the null. |
 | `no_power_formula` | error | A cited or declared test with no power formula is planned. |
 | `direction_mismatch` | error | A one-sided null asks about the direction the model's better= does not call better. |
+| `observational_design` | error | A test that relies on randomised arms is given an observational study, whose exposure was not assigned. |
 | `unit_mismatch` | error | The test's unit does not fit the declared design: it assumes independent participants or observations where clusters or repeated measurements are declared, or it takes one summary per cluster where participants were randomised. |
 | `undeclared_randomisation` | error | A randomisation test is declared on an assignment that does not say how it was randomised. |
 | `population_mismatch` | error | A randomisation test is declared on an assignment whose analysis leaves out randomised units (population="per_protocol"). |

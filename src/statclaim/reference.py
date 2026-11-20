@@ -221,6 +221,11 @@ DIAGNOSTICS = {
         "error",
         "A one-sided null asks about the direction the model's better= does not call better.",
     ),
+    "observational_design": (
+        "error",
+        "A test that relies on randomised arms is given an observational study, whose "
+        "exposure was not assigned.",
+    ),
     "unit_mismatch": (
         "error",
         "The test's unit does not fit the declared design: it assumes independent participants "

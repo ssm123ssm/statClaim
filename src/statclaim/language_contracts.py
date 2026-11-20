@@ -33,6 +33,18 @@ class HypothesisContract:
             if argument.definition_span is None
             else (RelatedLocation(f"Declared null: {null.statement}", argument.definition_span),)
         )
+        if getattr(design.model, "observational", False):
+            # Exposure was not assigned, so no test of randomised arms applies.
+            kind = design.model.design.replace("_", "-")
+            raise LanguageError(
+                Diagnostic(
+                    "observational_design",
+                    f"{name} relies on randomised arms, but this is an observational {kind} "
+                    "study: exposure was not assigned. Use fisher_exact from tests.association "
+                    "to test association.",
+                    arguments[self.design_argument].span,
+                )
+            )
         if type(design.model) is not type(null.model) or getattr(
             design.model, "outcome", None
         ) != getattr(null.model, "outcome", None):

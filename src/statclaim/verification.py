@@ -14,6 +14,19 @@ from fractions import Fraction
 from pathlib import Path
 
 from statclaim import __version__
+from statclaim.association import (
+    ASSOCIATION_KIND,
+    AssociationTest,
+    association_assumptions,
+    association_claims,
+    association_payload,
+    association_theorems,
+    parse_association_payload,
+    render_association_proof,
+)
+from statclaim.association import (
+    general_theorem as association_theorem,
+)
 from statclaim.composition import (
     COMPOSITION_KIND,
     Composition,
@@ -262,6 +275,17 @@ def _profile(kind: str, payload: dict) -> dict:
             "statistic fixed in advance; no observed results are certified."
         )
         general_theorem = randomisation_theorem(test)
+    elif kind == ASSOCIATION_KIND:
+        test = parse_association_payload(payload)
+        claims = association_claims(test)
+        assumptions = list(association_assumptions(test))
+        theorems = association_theorems(test)
+        scope = (
+            f"The declared test of association in an observational {test.design} study, "
+            "under no association; no observed results are certified. It concerns "
+            "association, not an effect of the exposure."
+        )
+        general_theorem = association_theorem(test)
     elif kind == INTERVAL_KIND:
         claims = interval_claims(parse_interval_payload(payload))
         assumptions, theorems = INTERVAL_ASSUMPTIONS, INTERVAL_CHECKED_THEOREMS
@@ -431,6 +455,8 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
         return render_result_proof(parse_result_payload(payload), input_id)
     if kind == RANDOMISATION_KIND:
         return render_randomisation_proof(parse_randomisation_payload(payload), input_id)
+    if kind == ASSOCIATION_KIND:
+        return render_association_proof(parse_association_payload(payload), input_id)
     raise VerificationError("integrity", "Unsupported certificate kind.")
 
 
@@ -776,6 +802,15 @@ def certify_randomisation(
         project=project,
         output=output,
         timeout=timeout,
+    )
+
+
+def certify_association(
+    test: AssociationTest, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify Fisher's test of association for an observational design."""
+    return _certify_payload(
+        association_payload(test), ASSOCIATION_KIND, project=project, output=output, timeout=timeout
     )
 
 

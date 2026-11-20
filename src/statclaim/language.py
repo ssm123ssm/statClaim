@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 from fractions import Fraction
 from typing import Literal as Choice
 
+from statclaim.association import MAX_PARTICIPANTS, NAME, AssociationTest, null_statement
 from statclaim.composition import MODES, Component, Composition
 from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
@@ -75,7 +76,7 @@ from statclaim.randomisation import (
     splits_needed,
 )
 
-LANGUAGE_VERSION = "0.16.0"
+LANGUAGE_VERSION = "0.17.0"
 
 
 class PlannableIR:
@@ -441,6 +442,110 @@ class RandomisationAnalysisIR(LevelTestIR):
         )
 
 
+@dataclass(frozen=True)
+class ObservationalStudyIR(StudyModelIR):
+    """An observational study: exposure was not assigned. Its design says what the
+    sampling fixed, which decides what the study can estimate and how a test is justified.
+    """
+
+    exposure: str
+    outcome: str
+
+    observational = True
+    design = ""
+
+    @property
+    def groups(self) -> tuple[int, int] | None:
+        """The two group sizes the design fixes: (unexposed, exposed) or (controls, cases)."""
+        return None
+
+    @property
+    def total(self) -> int:
+        groups = self.groups
+        return sum(groups) if groups is not None else self.n
+
+
+@dataclass(frozen=True)
+class CrossSectionalStudyIR(ObservationalStudyIR):
+    """A sample of n from one population, with exposure and outcome measured at once.
+    Only the total is fixed. It measures prevalence, not incidence."""
+
+    n: int = 0
+    design = "cross_sectional"
+
+
+@dataclass(frozen=True)
+class CohortStudyIR(ObservationalStudyIR):
+    """Participants followed over time from exposure to outcome. The exposed and unexposed
+    group sizes are fixed when sampled separately; otherwise only the total n is."""
+
+    exposed: int | None = None
+    unexposed: int | None = None
+    n: int | None = None
+    design = "cohort"
+
+    @property
+    def groups(self) -> tuple[int, int] | None:
+        return None if self.exposed is None else (self.unexposed, self.exposed)
+
+
+@dataclass(frozen=True)
+class CaseControlStudyIR(ObservationalStudyIR):
+    """Cases with the outcome and controls without it, sampled in fixed numbers, then asked
+    about past exposure. It cannot estimate risk or prevalence: the design fixed how many
+    have the outcome."""
+
+    cases: int = 0
+    controls: int = 0
+    design = "case_control"
+
+    @property
+    def groups(self) -> tuple[int, int]:
+        return (self.controls, self.cases)
+
+
+@dataclass(frozen=True)
+class AssociationNullIR(NullIR):
+    """No association between an observational study's exposure and outcome: an odds ratio
+    of 1, stated in the terms the design can estimate."""
+
+    model: ObservationalStudyIR
+    predicate: str = "no_association"
+    value: Fraction = Fraction(0)
+
+    @property
+    def statement(self) -> str:
+        return null_statement(self.model.design)
+
+
+@dataclass(frozen=True)
+class AssociationAnalysisIR(LevelTestIR):
+    """Fisher's exact test of no association in an observational 2x2 study. Lean proves its
+    level for every design: with the group sizes fixed, or with only the total fixed."""
+
+    plan: PlanIR
+    hypothesis: AssociationNullIR
+    alpha: Fraction
+
+    @property
+    def guarantee(self) -> Guarantee:
+        return Guarantee(
+            "type_I_error", "at_most", self.alpha, self.hypothesis.statement, "finite_sample"
+        )
+
+    def lower(self) -> AssociationTest:
+        model = self.plan.model
+        groups = model.groups
+        return AssociationTest(
+            model.design,
+            self.alpha,
+            groups,
+            None if groups is not None else model.n,
+            model.exposure,
+            model.outcome,
+        )
+
+
 class FamilyLikeIR:
     """Several analyses under one familywise error bound."""
 
@@ -786,7 +891,7 @@ class ClaimIR:
     def guarantee(self) -> Guarantee | None:
         """The error-rate statement this claim asks for, when it is a single bound."""
         subject = self.subject
-        if isinstance(subject, (CitedAnalysisIR, RandomisationAnalysisIR)):
+        if isinstance(subject, (CitedAnalysisIR, RandomisationAnalysisIR, AssociationAnalysisIR)):
             return subject.guarantee
         if isinstance(subject, ComposedFamilyIR):
             return subject.lower().guarantee
@@ -983,6 +1088,32 @@ def normalize(value: object) -> object:
             return result
         case SharpNullIR(model=model, predicate=predicate):
             return {"predicate": predicate, "model": normalize(model)}
+        case CrossSectionalStudyIR(n=n, exposure=exposure, outcome=outcome):
+            return {"study": "cross_sectional", "n": n, "exposure": exposure, "outcome": outcome}
+        case CohortStudyIR(exposure=exposure, outcome=outcome):
+            sizes = (
+                {"n": value.n}
+                if value.groups is None
+                else {"exposed": value.exposed, "unexposed": value.unexposed}
+            )
+            return {"study": "cohort", **sizes, "exposure": exposure, "outcome": outcome}
+        case CaseControlStudyIR(cases=cases, controls=controls, exposure=exposure, outcome=outcome):
+            return {
+                "study": "case_control",
+                "cases": cases,
+                "controls": controls,
+                "exposure": exposure,
+                "outcome": outcome,
+            }
+        case AssociationNullIR(model=model, predicate=predicate):
+            return {"predicate": predicate, "model": normalize(model)}
+        case AssociationAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha):
+            return {
+                "test": "fisher_exact",
+                "design": normalize(plan),
+                "null": normalize(hypothesis),
+                "alpha": str(alpha),
+            }
         case RandomisationAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, draws=draws):
             result = {
                 "test": "randomisation",
@@ -1492,6 +1623,7 @@ def _outcome_null(outcome, form) -> Callable:
 def _cited_test(method: CitedMethod) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> CitedAnalysisIR:
         design, alpha = arguments["design"], arguments["alpha"]
+        _observational_refused(design, method.key)
         model = design.value.model
         if getattr(model, "outcome", None) != method.outcome:
             fail(
@@ -1534,6 +1666,7 @@ def _cited_test(method: CitedMethod) -> Callable:
 def _declared_test(arguments: dict[str, LocatedValue], span: Span) -> CitedAnalysisIR:
     """A test the author names and vouches for. Nothing about it is checked or cited."""
     design, null, alpha = arguments["design"], arguments["null"], arguments["alpha"]
+    _observational_refused(design, "declared_test")
     HypothesisContract((null.value.predicate,), null.value.statement, "").check(
         "declared_test", arguments
     )
@@ -1569,6 +1702,7 @@ def _declared_test(arguments: dict[str, LocatedValue], span: Span) -> CitedAnaly
 
 def _no_effect(arguments: dict[str, LocatedValue], span: Span) -> SharpNullIR:
     model = arguments["model"]
+    _observational_refused(model, "no_effect")
     if not isinstance(model.value, TwoArmModelIR):
         fail("type", "no_effect is a null for a two-arm model.", model.span)
     return SharpNullIR(model.value)
@@ -1576,6 +1710,7 @@ def _no_effect(arguments: dict[str, LocatedValue], span: Span) -> SharpNullIR:
 
 def _randomisation_test(arguments: dict[str, LocatedValue], span: Span) -> RandomisationAnalysisIR:
     design, alpha = arguments["design"], arguments["alpha"]
+    _observational_refused(design, "randomisation_test")
     assignment = design.value.model.assignment
     unit, units, treated = assignment.randomised_units
     if assignment.randomisation is None:
@@ -1646,10 +1781,112 @@ def _randomisation_test(arguments: dict[str, LocatedValue], span: Span) -> Rando
     return RandomisationAnalysisIR(design.value, arguments["null"].value, alpha.value)
 
 
+def _observational_refused(design: LocatedValue, test: str) -> None:
+    """Tests built on randomised arms refuse an observational design, whose exposure was
+    not assigned."""
+    model = design.value.model if isinstance(design.value, PlanIR) else design.value
+    if isinstance(model, ObservationalStudyIR):
+        fail(
+            "observational_design",
+            f"{test} relies on randomised arms, but this is an observational "
+            f"{model.design.replace('_', '-')} study: exposure was not assigned. Use "
+            "fisher_exact from tests.association to test association.",
+            design.span,
+        )
+
+
+def _study_name(arguments: dict[str, LocatedValue], key: str) -> str:
+    argument = arguments.get(key)
+    if argument is None or argument.value is None:
+        return key
+    if not NAME.fullmatch(argument.value):
+        fail(
+            "domain",
+            f"{key} names what is studied in a few plain words, starting with a letter, "
+            "at most 60 characters.",
+            argument.span,
+        )
+    return argument.value
+
+
+def _size(arguments: dict[str, LocatedValue], key: str) -> int | None:
+    argument = arguments.get(key)
+    if argument is None or argument.value is None:
+        return None
+    if argument.value < 1:
+        fail("domain", f"{key} must be a positive whole number.", argument.span)
+    if argument.value > MAX_PARTICIPANTS:
+        fail("domain", f"{key} may be at most {MAX_PARTICIPANTS}.", argument.span)
+    return argument.value
+
+
+def _cross_sectional(arguments: dict[str, LocatedValue], span: Span) -> CrossSectionalStudyIR:
+    return CrossSectionalStudyIR(
+        _study_name(arguments, "exposure"), _study_name(arguments, "outcome"), _size(arguments, "n")
+    )
+
+
+def _cohort(arguments: dict[str, LocatedValue], span: Span) -> CohortStudyIR:
+    exposed, unexposed, n = (_size(arguments, key) for key in ("exposed", "unexposed", "n"))
+    if n is not None and (exposed is not None or unexposed is not None):
+        fail(
+            "domain",
+            "Declare either exposed and unexposed, when the cohort sampled the groups in fixed "
+            "numbers, or n, when it sampled one population and exposure was measured; not both.",
+            span,
+        )
+    if n is None and (exposed is None or unexposed is None):
+        fail(
+            "domain",
+            "A cohort needs exposed and unexposed group sizes, or its total n when the number "
+            "exposed was not fixed.",
+            span,
+        )
+    total = n if n is not None else exposed + unexposed
+    if total > MAX_PARTICIPANTS:
+        fail("domain", f"A study may have at most {MAX_PARTICIPANTS} participants.", span)
+    return CohortStudyIR(
+        _study_name(arguments, "exposure"), _study_name(arguments, "outcome"), exposed, unexposed, n
+    )
+
+
+def _case_control(arguments: dict[str, LocatedValue], span: Span) -> CaseControlStudyIR:
+    cases, controls = _size(arguments, "cases"), _size(arguments, "controls")
+    if cases + controls > MAX_PARTICIPANTS:
+        fail("domain", f"A study may have at most {MAX_PARTICIPANTS} participants.", span)
+    return CaseControlStudyIR(
+        _study_name(arguments, "exposure"), _study_name(arguments, "outcome"), cases, controls
+    )
+
+
+def _no_association(arguments: dict[str, LocatedValue], span: Span) -> AssociationNullIR:
+    return AssociationNullIR(arguments["model"].value)
+
+
+def _fisher_exact(arguments: dict[str, LocatedValue], span: Span) -> AssociationAnalysisIR:
+    design, null = arguments["design"], arguments["null"]
+    if not isinstance(design.value.model, ObservationalStudyIR):
+        fail(
+            "type",
+            "fisher_exact tests association in an observational study, but this design is a "
+            "randomised trial. Use fisher from tests.fisher to compare randomised arms.",
+            design.span,
+        )
+    if design.value.model != null.value.model:
+        fail(
+            "model_mismatch",
+            "fisher_exact: the null belongs to a different study. Declare "
+            "no_association(model=...) over the study the design samples.",
+            null.span,
+        )
+    return AssociationAnalysisIR(design.value, null.value, arguments["alpha"].value)
+
+
 def _fisher(alternative: str) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> AnalysisIR:
         plan, hypothesis = arguments["design"].value, arguments["null"].value
         test = "fisher" if alternative == "two_sided" else "fisher_one_sided"
+        _observational_refused(arguments["design"], test)
         check_design(plan.model, BINOMIAL_ASSUMPTIONS, test, arguments["design"].span)
         return AnalysisIR(plan, hypothesis, arguments["alpha"].value, alternative)
 
@@ -1675,6 +1912,7 @@ def _difference(predicate: str) -> Callable:
 
 def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> AnalysisIR:
     plan, null, alpha = arguments["design"].value, arguments["null"], arguments["alpha"]
+    _observational_refused(arguments["design"], "difference_test")
     if not -1 < null.value.value < 1:
         fail("domain", "The margin must lie strictly between -1 and 1.", null.span)
     if alpha.value == 0:
@@ -2563,6 +2801,12 @@ def _outcome_module(outcome) -> "Module":
     return Module(outcome.module, (model, *pieces, *nulls, NO_EFFECT, TYPE_I))
 
 
+STUDY_NAMES = (("exposure", "string", True), ("outcome", "string", True))
+STUDY_NAMES_DOCUMENTATION = (
+    'exposure and outcome name what is studied, such as exposure="smoking"; claims use the names.'
+)
+
+
 # Extending this registry adds vocabulary and typed builders; parsing is unchanged.
 MODULES = {
     module.name: module
@@ -2717,6 +2961,74 @@ MODULES = {
                     "permutes clusters. Without draws the p-value counts every possible "
                     "assignment; with draws=B it compares the observed assignment with B "
                     "drawn at random, which Lean also proves. " + RANDOMISATION_CONTRACT.guidance,
+                ),
+                TYPE_I,
+            ),
+        ),
+        Module(
+            "models.observational",
+            (
+                _constructor(
+                    "cross_sectional",
+                    (("n", "integer"), *STUDY_NAMES),
+                    "CrossSectionalStudy",
+                    _cross_sectional,
+                    documentation="A cross-sectional study: n participants sampled from one "
+                    "population, with exposure and outcome measured at the same time. Only n "
+                    "is fixed, not how many are exposed. It measures prevalence, not "
+                    "incidence. " + STUDY_NAMES_DOCUMENTATION,
+                ),
+                _constructor(
+                    "cohort",
+                    (
+                        ("exposed", "integer", True),
+                        ("unexposed", "integer", True),
+                        ("n", "integer", True),
+                        *STUDY_NAMES,
+                    ),
+                    "CohortStudy",
+                    _cohort,
+                    documentation="A cohort study: participants followed from exposure to "
+                    "outcome. Give exposed and unexposed when the groups were sampled in fixed "
+                    "numbers, or n when one population was sampled and exposure measured. "
+                    + STUDY_NAMES_DOCUMENTATION,
+                ),
+                _constructor(
+                    "case_control",
+                    (("cases", "integer"), ("controls", "integer"), *STUDY_NAMES),
+                    "CaseControlStudy",
+                    _case_control,
+                    documentation="A case-control study: cases with the outcome and controls "
+                    "without it, sampled in fixed numbers and asked about past exposure. It "
+                    "estimates odds ratios only, never risk or prevalence, because the design "
+                    "fixed how many have the outcome. " + STUDY_NAMES_DOCUMENTATION,
+                ),
+                _constructor(
+                    "no_association",
+                    (("model", ObservationalStudyIR),),
+                    "AssociationNull",
+                    _no_association,
+                    documentation="Null: no association between the study's exposure and "
+                    "outcome, an odds ratio of 1. For a cohort, equal risk with and without "
+                    "exposure; for a case-control study, exposure as common among cases as "
+                    "among controls; for a cross-sectional study, equal prevalence.",
+                ),
+                TYPE_I,
+            ),
+        ),
+        Module(
+            "tests.association",
+            (
+                _constructor(
+                    "fisher_exact",
+                    (("design", PlanIR), ("null", AssociationNullIR), ("alpha", "level")),
+                    "AssociationAnalysis",
+                    _fisher_exact,
+                    documentation="Fisher's exact test of no association in an observational "
+                    "2x2 study. Lean proves its level for every design: with group sizes "
+                    "fixed by a cohort or case-control study, and with only the total fixed, "
+                    "by averaging over the number exposed. The bound concerns association, "
+                    "not an effect of the exposure.",
                 ),
                 TYPE_I,
             ),
@@ -3135,10 +3447,27 @@ def _typed(argument: LocatedValue, kind: str | type, name: str) -> LocatedValue:
         expected = kind if isinstance(kind, str) else kind.__name__.removesuffix("IR")
         fail(
             "type",
-            f"{name} expects {expected}; received {type(value).__name__.removesuffix('IR')}.",
+            f"{name} expects {expected}; received {type(value).__name__.removesuffix('IR')}."
+            + _observational_hint(value),
             argument.span,
         )
     return argument
+
+
+def _observational_hint(value: object) -> str:
+    """Observational values in a trial's place: say which vocabulary fits them."""
+    if isinstance(value, AssociationNullIR):
+        return (
+            " no_association is the null of an observational study; test it with "
+            "fisher_exact from tests.association. This input belongs to a randomised trial."
+        )
+    if isinstance(value, ObservationalStudyIR):
+        return (
+            " An observational study takes no_association(model=...) as its null and "
+            "fisher_exact from tests.association as its test; nulls and tests of randomised "
+            "arms do not apply, because exposure was not assigned."
+        )
+    return ""
 
 
 class Elaborator:

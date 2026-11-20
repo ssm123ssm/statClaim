@@ -41,6 +41,19 @@ MODULE_CLASSES = {
         "fixed in advance. With clusters randomised, the test permutes clusters. Up to 10,000 "
         "randomised units and 1,000 strata or blocks.",
     ),
+    "models.observational": (
+        "Observational studies",
+        "Cross-sectional, cohort and case-control studies, whose exposure was not assigned. "
+        "Each says what its sampling fixed: only the total, the exposed and unexposed groups, "
+        "or the numbers of cases and controls. The null of no association.",
+    ),
+    "tests.association": (
+        "Observational studies",
+        "Fisher's exact test of no association in an observational 2x2 study, proved in Lean "
+        "for every design: with the group sizes fixed, and with only the total fixed, by "
+        "averaging over the number exposed. Its bound concerns association, not an effect of "
+        "the exposure.",
+    ),
     "tests.difference": (
         "Analyses and claims",
         "Exact test of p_treatment - p_control <= margin, for non-inferiority (negative "
@@ -251,6 +264,27 @@ OBJECT_CLASSES = {
     "PolicyDetails": (
         "Evidence and inspection",
         "Calculated error, power and expected sample size of a two-stage policy.",
+    ),
+    "CrossSectionalStudy": (
+        "Observational studies",
+        "A sample from one population with exposure and outcome measured at once; only the "
+        "total is fixed.",
+    ),
+    "CohortStudy": (
+        "Observational studies",
+        "Participants followed from exposure to outcome, with the groups or only the total fixed.",
+    ),
+    "CaseControlStudy": (
+        "Observational studies",
+        "Cases and controls sampled in fixed numbers; estimates odds ratios only.",
+    ),
+    "AssociationNull": (
+        "Observational studies",
+        "No association between exposure and outcome: an odds ratio of 1.",
+    ),
+    "AssociationAnalysis": (
+        "Observational studies",
+        "Fisher's exact test of no association, with an exact alpha.",
     ),
     "ApproximatePowerDetails": (
         "Evidence and inspection",

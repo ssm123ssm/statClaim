@@ -1,0 +1,32 @@
+# Lesson 23: observational studies, where exposure was not assigned.
+use models.observational
+use sampling
+use tests.association
+
+# A cohort: 200 smokers and 400 non-smokers, followed until asthma is diagnosed or not.
+let followed = cohort(exposed=200, unexposed=400, exposure="smoking", outcome="asthma")
+let by_cohort = fisher_exact(
+    design=fixed(model=followed),
+    null=no_association(model=followed),
+    alpha=1/20,
+)
+
+# A case-control study: 150 people with lung cancer and 300 without, asked about smoking.
+let sampled = case_control(cases=150, controls=300, exposure="smoking", outcome="lung cancer")
+let by_cases = fisher_exact(
+    design=fixed(model=sampled),
+    null=no_association(model=sampled),
+    alpha=1/20,
+)
+
+# A cross-sectional survey of 1200 adults: smoking and wheeze recorded at the same visit.
+let surveyed = cross_sectional(n=1200, exposure="smoking", outcome="wheeze")
+let by_survey = fisher_exact(
+    design=fixed(model=surveyed),
+    null=no_association(model=surveyed),
+    alpha=1/20,
+)
+
+let cohort_claim = verify(typeI(by_cohort))
+let case_control_claim = verify(typeI(by_cases))
+let survey_claim = verify(typeI(by_survey))

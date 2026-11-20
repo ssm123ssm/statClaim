@@ -54,7 +54,7 @@ def test_cli_catalogue_json_is_pure(capsys, monkeypatch):
 
 
 def test_every_string_input_has_fixed_choices_or_free_text():
-    free_text = {"name", "method", "reference"}
+    free_text = {"name", "method", "reference", "exposure", "outcome"}
     strings = {
         parameter
         for module in catalogue()["modules"]

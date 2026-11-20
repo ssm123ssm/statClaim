@@ -1,6 +1,6 @@
 # Technical reference
 
-New here? Work through the [tutorial](tutorial.html): seventeen lessons with runnable
+New here? Work through the [tutorial](tutorial.html): twenty-three lessons with runnable
 files in `examples/tutorial/`.
 
 Start with the [quickstart](quickstart.md), [language reference](catalogue.md),
@@ -12,6 +12,7 @@ Start with the [quickstart](quickstart.md), [language reference](catalogue.md),
 - [Core object model](core-object-model.md), [Lean objects](lean-objects.md)
 - [Exact Fisher test](exact-test-spec.md), [formal proof](formal-proof.md)
 - [Cited methods](cited-methods.md): tests whose guarantee is cited, not proved
+- [Observational studies](observational.md): cohort, case-control and cross-sectional designs
 - [Multiple testing](multiple-testing.md), [certificates](certificates.md)
 - [Sampling and decision policies](policies.md): the Lean model for adaptive designs
 - [Planning a study](planning.md): power, sample size and two-stage designs

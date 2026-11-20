@@ -12,10 +12,12 @@ the serialized subject without using the code in this module that built it.
 from dataclasses import dataclass
 from fractions import Fraction
 
+from statclaim.association import association_assumptions
 from statclaim.composition import DISCHARGED, MODES
 from statclaim.family import MAX_ENDPOINTS
 from statclaim.language import (
     AnalysisIR,
+    AssociationAnalysisIR,
     CandidatesIR,
     CitedAnalysisIR,
     ClaimIR,
@@ -122,6 +124,15 @@ RULES = {
         "and can-reject, or can-reject-drawn when the p-value uses drawn assignments.",
         "{subject}: the design, the null and the level fit the randomisation test.",
         version=2,
+    ),
+    "observational-sampling": Rule(
+        "The design is an observational study whose sampling fixes either both group sizes, "
+        "as a cohort or case-control study can, or only the total, each a positive number.",
+        "{subject}: the {study} study fixes {fixed}.",
+    ),
+    "association-contract": Rule(
+        "The same-model, supported-null, level-range and observational-sampling rules hold.",
+        "{subject}: the design, the null and the level fit Fisher's exact test of association.",
     ),
     "cited-contract": Rule(
         "The same-model, supported-null, level-interior and enough-data rules hold.",
@@ -290,6 +301,7 @@ RULES = {
 }
 
 RANDOMISATION_CONTRACT_ID = "tests.randomisation/randomisation_test"
+ASSOCIATION_CONTRACT_ID = "tests.association/fisher_exact"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 MARGIN_CONTRACT_ID = "tests.difference/difference_test"
 CONTRACT_IDS = {
@@ -588,6 +600,60 @@ def _randomisation_steps(builder: _Builder, name: str, analysis: RandomisationAn
             {"subject": name, "population": test.population, "unit": test.unit},
         )
     return builder.apply("randomisation-contract", {"subject": name}, used)
+
+
+def fixed_words(study: dict) -> str:
+    """What an observational design fixes, in words; derivation_checker words it the same."""
+    if study["study"] == "case_control":
+        return f"{study['cases']} cases and {study['controls']} controls"
+    if "exposed" in study:
+        return f"{study['exposed']} exposed and {study['unexposed']} unexposed"
+    return f"only the total, {study['n']}"
+
+
+def derive_association(name: str, analysis: AssociationAnalysisIR) -> Derivation:
+    """Why Fisher's test of association fits. Its guarantee is proved, not carried."""
+    builder = _Builder()
+    study = normalize(analysis.plan.model)
+    used = (
+        builder.apply(
+            "same-model",
+            {
+                "subject": name,
+                "design_model": study,
+                "null_model": normalize(analysis.hypothesis.model),
+            },
+        ),
+        builder.apply(
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": analysis.hypothesis.predicate,
+                "statement": analysis.hypothesis.statement,
+                "supported": ["no_association"],
+            },
+        ),
+        builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
+        builder.apply(
+            "observational-sampling",
+            {
+                "subject": name,
+                "study": study["study"].replace("_", "-"),
+                "fixed": fixed_words(study),
+            },
+        ),
+    )
+    final = builder.apply("association-contract", {"subject": name}, used)
+    _sampling(builder, name, analysis)
+    return Derivation(
+        name,
+        ASSOCIATION_CONTRACT_ID,
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        association_assumptions(analysis.lower()),
+        tuple(builder.obligations),
+        normalize(analysis),
+    )
 
 
 def cited_guarantee(analysis: CitedAnalysisIR) -> dict:
@@ -1057,6 +1123,8 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
             derivations.append(derive_cited(binding.name, value))
         elif isinstance(value, RandomisationAnalysisIR):
             derivations.append(derive_randomisation(binding.name, value))
+        elif isinstance(value, AssociationAnalysisIR):
+            derivations.append(derive_association(binding.name, value))
         elif isinstance(value, ComposedFamilyIR):
             derivations.append(derive_composed(binding.name, value))
         elif isinstance(value, FamilyIR):

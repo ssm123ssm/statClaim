@@ -30,6 +30,12 @@ What is supported:
   every possible assignment, or compares the observed one with a declared number
   of random draws (Monte Carlo); both are proved. The test can be a member of a
   family, a fixed sequence or a graph.
+- **Observational studies.** Cross-sectional, cohort and case-control studies,
+  whose exposure was not assigned. Fisher's exact test of no association is
+  proved for each: with the two group sizes fixed by a cohort or case-control
+  design, and with only the total fixed, by averaging over the number exposed.
+  Tests of randomised arms refuse these designs. A bound concerns association,
+  never an effect of the exposure. See [observational studies](observational.md).
 
 - **Cluster-randomised trials, cited.** A t-test on one summary per cluster, a
   mean or a proportion of responders, with the clusters as the sample size and at

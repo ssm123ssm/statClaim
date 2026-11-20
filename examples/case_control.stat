@@ -1,0 +1,14 @@
+# A case-control study: cases with the outcome and controls without it, sampled in fixed
+# numbers, then asked about past exposure. Only odds ratios are estimable; Fisher's test
+# of no association is proved in Lean with the two groups in place of arms.
+use models.observational
+use sampling
+use tests.association
+
+let study = case_control(cases=120, controls=240, exposure="mobile phone use", outcome="glioma")
+let analysis = fisher_exact(
+    design=fixed(model=study),
+    null=no_association(model=study),
+    alpha=1/20,
+)
+let checked = verify(typeI(analysis))

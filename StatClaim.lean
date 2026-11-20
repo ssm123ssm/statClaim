@@ -23,3 +23,4 @@ public import StatClaim.Modules.FisherOneSided
 public import StatClaim.Modules.DifferenceTest
 public import StatClaim.Modules.Composition
 public import StatClaim.Modules.Randomisation
+public import StatClaim.Modules.Association

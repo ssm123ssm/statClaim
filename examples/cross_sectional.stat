@@ -1,0 +1,23 @@
+# Studies that fix only the total. A cross-sectional survey records exposure and outcome
+# at once; a population cohort samples first and measures exposure at baseline. How many
+# are exposed is random, so Fisher's test is proved by averaging over that number.
+use models.observational
+use sampling
+use tests.association
+
+let survey = cross_sectional(n=800, exposure="night shifts", outcome="insomnia")
+let prevalence_test = fisher_exact(
+    design=fixed(model=survey),
+    null=no_association(model=survey),
+    alpha=1/20,
+)
+
+let population = cohort(n=2500, exposure="air pollution", outcome="childhood asthma")
+let risk_test = fisher_exact(
+    design=fixed(model=population),
+    null=no_association(model=population),
+    alpha=1/40,
+)
+
+let survey_checked = verify(typeI(prevalence_test))
+let cohort_checked = verify(typeI(risk_test))

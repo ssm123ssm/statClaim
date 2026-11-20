@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -1733,6 +1733,91 @@ two copies of one outcome look like two outcomes.</div>
     <div class="task"><h4>Try it</h4><p>In the family, give <code>copy</code> <code>better="lower"</code> and read the message: one name cannot be two outcomes. Then remove the name from <code>copy</code> and see the family accepted, because the file no longer says the two models are one outcome.</p></div>
   </div>
 </section>
+<section class="lesson" id="observational">
+  <p class="eyebrow">Lesson 23</p>
+  <h2>Cohort, case-control and cross-sectional studies</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>In an observational study nobody assigned the exposure. Say which design you ran, and StatClaim knows what its sampling fixed, which test applies, and that a significant result is an association, not an effect.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/23_observational_studies.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 23: observational studies, where exposure was not assigned.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.association
+
+<span class="c"># A cohort: 200 smokers and 400 non-smokers, followed until asthma is diagnosed or not.</span>
+<span class="k">let</span> followed = <span class="f">cohort</span>(exposed=200, unexposed=400, exposure=&quot;smoking&quot;, outcome=&quot;asthma&quot;)
+<span class="k">let</span> by_cohort = <span class="f">fisher_exact</span>(
+    design=<span class="f">fixed</span>(model=followed),
+    null=<span class="f">no_association</span>(model=followed),
+    alpha=1/20,
+)
+
+<span class="c"># A case-control study: 150 people with lung cancer and 300 without, asked about smoking.</span>
+<span class="k">let</span> sampled = <span class="f">case_control</span>(cases=150, controls=300, exposure=&quot;smoking&quot;, outcome=&quot;lung cancer&quot;)
+<span class="k">let</span> by_cases = <span class="f">fisher_exact</span>(
+    design=<span class="f">fixed</span>(model=sampled),
+    null=<span class="f">no_association</span>(model=sampled),
+    alpha=1/20,
+)
+
+<span class="c"># A cross-sectional survey of 1200 adults: smoking and wheeze recorded at the same visit.</span>
+<span class="k">let</span> surveyed = <span class="f">cross_sectional</span>(n=1200, exposure=&quot;smoking&quot;, outcome=&quot;wheeze&quot;)
+<span class="k">let</span> by_survey = <span class="f">fisher_exact</span>(
+    design=<span class="f">fixed</span>(model=surveyed),
+    null=<span class="f">no_association</span>(model=surveyed),
+    alpha=1/20,
+)
+
+<span class="k">let</span> cohort_claim = <span class="f">verify</span>(typeI(by_cohort))
+<span class="k">let</span> case_control_claim = <span class="f">verify</span>(typeI(by_cases))
+<span class="k">let</span> survey_claim = <span class="f">verify</span>(typeI(by_survey))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>cohort(exposed=200, unexposed=400, ...)</code></dt>
+  <dd>Two groups sampled in fixed numbers and followed from exposure to outcome. When one
+  population was sampled and exposure measured, give <code>n</code> instead.</dd>
+  <dt><code>case_control(cases=150, controls=300, ...)</code></dt>
+  <dd>The design fixes how many have the outcome, so it can estimate odds ratios only,
+  never risk or prevalence.</dd>
+  <dt><code>cross_sectional(n=1200, ...)</code></dt>
+  <dd>Only the total is fixed; how many smoke is random. It measures prevalence, not
+  incidence.</dd>
+  <dt><code>no_association(model=...)</code></dt>
+  <dd>An odds ratio of 1, stated in the design&#x27;s own terms: equal risk for a cohort,
+  exposure as common among cases as among controls, equal prevalence for a survey.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="ok">verified</span> [case_control_claim]: typeI(by_cases)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  The numbers of cases (150) and controls (300) that the design fixes are Lean checked.
+  Fisher&#x27;s exact test of no association between smoking and lung cancer has Type I error at most 1/20 whenever smoking is as common among cases of lung cancer as among controls (odds ratio 1), for every common probability of exposure in [0, 1].
+  Assumptions:
+    Cases and controls were sampled separately, in the declared numbers, without regard to exposure.
+    Participants&#x27; exposures are independent of one another, and among cases, as among controls, everyone has the same probability of having been exposed.
+    Controls come from the population that gave rise to the cases; otherwise the null concerns the groups sampled, not that population.
+    ...
+<span class="ok">verified</span> [survey_claim]: typeI(by_survey)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  The sample size, 1200, is Lean checked; how many are exposed is not fixed, ...
+  Given the number exposed, Fisher&#x27;s exact test ... rejects with probability at most 1/20; averaged over the number exposed, its Type I error is at most 1/20 ...
+Program status: verified</code></pre></div>
+<p>The cohort and the case-control study each fix two group sizes, so the table holds two
+independent binomial counts: Fisher&#x27;s theorem from lesson 1, with the groups in place of
+arms. The survey fixes only the total. Given how many smoke, the test has level 1/20, so
+averaged over that number it does too; Lean proves this step once, for every sample size.</p>
+<p>Now use the trial&#x27;s test on the cohort: add <code>use tests.fisher</code> and change
+<code>fisher_exact</code> to <code>fisher</code> in <code>by_cohort</code>:</p>
+<div class="scroll output"><pre><code>23_observational_studies.stat:11:10: <span class="bad">error [type]</span>: null expects Hypothesis; received AssociationNull.
+no_association is the null of an observational study; test it with fisher_exact from
+tests.association. This input belongs to a randomised trial.
+Program status: invalid</code></pre></div>
+<div class="note"><strong>Association, not effect.</strong> Every claim about an
+observational study says what it is about: whether exposure and outcome go together in
+the population sampled. Exposure was not assigned, so confounding is not excluded, and the
+report says so under each claim.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>cohort</code>, <code>case_control</code> and <code>cross_sectional</code> declare what the sampling fixed.</li><li><code>fisher_exact</code> tests no association in any of them, proved in Lean.</li><li>Tests of randomised arms refuse an observational study.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Change the cohort to <code>cohort(n=600, exposure="smoking", outcome="asthma")</code>, a population cohort, and check it again: the claim now averages over the number exposed, like the survey.</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -1749,6 +1834,7 @@ two copies of one outcome look like two outcomes.</div>
       <tr><td>Declare repeated measurements or randomised clusters</td><td>any two-arm model module</td><td><code>continuous_outcome(measurements=...)</code>, <code>cluster_assignment</code></td><td>20</td></tr>
       <tr><td>Test a randomised comparison without assumptions about outcomes</td><td><code>tests.randomisation</code></td><td><code>randomisation_test</code> with <code>typeI</code></td><td>21</td></tr>
       <tr><td>Say who is analysed, or name an outcome</td><td>any two-arm model module</td><td><code>assignment(population=...)</code>, <code>binary_outcome(name=...)</code></td><td>22</td></tr>
+      <tr><td>Test association in a cohort, case-control or cross-sectional study</td><td><code>models.observational</code>, <code>sampling</code>, <code>tests.association</code></td><td><code>fisher_exact</code> with <code>typeI</code></td><td>23</td></tr>
       <tr><td>Adjust a yes-or-no outcome for covariates</td><td><code>models.two_arm_binomial</code>, <code>tests.logistic</code></td><td><code>logistic_regression</code> with <code>typeI</code> (cited)</td><td>17</td></tr>
       <tr><td>Use a test StatClaim does not know</td><td><code>tests.declared</code></td><td><code>declared_test</code> with <code>typeI</code> (declared)</td><td>17</td></tr>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>

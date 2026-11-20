@@ -46,6 +46,8 @@
 - Randomisation tests as members of families, fixed sequences and graphs.
 - Who is analysed, declared on the assignment: everyone randomised or per protocol.
 - Named outcomes, so a family cannot ask the same question of one outcome twice.
+- Observational studies: cross-sectional, cohort and case-control designs, and
+  Fisher's exact test of no association proved for each.
 
 ## Direction
 

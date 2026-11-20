@@ -16,8 +16,21 @@ import json
 from fractions import Fraction
 from math import comb
 
+from statclaim.association import (
+    CASE_CONTROL_GROUPS,
+    CASE_CONTROL_NULL,
+    COHORT_GROUPS,
+    COHORT_NULL,
+    CROSS_SECTIONAL_NULL,
+    INDEPENDENT_EXPOSURES,
+    INDEPENDENT_OUTCOMES,
+    NULL_STATEMENTS,
+    RANDOM_SAMPLE,
+    SOURCE_POPULATION,
+)
 from statclaim.derivations import (
     ANALYSIS_ASSUMPTIONS,
+    ASSOCIATION_CONTRACT_ID,
     CITED_NOT_ESTABLISHED,
     COMPOSED_NOT_ESTABLISHED,
     CONTRACT_IDS,
@@ -1083,6 +1096,67 @@ def _carried(derivation: dict):
     return None
 
 
+def _association_expected(name: str, subject: dict) -> tuple[list[tuple], tuple[str, ...]]:
+    """Fisher's test of association, re-evaluated from the serialized subject."""
+    if subject.get("test") != "fisher_exact":
+        raise ValueError("the contract does not match the declaration")
+    study, null = subject["design"]["model"], subject["null"]
+    kind = study["study"]
+    sizes = {
+        "case_control": ("cases", "controls"),
+        "cohort": ("exposed", "unexposed") if "exposed" in study else ("n",),
+        "cross_sectional": ("n",),
+    }[kind]
+    positive = all(isinstance(study.get(key), int) and study[key] >= 1 for key in sizes)
+    if kind == "case_control":
+        fixed = f"{study['cases']} cases and {study['controls']} controls"
+    elif "exposed" in study:
+        fixed = f"{study['exposed']} exposed and {study['unexposed']} unexposed"
+    else:
+        fixed = f"only the total, {study['n']}"
+    alpha = Fraction(subject["alpha"])
+    steps = [
+        (
+            "same-model",
+            {"subject": name, "design_model": study, "null_model": null["model"]},
+            study == null["model"],
+            (),
+        ),
+        (
+            "supported-null",
+            {
+                "subject": name,
+                "predicate": null["predicate"],
+                "statement": NULL_STATEMENTS[kind],
+                "supported": ["no_association"],
+            },
+            null["predicate"] == "no_association",
+            (),
+        ),
+        ("level-range", {"subject": name, "alpha": subject["alpha"]}, 0 <= alpha <= 1, ()),
+        (
+            "observational-sampling",
+            {"subject": name, "study": kind.replace("_", "-"), "fixed": fixed},
+            positive,
+            (),
+        ),
+        ("association-contract", {"subject": name}, True, (0, 1, 2, 3)),
+    ]
+    if kind == "case_control":
+        assumptions = (
+            CASE_CONTROL_GROUPS,
+            INDEPENDENT_EXPOSURES,
+            SOURCE_POPULATION,
+            PRESPECIFIED,
+            CASE_CONTROL_NULL,
+        )
+    else:
+        sampled = COHORT_GROUPS if "exposed" in study else RANDOM_SAMPLE
+        stated = CROSS_SECTIONAL_NULL if kind == "cross_sectional" else COHORT_NULL
+        assumptions = (sampled, INDEPENDENT_OUTCOMES, PRESPECIFIED, stated)
+    return steps, assumptions
+
+
 def _sampling_expectation(name: str, analysis: dict) -> tuple[str, dict, bool]:
     stopping = analysis["design"]["stopping"]
     return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
@@ -1103,6 +1177,9 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
         ):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+    if contract == ASSOCIATION_CONTRACT_ID:
+        steps, assumptions = _association_expected(name, subject)
+        return steps, [_sampling_expectation(name, subject)], assumptions
     if contract == RANDOMISATION_CONTRACT_ID:
         model = subject["design"]["model"]
         grouped = model.get("randomisation") != "complete"

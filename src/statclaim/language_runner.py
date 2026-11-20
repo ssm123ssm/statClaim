@@ -11,6 +11,7 @@ from statclaim.composition import composition_claims
 from statclaim.language import (
     LANGUAGE_VERSION,
     AnalysisIR,
+    AssociationAnalysisIR,
     CitedAnalysisIR,
     ComposedFamilyIR,
     FamilyIR,
@@ -46,6 +47,7 @@ from statclaim.methods.core import GRADES, SCOPES
 from statclaim.methods.identify import identify
 from statclaim.reference import SCOPE_NOTE
 from statclaim.report import (
+    run_association,
     run_binomial_result,
     run_composition,
     run_interval,
@@ -203,6 +205,14 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         return run_margin(
             margin.margin_test(observed=observed),
             verify=request.operation == "verify",
+            project=project,
+            output=output,
+            timeout=timeout,
+        )
+    if isinstance(subject, AssociationAnalysisIR):
+        return run_association(
+            subject.lower(),
+            stopping=subject.plan.stopping,
             project=project,
             output=output,
             timeout=timeout,
