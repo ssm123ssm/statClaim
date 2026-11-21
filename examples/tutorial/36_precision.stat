@@ -1,0 +1,36 @@
+# Lesson 36: how many for a margin of error.
+use models.observational
+use sampling
+use planning
+
+# A survey of 400 to estimate the prevalence of asthma, expected near 1 in 10.
+let survey = cross_sectional(n=400, exposure="smoking", outcome="asthma")
+let estimate = planned_interval(model=survey, measure="prevalence")
+
+# A 95% interval within 3 percentage points of the estimate: a margin of error of 3/100.
+let target = precision_target(at=proportion(value=1/10), level=19/20, margin_of_error=3/100)
+let declared = calculate(meets(analysis=estimate, target=target))
+let sizes = interval_sizes(interval=estimate, min_size=10, max_size=5000)
+let smallest = calculate(smallest_sample_size(candidates=sizes, target=target))
+
+# The interval at the expected count is one study's luck. Ask for 80% assurance instead:
+# a four in five chance that the interval actually comes out that narrow.
+let sure = precision_target(at=proportion(value=1/10), level=19/20, margin_of_error=3/100, assurance=4/5)
+let assured = calculate(sample_size(candidates=sizes, target=sure))
+
+# A national survey that samples households: the normal interval, with a design effect of 2
+# and a finite population of 50,000.
+let national = cross_sectional(n=2000, exposure="smoking", outcome="asthma", survey="cluster", clusters=100)
+let survey_estimate = planned_interval(model=national, measure="prevalence", method="normal")
+let survey_point = proportion(value=1/2, design_effect=2, population_size=50000)
+let survey_target = precision_target(at=survey_point, level=19/20, margin_of_error=3/100)
+let survey_sizes = interval_sizes(interval=survey_estimate, min_size=10, max_size=100000)
+let survey_needed = calculate(smallest_sample_size(candidates=survey_sizes, target=survey_target))
+
+# A relative margin for a ratio: the risk ratio's interval within half of its value, on the
+# log scale, so its lower limit is at least half the estimate.
+let followed = cohort(exposed=300, unexposed=600, exposure="statin use", outcome="dementia")
+let ratio = planned_interval(model=followed, measure="risk_ratio")
+let ratio_target = precision_target(at=risks(unexposed=1/10, risk_ratio=2), level=19/20, relative_margin_of_error=1/2)
+let ratio_sizes = interval_sizes(interval=ratio, min_size=10, max_size=5000, ratio=2)
+let ratio_needed = calculate(smallest_sample_size(candidates=ratio_sizes, target=ratio_target))

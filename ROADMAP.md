@@ -68,6 +68,9 @@
   gsDesign.
 - Power and sample sizes for Pearson's correlation and the slope of a linear
   regression with covariates, exact under normality and cross-checked against R.
+- Precision targets: sample sizes for a margin of error, absolute or relative, with an
+  optional assurance, for every interval StatClaim reports, and for surveys through the
+  normal interval with a design effect and a finite population correction.
 - Power and sample sizes for every cited observational test: logistic, modified
   Poisson, conditional logistic and Poisson regressions, Spearman's correlation, linear
   regression on a yes-or-no exposure, and the survey tests through the design effect.

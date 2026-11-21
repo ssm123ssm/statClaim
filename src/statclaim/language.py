@@ -122,6 +122,10 @@ from statclaim.planning import (
     TwoStageResult,
     TwoStageRule,
 )
+from statclaim.precision import MAX_EXACT_PAIRS
+from statclaim.precision import MAX_SIZE as MAX_PRECISION_SIZE
+from statclaim.precision import MEASURES as PLANNED_MEASURES
+from statclaim.precision import METHODS as PRECISION_METHODS
 from statclaim.randomisation import (
     MAX_DRAWS,
     MAX_UNITS,
@@ -133,7 +137,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.31.0"
+LANGUAGE_VERSION = "0.32.0"
 
 
 class PlannableIR:
@@ -154,6 +158,11 @@ class PlanningPointIR:
 
 class StudyModelIR:
     """A sampling model that a study design can be declared over."""
+
+
+class EstimableModelIR:
+    """A model whose interval can be planned: one arm, two binomial arms, or an observational
+    study."""
 
 
 class LevelTestIR:
@@ -263,7 +272,7 @@ class TwoArmModelIR(StudyModelIR):
 
 
 @dataclass(frozen=True)
-class ModelIR(TwoArmModelIR):
+class ModelIR(TwoArmModelIR, EstimableModelIR):
     """Two arms with a yes-or-no outcome: the Lean-backed binomial model."""
 
     def __post_init__(self):
@@ -500,7 +509,7 @@ class RandomisationAnalysisIR(LevelTestIR):
 
 
 @dataclass(frozen=True)
-class ObservationalStudyIR(StudyModelIR):
+class ObservationalStudyIR(StudyModelIR, EstimableModelIR):
     """An observational study: exposure was not assigned. Its design says what the
     sampling fixed, which decides what the study can estimate and how a test is justified.
     """
@@ -1141,11 +1150,52 @@ def group_probabilities(point: PlanningPointIR) -> tuple[Fraction, Fraction]:
     return point.controls, point.cases
 
 
+class TargetIR:
+    """What a planning claim asks of a design: power, or precision."""
+
+
 @dataclass(frozen=True)
-class PowerTargetIR:
+class PowerTargetIR(TargetIR):
     at: PlanningPointIR
     minimum: Fraction
     maximum_typeI: Fraction
+
+
+@dataclass(frozen=True)
+class SingleProportionIR(PlanningPointIR):
+    """A planning point for one proportion, such as a prevalence: its value, and for the
+    normal interval of a survey, the design effect and the size of the population sampled."""
+
+    value: Fraction
+    design_effect: Fraction | None = None
+    population_size: int | None = None
+
+
+@dataclass(frozen=True)
+class PrecisionTargetIR(TargetIR):
+    """Require an interval's margin of error, half its width, to be at most margin, or its
+    relative margin of error at most relative; with assurance, require that chance."""
+
+    at: PlanningPointIR
+    level: Fraction
+    margin: Fraction | None = None
+    relative: Fraction | None = None
+    assurance: Fraction | None = None
+
+    @property
+    def bound(self) -> Fraction:
+        return self.margin if self.margin is not None else self.relative
+
+
+@dataclass(frozen=True)
+class PlannedIntervalIR(PlannableIR):
+    """An interval a study plans to report: its measure, its method, and for a cohort that
+    sampled two groups, which group's proportion."""
+
+    model: object
+    measure: str
+    method: str = "exact"
+    group: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1177,7 +1227,7 @@ class TwoStageAnalysisIR(PlannableIR):
 
 
 @dataclass(frozen=True)
-class OneArmModelIR:
+class OneArmModelIR(EstimableModelIR):
     n: int
 
 
@@ -1422,6 +1472,22 @@ class TwoStageCandidatesIR(CandidateSpaceIR):
         return TwoStageAnalysisIR(
             TwoStageModelIR(1, 1), RuleIR(TwoStageRule("threshold")), self.null_rate
         )
+
+
+@dataclass(frozen=True)
+class IntervalCandidatesIR(CandidateSpaceIR):
+    """Sizes for a planned interval, in the design's own units: participants, the first group
+    (exposed, cases or controls in a trial) with ratio of the other for each, pairs or
+    events."""
+
+    interval: PlannedIntervalIR
+    min_size: int
+    max_size: int
+    ratio: int = 1
+
+    @property
+    def analysis(self) -> PlannedIntervalIR:
+        return self.interval
 
 
 @dataclass(frozen=True)
@@ -1931,6 +1997,30 @@ def normalize(value: object) -> object:
             if value.dropout is not None:
                 point.update(dropout=str(value.dropout), dropout_time=str(value.dropout_time))
             return point
+        case SingleProportionIR(value=rate):
+            point = {"proportion": str(rate)}
+            if value.population_size is not None:
+                point["population_size"] = value.population_size
+            return _with_design_effect(point, value)
+        case PrecisionTargetIR(at=point, level=level):
+            result = {"at": normalize(point), "level": str(level)}
+            if value.margin is not None:
+                result["margin_of_error"] = str(value.margin)
+            else:
+                result["relative_margin_of_error"] = str(value.relative)
+            if value.assurance is not None:
+                result["assurance"] = str(value.assurance)
+            return result
+        case PlannedIntervalIR(model=model, measure=measure, method=method, group=group):
+            result = {"interval": measure, "model": normalize(model), "method": method}
+            return result if group is None else {**result, "group": group}
+        case IntervalCandidatesIR(interval=interval, min_size=low, max_size=high, ratio=ratio):
+            return {
+                "interval": normalize(interval),
+                "min_size": low,
+                "max_size": high,
+                "ratio": ratio,
+            }
         case PowerTargetIR(at=point, minimum=minimum, maximum_typeI=maximum):
             return {
                 "at": normalize(point),
@@ -4176,8 +4266,336 @@ def _check_planned_size(analysis: PlannableIR, where: Span, point=None) -> None:
         fail("domain", f"Exact power is limited to {MAX_GROUP} participants in each group.", where)
 
 
+def _design_name(model: object) -> str | None:
+    if isinstance(model, OneArmModelIR):
+        return "one_arm"
+    if isinstance(model, ModelIR):
+        return "two_arm"
+    if isinstance(model, ObservationalStudyIR):
+        return model.design
+    return None
+
+
+def _planned_interval(arguments: dict[str, LocatedValue], span: Span) -> PlannedIntervalIR:
+    model, measure = arguments["model"], arguments["measure"]
+    method_arg, group_arg = arguments.get("method"), arguments.get("group")
+    method = "exact" if method_arg is None or method_arg.value is None else method_arg.value
+    group = None if group_arg is None or group_arg.value is None else group_arg.value
+    design = _design_name(model.value)
+    if design is None:
+        fail(
+            "type",
+            "planned_interval takes a one-arm or two-arm binomial model, or an observational "
+            "study.",
+            model.span,
+        )
+    fitting = [key for key, (_, designs) in PLANNED_MEASURES.items() if design in designs]
+    if measure.value not in PLANNED_MEASURES:
+        fail(
+            "domain",
+            f"measure must be one of {', '.join(fitting)} for this design.",
+            measure.span,
+        )
+    kind, designs = PLANNED_MEASURES[measure.value]
+    if design not in designs:
+        reason = (
+            proportion_not_estimable(measure.value, design)
+            if kind == "proportion" and design != "one_arm"
+            else not_estimable(measure.value, design)
+            if measure.value in MEASURES
+            else None
+        )
+        fail(
+            "not_estimable",
+            f"{measure.value}: "
+            + (reason or f"a {design.replace('_', '-')} design does not estimate it.")
+            + f" This design estimates {', '.join(fitting) or 'none of them'}.",
+            measure.span,
+        )
+    if method not in PRECISION_METHODS:
+        fail("domain", 'method must be "exact" or "normal".', method_arg.span)
+    if design == "two_arm":
+        check_design(model.value, BINOMIAL_ASSUMPTIONS, "planned_interval", model.span)
+    observed = model.value if isinstance(model.value, ObservationalStudyIR) else None
+    if observed is not None:
+        for which, scale in (
+            ("outcome", observed.outcome_scale),
+            ("exposure", observed.exposure_scale),
+        ):
+            if scale != "binary" and (which == "outcome" or kind != "proportion"):
+                fail(
+                    "type",
+                    f"planned_interval({measure.value}) needs a yes-or-no {which}; this study "
+                    f"declares a continuous {which}.",
+                    model.span,
+                )
+        if method == "exact" and observed.survey != "simple_random":
+            fail(
+                "complex_sample",
+                f"Exact intervals assume a simple random sample; this survey declares "
+                f'{observed.survey} sampling. Use method="normal", with design_effect on the '
+                "planning point.",
+                model.span,
+            )
+    needs_group = kind == "proportion" and observed is not None and observed.groups is not None
+    if needs_group and group not in ("exposed", "unexposed"):
+        fail(
+            "domain",
+            "This cohort sampled exposed and unexposed groups separately, so say which: "
+            'group="exposed" or group="unexposed".',
+            span,
+        )
+    if not needs_group and group is not None:
+        fail("domain", "This interval has no group to choose; leave group out.", group_arg.span)
+    return PlannedIntervalIR(model.value, measure.value, method, group)
+
+
+def _single_proportion(arguments: dict[str, LocatedValue], span: Span) -> SingleProportionIR:
+    value = arguments["value"]
+    if not 0 < value.value < 1:
+        fail("domain", "value must lie strictly between 0 and 1.", value.span)
+    population = arguments.get("population_size")
+    size = None if population is None or population.value is None else population.value
+    if size is not None and size < 2:
+        fail("domain", "population_size must be at least 2.", population.span)
+    return SingleProportionIR(value.value, _design_effect(arguments), size)
+
+
+def _precision_target(arguments: dict[str, LocatedValue], span: Span) -> PrecisionTargetIR:
+    level, assurance = arguments["level"], arguments.get("assurance")
+    absolute, relative = arguments.get("margin_of_error"), arguments.get("relative_margin_of_error")
+    given = [a for a in (absolute, relative) if a is not None and a.value is not None]
+    if len(given) != 1:
+        fail(
+            "domain",
+            "Give one of margin_of_error, half the interval's width, or "
+            "relative_margin_of_error, a fraction of the planning value.",
+            span,
+        )
+    if given[0].value <= 0:
+        fail("domain", "The margin of error must be positive.", given[0].span)
+    if not 0 < level.value < 1:
+        fail("domain", "level must lie strictly between 0 and 1.", level.span)
+    chance = None if assurance is None or assurance.value is None else assurance.value
+    if chance is not None and not 0 < chance < 1:
+        fail("domain", "assurance must lie strictly between 0 and 1.", assurance.span)
+    is_absolute = absolute is not None and absolute.value is not None
+    return PrecisionTargetIR(
+        arguments["at"].value,
+        level.value,
+        given[0].value if is_absolute else None,
+        None if is_absolute else given[0].value,
+        chance,
+    )
+
+
+def _two_group_sizes(interval: PlannedIntervalIR) -> bool:
+    """Whether a search of this interval varies two fixed groups, the first with ratio of
+    the second for each."""
+    model = interval.model
+    if isinstance(model, ModelIR):
+        return True
+    kind = PLANNED_MEASURES[interval.measure][0]
+    return (
+        isinstance(model, ObservationalStudyIR)
+        and model.groups is not None
+        and kind in ("difference", "ratio", "odds")
+    )
+
+
+def _interval_sizes(arguments: dict[str, LocatedValue], span: Span) -> IntervalCandidatesIR:
+    interval, low, high = arguments["interval"], arguments["min_size"], arguments["max_size"]
+    if not isinstance(interval.value, PlannedIntervalIR):
+        fail("type", "interval_sizes searches a planned_interval(...).", interval.span)
+    ratio = arguments.get("ratio")
+    each = 1 if ratio is None or ratio.value is None else ratio.value
+    if ratio is not None and ratio.value is not None and not _two_group_sizes(interval.value):
+        fail(
+            "domain",
+            "ratio is for a design that samples two groups in fixed numbers; this search "
+            "varies one size.",
+            ratio.span,
+        )
+    if not 1 <= each <= MAX_RATIO:
+        fail("domain", f"ratio must be from 1 to {MAX_RATIO}.", ratio.span)
+    if low.value < 1:
+        fail("domain", "min_size must be a positive integer.", low.span)
+    if high.value < low.value:
+        fail("domain", "max_size must be at least min_size.", high.span)
+    exact_pairs = (
+        interval.value.method == "exact" and interval.value.measure == "conditional_odds_ratio"
+    )
+    limit = MAX_EXACT_PAIRS if exact_pairs else MAX_PRECISION_SIZE
+    if high.value * (1 + each if _two_group_sizes(interval.value) else 1) > limit:
+        fail("domain", f"The search is currently limited to {limit:,} in all.", high.span)
+    return IntervalCandidatesIR(interval.value, low.value, high.value, each)
+
+
+def _check_precision(
+    interval: PlannedIntervalIR, target: LocatedValue, where: Span, search: bool
+) -> None:
+    """A planned interval is planned at the point its measure takes, with a precision target
+    its method can reach."""
+    goal = target.value
+    if not isinstance(goal, PrecisionTargetIR):
+        fail(
+            "planning_point",
+            "A planned interval takes precision_target(at=..., level=..., margin_of_error=...), "
+            "not a power target.",
+            target.span,
+        )
+    point, model, measure = goal.at, interval.model, interval.measure
+    kind = PLANNED_MEASURES[measure][0]
+    exact = interval.method == "exact"
+    if kind == "proportion":
+        wanted = (
+            (SingleProportionIR, RateIR)
+            if isinstance(model, OneArmModelIR)
+            else (SingleProportionIR,)
+        )
+        if not isinstance(point, wanted):
+            fail("planning_point", f"Plan {measure} at proportion(value=...).", target.span)
+        value = point.value
+    elif kind == "difference" and isinstance(model, ModelIR):
+        if not isinstance(point, RatesIR) or point.icc is not None:
+            fail(
+                "planning_point",
+                "Plan the difference at binomial_rates(p_control=..., p_treatment=...).",
+                target.span,
+            )
+        value = point.p_treatment - point.p_control
+    elif kind in ("difference", "ratio", "odds"):
+        wanted, signature = GROUP_POINTS[model.design]
+        if model.design == "cohort" and model.groups is None:
+            signature = "risks(unexposed=..., exposed=..., exposed_share=...)"
+        if not isinstance(point, wanted):
+            fail(
+                "planning_point",
+                f"Plan a {model.design.replace('_', '-')} study's {measure} at {signature}.",
+                target.span,
+            )
+        share = getattr(point, "exposed_share", None)
+        if model.groups is None and share is None:
+            fail(
+                "planning_point",
+                "This study fixes only its total, so how many are exposed is random. Give "
+                "exposed_share, the probability that a participant is exposed.",
+                target.span,
+            )
+        if model.groups is not None and share is not None:
+            fail(
+                "planning_point",
+                "This cohort sampled its exposed and unexposed groups in fixed numbers; leave "
+                "exposed_share out.",
+                target.span,
+            )
+        first, second = group_probabilities(point)
+        if kind == "ratio" and 0 in (first, second):
+            fail("domain", f"A {measure} needs both probabilities above 0.", target.span)
+        if kind == "odds" and not (0 < first < 1 and 0 < second < 1):
+            fail(
+                "domain",
+                "An odds ratio needs both probabilities strictly between 0 and 1.",
+                target.span,
+            )
+        value = (
+            second - first
+            if kind == "difference"
+            else (
+                second / first
+                if kind == "ratio"
+                else (second / (1 - second)) / (first / (1 - first))
+            )
+        )
+    elif kind == "matched":
+        if not isinstance(point, DiscordantPairsIR):
+            fail(
+                "planning_point",
+                "Plan the conditional odds ratio at discordant_pairs(share=..., odds_ratio=...).",
+                target.span,
+            )
+        value = point.odds_ratio
+    else:
+        if not isinstance(point, IncidenceRatesIR):
+            fail(
+                "planning_point",
+                "Plan the rate ratio at incidence_rates(rate_ratio=..., exposed_time=..., "
+                "unexposed_time=..., events=...).",
+                target.span,
+            )
+        if search and point.events is not None:
+            fail(
+                "planning_point",
+                "interval_sizes searches the events; leave events out of incidence_rates.",
+                target.span,
+            )
+        if not search and point.events is None:
+            fail(
+                "planning_point",
+                "The rate ratio's interval is given the total events: give events=..., or "
+                "search them with interval_sizes.",
+                target.span,
+            )
+        value = point.rate_ratio
+    if goal.relative is not None:
+        if kind in ("proportion", "difference") and value == 0:
+            fail(
+                "planning_point",
+                "A relative margin of error is a fraction of the planning value, which is 0 "
+                "here; give margin_of_error instead.",
+                target.span,
+            )
+        if kind not in ("proportion", "difference") and goal.relative >= 1:
+            fail(
+                "domain",
+                "For a ratio, the relative margin of error r asks that the lower limit be at "
+                "least (1 - r) times the estimate, so r must be below 1.",
+                target.span,
+            )
+    effect = getattr(point, "design_effect", None)
+    population = getattr(point, "population_size", None)
+    survey = isinstance(model, ObservationalStudyIR) and model.survey != "simple_random"
+    if exact and (effect is not None or population is not None):
+        fail(
+            "planning_point",
+            "design_effect and population_size describe a survey's normal interval; the exact "
+            'interval assumes a simple random sample. Use method="normal" for them.',
+            target.span,
+        )
+    if survey and effect is None:
+        fail(
+            "planning_point",
+            f"This survey samples by {model.survey} design: give design_effect=... on the "
+            "planning point.",
+            target.span,
+        )
+    if population is not None and not search and isinstance(model, ObservationalStudyIR):
+        if population <= model.total:
+            fail(
+                "domain",
+                f"population_size must exceed the {model.total} sampled.",
+                target.span,
+            )
+
+
 def _meets(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     analysis = arguments["analysis"]
+    if isinstance(analysis.value, PlannedIntervalIR) or isinstance(
+        arguments["target"].value, PrecisionTargetIR
+    ):
+        if not isinstance(analysis.value, PlannedIntervalIR):
+            fail(
+                "type",
+                "precision_target is for planned_interval(...): a test is planned with "
+                "power_target.",
+                analysis.span,
+            )
+        _check_precision(analysis.value, arguments["target"], analysis.span, search=False)
+        return ClaimIR(
+            "meets",
+            FeasibilityIR(analysis.value, arguments["target"].value),
+            analysis.name or "<expression>",
+        )
     _check_point(analysis.value, arguments["target"], analysis.span)
     _check_planned_size(analysis.value, analysis.span, arguments["target"].value.at)
     point = arguments["target"].value.at
@@ -4367,6 +4785,32 @@ def _allocated(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
 def _sizing(minimal: bool) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         candidates = arguments["candidates"]
+        goal = arguments["target"].value
+        if isinstance(candidates.value, IntervalCandidatesIR) or isinstance(
+            goal, PrecisionTargetIR
+        ):
+            if not isinstance(candidates.value, IntervalCandidatesIR):
+                fail(
+                    "type",
+                    "precision_target is searched with interval_sizes(interval=...).",
+                    candidates.span,
+                )
+            if minimal and getattr(goal, "assurance", None) is not None:
+                fail(
+                    "unsupported_claim",
+                    "With an assurance, the chance of reaching the margin rises with the size "
+                    "only roughly, since counts are whole numbers, so a smallest-size claim is "
+                    "not offered. Use sample_size(...) for a sufficient size.",
+                    candidates.span,
+                )
+            _check_precision(
+                candidates.value.interval, arguments["target"], candidates.span, search=True
+            )
+            return ClaimIR(
+                "sample_size",
+                SizingIR(candidates.value, goal, minimal),
+                candidates.name or "<expression>",
+            )
         if (
             minimal
             and isinstance(candidates.value, CandidatesIR)
@@ -4526,6 +4970,15 @@ def planned_analysis(subject: object) -> object:
 def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     claim = arguments["claim"]
     if claim.value.kind in ("meets", "sample_size") and isinstance(
+        planned_analysis(claim.value.subject), PlannedIntervalIR
+    ):
+        fail(
+            "unsupported_claim",
+            "A planned interval's precision is calculated, not proved: Lean does not check "
+            "precision yet. Use calculate(...).",
+            claim.span,
+        )
+    if claim.value.kind in ("meets", "sample_size") and isinstance(
         planned_analysis(claim.value.subject), (CitedAnalysisIR, CitedAssociationIR)
     ):
         fail(
@@ -4564,6 +5017,13 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         )
     subject = claim.value.subject
     analysis = planned_analysis(subject)
+    if isinstance(analysis, PlannedIntervalIR):
+        fail(
+            "unsupported_claim",
+            "A planned interval's precision is summed exactly over the counts, so there is "
+            "nothing to simulate. Use calculate(...).",
+            claim.span,
+        )
     if isinstance(analysis, CitedAssociationIR):
         fail(
             "no_simulation_model",
@@ -5503,6 +5963,75 @@ MODULES = {
                     "calculated for. Leave events out to search them with event_counts.",
                 ),
                 _constructor(
+                    "proportion",
+                    (
+                        ("value", "number"),
+                        ("design_effect", "number", True),
+                        ("population_size", "integer", True),
+                    ),
+                    "SingleProportion",
+                    _single_proportion,
+                    documentation="A planning point for one proportion, such as a prevalence or "
+                    "a cumulative incidence: its value, strictly between 0 and 1. For the normal "
+                    "interval of a survey, design_effect and population_size, the number in the "
+                    "population sampled, for a finite population correction. A planning input, "
+                    "not an established fact.",
+                ),
+                _constructor(
+                    "precision_target",
+                    (
+                        ("at", PlanningPointIR),
+                        ("level", "level"),
+                        ("margin_of_error", "number", True),
+                        ("relative_margin_of_error", "number", True),
+                        ("assurance", "number", True),
+                    ),
+                    "PrecisionTarget",
+                    _precision_target,
+                    documentation="Require an interval at the given level to be narrow enough at "
+                    "the planning point: its margin of error, half its width, at most "
+                    "margin_of_error, or its relative margin of error at most "
+                    "relative_margin_of_error, a fraction of the planning value. For a ratio the "
+                    "relative margin r asks that the lower limit be at least (1 - r) times the "
+                    "estimate, on the log scale. Without assurance, the interval is taken at the "
+                    "counts the point expects; with it, the chance that the interval is narrow "
+                    "enough must be at least assurance.",
+                ),
+                _constructor(
+                    "planned_interval",
+                    (
+                        ("model", EstimableModelIR),
+                        ("measure", "string"),
+                        ("method", "string", True),
+                        ("group", "string", True),
+                    ),
+                    "PlannedInterval",
+                    _planned_interval,
+                    documentation="The interval a study plans to report, for a precision target: "
+                    "response_rate for one arm, difference for a two-arm trial, prevalence, "
+                    "cumulative_incidence, risk or prevalence ratios and differences and "
+                    "odds_ratio for observational studies, conditional_odds_ratio for matched "
+                    'pairs and rate_ratio for person-time. method="exact" (the default) is '
+                    'StatClaim\'s own exact interval; method="normal" is the usual large-sample '
+                    "interval, and allows a survey's design effect and a finite population. For "
+                    "a cohort that sampled two groups, group says whose cumulative incidence.",
+                ),
+                _constructor(
+                    "interval_sizes",
+                    (
+                        ("interval", PlannedIntervalIR),
+                        ("min_size", "integer"),
+                        ("max_size", "integer"),
+                        ("ratio", "integer", True),
+                    ),
+                    "IntervalCandidates",
+                    _interval_sizes,
+                    documentation="Sizes for a planned interval, in the design's own units: the "
+                    "participants of one group or population; for two fixed groups, the first "
+                    "(exposed, cases, or the control arm of a trial) with ratio of the other for "
+                    "each; or the pairs or events.",
+                ),
+                _constructor(
                     "power_target",
                     (("at", PlanningPointIR), ("minimum", "number"), ("maximum_typeI", "level")),
                     "PowerTarget",
@@ -5513,7 +6042,7 @@ MODULES = {
                 ),
                 _constructor(
                     "meets",
-                    (("analysis", PlannableIR), ("target", PowerTargetIR)),
+                    (("analysis", PlannableIR), ("target", TargetIR)),
                     "PlanningClaim",
                     _meets,
                     documentation="Claim that this analysis meets every component of the "
@@ -5661,7 +6190,7 @@ MODULES = {
                 ),
                 _constructor(
                     "sample_size",
-                    (("candidates", CandidateSpaceIR), ("target", PowerTargetIR)),
+                    (("candidates", CandidateSpaceIR), ("target", TargetIR)),
                     "PlanningClaim",
                     _sizing(False),
                     documentation="Claim that some candidate meets the target. The search is "
@@ -5669,7 +6198,7 @@ MODULES = {
                 ),
                 _constructor(
                     "smallest_sample_size",
-                    (("candidates", CandidateSpaceIR), ("target", PowerTargetIR)),
+                    (("candidates", CandidateSpaceIR), ("target", TargetIR)),
                     "PlanningClaim",
                     _sizing(True),
                     documentation="Claim that a candidate meets the target and that no smaller "

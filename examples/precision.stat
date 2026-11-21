@@ -1,0 +1,46 @@
+# Precision targets: how many participants for an interval of a given margin of error.
+# Every result is a calculation; Lean does not check precision.
+use models.observational
+use models.two_arm_binomial
+use tests.binomial
+use sampling
+use planning
+
+# One arm: a response rate expected near 3/10, within 1/10 at 95%.
+let arm = one_arm_binomial(n=60)
+let rate = planned_interval(model=arm, measure="response_rate")
+let rate_target = precision_target(at=response_rate(value=3/10), level=19/20, margin_of_error=1/10)
+let rate_size = calculate(smallest_sample_size(candidates=interval_sizes(interval=rate, min_size=10, max_size=2000), target=rate_target))
+
+# A trial's difference in response, within 1/10, with equal arms.
+let trial = two_arm_binomial(n_control=200, n_treatment=200)
+let difference = planned_interval(model=trial, measure="difference")
+let difference_target = precision_target(at=binomial_rates(p_control=3/10, p_treatment=1/2), level=19/20, margin_of_error=1/10)
+let difference_size = calculate(smallest_sample_size(candidates=interval_sizes(interval=difference, min_size=10, max_size=5000), target=difference_target))
+
+# A case-control odds ratio, two controls per case, with 80% assurance that its lower limit
+# is at least half the estimate.
+let sampled = case_control(cases=150, controls=300, exposure="smoking", outcome="lung cancer")
+let odds = planned_interval(model=sampled, measure="odds_ratio")
+let odds_target = precision_target(
+    at=exposure_prevalence(controls=1/5, odds_ratio=2),
+    level=19/20,
+    relative_margin_of_error=1/2,
+    assurance=4/5,
+)
+let odds_size = calculate(sample_size(candidates=interval_sizes(interval=odds, min_size=10, max_size=5000, ratio=2), target=odds_target))
+
+# Matched pairs and person-time, with the same relative margin.
+let paired = matched_case_control(pairs=200, exposure="benzodiazepine use", outcome="hip fracture")
+let conditional = planned_interval(model=paired, measure="conditional_odds_ratio")
+let pairs_target = precision_target(at=discordant_pairs(share=1/4, odds_ratio=2), level=19/20, relative_margin_of_error=1/2)
+let pairs_size = calculate(smallest_sample_size(candidates=interval_sizes(interval=conditional, min_size=10, max_size=5000), target=pairs_target))
+
+let workers = person_time_cohort(exposure="solvent exposure", outcome="kidney cancer")
+let rates = planned_interval(model=workers, measure="rate_ratio")
+let rates_target = precision_target(
+    at=incidence_rates(rate_ratio=2, exposed_time=8000, unexposed_time=24000),
+    level=19/20,
+    relative_margin_of_error=1/2,
+)
+let events_size = calculate(smallest_sample_size(candidates=interval_sizes(interval=rates, min_size=10, max_size=5000), target=rates_target))

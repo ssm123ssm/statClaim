@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirty-five short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Thirty-six short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2806,6 +2806,109 @@ clusters: at least 20, as lesson 27 checked.</div>
     <div class="task"><h4>Try it</h4><p>A stratified design might have a design effect of 4/5. How many people would the survey need then?</p></div>
   </div>
 </section>
+<section class="lesson" id="precision">
+  <p class="eyebrow">Lesson 36</p>
+  <h2>How many for a margin of error</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Some studies are sized for precision, not power: a survey that must estimate a prevalence to within a few percentage points. We plan the interval we will report, ask for its margin of error, absolute or relative, and, if we like, an assurance that the interval really comes out that narrow.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/36_precision.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 36: how many for a margin of error.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> planning
+
+<span class="c"># A survey of 400 to estimate the prevalence of asthma, expected near 1 in 10.</span>
+<span class="k">let</span> survey = <span class="f">cross_sectional</span>(n=400, exposure=&quot;smoking&quot;, outcome=&quot;asthma&quot;)
+<span class="k">let</span> estimate = <span class="f">planned_interval</span>(model=survey, measure=&quot;prevalence&quot;)
+
+<span class="c"># A 95% interval within 3 percentage points of the estimate: a margin of error of 3/100.</span>
+<span class="k">let</span> target = <span class="f">precision_target</span>(at=<span class="f">proportion</span>(value=1/10), level=19/20, margin_of_error=3/100)
+<span class="k">let</span> declared = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=estimate, target=target))
+<span class="k">let</span> sizes = <span class="f">interval_sizes</span>(interval=estimate, min_size=10, max_size=5000)
+<span class="k">let</span> smallest = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=sizes, target=target))
+
+<span class="c"># The interval at the expected count is one study&#x27;s luck. Ask for 80% assurance instead:</span>
+<span class="c"># a four in five chance that the interval actually comes out that narrow.</span>
+<span class="k">let</span> sure = <span class="f">precision_target</span>(at=<span class="f">proportion</span>(value=1/10), level=19/20, margin_of_error=3/100, assurance=4/5)
+<span class="k">let</span> assured = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=sizes, target=sure))
+
+<span class="c"># A national survey that samples households: the normal interval, with a design effect of 2</span>
+<span class="c"># and a finite population of 50,000.</span>
+<span class="k">let</span> national = <span class="f">cross_sectional</span>(n=2000, exposure=&quot;smoking&quot;, outcome=&quot;asthma&quot;, survey=&quot;cluster&quot;, clusters=100)
+<span class="k">let</span> survey_estimate = <span class="f">planned_interval</span>(model=national, measure=&quot;prevalence&quot;, method=&quot;normal&quot;)
+<span class="k">let</span> survey_point = <span class="f">proportion</span>(value=1/2, design_effect=2, population_size=50000)
+<span class="k">let</span> survey_target = <span class="f">precision_target</span>(at=survey_point, level=19/20, margin_of_error=3/100)
+<span class="k">let</span> survey_sizes = <span class="f">interval_sizes</span>(interval=survey_estimate, min_size=10, max_size=100000)
+<span class="k">let</span> survey_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=survey_sizes, target=survey_target))
+
+<span class="c"># A relative margin for a ratio: the risk ratio&#x27;s interval within half of its value, on the</span>
+<span class="c"># log scale, so its lower limit is at least half the estimate.</span>
+<span class="k">let</span> followed = <span class="f">cohort</span>(exposed=300, unexposed=600, exposure=&quot;statin use&quot;, outcome=&quot;dementia&quot;)
+<span class="k">let</span> ratio = <span class="f">planned_interval</span>(model=followed, measure=&quot;risk_ratio&quot;)
+<span class="k">let</span> ratio_target = <span class="f">precision_target</span>(at=<span class="f">risks</span>(unexposed=1/10, risk_ratio=2), level=19/20, relative_margin_of_error=1/2)
+<span class="k">let</span> ratio_sizes = <span class="f">interval_sizes</span>(interval=ratio, min_size=10, max_size=5000, ratio=2)
+<span class="k">let</span> ratio_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=ratio_sizes, target=ratio_target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>planned_interval(model=..., measure=..., method=...)</code></dt>
+  <dd>The interval you will report: a <code>prevalence</code>, a <code>cumulative_incidence</code>,
+  a one-arm <code>response_rate</code>, a trial&#x27;s <code>difference</code>, a risk or
+  prevalence ratio or difference, an <code>odds_ratio</code>, a matched study&#x27;s
+  <code>conditional_odds_ratio</code> or a <code>rate_ratio</code>.
+  <code>method="exact"</code>, the default, is StatClaim&#x27;s own exact interval;
+  <code>method="normal"</code> is the usual large-sample one.</dd>
+  <dt><code>precision_target(at=..., level=..., margin_of_error=...)</code></dt>
+  <dd>The margin of error is half the interval&#x27;s width. Give
+  <code>relative_margin_of_error</code> instead for a fraction of the planning value; for a
+  ratio it asks that the lower limit be at least (1 &#8722; r) times the estimate.
+  <code>assurance</code> asks for the chance that the interval is narrow enough.</dd>
+  <dt><code>proportion(value=..., design_effect=..., population_size=...)</code></dt>
+  <dd>The planning point for one proportion. A survey&#x27;s design effect and the size of the
+  population it samples go with the normal interval.</dd>
+  <dt><code>interval_sizes(interval=..., min_size=..., max_size=..., ratio=...)</code></dt>
+  <dd>The sizes to search: participants, or for two fixed groups the first with
+  <code>ratio</code> of the other for each, or pairs, or events.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [declared]: meets(estimate)
+  n = 400
+  exact 19/20 interval for the prevalence at the expected counts: 0.0724 to 0.1337 around 0.1
+  margin of error 0.03065; target 3/100
+  ...
+<span class="calc">calculated</span> [smallest]: sample_size(sizes)
+  n = 417
+  ...
+<span class="calc">calculated</span> [assured]: sample_size(sizes)
+  n = 457
+  assurance 0.8182, the chance the interval is narrow enough; required 4/5
+  ...
+<span class="calc">calculated</span> [survey_needed]: sample_size(survey_sizes)
+  n = 2047
+  normal 19/20 interval for the prevalence at the expected counts: 0.47 to 0.53 around 0.5
+  ...
+<span class="calc">calculated</span> [ratio_needed]: sample_size(ratio_sizes)
+  unexposed = 384; exposed = 192
+  exact 19/20 interval for the risk ratio at the expected counts: 0.9971 to 3.988 around 2
+  relative margin of error 0.5; target 1/2
+  ...
+Program status: calculated</code></pre></div>
+<p>Four hundred people give a margin of 3.07 points; 417 reach 3. The textbook formula,
+z&#178;p(1 &#8722; p)/d&#178;, says 385, but it plans the normal interval: StatClaim plans the
+exact interval it will report, which is a little wider. With 80% assurance the survey needs
+457. The national survey needs 2,047, Cochran&#x27;s size with the design effect and the finite
+population, as R gives it.</p>
+<p>All of these are calculations: precision is not checked by Lean, and
+<code>verify</code> is refused. Without an assurance the margin falls steadily with the size,
+so the search finds the smallest size; with one, the chance rises only roughly, so only
+<code>sample_size</code>, a sufficient size, is offered.</p>
+<div class="note"><strong>Exact or normal?</strong> The exact interval is the one StatClaim
+reports, valid for every true value. For two groups it combines two exact intervals, so it
+is wide: a trial difference of &#177;0.1 needs 477 per arm with it, about 177 with the normal
+interval. StatClaim computes exact intervals for results of up to 1,000 per group; a plan
+beyond that still describes the Clopper-Pearson interval, and the result says so.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>A precision target plans a <code>planned_interval</code>, by its margin of error, absolute or relative.</li><li><code>assurance</code> asks for the chance of reaching it.</li><li>Surveys use the normal interval with a design effect and a finite population.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Ask for a margin of 2 percentage points. How many does the exact interval need, and how many does <code>method="normal"</code> need?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2839,6 +2942,7 @@ clusters: at least 20, as lesson 27 checked.</div>
       <tr><td>Plan a correlation or a linear regression</td><td><code>planning</code>, <code>tests.correlation</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>correlation</code>, <code>slope</code> or <code>outcome_means</code>, with <code>total_sizes</code> or <code>cohort_sizes</code></td><td>33</td></tr>
       <tr><td>Plan a logistic, modified Poisson, conditional logistic or Poisson rate regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
       <tr><td>Plan a complex survey</td><td><code>planning</code>, <code>tests.survey</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>design_effect</code> on the point, with <code>total_sizes</code></td><td>35</td></tr>
+      <tr><td>Size a study for a margin of error</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code>, <code>sample_size</code> with <code>planned_interval</code>, <code>precision_target</code> and <code>interval_sizes</code></td><td>36</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>

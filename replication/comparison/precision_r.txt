@@ -1,0 +1,34 @@
+Precision of planned intervals, written to tests/fixtures/precision_r.json
+
+proportion 1/10, n 400, level 19/20, margin 3/100: expected margin 0.030650, assurance 0.409459279434, presize exact 0.030636
+proportion 1/10, n 417, level 19/20, margin 3/100: expected margin 0.030000, assurance 0.495685182570
+proportion 3/10, n 89, level 19/20, margin 1/10: expected margin 0.099550, assurance 0.579190414913
+proportion 1/2, n 1000, level 99/100, margin 103/2500: expected margin 0.041200, assurance 1.000000000000, presize exact 0.041147
+difference, p = (3/10, 1/2), groups (150, 150), absolute margin 9/50: expected 0.179950, assurance 0.563868270932
+ratio, p = (1/10, 1/5), groups (300, 150), relative margin 11/20: expected 0.545480, assurance 0.534757823075
+odds, p = (1/5, 1/3), groups (200, 100), relative margin 3/5: expected 0.597710, assurance 0.526661323813
+ratio, p = (1/10, 1/5), groups (200, 100), absolute margin 9/4: expected 2.263646, assurance 0.488224480778
+matched: 120 pairs, discordant 1/4, odds ratio 2, relative margin 3/5: assurance 0.717817347127
+rate ratio: 60 events, ratio 2, relative margin 9/20: assurance 0.958711104129
+normal proportion: presize half width 0.049944507002
+normal difference: presize half width 0.093996570616
+normal ratio: presize half width 0.671856826222
+normal odds: presize half width 0.897016694853
+Cochran: p 1/2, deff 2, N 50000, margin 3/100: n = 2047
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0 presize_0.3.11
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1 kappaSize_1.2

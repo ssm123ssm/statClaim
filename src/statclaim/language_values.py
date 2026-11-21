@@ -153,6 +153,10 @@ class ApproximatePowerDetails(PlanningDetails):
     """Approximate power of a cited test from a normal formula. Never a bound."""
 
 
+class PrecisionDetails(PlanningDetails):
+    """The margin of error of a planned interval, and its assurance. A calculation."""
+
+
 class AssociationPowerDetails(PlanningDetails):
     """Calculated exact power of Fisher's test of association, with the group sizes."""
 

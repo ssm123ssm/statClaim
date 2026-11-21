@@ -30,6 +30,7 @@ from statclaim.language import (
     DifferenceIntervalIR,
     DiscordantPairsIR,
     EffectIntervalIR,
+    EstimableModelIR,
     ExponentialSurvivalIR,
     ExposurePrevalenceIR,
     FamilyIR,
@@ -39,6 +40,7 @@ from statclaim.language import (
     HazardRatioIR,
     HypothesisIR,
     IncidenceRatesIR,
+    IntervalCandidatesIR,
     IntervalIR,
     LocatedValue,
     MatchedAnalysisIR,
@@ -64,8 +66,10 @@ from statclaim.language import (
     PersonTimeStudyIR,
     PlanIR,
     PlannableIR,
+    PlannedIntervalIR,
     PlanningPointIR,
     PowerTargetIR,
+    PrecisionTargetIR,
     PriorIR,
     ProportionIR,
     RandomisationAnalysisIR,
@@ -78,10 +82,12 @@ from statclaim.language import (
     RuleIR,
     SequentialIR,
     SharpNullIR,
+    SingleProportionIR,
     SizingIR,
     SlopeIR,
     StratumIR,
     StudyModelIR,
+    TargetIR,
     TotalCandidatesIR,
     TwoArmTestIR,
     TwoStageAnalysisIR,
@@ -111,6 +117,7 @@ from statclaim.language_values import (
     OneSampleResultDetails,
     PlanningDetails,
     PolicyDetails,
+    PrecisionDetails,
     RatePowerDetails,
     RateResultDetails,
     SimulationDetails,
@@ -577,19 +584,82 @@ SCHEMAS = {
         "candidates_evaluated": FieldSpec(int, optional=True),
         "minimum_sample_size_claim": FieldSpec(str, optional=True),
     },
+    SingleProportionIR: {
+        "value": FieldSpec(Fraction, description="The proportion, such as a prevalence."),
+        "design_effect": FieldSpec(
+            Fraction, optional=True, description="A survey's design effect, a planning input."
+        ),
+        "population_size": FieldSpec(int, optional=True, description="Population sampled."),
+    },
+    PrecisionTargetIR: {
+        "at": FieldSpec(PlanningPointIR),
+        "level": FieldSpec(Fraction, description="The interval's confidence level."),
+        "margin_of_error": FieldSpec(
+            Fraction, optional=True, attribute="margin", description="Half the width at most."
+        ),
+        "relative_margin_of_error": FieldSpec(
+            Fraction, optional=True, attribute="relative", description="Fraction of the value."
+        ),
+        "assurance": FieldSpec(
+            Fraction, optional=True, description="Chance the interval is narrow enough."
+        ),
+    },
+    PlannedIntervalIR: {
+        "model": FieldSpec(EstimableModelIR),
+        "measure": FieldSpec(str),
+        "method": FieldSpec(str, description="exact or normal."),
+        "group": FieldSpec(str, optional=True),
+    },
+    IntervalCandidatesIR: {
+        "interval": FieldSpec(PlannedIntervalIR),
+        "min_size": FieldSpec(int),
+        "max_size": FieldSpec(int),
+        "ratio": FieldSpec(int, description="Of the second group for each of the first."),
+    },
+    PrecisionDetails: {
+        "total_sample_size": FieldSpec(int, optional=True),
+        "n_control": FieldSpec(int, optional=True),
+        "n_treatment": FieldSpec(int, optional=True),
+        "exposed": FieldSpec(int, optional=True),
+        "unexposed": FieldSpec(int, optional=True),
+        "cases": FieldSpec(int, optional=True),
+        "controls": FieldSpec(int, optional=True),
+        "pairs": FieldSpec(int, optional=True),
+        "events": FieldSpec(int, optional=True),
+        "measure": FieldSpec(str, optional=True),
+        "method": FieldSpec(str, optional=True),
+        "level": FieldSpec(Fraction, optional=True),
+        "estimate": FieldSpec(Fraction, optional=True, description="At the planning point."),
+        "lower": FieldSpec(Fraction, optional=True, description="At the expected counts."),
+        "upper": FieldSpec(
+            Fraction, optional=True, description="At the expected counts; absent if unbounded."
+        ),
+        "relative": FieldSpec(bool, optional=True),
+        "margin_achieved": FieldSpec(
+            Fraction, optional=True, description="Margin at the expected counts, six decimals."
+        ),
+        "target_margin": FieldSpec(Fraction, optional=True),
+        "assurance": FieldSpec(
+            Fraction, optional=True, description="Chance the interval is narrow enough."
+        ),
+        "minimum_assurance": FieldSpec(Fraction, optional=True),
+        "precision_target_met": FieldSpec(bool),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+        "note": FieldSpec(str, optional=True),
+    },
     PowerTargetIR: {
         "at": FieldSpec(PlanningPointIR),
         "minimum": FieldSpec(Fraction, description="Required power at the planning point."),
         "maximum_typeI": FieldSpec(Fraction, description="Requested Type I error bound."),
     },
-    FeasibilityIR: {"analysis": FieldSpec(PlannableIR), "target": FieldSpec(PowerTargetIR)},
+    FeasibilityIR: {"analysis": FieldSpec(PlannableIR), "target": FieldSpec(TargetIR)},
     CandidatesIR: {
         "analysis": FieldSpec(TwoArmTestIR),
         "min_per_arm": FieldSpec(int),
         "max_per_arm": FieldSpec(int),
         "ratio": FieldSpec(int, description="Treated participants per control."),
     },
-    SizingIR: {"candidates": FieldSpec(CandidateSpaceIR), "target": FieldSpec(PowerTargetIR)},
+    SizingIR: {"candidates": FieldSpec(CandidateSpaceIR), "target": FieldSpec(TargetIR)},
     OneArmModelIR: {"n": FieldSpec(int)},
     OneSampleAnalysisIR: {
         "model": FieldSpec(OneArmModelIR),
@@ -903,6 +973,8 @@ def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
     analysis = (
         subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
     )
+    if isinstance(analysis, PlannedIntervalIR):
+        return PrecisionDetails
     if isinstance(analysis, (CitedAnalysisIR, CitedAssociationIR)):
         return ApproximatePowerDetails
     if isinstance(analysis, AssociationAnalysisIR):

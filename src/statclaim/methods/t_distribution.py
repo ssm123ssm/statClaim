@@ -11,7 +11,7 @@ import math
 from statistics import NormalDist
 
 # Bump whenever this file changes: every power that uses it may change.
-VERSION = 2  # 2: random_design_power for slopes and correlations
+VERSION = 3  # 3: beta_quantile for exact interval bounds
 
 _NORMAL = NormalDist()
 _TINY = 1e-300
@@ -63,6 +63,33 @@ def regularized_beta(x: float, a: float, b: float) -> float:
     if x < (a + 1) / (a + b + 2):
         return front * _beta_fraction(x, a, b) / a
     return 1 - front * _beta_fraction(1 - x, b, a) / b
+
+
+def beta_quantile(q: float, a: float, b: float) -> float:
+    """The x with I_x(a, b) = q, by Newton's method kept inside a shrinking bracket."""
+    if q <= 0:
+        return 0.0
+    if q >= 1:
+        return 1.0
+    low, high = 0.0, 1.0
+    x = min(max(a / (a + b), 1e-12), 1 - 1e-12)
+    log_norm = _log_beta(a, b)
+    for _ in range(200):
+        gap = regularized_beta(x, a, b) - q
+        if abs(gap) <= 1e-15:
+            return x
+        if gap > 0:
+            high = x
+        else:
+            low = x
+        density = math.exp((a - 1) * math.log(x) + (b - 1) * math.log1p(-x) - log_norm)
+        step = x - gap / density if density > 0 else (low + high) / 2
+        if not low < step < high:
+            step = (low + high) / 2
+        if abs(step - x) <= 1e-15 * max(x, 1e-300):
+            return step
+        x = step
+    return x
 
 
 def t_cdf(t: float, df: float) -> float:

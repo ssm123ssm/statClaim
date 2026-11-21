@@ -128,8 +128,8 @@
     "sha256": "746558697cb0c3b6e1d642c37e1772972a258dc8ec867f09a4200b5af868775e"
   },
   "power:t_distribution": {
-    "version": 2,
-    "sha256": "dab1da4c7147d7f09aebd1185dac7588df8019083dda5077b91b5409ebf338d8"
+    "version": 3,
+    "sha256": "1d5000c3a0a6c10559782cb77fd0bd2153a4cbcbea010e5d74c8241e60cb59f6"
   },
   "simulation:engine": {
     "version": 1,

@@ -365,6 +365,52 @@ let needed = calculate(smallest_sample_size(candidates=clinics, target=target))
 
 See `examples/cluster_trial.stat` and lesson 31 of the tutorial.
 
+## Precision targets
+
+A study can be sized for precision: an interval narrow enough, not a test powerful
+enough. Name the interval you will report, then the margin of error you want.
+
+```stat
+let estimate = planned_interval(model=survey, measure="prevalence")
+let target = precision_target(at=proportion(value=1/10), level=19/20, margin_of_error=3/100)
+let sizes = interval_sizes(interval=estimate, min_size=10, max_size=5000)
+let smallest = calculate(smallest_sample_size(candidates=sizes, target=target))
+```
+
+| Measure | Design | Planning point |
+| --- | --- | --- |
+| `response_rate` | one arm | `response_rate(value=)` or `proportion(value=)` |
+| `prevalence`, `cumulative_incidence` | cross-sectional, cohort | `proportion(value=)` |
+| `difference` | two-arm binomial trial | `binomial_rates(p_control=, p_treatment=)` |
+| risk or prevalence `_ratio` and `_difference`, `odds_ratio` | cohort, cross-sectional, case-control | the design's point, as for power |
+| `conditional_odds_ratio` | matched pairs | `discordant_pairs(share=, odds_ratio=)` |
+| `rate_ratio` | person-time cohort | `incidence_rates(..., events=)` |
+
+- **Margin of error** is half the interval's width. `relative_margin_of_error=r` is a
+  fraction of the planning value; for a ratio it asks that the lower limit be at least
+  (1 - r) times the estimate, half the width on the log scale.
+- Without `assurance`, the interval is taken at the counts the planning point expects.
+  With `assurance=a`, the chance that the interval turns out narrow enough must be at
+  least `a`; it is summed exactly over the possible counts. When a design fixes only its
+  total, the assurance is taken at the expected numbers exposed.
+- `method="exact"`, the default, is StatClaim's own interval: Clopper-Pearson, rounded
+  outward to 1/10,000, and for two groups two exact intervals combined. It is valid for
+  every true value, and wide for two groups. StatClaim computes it for results of up to
+  1,000 per group; a plan beyond that says so.
+- `method="normal"` is the usual large-sample interval: Wald for a proportion or a
+  difference, Katz for a ratio, Woolf for an odds ratio. It takes a survey's
+  `design_effect` and, for one proportion, `population_size` for a finite population
+  correction (Cochran). A complex sample needs it.
+- `interval_sizes` searches participants, or for two fixed groups the first (exposed,
+  cases, or a trial's control arm) with `ratio` of the other for each, or pairs, or
+  events. Without an assurance the margin falls steadily with the size and the search
+  finds the smallest size; with one, only `sample_size`, a sufficient size, is offered.
+
+Precision is a calculation: `verify` is refused. It agrees with R's `binom.test`
+enumerated over every count to about 1e-13, with `presize` for the normal intervals,
+and with Cochran's size for a survey (`replication/comparison/precision_r.R`). See
+`examples/precision.stat` and lesson 36.
+
 ## Power by simulation
 
 `simulate` runs the test itself on simulated studies and counts how often it

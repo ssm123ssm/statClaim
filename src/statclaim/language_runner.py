@@ -7,7 +7,7 @@ from collections.abc import Collection
 from fractions import Fraction
 from pathlib import Path
 
-from statclaim import association_planning, cited_planning, simulated_planning
+from statclaim import association_planning, cited_planning, precision_planning, simulated_planning
 from statclaim.composition import composition_claims
 from statclaim.language import (
     LANGUAGE_VERSION,
@@ -26,6 +26,7 @@ from statclaim.language import (
     ObservationIR,
     OneArmCandidatesIR,
     OneSampleObservationIR,
+    PlannedIntervalIR,
     ProportionIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
@@ -156,6 +157,8 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         analysis = (
             subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
         )
+        if isinstance(analysis, PlannedIntervalIR):
+            return precision_planning.run(report, subject)
         if isinstance(analysis, CitedAnalysisIR):
             # verify(...) was refused while compiling: approximate power is a calculation.
             return cited_planning.run(report, subject)
@@ -791,7 +794,61 @@ def _group_lines(calculation: dict) -> list[str]:
     return [f"  {sizes}; total = {calculation['total_sample_size']}", f"  planning point: {point}"]
 
 
+def _precision_lines(details: dict) -> list[str]:
+    """A planned interval's margin of error, and its assurance when asked."""
+    calculation = details["calculation"]
+
+    def show(record):
+        return "unbounded" if record is None else f"{float(record['decimal_approximation']):.4g}"
+
+    lines = []
+    sizes = [
+        f"{key.replace('_', ' ')} = {calculation[key]}"
+        for key in (
+            "n_control",
+            "n_treatment",
+            "unexposed",
+            "exposed",
+            "controls",
+            "cases",
+            "pairs",
+            "events",
+        )
+        if key in calculation
+    ]
+    if not sizes and "total_sample_size" in calculation:
+        sizes = [f"n = {calculation['total_sample_size']}"]
+    if sizes:
+        lines.append("  " + "; ".join(sizes))
+    if "margin_achieved" in calculation:
+        words = "relative margin of error" if calculation["relative"] else "margin of error"
+        lines += [
+            f"  {calculation['method']} {calculation['level']['fraction']} interval for the "
+            f"{calculation['measure'].replace('_', ' ')} at the expected counts: "
+            f"{show(calculation['lower'])} to {show(calculation['upper'])} around "
+            f"{show(calculation['estimate'])}",
+            f"  {words} {show(calculation['margin_achieved'])}; target "
+            f"{calculation['target_margin']['fraction']}",
+        ]
+    if "assurance" in calculation:
+        lines.append(
+            f"  assurance {show(calculation['assurance'])}, the chance the interval is narrow "
+            f"enough; required {calculation['minimum_assurance']['fraction']}"
+        )
+    lines.append(f"  precision target met = {str(calculation['precision_target_met']).lower()}")
+    if "candidates_evaluated" in calculation:
+        lines.append(f"  candidates evaluated = {calculation['candidates_evaluated']}")
+    if "note" in calculation:
+        lines.append(f"  note: {calculation['note']}")
+    lines.append("  Assumptions:")
+    lines.extend(f"    {item['text']}" for item in details.get("assumptions", []))
+    lines.append(f"  decision = {details['decision']}; a calculation, not checked by Lean.")
+    return lines
+
+
 def _planning_lines(details: dict) -> list[str]:
+    if details.get("verification_scope") == "precision":
+        return _precision_lines(details)
     if details.get("verification_scope") == "cited_planning":
         return _approximate_lines(details)
     calculation = details["calculation"]

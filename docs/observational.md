@@ -241,6 +241,12 @@ the simple-sample formula at n / deff (Kish), and the result reports
 `effective_sample_size`. Tests that assume a simple random sample refuse it
 (`replication/comparison/survey_power_r.R`).
 
+### Precision
+
+Each interval of this page can also be planned for its margin of error, absolute or
+relative, with an assurance if you like: `planned_interval`, `precision_target` and
+`interval_sizes` from `planning`. See [precision targets](planning.md#precision-targets).
+
 ## What is refused
 
 Tests and nulls of randomised arms (`fisher`, `t_test`, `randomisation_test`,

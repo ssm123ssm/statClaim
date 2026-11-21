@@ -30,8 +30,10 @@ from statclaim.language import (
     FeasibilityIR,
     GroupCandidatesIR,
     MatchedAnalysisIR,
+    ObservationalStudyIR,
     OneArmCandidatesIR,
     OneSampleAnalysisIR,
+    PlannedIntervalIR,
     ProgramIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
@@ -42,9 +44,12 @@ from statclaim.language import (
     named_outcomes,
     normalize,
     observational_formula,
+    planned_analysis,
 )
 from statclaim.matched import matched_assumptions
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
+from statclaim.precision import MEASURES as PLANNED_KINDS
+from statclaim.precision import assumptions as precision_assumptions
 from statclaim.randomisation import randomisation_assumptions
 
 
@@ -286,6 +291,26 @@ RULES = {
     "target-range": Rule(
         "The required power is in (0, 1] and the error bound is in [0, 1].",
         "{subject}: the power {minimum} and error bound {maximum_typeI} are valid targets.",
+    ),
+    "interval-fits": Rule(
+        "The design estimates the measure, and the method applies to how it sampled: an exact "
+        "interval needs a simple random sample and yes-or-no variables.",
+        "{subject}: a {method} interval for the {measure} fits this {design} design.",
+    ),
+    "precision-point": Rule(
+        "The planning point is the kind the measure is planned at, with valid values, and a "
+        "survey's design effect is given exactly when the normal interval needs it.",
+        "{subject}: the planning point fits the {measure}.",
+    ),
+    "precision-target": Rule(
+        "The level and any assurance lie in (0, 1), the margin of error is positive, and a "
+        "relative margin is below 1 for a ratio and taken of a planning value other than 0.",
+        "{subject}: the precision target is valid.",
+    ),
+    "precision-contract": Rule(
+        "The interval-fits, precision-point, precision-target and, for a search, search-range "
+        "rules hold.",
+        "{subject}: the precision of this planned interval can be calculated.",
     ),
     "search-range": Rule(
         "The search bounds are ordered and within the supported sizes.",
@@ -1319,9 +1344,62 @@ def derive_association_planning(name: str, claim: ClaimIR, analysis) -> Derivati
     )
 
 
+def derive_precision(name: str, claim: ClaimIR, interval: PlannedIntervalIR) -> Derivation:
+    """A precision claim: the planned interval fits its design, and the target is valid."""
+    subject = claim.subject
+    search = None if isinstance(subject, FeasibilityIR) else subject.candidates
+    target = subject.target
+    model = normalize(interval.model)
+    design = model.get("study", model.get("module", "")).replace("_", "-")
+    builder = _Builder()
+    used = [
+        builder.apply(
+            "interval-fits",
+            {
+                "subject": name,
+                "measure": interval.measure.replace("_", " "),
+                "method": interval.method,
+                "design": design,
+                "interval": normalize(interval),
+            },
+        ),
+        builder.apply(
+            "precision-point",
+            {
+                "subject": name,
+                "measure": interval.measure.replace("_", " "),
+                "point": normalize(target.at),
+            },
+        ),
+        builder.apply("precision-target", {"subject": name, "target": normalize(target)}),
+    ]
+    if search is not None:
+        bounds = {key: value for key, value in normalize(search).items() if key != "interval"}
+        used.append(builder.apply("search-range", {"subject": name, "search": bounds}))
+    final = builder.apply("precision-contract", {"subject": name}, tuple(used))
+    total_only = (
+        target.assurance is not None
+        and isinstance(interval.model, ObservationalStudyIR)
+        and interval.model.groups is None
+        and PLANNED_KINDS[interval.measure][0] in ("difference", "ratio", "odds")
+    )
+    return Derivation(
+        name,
+        f"planning/{claim.kind}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        precision_assumptions(interval.method, total_only),
+        tuple(builder.obligations),
+        normalize(claim),
+    )
+
+
 def derive_planning(name: str, claim: ClaimIR) -> Derivation:
     """A planning claim: its analysis fits, and the target can be assessed for it."""
     subject = claim.subject
+    interval = planned_analysis(subject)
+    if isinstance(interval, PlannedIntervalIR):
+        return derive_precision(name, claim, interval)
     search = None if isinstance(subject, FeasibilityIR) else subject.candidates
     analysis = subject.analysis if search is None else None
     searches = (

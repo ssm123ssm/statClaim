@@ -83,6 +83,9 @@ What is supported:
 - **Two means, cited.** Pooled-variance and Welch t-tests, two-sided or
   one-sided with a margin. The contract is checked; the guarantee is cited from
   the literature and not proved. See [cited methods](cited-methods.md).
+- **Precision, calculated.** Sample sizes for a margin of error, absolute or relative,
+  with an optional assurance, for every interval StatClaim reports, and the normal
+  interval with a design effect and finite population for surveys. Not checked by Lean.
 - **Power for cited tests, calculated.** Approximate power and the value the
   estimate must pass, from a normal formula (the noncentral t for cluster tests,
   a correlation and a regression slope), and a sample-size search. The cited

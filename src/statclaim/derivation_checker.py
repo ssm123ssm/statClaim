@@ -63,6 +63,11 @@ from statclaim.methods.assumptions import (
 )
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
 from statclaim.methods.observational import METHODS as OBSERVATIONAL_METHODS
+from statclaim.precision import MAX_EXACT_PAIRS as PRECISION_PAIRS
+from statclaim.precision import MAX_SIZE as PRECISION_LIMIT
+from statclaim.precision import MEASURES as PRECISION_MEASURES
+from statclaim.precision import METHODS as PRECISION_METHODS
+from statclaim.precision import assumptions as precision_assumptions
 from statclaim.randomisation import (
     AS_DRAWN,
     AS_RANDOMISED,
@@ -422,6 +427,180 @@ def _point_kind(point: dict) -> str:
         if required is not None and required <= set(point):
             return kind
     return "association_groups"
+
+
+PRECISION_DESIGNS = {"one_arm_binomial": "one_arm", "two_arm_binomial": "two_arm"}
+
+
+def _precision_value(kind: str, point: dict, design: str) -> Fraction | None:
+    """The measure at the planning point, for a relative margin; None if the point is
+    malformed."""
+    if kind == "proportion":
+        return Fraction(point.get("proportion", point.get("response_rate", "0")))
+    if kind in ("matched", "rate"):
+        return Fraction(point["odds_ratio" if kind == "matched" else "rate_ratio"])
+    keys = ("p_control", "p_treatment") if design == "two_arm" else GROUP_POINT_KEYS.get(design)
+    if keys is None or not set(keys) <= set(point):
+        return None
+    first, second = Fraction(point[keys[0]]), Fraction(point[keys[1]])
+    if kind == "difference":
+        return second - first
+    if kind == "ratio":
+        return second / first if first else None
+    if 0 < first < 1 and 0 < second < 1:
+        return (second / (1 - second)) / (first / (1 - first))
+    return None
+
+
+def _precision_point_valid(kind, point, design, model, method, search) -> bool:
+    """The planning point fits the measure and the method, as the compiler requires."""
+    extras = {"design_effect", "population_size"}
+    core = {key: value for key, value in point.items() if key not in extras}
+    survey = model.get("survey", "simple_random") != "simple_random"
+    effect, population = point.get("design_effect"), point.get("population_size")
+    if method == "exact" and (effect is not None or population is not None):
+        return False
+    if survey and effect is None:
+        return False
+    if effect is not None and Fraction(effect) <= 0:
+        return False
+    if population is not None and (
+        kind != "proportion"
+        or not _whole(population, 2)
+        or (search is None and "n" in model and population <= model["n"])
+    ):
+        return False
+    if kind == "proportion":
+        keys = {"proportion"} if design != "one_arm" else ({"proportion"}, {"response_rate"})
+        allowed = keys if isinstance(keys, tuple) else (keys,)
+        return (
+            any(set(core) == wanted for wanted in allowed)
+            and 0 < _precision_value(kind, core, design) < 1
+        )
+    if kind == "matched":
+        return (
+            set(core) == {"discordant", "odds_ratio"}
+            and 0 < Fraction(core["discordant"]) <= 1
+            and Fraction(core["odds_ratio"]) > 0
+        )
+    if kind == "rate":
+        wanted = {"rate_ratio", "exposed_time", "unexposed_time"} | (
+            set() if search else {"events"}
+        )
+        return set(core) == wanted and all(
+            Fraction(core[key]) > 0 for key in ("rate_ratio", "exposed_time", "unexposed_time")
+        )
+    if design == "two_arm":
+        keys = ("p_control", "p_treatment")
+        if set(core) != set(keys):
+            return False
+    else:
+        keys = GROUP_POINT_KEYS.get(design)
+        wanted = (
+            None if keys is None else set(keys) | ({"exposed_share"} if "n" in model else set())
+        )
+        if wanted is None or set(core) != wanted:
+            return False
+        if "n" in model and not 0 < Fraction(core["exposed_share"]) < 1:
+            return False
+    first, second = (Fraction(core[key]) for key in keys)
+    if not (_probability(core[keys[0]]) and _probability(core[keys[1]])):
+        return False
+    if kind == "ratio":
+        return first > 0 and second > 0
+    if kind == "odds":
+        return 0 < first < 1 and 0 < second < 1
+    return True
+
+
+def _precision_expected(name: str, subject: dict, search):
+    """A precision claim, re-evaluated from the planned interval and the target."""
+    interval = subject["analysis"] if search is None else search["interval"]
+    target, model = subject["target"], interval["model"]
+    measure, method, group = interval["interval"], interval["method"], interval.get("group")
+    design = model.get("study") or PRECISION_DESIGNS.get(model.get("module"), "")
+    kind, designs = PRECISION_MEASURES.get(measure, (None, ()))
+    observational = "study" in model
+    scales_ok = not observational or (
+        model.get("outcome_scale", "binary") == "binary"
+        and (kind == "proportion" or model.get("exposure_scale", "binary") == "binary")
+    )
+    needs_group = kind == "proportion" and design == "cohort" and "n" not in model
+    fits = (
+        design in designs
+        and method in PRECISION_METHODS
+        and scales_ok
+        and (method == "normal" or model.get("survey", "simple_random") == "simple_random")
+        and (group in ("exposed", "unexposed") if needs_group else group is None)
+        and not (design == "two_arm" and _features(model))
+    )
+    spaced = measure.replace("_", " ")
+    shown = model.get("study", model.get("module", "")).replace("_", "-")
+    steps = [
+        (
+            "interval-fits",
+            {
+                "subject": name,
+                "measure": spaced,
+                "method": method,
+                "design": shown,
+                "interval": interval,
+            },
+            fits,
+            (),
+        )
+    ]
+    point = target["at"]
+    point_ok = fits and _precision_point_valid(kind, point, design, model, method, search)
+    steps.append(
+        ("precision-point", {"subject": name, "measure": spaced, "point": point}, point_ok, ())
+    )
+    margins = [key for key in ("margin_of_error", "relative_margin_of_error") if key in target]
+    value = _precision_value(kind, point, design) if point_ok else None
+    target_ok = (
+        len(margins) == 1
+        and Fraction(target[margins[0]]) > 0
+        and 0 < Fraction(target["level"]) < 1
+        and ("assurance" not in target or 0 < Fraction(target["assurance"]) < 1)
+    )
+    if target_ok and margins[0] == "relative_margin_of_error":
+        relative = Fraction(target["relative_margin_of_error"])
+        if kind in ("proportion", "difference"):
+            target_ok = value is not None and value != 0
+        else:
+            target_ok = relative < 1
+    steps.append(("precision-target", {"subject": name, "target": target}, target_ok, ()))
+    used = [0, 1, 2]
+    if search is not None:
+        bounds = {key: value for key, value in search.items() if key != "interval"}
+        two_groups = design == "two_arm" or (
+            observational
+            and "n" not in model
+            and kind in ("difference", "ratio", "odds")
+            and design in ("cohort", "case_control")
+        )
+        ratio = bounds.get("ratio")
+        limit = PRECISION_PAIRS if method == "exact" and kind == "matched" else PRECISION_LIMIT
+        holds = (
+            set(bounds) == {"min_size", "max_size", "ratio"}
+            and _whole(bounds["min_size"], 1)
+            and _whole(bounds["max_size"], bounds["min_size"])
+            and _whole(ratio, 1)
+            and ratio <= RATIO_LIMIT
+            and (two_groups or ratio == 1)
+            and bounds["max_size"] * ((1 + ratio) if two_groups else 1) <= limit
+            and not ("assurance" in target and subject.get("claim") == "smallest_in_range")
+        )
+        steps.append(("search-range", {"subject": name, "search": bounds}, holds, ()))
+        used.append(3)
+    steps.append(("precision-contract", {"subject": name}, True, tuple(used)))
+    total_only = (
+        "assurance" in target
+        and observational
+        and "n" in model
+        and kind in ("difference", "ratio", "odds")
+    )
+    return steps, [], precision_assumptions(method, total_only)
 
 
 def _cited_association_search_valid(bounds: dict, kind: str, study: dict, covariates: int) -> bool:
@@ -840,6 +1019,8 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
     search = subject.get("candidates")
     if (search is not None) != (claim["kind"] == "sample_size"):
         raise ValueError("a search accompanies exactly the sample_size claim")
+    if "interval" in (subject.get("analysis") or search or {}):
+        return _precision_expected(name, subject, search)
     analysis = subject["analysis"] if search is None else search.get("analysis")
     if analysis is not None and analysis.get("test") in METHODS:
         return _cited_planning_expected(name, subject, search, analysis)

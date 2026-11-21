@@ -116,10 +116,14 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | IncidenceRates | Planning point for a person-time cohort: the rate ratio, person-time and events. | `rate_ratio: exact number`, `exposed_time: exact number`, `unexposed_time: exact number`, `events: Option[integer]` |
 | ClusterCandidates | Cluster-randomised trials searched by clusters per arm or by cluster size. | `analysis: Analysis`, `min_size: integer`, `max_size: integer`, `cluster_size: Option[integer]` |
 | CountCandidates | Matched studies searched by their pairs, or the rate test by its events. | `analysis: Analysis`, `min_size: integer`, `max_size: integer` |
+| SingleProportion | Planning point for one proportion, such as a prevalence. | `value: exact number`, `design_effect: Option[exact number]`, `population_size: Option[integer]` |
+| PrecisionTarget | Required margin of error of an interval, absolute or relative, with an optional assurance. | `at: PlanningPoint`, `level: exact number`, `margin_of_error: Option[exact number]`, `relative_margin_of_error: Option[exact number]`, `assurance: Option[exact number]` |
+| PlannedInterval | An interval a study plans to report, for a precision target. | `model: EstimableModel`, `measure: string`, `method: string`, `group: Option[string]` |
+| IntervalCandidates | Sizes searched for a planned interval. | `interval: PlannedInterval`, `min_size: integer`, `max_size: integer`, `ratio: integer` |
 | PowerTarget | Required power at a point and a Type I bound. | `at: PlanningPoint`, `minimum: exact number`, `maximum_typeI: exact number` |
-| Feasibility | One analysis assessed against one target. | `analysis: Analysis`, `target: PowerTarget` |
+| Feasibility | One analysis assessed against one target. | `analysis: Analysis`, `target: Target` |
 | Candidates | Finite equal-arm design space for a search. | `analysis: Analysis`, `min_per_arm: integer`, `max_per_arm: integer`, `ratio: integer` |
-| Sizing | Candidates searched for a design meeting a target. | `candidates: Candidates`, `target: PowerTarget` |
+| Sizing | Candidates searched for a design meeting a target. | `candidates: Candidates`, `target: Target` |
 | OneArmCandidates | Sample sizes searched for a one-sample test. | `analysis: OneSampleAnalysis`, `min_n: integer`, `max_n: integer` |
 | TwoStageCandidates | Two-stage designs searched by an optimal or minimax criterion. | `null_rate: exact number`, `max_total: integer`, `criterion: string` |
 
@@ -145,6 +149,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | AssociationPowerDetails | Group sizes, the planning point's measures and the exact power of Fisher's test of association; not proof evidence. | `design: Option[string]`, `exposed: Option[integer]`, `unexposed: Option[integer]`, `cases: Option[integer]`, `controls: Option[integer]`, `total_sample_size: Option[integer]`, `risk_ratio: Option[exact number]`, `risk_difference: Option[exact number]`, `prevalence_ratio: Option[exact number]`, `prevalence_difference: Option[exact number]`, `exposed_share: Option[exact number]`, `expected_exposed: Option[exact number]`, `odds_ratio: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | MatchedPowerDetails | Pairs, the planning point and the exact power of McNemar's test; not proof evidence. | `pairs: Option[integer]`, `discordant: Option[exact number]`, `odds_ratio: Option[exact number]`, `case_exposed_share: Option[exact number]`, `expected_discordant_pairs: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | RatePowerDetails | Events, the planning point and the exact power of the rate test; not proof evidence. | `events: Option[integer]`, `rate_ratio: Option[exact number]`, `exposed_time_share: Option[exact number]`, `exposed_event_share: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
+| PrecisionDetails | Margin of error of a planned interval at the expected counts, and its assurance; a calculation. | `total_sample_size: Option[integer]`, `n_control: Option[integer]`, `n_treatment: Option[integer]`, `exposed: Option[integer]`, `unexposed: Option[integer]`, `cases: Option[integer]`, `controls: Option[integer]`, `pairs: Option[integer]`, `events: Option[integer]`, `measure: Option[string]`, `method: Option[string]`, `level: Option[exact number]`, `estimate: Option[exact number]`, `lower: Option[exact number]`, `upper: Option[exact number]`, `relative: Option[boolean]`, `margin_achieved: Option[exact number]`, `target_margin: Option[exact number]`, `assurance: Option[exact number]`, `minimum_assurance: Option[exact number]`, `precision_target_met: boolean`, `candidates_evaluated: Option[integer]`, `note: Option[string]` |
 | ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `clusters_control: Option[integer]`, `clusters_treatment: Option[integer]`, `total_clusters: Option[integer]`, `cluster_size_control: Option[exact number]`, `cluster_size_treatment: Option[exact number]`, `icc: Option[exact number]`, `design_effect: Option[exact number]`, `degrees_of_freedom: Option[integer]`, `covariates: Option[integer]`, `effective_sample_size: Option[exact number]`, `exposed: Option[integer]`, `unexposed: Option[integer]`, `cases: Option[integer]`, `controls: Option[integer]`, `pairs: Option[integer]`, `events: Option[integer]`, `expected_events: Option[exact number]`, `event_probability_control: Option[exact number]`, `event_probability_treatment: Option[exact number]`, `power: Option[exact number]`, `power_ceiling: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
 | SimulationDetails | Power and Type I error estimated by simulate(...), with 95% intervals, the number of runs and the seed. Estimates, not bounds and not evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_lower: Option[exact number]`, `power_upper: Option[exact number]`, `power_target_met: boolean`, `typeI: Option[exact number]`, `typeI_lower: Option[exact number]`, `typeI_upper: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `runs: Option[integer]`, `seed: Option[integer]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
@@ -513,9 +518,17 @@ Exact power at a planning point, target checks and a bounded sample-size search 
   A planning point for a 1:1 matched study: the probability that a pair is discordant, with exactly one of the two exposed, and the conditional odds ratio. A planning input, not an established fact.
 - `incidence_rates(rate_ratio: number, exposed_time: number, unexposed_time: number, events?: integer) -> IncidenceRates`
   A planning point for a person-time cohort: the rate ratio, exposed over unexposed, the expected person-time in each group, of which only the exposed share matters, and the total number of events power is calculated for. Leave events out to search them with event_counts.
+- `proportion(value: number, design_effect?: number, population_size?: integer) -> SingleProportion`
+  A planning point for one proportion, such as a prevalence or a cumulative incidence: its value, strictly between 0 and 1. For the normal interval of a survey, design_effect and population_size, the number in the population sampled, for a finite population correction. A planning input, not an established fact.
+- `precision_target(at: PlanningPoint, level: level, margin_of_error?: number, relative_margin_of_error?: number, assurance?: number) -> PrecisionTarget`
+  Require an interval at the given level to be narrow enough at the planning point: its margin of error, half its width, at most margin_of_error, or its relative margin of error at most relative_margin_of_error, a fraction of the planning value. For a ratio the relative margin r asks that the lower limit be at least (1 - r) times the estimate, on the log scale. Without assurance, the interval is taken at the counts the point expects; with it, the chance that the interval is narrow enough must be at least assurance.
+- `planned_interval(model: EstimableModel, measure: string, method?: string, group?: string) -> PlannedInterval`
+  The interval a study plans to report, for a precision target: response_rate for one arm, difference for a two-arm trial, prevalence, cumulative_incidence, risk or prevalence ratios and differences and odds_ratio for observational studies, conditional_odds_ratio for matched pairs and rate_ratio for person-time. method="exact" (the default) is StatClaim's own exact interval; method="normal" is the usual large-sample interval, and allows a survey's design effect and a finite population. For a cohort that sampled two groups, group says whose cumulative incidence.
+- `interval_sizes(interval: PlannedInterval, min_size: integer, max_size: integer, ratio?: integer) -> IntervalCandidates`
+  Sizes for a planned interval, in the design's own units: the participants of one group or population; for two fixed groups, the first (exposed, cases, or the control arm of a trial) with ratio of the other for each; or the pairs or events.
 - `power_target(at: PlanningPoint, minimum: number, maximum_typeI: level) -> PowerTarget`
   Require power of at least minimum at one planning point, and a Type I error bound of at most maximum_typeI under the null. Power at this point is not a guarantee for other alternatives.
-- `meets(analysis: Analysis, target: PowerTarget) -> PlanningClaim`
+- `meets(analysis: Analysis, target: Target) -> PlanningClaim`
   Claim that this analysis meets every component of the target. calculate computes the components; verify must establish all. For a cited test, calculate gives approximate power and verify is refused.
 - `equal_arm_sizes(analysis: Analysis, min_per_arm: integer, max_per_arm: integer) -> Candidates`
   A finite design space: equal arm sizes within inclusive bounds, keeping the analysis's sampling, null form, test and alpha.
@@ -539,9 +552,9 @@ Exact power at a planning point, target checks and a bounded sample-size search 
   A finite design space: sample sizes within inclusive bounds for a one-sample test, keeping its null rate and alpha.
 - `response_rate(value: number) -> Rate`
   A planning point for a single-arm design.
-- `sample_size(candidates: Candidates, target: PowerTarget) -> PlanningClaim`
+- `sample_size(candidates: Candidates, target: Target) -> PlanningClaim`
   Claim that some candidate meets the target. The search is ascending; a sufficient size is not claimed to be the smallest possible.
-- `smallest_sample_size(candidates: Candidates, target: PowerTarget) -> PlanningClaim`
+- `smallest_sample_size(candidates: Candidates, target: Target) -> PlanningClaim`
   Claim that a candidate meets the target and that no smaller candidate in the declared range does. Nothing is claimed outside the range.
 
 ### `designs.group_sequential` — Adaptive designs
@@ -760,7 +773,8 @@ Other string inputs, such as `name`, take free text.
 | `joint_law` | `binomial_marginals` | `bonferroni` |
 | `criterion` | `optimal`, `minimax` | `two_stage_designs` |
 | `scope` | `finite_sample`, `asymptotic` | `declared_test` |
-| `group` | `exposed`, `unexposed` | `prevalence`, `cumulative_incidence` |
+| `group` | `exposed`, `unexposed` | `prevalence`, `cumulative_incidence`, `planned_interval` |
+| `measure` | `response_rate`, `prevalence`, `cumulative_incidence`, `difference`, `risk_difference`, `prevalence_difference`, `risk_ratio`, `prevalence_ratio`, `odds_ratio`, `conditional_odds_ratio`, `rate_ratio` | `planned_interval` |
 | `exposure_scale` | `binary`, `continuous` | `cross_sectional`, `cohort`, `case_control`, `person_time_cohort`, `matched_case_control` |
 | `outcome_scale` | `binary`, `continuous` | `cross_sectional`, `cohort` |
 | `survey` | `simple_random`, `stratified`, `cluster`, `weighted` | `cross_sectional` |

@@ -163,7 +163,7 @@ uv run --locked statclaim catalogue
 
 See [quickstart](docs/quickstart.md) for VS Code and result inspection.
 
-Then work through the [tutorial](docs/tutorial.html): thirty-five lessons, from a first
+Then work through the [tutorial](docs/tutorial.html): thirty-six lessons, from a first
 checked claim to planning and analysing a study. Open the file in a browser;
 the lesson files are in `examples/tutorial/`.
 

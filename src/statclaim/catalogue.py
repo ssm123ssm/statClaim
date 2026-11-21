@@ -262,6 +262,20 @@ OBJECT_CLASSES = {
         "Planning objects",
         "Matched studies searched by their pairs, or the rate test by its events.",
     ),
+    "SingleProportion": (
+        "Planning objects",
+        "Planning point for one proportion, such as a prevalence.",
+    ),
+    "PrecisionTarget": (
+        "Planning objects",
+        "Required margin of error of an interval, absolute or relative, with an optional "
+        "assurance.",
+    ),
+    "PlannedInterval": (
+        "Planning objects",
+        "An interval a study plans to report, for a precision target.",
+    ),
+    "IntervalCandidates": ("Planning objects", "Sizes searched for a planned interval."),
     "PowerTarget": ("Planning objects", "Required power at a point and a Type I bound."),
     "Feasibility": ("Planning objects", "One analysis assessed against one target."),
     "Candidates": ("Planning objects", "Finite equal-arm design space for a search."),
@@ -441,6 +455,11 @@ OBJECT_CLASSES = {
     "RatePowerDetails": (
         "Evidence and inspection",
         "Events, the planning point and the exact power of the rate test; not proof evidence.",
+    ),
+    "PrecisionDetails": (
+        "Evidence and inspection",
+        "Margin of error of a planned interval at the expected counts, and its assurance; a "
+        "calculation.",
     ),
     "ApproximatePowerDetails": (
         "Evidence and inspection",
