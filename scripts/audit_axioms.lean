@@ -121,7 +121,9 @@ run_cmd do
     ``StatClaim.Modules.BinomialPower.mixture_real_apply,
     ``StatClaim.Modules.BinomialPower.pairs_real_ratPoint,
     ``StatClaim.Modules.BinomialPower.pairs_power_of_check,
-    ``StatClaim.Modules.BinomialPower.pairs_power_lt_of_check]
+    ``StatClaim.Modules.BinomialPower.pairs_power_lt_of_check,
+    ``StatClaim.Modules.AssociationPower.total_real_ratPoint,
+    ``StatClaim.Modules.AssociationPower.total_power_of_check]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

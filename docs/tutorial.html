@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort and case-control studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2230,10 +2230,10 @@ t-tests so far; other tests are refused with a message.</div>
 </section>
 <section class="lesson" id="observational-power">
   <p class="eyebrow">Lesson 29</p>
-  <h2>Power for cohort and case-control studies</h2>
+  <h2>Power for cohort, case-control and cross-sectional studies</h2>
   <div class="goal"><span class="tag">In this lesson</span><p>Lesson 7 chose a trial&#x27;s size from the exact power of Fisher&#x27;s test. A cohort that samples its exposed and unexposed groups, and a case-control study, fix two groups in the same way, so <code>fisher_exact</code> has exact power too. You state the planning point in the design&#x27;s own terms.</p></div>
 
-<figure class="code"><figcaption>examples/tutorial/29_observational_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 29: exact power for cohort and case-control studies.</span>
+<figure class="code"><figcaption>examples/tutorial/29_observational_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 29: exact power for cohort, case-control and cross-sectional studies.</span>
 <span class="k">use</span> models.observational
 <span class="k">use</span> sampling
 <span class="k">use</span> tests.association
@@ -2256,7 +2256,15 @@ t-tests so far; other tests are refused with a message.</div>
 <span class="k">let</span> followed = <span class="f">cohort</span>(exposed=150, unexposed=300, exposure=&quot;statin use&quot;, outcome=&quot;dementia&quot;)
 <span class="k">let</span> test = <span class="f">fisher_exact</span>(design=<span class="f">fixed</span>(model=followed), null=<span class="f">no_association</span>(model=followed), alpha=1/20)
 <span class="k">let</span> risk_target = <span class="f">power_target</span>(at=<span class="f">risks</span>(unexposed=1/10, risk_ratio=2), minimum=3/4, maximum_typeI=1/20)
-<span class="k">let</span> checked = <span class="f">verify</span>(<span class="f">meets</span>(analysis=test, target=risk_target))</code></pre></div></figure>
+<span class="k">let</span> checked = <span class="f">verify</span>(<span class="f">meets</span>(analysis=test, target=risk_target))
+
+<span class="c"># A cross-sectional study fixes only its total: give the share expected to be exposed.</span>
+<span class="k">let</span> survey = <span class="f">cross_sectional</span>(n=120, exposure=&quot;night shifts&quot;, outcome=&quot;insomnia&quot;)
+<span class="k">let</span> survey_test = <span class="f">fisher_exact</span>(design=<span class="f">fixed</span>(model=survey), null=<span class="f">no_association</span>(model=survey), alpha=1/20)
+<span class="k">let</span> expected_survey = <span class="f">outcome_prevalence</span>(unexposed=1/10, prevalence_ratio=3, exposed_share=3/10)
+<span class="k">let</span> survey_target = <span class="f">power_target</span>(at=expected_survey, minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> totals = <span class="f">total_sizes</span>(analysis=survey_test, min_n=60, max_n=150)
+<span class="k">let</span> survey_size = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=totals, target=survey_target))</code></pre></div></figure>
 <dl class="lines">
   <dt><code>exposure_prevalence(controls=..., odds_ratio=...)</code></dt>
   <dd>The planning point of a case-control study: the share of controls who were exposed,
@@ -2268,6 +2276,11 @@ t-tests so far; other tests are refused with a message.</div>
   <dt><code>case_control_sizes</code>, <code>cohort_sizes</code></dt>
   <dd>Search the number of cases, or of exposed participants, with a whole number of
   controls or unexposed participants for each, 1 unless you say otherwise.</dd>
+  <dt><code>outcome_prevalence(..., exposed_share=...)</code>, <code>total_sizes</code></dt>
+  <dd>A cross-sectional study, or a cohort declared with <code>n</code>, fixes only its total,
+  so how many are exposed is random. Give the share you expect to be exposed; power is then
+  averaged over the number exposed. A search over totals certifies a sufficient size, not
+  the smallest.</dd>
 </dl>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [power]: meets(analysis)
   cases = 120; controls = 240; total = 360
@@ -2285,6 +2298,12 @@ t-tests so far; other tests are refused with a message.</div>
   Fisher&#x27;s exact test of no association between statin use and dementia, with 150 exposed and 300 unexposed and alpha 1/20, has Type I error at most 1/20 whenever the risk of dementia is the same with and without statin use, for every common risk in [0, 1].
   Its power is at least 3/4 when the risk of dementia is 1/5 with statin use and 1/10 without it.
   ...
+<span class="calc">calculated</span> [survey_size]: sample_size(totals)
+  n = 148; expected exposed ~ 44.4
+  planning point: 3/10 exposed; prevalence 3/10 with exposure, 1/10 without (prevalence ratio 3, odds ratio 3.857)
+  power ~ 0.80116...; power target met = true; Type I target met = true
+  candidates evaluated = 89; smallest-in-range claim: not requested
+  decision = target_met; no formal certificate issued.
 Program status: verified</code></pre></div>
 <p>With 120 cases and 240 controls the study has a 76% chance of rejecting at that point;
 133 cases and 266 controls reach 80%. R agrees to twelve decimals when it runs
@@ -2293,12 +2312,10 @@ Program status: verified</code></pre></div>
 points when risks are small, as in the cohort example of <code>examples/observational_power.stat</code>.</p>
 <div class="note"><strong>Association, not effect.</strong> The planning point is an
 input, and power concerns the test of no association. Like the test itself, it says
-nothing about what the exposure does. A cross-sectional study, or a cohort declared with
-<code>n</code>, fixes only its total: its power is not available yet, and is refused with
-a message.</div>
+nothing about what the exposure does.</div>
 
   <div class="wrap-up">
-    <div><h4>What you learned</h4><ul><li><code>fisher_exact</code> has exact power when the design fixes both groups.</li><li>A cohort is planned at <code>risks</code>, a case-control study at <code>exposure_prevalence</code>.</li><li><code>cohort_sizes</code> and <code>case_control_sizes</code> search group sizes; <code>verify</code> has Lean recompute the power.</li></ul></div>
+    <div><h4>What you learned</h4><ul><li><code>fisher_exact</code> has exact power when the design fixes both groups.</li><li>A cohort is planned at <code>risks</code>, a case-control study at <code>exposure_prevalence</code>.</li><li><code>cohort_sizes</code> and <code>case_control_sizes</code> search group sizes; <code>verify</code> has Lean recompute the power.</li><li>A design that fixes only its total is planned with <code>exposed_share</code> and searched with <code>total_sizes</code>.</li></ul></div>
     <div class="task"><h4>Try it</h4><p>Plan the case-control study at <code>risks(unexposed=1/5, exposed=1/3)</code> and read the message. Then set <code>controls_per_case=4</code>: how many cases are needed now?</p></div>
   </div>
 </section>
@@ -2395,7 +2412,7 @@ honest exact statement; the assumptions say so.</div>
       <tr><td>Compare two survival curves</td><td><code>models.two_arm_survival</code>, <code>sampling</code>, <code>tests.survival</code></td><td><code>log_rank</code> with <code>typeI</code> (cited)</td><td>12</td></tr>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
-      <tr><td>Plan a cohort or case-control study</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>risks</code> or <code>exposure_prevalence</code>, with <code>cohort_sizes</code> or <code>case_control_sizes</code></td><td>29</td></tr>
+      <tr><td>Plan a cohort, case-control or cross-sectional study</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>risks</code>, <code>exposure_prevalence</code> or <code>outcome_prevalence</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code> or <code>total_sizes</code></td><td>29</td></tr>
       <tr><td>Plan a matched study, or a cohort followed over person-time</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>discordant_pairs</code> or <code>incidence_rates</code>, with <code>matched_sizes</code> or <code>event_counts</code></td><td>30</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>

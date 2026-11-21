@@ -23,12 +23,14 @@ from statclaim.observational_planning import (
     AssociationPowerPlan,
     MatchedPowerPlan,
     RatePowerPlan,
+    TotalPowerPlan,
     binomial_region,
     matched_plan_assumptions,
     matched_plan_payload,
     parse_matched_plan_payload,
     parse_plan_payload,
     parse_rate_plan_payload,
+    parse_total_plan_payload,
     plan_assumptions,
     plan_claims,
     plan_payload,
@@ -39,8 +41,11 @@ from statclaim.observational_planning import (
     render_matched_plan_proof,
     render_plan_proof,
     render_rate_plan_proof,
+    render_total_plan_proof,
     search_groups,
     search_pairs,
+    total_plan_claims,
+    total_plan_payload,
 )
 from statclaim.planning import fisher_rejection_probability
 from statclaim.verification import _profile
@@ -177,8 +182,8 @@ def test_the_smallest_design_matches_r(tmp_path):
             "let analysis = fisher_exact(design=fixed(model=study), "
             "null=no_association(model=study), alpha=1/20)\n",
             "risks(unexposed=1/10, exposed=1/5)",
-            "unsupported_claim",
-            "fixes only its total",
+            "planning_point",
+            "outcome_prevalence",
         ),
         (
             "let study = case_control(cases=600, controls=600)\n"
@@ -605,3 +610,147 @@ def test_matched_and_rate_payloads_and_proofs():
     proof = render_rate_plan_proof(rate, "c" * 64)
     assert "BinomialPower.RegionValid 60 1 4 1 40 8 24" in proof
     assert binomial_region(60, Fraction(1, 4), Fraction(1, 40)) == (8, 24)
+
+
+# Designs that fix only the total -----------------------------------------------------------
+SURVEY = (
+    'let survey = cross_sectional(n=120, exposure="night shifts", outcome="insomnia")\n'
+    "let analysis = fisher_exact(design=fixed(model=survey), null=no_association(model=survey), "
+    "alpha=1/20)\n"
+)
+SURVEY_POINT = "outcome_prevalence(unexposed=1/10, prevalence_ratio=3, exposed_share=3/10)"
+
+
+def test_total_power_agrees_with_r():
+    fixture = json.loads((ROOT / "tests/fixtures/observational_power_r.json").read_text())
+    assert len(fixture["totals"]) == 3
+    for case in fixture["totals"]:
+        plan = TotalPowerPlan(
+            AssociationTest(case["design"], Fraction(case["alpha"]), None, case["n"]),
+            Fraction(case["p_first"]),
+            Fraction(case["p_second"]),
+            Fraction(case["exposed_share"]),
+            Fraction(1, 2),
+            Fraction(1, 2),
+        )
+        assert abs(float(plan.power) - case["enumeration"]) < 1e-12, case
+
+
+def test_total_power_calculates_and_searches(tmp_path):
+    text = (
+        SURVEY
+        + target(SURVEY_POINT)
+        + "let power = calculate(meets(analysis=analysis, target=target))\n"
+        + "let sizes = total_sizes(analysis=analysis, min_n=60, max_n=150)\n"
+        + "let found = calculate(sample_size(candidates=sizes, target=target))\n"
+        + "let needed = found.calculation.total_sample_size\n"
+    )
+    report = run(text, tmp_path)
+    power, found = (request["report"]["calculation"] for request in report["requests"])
+    assert power["expected_exposed"]["fraction"] == "36"
+    assert power["prevalence_ratio"]["fraction"] == "3"
+    assert round(float(Fraction(power["power"]["fraction"])), 6) == 0.711988
+    assert report["values"]["needed"] == 148
+    assert found["minimum_sample_size_claim"] == "not_requested"
+
+
+@pytest.mark.parametrize(
+    "study,point,code,fragment",
+    [
+        (SURVEY, "outcome_prevalence(unexposed=1/10, exposed=1/5)", "arguments", "exposed_share"),
+        (SURVEY, "risks(unexposed=1/10, exposed=1/5)", "planning_point", "outcome_prevalence"),
+        (
+            SURVEY,
+            "outcome_prevalence(unexposed=1/2, prevalence_ratio=3, exposed_share=1/2)",
+            "domain",
+            "above 1",
+        ),
+        (
+            SURVEY,
+            "outcome_prevalence(unexposed=1/10, exposed=1/5, exposed_share=1)",
+            "domain",
+            "strictly between",
+        ),
+        (
+            'let people = cohort(n=100, exposure="x", outcome="y")\n'
+            "let analysis = fisher_exact(design=fixed(model=people), "
+            "null=no_association(model=people), alpha=1/20)\n",
+            "risks(unexposed=1/10, exposed=1/5)",
+            "planning_point",
+            "exposed_share",
+        ),
+        (
+            COHORT,
+            "risks(unexposed=1/10, exposed=1/5, exposed_share=1/2)",
+            "planning_point",
+            "Leave exposed_share out",
+        ),
+        (
+            "let survey = cross_sectional(n=151)\n"
+            "let analysis = fisher_exact(design=fixed(model=survey), "
+            "null=no_association(model=survey), alpha=1/20)\n",
+            SURVEY_POINT,
+            "domain",
+            "150 participants",
+        ),
+    ],
+)
+def test_total_points_must_fit_the_design(study, point, code, fragment):
+    diagnostics = compiled(
+        study + target(point) + "let p = calculate(meets(analysis=analysis, target=target))\n"
+    ).diagnostics
+    assert diagnostics[0].code == code
+    assert fragment in diagnostics[0].message
+
+
+def test_total_searches_are_sufficient_only():
+    text = (
+        SURVEY
+        + target(SURVEY_POINT)
+        + "let sizes = total_sizes(analysis=analysis, min_n=60, max_n=150)\n"
+        + "let found = calculate(smallest_sample_size(candidates=sizes, target=target))\n"
+    )
+    diagnostics = compiled(text).diagnostics
+    assert diagnostics[0].code == "unsupported_claim" and "sample_size(" in diagnostics[0].message
+    text = CASE_CONTROL + "let sizes = total_sizes(analysis=analysis, min_n=60, max_n=150)\n"
+    assert compiled(text).diagnostics[0].code == "type"
+    text = SURVEY + "let sizes = total_sizes(analysis=analysis, min_n=60, max_n=151)\n"
+    assert compiled(text).diagnostics[0].code == "domain"
+
+
+def test_total_derivations_payloads_and_proofs():
+    text = (
+        SURVEY
+        + target(SURVEY_POINT)
+        + "let claim = meets(analysis=analysis, target=target)\n"
+        + "let search = sample_size(candidates=total_sizes(analysis=analysis, min_n=60, "
+        "max_n=150), target=target)\n"
+    )
+    compilation = compiled(text)
+    assert compilation.status == "elaborated", compilation.diagnostics
+    for name in ("claim", "search"):
+        record = next(d for d in compilation.derivations if d.name == name).to_dict()
+        assert check_derivation(record) == [], name
+        changed = copy.deepcopy(record)
+        changed["subject"]["subject"]["target"]["at"]["exposed_share"] = "1"
+        assert check_derivation(changed) != []
+    plan = TotalPowerPlan(
+        AssociationTest("cross_sectional", Fraction(1, 20), None, 30, "shifts", "insomnia"),
+        Fraction(1, 10),
+        Fraction(1, 2),
+        Fraction(3, 10),
+        Fraction(1, 2),
+        Fraction(1, 20),
+    )
+    payload = total_plan_payload(plan)
+    assert parse_total_plan_payload(payload) == plan
+    changed = copy.deepcopy(payload)
+    changed["target"]["exposed_share"] = "1"
+    with pytest.raises(ValueError):
+        parse_total_plan_payload(changed)
+    assert "averaged over the number exposed" in total_plan_claims(plan)[1]
+    proof = render_total_plan_proof(plan, "d" * 64)
+    assert proof.count("theorem part_") == 31
+    assert "shifts" not in proof
+    profile = _profile("statclaim_total_planning_certificate", payload)
+    assert profile["general_theorem"] == "StatClaim.Modules.AssociationPower.total_power_of_check"

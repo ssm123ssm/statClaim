@@ -49,7 +49,8 @@ graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup
 - **Power.** For two proportions StatClaim matches `power.prop.test` to six
   decimals. For two means it is above `power.t.test` by less than 0.001 at 400 per
   arm or more, since it uses the normal distribution, not the noncentral t.
-- **Observational power.** For seven cohort and case-control designs, StatClaim's exact
+- **Observational power.** For seven cohort and case-control designs, and three that fix
+  only their total, StatClaim's exact
   power equals R's enumeration with `fisher.test` to twelve decimals, and
   `exact2x2::power2x2` with `strict = TRUE` to within its error bound of 1e-6. Its default
   doubles a one-sided test instead, which gives up to 0.075 less power with unequal

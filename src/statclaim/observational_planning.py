@@ -1015,3 +1015,297 @@ theorem checked_power :
 {smaller}
 end StatClaimCertificate
 {_audit(binomial_plan_theorems(plan), input_sha256)}"""
+
+
+# Designs that fix only the total -------------------------------------------------------------
+TOTAL_KIND = "statclaim_total_planning_certificate"
+TOTAL_THEOREM = "StatClaim.Modules.AssociationPower.total_power_of_check"
+TOTAL_THEOREMS = ["checked_size", "checked_parts", "checked_typeI", "checked_power"]
+# Participants in all: the kernel checks Fisher's region for every number exposed.
+MAX_TOTAL = 150
+TOTAL_POINT_KEYS = {
+    "cohort": ("risk_unexposed", "risk_exposed"),
+    "cross_sectional": ("prevalence_unexposed", "prevalence_exposed"),
+}
+
+
+@dataclass(frozen=True)
+class TotalPowerPlan:
+    """Fisher's test of no association for a cross-sectional study, or a cohort of one
+    population, at one planning point: the share of participants exposed, and the
+    probability of the outcome without and with exposure. Only the total is fixed."""
+
+    test: AssociationTest
+    p_first: Fraction
+    p_second: Fraction
+    exposed_share: Fraction
+    minimum_power: Fraction
+    maximum_typeI: Fraction
+    request: Literal["meets", "sample_size"] = "meets"
+    search: tuple[int, int] | None = None
+
+    def __post_init__(self) -> None:
+        if self.test.design not in TOTAL_POINT_KEYS or self.test.n is None:
+            raise ValueError("This plan is for a design that fixes only its total.")
+        if self.test.n > MAX_TOTAL:
+            raise ValueError(f"Exact power is limited to {MAX_TOTAL} participants in all.")
+        for name in ("p_first", "p_second", "exposed_share", "minimum_power", "maximum_typeI"):
+            _probability(getattr(self, name), name)
+        if not 0 < self.exposed_share < 1:
+            raise ValueError("Some participants must be exposed and some not.")
+        if self.p_first == self.p_second:
+            raise ValueError("The planning point must lie outside the null of no association.")
+        if (self.request == "sample_size") != (self.search is not None):
+            raise ValueError("Search bounds accompany exactly the sample_size request.")
+        if self.search is not None:
+            low, high = self.search
+            if type(low) is not int or type(high) is not int or not 1 <= low <= high <= MAX_TOTAL:
+                raise ValueError(f"Search bounds must be integers from 1 to {MAX_TOTAL}.")
+            if not low <= self.test.n <= high:
+                raise ValueError("The certified design must be a candidate of the search.")
+
+    @property
+    def design(self) -> str:
+        return self.test.design
+
+    def parts(self) -> list[int]:
+        """For each number exposed k, the numerator of the groups' rejection probability;
+        its denominator is d ** (n - k) * e ** k, for the points a/d and b/e."""
+        n, alpha = self.test.n, self.test.alpha
+        a, d = self.p_first.as_integer_ratio()
+        b, e = self.p_second.as_integer_ratio()
+        return [
+            fisher_rejection_probability(n - k, k, alpha, self.p_first, self.p_second)
+            * d ** (n - k)
+            * e**k
+            for k in range(n + 1)
+        ]
+
+    @property
+    def power(self) -> Fraction:
+        n = self.test.n
+        q, r = self.exposed_share.as_integer_ratio()
+        d, e = self.p_first.denominator, self.p_second.denominator
+        numerator = sum(
+            comb(n, k) * q**k * (r - q) ** (n - k) * int(part) * d**k * e ** (n - k)
+            for k, part in enumerate(self.parts())
+        )
+        return Fraction(numerator, r**n * d**n * e**n)
+
+    @property
+    def typeI_target_met(self) -> bool:
+        return self.test.alpha <= self.maximum_typeI
+
+    def measures(self) -> dict:
+        ratio = odds_ratio(self.p_first, self.p_second)
+        noun = "risk" if self.design == "cohort" else "prevalence"
+        quotient = self.p_second / self.p_first if self.p_first > 0 else None
+        return {
+            "odds_ratio": None if ratio is None else fraction_record(ratio),
+            f"{noun}_ratio": None if quotient is None else fraction_record(quotient),
+            f"{noun}_difference": fraction_record(self.p_second - self.p_first),
+        }
+
+    def evaluate(self) -> dict:
+        power = self.power
+        first_key, second_key = TOTAL_POINT_KEYS[self.design]
+        return {
+            "design": self.design,
+            "total_sample_size": self.test.n,
+            "exposed_share": fraction_record(self.exposed_share),
+            "expected_exposed": fraction_record(self.test.n * self.exposed_share),
+            first_key: fraction_record(self.p_first),
+            second_key: fraction_record(self.p_second),
+            **self.measures(),
+            "power": fraction_record(power),
+            "minimum_power": fraction_record(self.minimum_power),
+            "power_target_met": power >= self.minimum_power,
+            "typeI_bound": fraction_record(self.test.alpha),
+            "maximum_typeI": fraction_record(self.maximum_typeI),
+            "typeI_target_met": self.typeI_target_met,
+        }
+
+
+def search_totals(plan: TotalPowerPlan, low: int, high: int):
+    """The first total, ascending, whose design meets the power target. A search over totals
+    certifies a sufficient size only: each smaller total would need its own full check."""
+    test = plan.test
+    for evaluated, size in enumerate(range(low, high + 1), 1):
+        candidate = TotalPowerPlan(
+            AssociationTest(test.design, test.alpha, None, size, test.exposure, test.outcome),
+            plan.p_first,
+            plan.p_second,
+            plan.exposed_share,
+            plan.minimum_power,
+            plan.maximum_typeI,
+            "sample_size",
+            (low, high),
+        )
+        if candidate.power >= plan.minimum_power:
+            return candidate, evaluated
+    return None, high - low + 1
+
+
+def total_plan_payload(plan: TotalPowerPlan) -> dict:
+    test = plan.test
+    first_key, second_key = TOTAL_POINT_KEYS[plan.design]
+    payload = {
+        "schema_version": 1,
+        "scope": "total_planning",
+        "request": plan.request,
+        "design": {
+            "kind": test.design,
+            "n": test.n,
+            "exposure": test.exposure,
+            "outcome": test.outcome,
+            "stopping": "fixed",
+        },
+        "analysis": {
+            "test": TEST_ID,
+            "test_version": TEST_VERSION,
+            "null": "no_association",
+            "alpha": str(test.alpha),
+        },
+        "target": {
+            "exposed_share": str(plan.exposed_share),
+            first_key: str(plan.p_first),
+            second_key: str(plan.p_second),
+            **_target(plan),
+        },
+    }
+    if plan.search is not None:
+        payload["search"] = {"min_n": plan.search[0], "max_n": plan.search[1]}
+    return payload
+
+
+def parse_total_plan_payload(payload: dict) -> TotalPowerPlan:
+    design, target, search = payload["design"], payload["target"], payload.get("search")
+    kind = design["kind"]
+    if kind not in TOTAL_POINT_KEYS:
+        raise ValueError("Unsupported design for exact power with only the total fixed.")
+    first_key, second_key = TOTAL_POINT_KEYS[kind]
+    plan = TotalPowerPlan(
+        AssociationTest(
+            kind,
+            parse_alpha(payload["analysis"]["alpha"]),
+            None,
+            design["n"],
+            design["exposure"],
+            design["outcome"],
+        ),
+        *(
+            parse_alpha(target[name])
+            for name in (first_key, second_key, "exposed_share", "minimum_power", "maximum_typeI")
+        ),
+        payload["request"],
+        (search["min_n"], search["max_n"]) if search else None,
+    )
+    if payload != total_plan_payload(plan):
+        raise ValueError("Bound planning inputs are inconsistent.")
+    return plan
+
+
+def total_point_words(test: AssociationTest, p_first, p_second, share) -> str:
+    noun = "risk" if test.design == "cohort" else "prevalence"
+    return (
+        f"{share} of participants are exposed to {test.exposure} and the {noun} of "
+        f"{test.outcome} is {p_second} with it and {p_first} without it"
+    )
+
+
+def total_plan_claims(plan: TotalPowerPlan) -> list[str]:
+    test = plan.test
+    kind = "cross-sectional sample" if plan.design == "cross_sectional" else "cohort"
+    claims = [
+        f"Fisher's exact test of no association between {test.exposure} and {test.outcome}, "
+        f"in a {kind} of {test.n} with alpha {test.alpha}, has Type I error at most "
+        f"{plan.maximum_typeI} whenever {null_words(test)}, for every probability of exposure "
+        f"and every common probability of {test.outcome}, averaged over the number exposed.",
+        f"Its power is at least {plan.minimum_power} when "
+        f"{total_point_words(test, plan.p_first, plan.p_second, plan.exposed_share)}, averaged "
+        "over the number exposed.",
+    ]
+    if plan.search is not None:
+        low, high = plan.search
+        claims.append(
+            f"A total of {test.n} is therefore sufficient among totals from {low} to {high}. "
+            "Minimality is not claimed."
+        )
+    return claims
+
+
+def total_plan_assumptions(plan: TotalPowerPlan) -> list[str]:
+    return [*association_assumptions(plan.test), PLANNING_POINT]
+
+
+def render_total_plan_proof(plan: TotalPowerPlan, input_sha256: str) -> str:
+    """One theorem for each number exposed, so the kernel frees each one's tables before the
+    next. Only validated integers and rationals enter the template; names never do."""
+    if not plan.typeI_target_met:
+        raise ValueError("The Type I target is not established by the theorem.")
+    n, alpha = plan.test.n, plan.test.alpha
+    an, ad = alpha.as_integer_ratio()
+    bn, bd = plan.minimum_power.as_integer_ratio()
+    (q, r) = plan.exposed_share.as_integer_ratio()
+    (a, d), (b, e) = plan.p_first.as_integer_ratio(), plan.p_second.as_integer_ratio()
+    hints = [fisher_cuts(n - k, k, alpha) for k in range(n + 1)]
+    numerators = [int(part) for part in plan.parts()]
+    parts = "\n".join(
+        f"theorem part_{k} : AssociationPower.PartValid {n} {k} {an} {ad} {a} {d} {b} {e}\n"
+        f"    (cutsList.getD {k} []) (nextsList.getD {k} []) (numerators.getD {k} 0) := by\n"
+        "  decide +kernel\n"
+        for k in range(n + 1)
+    )
+    cases = "\n".join(f"  · exact part_{k}" for k in range(n + 1))
+    share = f"(ratPoint {q} {r} (by decide) (by decide))"
+    groups = (
+        f"(ratPoint {a} {d} (by decide) (by decide)) (ratPoint {b} {e} (by decide) (by decide))"
+    )
+    return f"""import StatClaim
+import Lean.Util.CollectAxioms
+
+-- Canonical planning SHA-256: {input_sha256}
+-- An observational design that fixes only its total, {n}. For each number exposed the kernel
+-- recomputes Fisher's region from the formal p-value; listed thresholds are proposals.
+set_option maxRecDepth 100000
+set_option maxHeartbeats 20000000
+
+namespace StatClaimCertificate
+open StatClaim StatClaim.Modules
+
+def declaredLevel : SignificanceLevel :=
+  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
+def sampleSize : ℕ := {n}
+def cutsList : List (List ℕ) := {_lean_list(_lean_list(c) for c, _ in hints)}
+def nextsList : List (List ℕ) := {_lean_list(_lean_list(x) for _, x in hints)}
+def numerators : List ℕ := {_lean_list(numerators)}
+
+theorem checked_size : sampleSize = {n} ∧ 0 < sampleSize := by decide
+
+{parts}
+theorem checked_parts (k : ℕ) (below : k < {n} + 1) :
+    AssociationPower.PartValid {n} k {an} {ad} {a} {d} {b} {e} (cutsList.getD k [])
+      (nextsList.getD k []) (numerators.getD k 0) := by
+  interval_cases k
+{cases}
+
+theorem checked_typeI (q p : unitInterval) :
+    (Association.mixtureLaw sampleSize q p).real
+        (Association.mixtureRejection sampleSize declaredLevel.value) ≤
+      {_ratio(plan.maximum_typeI)} := by
+  refine le_trans (Association.mixture_typeI_le_alpha sampleSize q p declaredLevel.value
+    declaredLevel.nonnegative) ?_
+  norm_num [declaredLevel]
+
+theorem checked_power :
+    {_ratio(plan.minimum_power)} ≤
+      (Association.mixture {n} {share}
+        (fun k => productBinomial ({n} - k) k {groups})).real
+        (Association.mixtureRejection {n} declaredLevel.value) :=
+  AssociationPower.total_power_of_check {n} {q} {r} {a} {d} {b} {e} {an} {ad}
+    (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
+    declaredLevel.value (by norm_num [declaredLevel]) cutsList nextsList numerators checked_parts
+    {bn} {bd} (by decide) (by decide +kernel)
+
+end StatClaimCertificate
+{_audit(TOTAL_THEOREMS, input_sha256)}"""

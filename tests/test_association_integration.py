@@ -475,3 +475,55 @@ def test_the_kernel_rejects_a_stronger_power_claim(request, tmp_path, fixture):
         ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=600
     )
     assert checked.returncode != 0
+
+
+# Exact power with only the total fixed -------------------------------------------------------
+@pytest.fixture(scope="module")
+def survey_plan(tmp_path_factory):
+    from statclaim.observational_planning import TotalPowerPlan
+    from statclaim.report import planning_report, run_association_plan
+
+    plan = TotalPowerPlan(
+        AssociationTest("cross_sectional", Fraction(1, 20), None, 30, "shifts", "insomnia"),
+        Fraction(1, 10),
+        Fraction(3, 5),
+        Fraction(3, 10),
+        Fraction(1, 2),
+        Fraction(1, 20),
+    )
+    bundle = tmp_path_factory.mktemp("total_plan") / "checked"
+    report = run_association_plan(
+        planning_report("association_planning", "", []),
+        plan,
+        verify=True,
+        project=ROOT,
+        output=bundle,
+        timeout=600,
+    )
+    assert report["status"] == "verified", report.get("verification")
+    return report, bundle
+
+
+def test_total_power_is_proved_by_averaging_and_replays(survey_plan):
+    report, bundle = survey_plan
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    assert certificate["kind"] == "statclaim_total_planning_certificate"
+    assert certificate["general_theorem"] == (
+        "StatClaim.Modules.AssociationPower.total_power_of_check"
+    )
+    assert any("averaged over the number exposed" in claim for claim in certificate["claims"])
+    assert recheck_certificate(bundle, project=ROOT, timeout=600)["status"] == "verified"
+
+
+def test_a_wrong_numerator_for_one_number_exposed_is_refused(survey_plan, tmp_path):
+    _, bundle = survey_plan
+    source = (bundle / "Proof.lean").read_text()
+    marker = "def numerators : List ℕ := ["
+    start = source.index(marker) + len(marker)
+    first = source[start : source.index(",", start)]
+    proof = tmp_path / "Wrong.lean"
+    proof.write_text(source[:start] + str(int(first) + 1) + source[start + len(first) :])
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=600
+    )
+    assert checked.returncode != 0

@@ -35,6 +35,7 @@ from statclaim.language import (
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RatesIR,
+    TotalCandidatesIR,
     TwoStageAnalysisIR,
     named_outcomes,
     normalize,
@@ -1256,7 +1257,14 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
     subject = claim.subject
     search = None if isinstance(subject, FeasibilityIR) else subject.candidates
     analysis = subject.analysis if search is None else None
-    if isinstance(search, (CandidatesIR, OneArmCandidatesIR, GroupCandidatesIR, CountCandidatesIR)):
+    searches = (
+        CandidatesIR,
+        OneArmCandidatesIR,
+        GroupCandidatesIR,
+        CountCandidatesIR,
+        TotalCandidatesIR,
+    )
+    if isinstance(search, searches):
         analysis = search.analysis
     if isinstance(analysis, CitedAnalysisIR):
         return derive_cited_planning(name, claim, analysis)

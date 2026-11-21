@@ -18,6 +18,9 @@
 # McNemar's test, at the share of discordant pairs and the conditional odds ratio:
 #   enumeration  every number discordant and every split, with binom.test at one half
 #   exact2x2     exact2x2::powerPaired2x2 with strict = TRUE, within its error bound
+# Designs that fix only the total n, at the share exposed and the outcome's probability in
+# each group: the binomial number exposed k, then every table of groups (n - k, k) through
+# fisher.test, as above
 # The rate test given n events, at the person-time in each group and the rate ratio:
 #   enumeration  every split of the events, with exactci::poisson.exact (central method)
 suppressMessages({
@@ -83,6 +86,27 @@ rows <- lapply(cases, function(text) {
     epiR = approximate(case)
   ))
 })
+totals <- list(
+  list(design = "cross_sectional", n = 40, exposed_share = "3/10", p_first = "1/10",
+       p_second = "1/2", alpha = "1/20"),
+  list(design = "cross_sectional", n = 80, exposed_share = "3/10", p_first = "1/10",
+       p_second = "3/10", alpha = "1/20"),
+  list(design = "cohort", n = 60, exposed_share = "1/2", p_first = "1/10", p_second = "2/5",
+       alpha = "1/20")
+)
+total_rows <- lapply(totals, function(text) {
+  n <- text$n
+  q <- value(text$exposed_share)
+  power <- 0
+  for (k in 0:n) {
+    if (k > 0 && k < n) {  # with an empty group no table is rejected
+      power <- power + dbinom(k, n, q) *
+        enumerate(n - k, k, value(text$p_first), value(text$p_second), value(text$alpha))
+    }
+  }
+  c(text, list(enumeration = power))
+})
+
 matched <- list(
   list(pairs = 150, discordant = "1/4", odds_ratio = "2", alpha = "1/20"),
   list(pairs = 297, discordant = "1/4", odds_ratio = "2", alpha = "1/20"),
@@ -146,6 +170,7 @@ fixture <- list(
                   epiR = as.character(packageVersion("epiR")),
                   exactci = as.character(packageVersion("exactci"))),
   cases = rows,
+  totals = total_rows,
   matched = matched_rows,
   rates = rate_rows
 )
@@ -160,6 +185,12 @@ for (row in rows) {
               row$second, row$p_first, row$p_second, row$alpha),
       sprintf("enumeration %.12f, exact2x2 %.8f, epiR %.4f\n", row$enumeration, row$exact2x2,
               row$epiR))
+}
+cat("\nDesigns that fix only the total\n")
+for (row in total_rows) {
+  cat(sprintf("%-15s n = %d, exposed share %s, p = (%s, %s), alpha %s:", row$design, row$n,
+              row$exposed_share, row$p_first, row$p_second, row$alpha),
+      sprintf("enumeration %.12f\n", row$enumeration))
 }
 cat("\nMcNemar's test\n")
 for (row in matched_rows) {

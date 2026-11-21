@@ -77,19 +77,34 @@ def _scope(sizing) -> str:
 
 def _association_planning(subject, analysis: AssociationAnalysisIR, feasibility: bool) -> dict:
     """Exact power of Fisher's test of association, described before it is calculated."""
-    from statclaim.association import NOT_CAUSAL, association_assumptions
-    from statclaim.observational_planning import PLANNING_POINT, target_words
+    from statclaim.association import NOT_CAUSAL, association_assumptions, null_words
+    from statclaim.observational_planning import PLANNING_POINT, target_words, total_point_words
 
     test, target = analysis.lower(), subject.target
     point = (*group_probabilities(target.at), target.minimum, target.maximum_typeI)
-    search = None
-    if not feasibility:
-        candidates = subject.candidates
-        search = (candidates.min_size, candidates.max_size, candidates.ratio)
+    if test.groups is None:
+        goal = (
+            f"power >= {target.minimum} when "
+            f"{total_point_words(test, point[0], point[1], target.at.exposed_share)}; Type I "
+            f"error <= {target.maximum_typeI} whenever {null_words(test)}"
+        )
+        if feasibility:
+            text = f"Fisher's exact test with a total of {test.n}, averaged over the number "
+            text += f"exposed, gives {goal}."
+        else:
+            candidates = subject.candidates
+            text = (
+                f"Some total from {candidates.min_n} to {candidates.max_n} gives {goal}. "
+                "Minimality is not claimed."
+            )
+    else:
+        search = None
+        if not feasibility:
+            candidates = subject.candidates
+            search = (candidates.min_size, candidates.max_size, candidates.ratio)
+        text = target_words(test, point, search, not feasibility and subject.minimal)
     report = planning_report(
-        "association_planning",
-        target_words(test, point, search, not feasibility and subject.minimal),
-        [*association_assumptions(test), PLANNING_POINT],
+        "association_planning", text, [*association_assumptions(test), PLANNING_POINT]
     )
     report["limitations"] = [NOT_CAUSAL]
     return report

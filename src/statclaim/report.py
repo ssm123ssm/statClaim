@@ -526,6 +526,45 @@ def run_association_search(
     return report
 
 
+def run_total_search(
+    report: dict,
+    plan,
+    bounds: tuple[int, int],
+    *,
+    verify: bool,
+    project: Path,
+    output,
+    timeout: float,
+) -> dict:
+    """Search ascending for a sufficient total when the design fixes only its total."""
+    from statclaim.observational_planning import search_totals
+
+    found, evaluated = search_totals(plan, *bounds)
+    search = {
+        "min_n": bounds[0],
+        "max_n": bounds[1],
+        "candidates_evaluated": evaluated,
+        "minimum_sample_size_claim": "not_requested",
+    }
+    if found is None:
+        report["calculation"] = {**search, "power_target_met": False}
+        report["decision"] = "no_feasible_candidate"
+        if verify:
+            _unmet(
+                report,
+                "search_exhausted",
+                "no_feasible_candidate",
+                f"No total from {bounds[0]} to {bounds[1]} meets the power target. Nothing is "
+                "claimed about other designs or larger samples.",
+            )
+        return report
+    report = run_association_plan(
+        report, found, verify=verify, project=project, output=output, timeout=timeout
+    )
+    report["calculation"] = {**report["calculation"], **search}
+    return report
+
+
 def run_count_search(
     report: dict,
     plan,

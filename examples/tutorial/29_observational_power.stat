@@ -1,4 +1,4 @@
-# Lesson 29: exact power for cohort and case-control studies.
+# Lesson 29: exact power for cohort, case-control and cross-sectional studies.
 use models.observational
 use sampling
 use tests.association
@@ -22,3 +22,11 @@ let followed = cohort(exposed=150, unexposed=300, exposure="statin use", outcome
 let test = fisher_exact(design=fixed(model=followed), null=no_association(model=followed), alpha=1/20)
 let risk_target = power_target(at=risks(unexposed=1/10, risk_ratio=2), minimum=3/4, maximum_typeI=1/20)
 let checked = verify(meets(analysis=test, target=risk_target))
+
+# A cross-sectional study fixes only its total: give the share expected to be exposed.
+let survey = cross_sectional(n=120, exposure="night shifts", outcome="insomnia")
+let survey_test = fisher_exact(design=fixed(model=survey), null=no_association(model=survey), alpha=1/20)
+let expected_survey = outcome_prevalence(unexposed=1/10, prevalence_ratio=3, exposed_share=3/10)
+let survey_target = power_target(at=expected_survey, minimum=4/5, maximum_typeI=1/20)
+let totals = total_sizes(analysis=survey_test, min_n=60, max_n=150)
+let survey_size = calculate(sample_size(candidates=totals, target=survey_target))

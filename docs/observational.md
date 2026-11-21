@@ -138,14 +138,15 @@ continuous variable with a type error and a complex sample with
 
 ## Power and sample size
 
-`fisher_exact` has exact power when the design fixes both groups: a cohort declared
-with `exposed` and `unexposed`, or a case-control study. Declare the planning point in
-the design's terms, then use `meets` and the sample-size claims from `planning`:
+`fisher_exact` has exact power for every design. Declare the planning point in the
+design's terms, then use `meets` and the sample-size claims from `planning`:
 
 | Design | Planning point | Search |
 |---|---|---|
-| Cohort | `risks(unexposed=, exposed=)` or `risks(unexposed=, risk_ratio=)` | `cohort_sizes(analysis, min_exposed, max_exposed, unexposed_per_exposed)` |
+| Cohort, groups sampled | `risks(unexposed=, exposed=)` or `risks(unexposed=, risk_ratio=)` | `cohort_sizes(analysis, min_exposed, max_exposed, unexposed_per_exposed)` |
 | Case-control | `exposure_prevalence(controls=, cases=)` or `exposure_prevalence(controls=, odds_ratio=)` | `case_control_sizes(analysis, min_cases, max_cases, controls_per_case)` |
+| Cross-sectional | `outcome_prevalence(unexposed=, exposed= or prevalence_ratio=, exposed_share=)` | `total_sizes(analysis, min_n, max_n)` |
+| Cohort, one population | `risks(..., exposed_share=)` | `total_sizes(analysis, min_n, max_n)` |
 
 ```text
 let target = power_target(at=exposure_prevalence(controls=1/5, odds_ratio=2),
@@ -184,8 +185,13 @@ Lean checks the bounds of each rejection region against the binomial tails
 and 500 events. Both agree with R to twelve decimals (`binom.test`, `exactci::poisson.exact`
 and `exact2x2::powerPaired2x2`).
 
-A design that fixes only the total, a cross-sectional study or `cohort(n)`, has no power
-calculation yet: its number exposed is random.
+When only the total is fixed, how many are exposed is random: `exposed_share` is the
+probability that a participant is exposed, and power is the average over the number
+exposed (`AssociationPower.total_power_of_check`, one theorem per number exposed). Up to
+150 participants, where `verify` takes about seven minutes (100 take under two; raise
+`--timeout`, 120 seconds by default). A search
+over totals certifies a sufficient total only: `smallest_sample_size` would need a full
+check of every smaller total.
 
 ## What is refused
 
@@ -201,5 +207,4 @@ about an effect of the exposure: confounding is not excluded. Each report says
 so under the claim.
 
 Not yet supported: matching with several controls per case, single incidence
-rates, intervals from regression models, power for designs that fix only the total, and proofs
-for any cited method.
+rates, intervals from regression models, and proofs for any cited method.

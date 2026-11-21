@@ -84,6 +84,35 @@
       "epiR": 0.777133810031771
     }
   ],
+  "totals": [
+    {
+      "design": "cross_sectional",
+      "n": 40,
+      "exposed_share": "3/10",
+      "p_first": "1/10",
+      "p_second": "1/2",
+      "alpha": "1/20",
+      "enumeration": 0.716498449382074
+    },
+    {
+      "design": "cross_sectional",
+      "n": 80,
+      "exposed_share": "3/10",
+      "p_first": "1/10",
+      "p_second": "3/10",
+      "alpha": "1/20",
+      "enumeration": 0.528900325311149
+    },
+    {
+      "design": "cohort",
+      "n": 60,
+      "exposed_share": "1/2",
+      "p_first": "1/10",
+      "p_second": "2/5",
+      "alpha": "1/20",
+      "enumeration": 0.736914251220092
+    }
+  ],
   "matched": [
     {
       "pairs": 150,

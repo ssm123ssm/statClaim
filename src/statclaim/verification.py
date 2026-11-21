@@ -401,6 +401,16 @@ def _profile(kind: str, payload: dict) -> dict:
             "point; association only, and no observed results, other points or minimality."
         )
         general_theorem = observational_planning_module.GENERAL_THEOREM
+    elif kind == observational_planning_module.TOTAL_KIND:
+        plan = observational_planning_module.parse_total_plan_payload(payload)
+        claims = observational_planning_module.total_plan_claims(plan)
+        assumptions = observational_planning_module.total_plan_assumptions(plan)
+        theorems = observational_planning_module.TOTAL_THEOREMS
+        scope = (
+            "The declared observational design, which fixes only its total, its Type I bound and "
+            "its power at one planning point; association only, and no observed results."
+        )
+        general_theorem = observational_planning_module.TOTAL_THEOREM
     elif kind == observational_planning_module.MATCHED_KIND:
         plan = observational_planning_module.parse_matched_plan_payload(payload)
         claims = observational_planning_module.matched_plan_claims(plan)
@@ -638,6 +648,10 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
     if kind == observational_planning_module.PLAN_KIND:
         return observational_planning_module.render_plan_proof(
             observational_planning_module.parse_plan_payload(payload), input_id
+        )
+    if kind == observational_planning_module.TOTAL_KIND:
+        return observational_planning_module.render_total_plan_proof(
+            observational_planning_module.parse_total_plan_payload(payload), input_id
         )
     if kind == observational_planning_module.MATCHED_KIND:
         return observational_planning_module.render_matched_plan_proof(
@@ -948,10 +962,13 @@ def certify_association_plan(
 def certify_observational_plan(
     plan, *, project: Path, output: Path | None = None, timeout: float = 120
 ) -> tuple[dict, Path]:
-    """Certify a McNemar or rate-test design's Type I bound and its power at one point."""
+    """Certify a McNemar, rate-test or total-only design's Type I bound and its power at one
+    point."""
     module = observational_planning_module
     if isinstance(plan, module.MatchedPowerPlan):
         payload, kind = module.matched_plan_payload(plan), module.MATCHED_KIND
+    elif isinstance(plan, module.TotalPowerPlan):
+        payload, kind = module.total_plan_payload(plan), module.TOTAL_KIND
     else:
         payload, kind = module.rate_plan_payload(plan), module.RATE_KIND
     return _certify_payload(payload, kind, project=project, output=output, timeout=timeout)

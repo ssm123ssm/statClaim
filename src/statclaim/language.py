@@ -93,9 +93,11 @@ from statclaim.methods.observational import (
 from statclaim.observational_planning import (
     MAX_GROUP,
     MAX_PLANNED_PAIRS,
+    MAX_TOTAL,
     AssociationPowerPlan,
     MatchedPowerPlan,
     RatePowerPlan,
+    TotalPowerPlan,
 )
 from statclaim.observational_planning import SEARCH_KEYS as GROUP_SEARCH_KEYS
 from statclaim.planning import (
@@ -128,7 +130,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.24.0"
+LANGUAGE_VERSION = "0.25.0"
 
 
 class PlannableIR:
@@ -1012,10 +1014,22 @@ class HazardRatioIR(PlanningPointIR):
 
 @dataclass(frozen=True)
 class RisksIR(PlanningPointIR):
-    """A planning point for a cohort: the risk of the outcome without and with exposure."""
+    """A planning point for a cohort: the risk of the outcome without and with exposure, and
+    for a cohort of one population, the share of participants exposed."""
 
     unexposed: Fraction
     exposed: Fraction
+    exposed_share: Fraction | None = None
+
+
+@dataclass(frozen=True)
+class OutcomePrevalenceIR(PlanningPointIR):
+    """A planning point for a cross-sectional study: the prevalence of the outcome without
+    and with exposure, and the share of participants exposed."""
+
+    unexposed: Fraction
+    exposed: Fraction
+    exposed_share: Fraction
 
 
 @dataclass(frozen=True)
@@ -1050,7 +1064,7 @@ class IncidenceRatesIR(PlanningPointIR):
 def group_probabilities(point: PlanningPointIR) -> tuple[Fraction, Fraction]:
     """The planning point's probabilities in Fisher's first and second groups:
     (unexposed, exposed) for a cohort, (controls, cases) for a case-control study."""
-    if isinstance(point, RisksIR):
+    if isinstance(point, (RisksIR, OutcomePrevalenceIR)):
         return point.unexposed, point.exposed
     return point.controls, point.cases
 
@@ -1178,6 +1192,17 @@ class FeasibilityIR:
 
     def lower(self) -> object:
         target = self.target
+        if (
+            isinstance(self.analysis, AssociationAnalysisIR)
+            and self.analysis.plan.model.groups is None
+        ):
+            return TotalPowerPlan(
+                self.analysis.lower(),
+                *group_probabilities(target.at),
+                target.at.exposed_share,
+                target.minimum,
+                target.maximum_typeI,
+            )
         if isinstance(self.analysis, AssociationAnalysisIR):
             return AssociationPowerPlan(
                 self.analysis.lower(),
@@ -1249,6 +1274,16 @@ class GroupCandidatesIR(CandidateSpaceIR):
     min_size: int
     max_size: int
     ratio: int = 1
+
+
+@dataclass(frozen=True)
+class TotalCandidatesIR(CandidateSpaceIR):
+    """Cross-sectional studies, or cohorts of one population, of min_n to max_n participants.
+    Each keeps the analysis's study, null and alpha."""
+
+    analysis: AssociationAnalysisIR
+    min_n: int
+    max_n: int
 
 
 @dataclass(frozen=True)
@@ -1727,8 +1762,17 @@ def normalize(value: object) -> object:
             return {"p_control": str(control), "p_treatment": str(treatment)}
         case RateIR(value=rate):
             return {"response_rate": str(rate)}
-        case RisksIR(unexposed=unexposed, exposed=exposed):
-            return {"risk_unexposed": str(unexposed), "risk_exposed": str(exposed)}
+        case RisksIR(unexposed=unexposed, exposed=exposed, exposed_share=share):
+            point = {"risk_unexposed": str(unexposed), "risk_exposed": str(exposed)}
+            return point if share is None else {**point, "exposed_share": str(share)}
+        case OutcomePrevalenceIR(unexposed=unexposed, exposed=exposed, exposed_share=share):
+            return {
+                "prevalence_unexposed": str(unexposed),
+                "prevalence_exposed": str(exposed),
+                "exposed_share": str(share),
+            }
+        case TotalCandidatesIR(analysis=analysis, min_n=low, max_n=high):
+            return {"analysis": normalize(analysis), "min_n": low, "max_n": high}
         case ExposurePrevalenceIR(controls=controls, cases=cases):
             return {"exposure_controls": str(controls), "exposure_cases": str(cases)}
         case DiscordantPairsIR(share=share, odds_ratio=ratio):
@@ -3267,13 +3311,14 @@ def _reference_and_other(
         return base, _probability(given, other)
     if ratio.value <= 0:
         fail("domain", f"{measure} must be positive.", ratio.span)
-    if measure == "risk_ratio":
+    if measure in ("risk_ratio", "prevalence_ratio"):
+        noun = measure.removesuffix("_ratio")
         value = base * ratio.value
         if value > 1:
             fail(
                 "domain",
-                f"A risk ratio of {ratio.value} with a risk of {base} without exposure gives a "
-                "risk above 1.",
+                f"A {noun} ratio of {ratio.value} with a {noun} of {base} without exposure "
+                f"gives a {noun} above 1.",
                 ratio.span,
             )
         return base, value
@@ -3282,8 +3327,45 @@ def _reference_and_other(
     return base, odds / (1 - base + odds)
 
 
+def _exposed_share(arguments: dict[str, LocatedValue]) -> Fraction | None:
+    share = arguments.get("exposed_share")
+    if share is None or share.value is None:
+        return None
+    if not 0 < share.value < 1:
+        fail("domain", "exposed_share must lie strictly between 0 and 1.", share.span)
+    return share.value
+
+
 def _risks(arguments: dict[str, LocatedValue], span: Span) -> RisksIR:
-    return RisksIR(*_reference_and_other(arguments, span, "unexposed", "exposed", "risk_ratio"))
+    return RisksIR(
+        *_reference_and_other(arguments, span, "unexposed", "exposed", "risk_ratio"),
+        _exposed_share(arguments),
+    )
+
+
+def _outcome_prevalence(arguments: dict[str, LocatedValue], span: Span) -> OutcomePrevalenceIR:
+    return OutcomePrevalenceIR(
+        *_reference_and_other(arguments, span, "unexposed", "exposed", "prevalence_ratio"),
+        _exposed_share(arguments),
+    )
+
+
+def _total_sizes(arguments: dict[str, LocatedValue], span: Span) -> TotalCandidatesIR:
+    analysis, low, high = arguments["analysis"], arguments["min_n"], arguments["max_n"]
+    if analysis.value.plan.model.groups is not None:
+        fail(
+            "type",
+            "total_sizes searches studies that fix only their total. This study fixes its "
+            "groups: use cohort_sizes or case_control_sizes.",
+            analysis.span,
+        )
+    if low.value < 1:
+        fail("domain", "min_n must be a positive integer.", low.span)
+    if high.value < low.value:
+        fail("domain", "max_n must be at least min_n.", high.span)
+    if high.value > MAX_TOTAL:
+        fail("domain", f"Exact power is limited to {MAX_TOTAL} participants in all.", high.span)
+    return TotalCandidatesIR(analysis.value, low.value, high.value)
 
 
 def _exposure_prevalence(arguments: dict[str, LocatedValue], span: Span) -> ExposurePrevalenceIR:
@@ -3379,6 +3461,10 @@ def _group_sizes(design: str) -> Callable:
 GROUP_POINTS = {
     "cohort": (RisksIR, "risks(unexposed=..., exposed=...)"),
     "case_control": (ExposurePrevalenceIR, "exposure_prevalence(controls=..., cases=...)"),
+    "cross_sectional": (
+        OutcomePrevalenceIR,
+        "outcome_prevalence(unexposed=..., exposed=..., exposed_share=...)",
+    ),
 }
 
 
@@ -3418,22 +3504,39 @@ def _check_association_point(
 ) -> None:
     """Fisher's test of association is planned when its design fixes both groups."""
     model, point = analysis.plan.model, target.value.at
-    if model.groups is None:
-        fail(
-            "unsupported_claim",
-            "Exact power is available when the design fixes both groups: a cohort declared "
-            "with exposed and unexposed, or a case-control study. This study fixes only its "
-            "total, so how many are exposed is random; its power is not available yet.",
-            where,
-        )
     kind, signature = GROUP_POINTS[model.design]
+    if model.design == "cohort" and model.groups is None:
+        signature = "risks(unexposed=..., exposed=..., exposed_share=...)"
     if not isinstance(point, kind):
         fail(
             "planning_point",
             f"Plan a {model.design.replace('_', '-')} study at {signature}.",
             target.span,
         )
-    if max(model.groups) > MAX_GROUP:
+    share = getattr(point, "exposed_share", None)
+    if model.groups is None:
+        if share is None:
+            fail(
+                "planning_point",
+                "This study fixes only its total, so how many are exposed is random. Give "
+                "exposed_share, the probability that a participant is exposed.",
+                target.span,
+            )
+        if model.n > MAX_TOTAL:
+            fail(
+                "domain",
+                f"Exact power is limited to {MAX_TOTAL} participants in all when only the "
+                "total is fixed.",
+                where,
+            )
+    elif share is not None:
+        fail(
+            "planning_point",
+            "This cohort sampled its exposed and unexposed groups in fixed numbers, so the "
+            "share exposed is not random. Leave exposed_share out.",
+            target.span,
+        )
+    elif max(model.groups) > MAX_GROUP:
         fail(
             "domain",
             f"Exact power is limited to {MAX_GROUP} participants in each group.",
@@ -3688,6 +3791,14 @@ def _sizing(minimal: bool) -> Callable:
                 "Each sample size has its own critical value for this test, so a "
                 "smallest-size claim is not supported. Use sample_size(...) to certify a "
                 "sufficient design.",
+                candidates.span,
+            )
+        if minimal and isinstance(candidates.value, TotalCandidatesIR):
+            fail(
+                "unsupported_claim",
+                "With only the total fixed, each candidate's check covers every number "
+                "exposed, so a smallest-size claim is not supported. Use sample_size(...) to "
+                "certify a sufficient total.",
                 candidates.span,
             )
         if minimal and isinstance(candidates.value, TwoStageCandidatesIR):
@@ -4641,12 +4752,30 @@ MODULES = {
                         ("unexposed", "number"),
                         ("exposed", "number", True),
                         ("risk_ratio", "number", True),
+                        ("exposed_share", "number", True),
                     ),
                     "Risks",
                     _risks,
                     documentation="A planning point for a cohort: the risk of the outcome "
                     "without exposure, and with it, given as exposed or as risk_ratio, exposed "
-                    "over unexposed. A planning input, not an established fact.",
+                    "over unexposed. A cohort of one population, declared with n, also needs "
+                    "exposed_share, the probability that a participant is exposed. A planning "
+                    "input, not an established fact.",
+                ),
+                _constructor(
+                    "outcome_prevalence",
+                    (
+                        ("unexposed", "number"),
+                        ("exposed", "number", True),
+                        ("prevalence_ratio", "number", True),
+                        ("exposed_share", "number"),
+                    ),
+                    "OutcomePrevalence",
+                    _outcome_prevalence,
+                    documentation="A planning point for a cross-sectional study: the prevalence "
+                    "of the outcome without exposure, and with it, given as exposed or as "
+                    "prevalence_ratio, and exposed_share, the probability that a participant is "
+                    "exposed. A planning input, not an established fact.",
                 ),
                 _constructor(
                     "exposure_prevalence",
@@ -4758,6 +4887,20 @@ MODULES = {
                     documentation="Designs of a case-control study: n cases and "
                     "controls_per_case * n controls (1 unless given), for n within the "
                     "inclusive bounds. Each keeps the analysis's study, null and alpha.",
+                ),
+                _constructor(
+                    "total_sizes",
+                    (
+                        ("analysis", AssociationAnalysisIR),
+                        ("min_n", "integer"),
+                        ("max_n", "integer"),
+                    ),
+                    "TotalCandidates",
+                    _total_sizes,
+                    documentation="Cross-sectional studies, or cohorts of one population, with "
+                    "min_n to max_n participants, keeping the analysis's study, null and alpha. "
+                    "sample_size certifies a sufficient total; smallest_sample_size is not "
+                    "offered.",
                 ),
                 _constructor(
                     "matched_sizes",

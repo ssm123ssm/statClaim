@@ -32,6 +32,7 @@ from statclaim.language import (
     RateRatioIR,
     RateResultIR,
     RequestIR,
+    TotalCandidatesIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
     group_probabilities,
@@ -78,6 +79,7 @@ from statclaim.report import (
     run_randomisation,
     run_sample_size,
     run_stage_result,
+    run_total_search,
     run_two_stage_search,
     test_design,
     verify_design,
@@ -172,6 +174,24 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         if isinstance(analysis, AssociationAnalysisIR):
             if isinstance(subject, FeasibilityIR):
                 return run_association_plan(report, subject.lower(), **options)
+            if isinstance(subject.candidates, TotalCandidatesIR):
+                from statclaim.association import AssociationTest
+                from statclaim.observational_planning import TotalPowerPlan
+
+                candidates, target, test = subject.candidates, subject.target, analysis.lower()
+                bounds = (candidates.min_n, candidates.max_n)
+                template = TotalPowerPlan(
+                    AssociationTest(
+                        test.design, test.alpha, None, bounds[0], test.exposure, test.outcome
+                    ),
+                    *group_probabilities(target.at),
+                    target.at.exposed_share,
+                    target.minimum,
+                    target.maximum_typeI,
+                    "sample_size",
+                    bounds,
+                )
+                return run_total_search(report, template, bounds, **options)
             target, candidates = subject.target, subject.candidates
             return run_association_search(
                 report,
@@ -726,6 +746,21 @@ def _planning_lines(details: dict) -> list[str]:
         )
     if "cases" in calculation or "exposed" in calculation:
         lines.extend(_group_lines(calculation))
+    if "exposed_share" in calculation:
+        noun = "risk" if "risk_exposed" in calculation else "prevalence"
+        measures = ", ".join(
+            f"{name.replace('_', ' ')} {float(calculation[name]['decimal_approximation']):.4g}"
+            for name in (f"{noun}_ratio", "odds_ratio")
+            if calculation.get(name) is not None
+        )
+        lines += [
+            f"  n = {calculation['total_sample_size']}; expected exposed ~ "
+            f"{float(calculation['expected_exposed']['decimal_approximation']):.4g}",
+            f"  planning point: {calculation['exposed_share']['fraction']} exposed; {noun} "
+            f"{calculation[f'{noun}_exposed']['fraction']} with exposure, "
+            f"{calculation[f'{noun}_unexposed']['fraction']} without"
+            + (f" ({measures})" if measures else ""),
+        ]
     if "pairs" in calculation:
         lines += [
             f"  pairs = {calculation['pairs']}; expected discordant pairs ~ "

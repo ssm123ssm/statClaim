@@ -57,8 +57,8 @@
   cohorts with an exact test of equal incidence rates and their ratio.
 - Cited regression, correlation and survey tests for observational studies, with
   measurement scales and complex survey designs declared on the study.
-- Exact power and sample sizes for Fisher's test of association in cohort and
-  case-control studies, McNemar's test and the rate test, checked in Lean and
+- Exact power and sample sizes for Fisher's test of association in every
+  observational design, McNemar's test and the rate test, checked in Lean and
   cross-checked against R.
 
 ## Direction

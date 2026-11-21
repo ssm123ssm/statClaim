@@ -99,8 +99,8 @@ MODULE_CLASSES = {
         "Study planning",
         "Exact power at a planning point, target checks and a bounded sample-size search "
         "with equal or unequal allocation for the fixed Fisher analysis, for Fisher's test "
-        "of association in a cohort or case-control study, for McNemar's test and for the "
-        "rate test given its events. "
+        "of association in every observational design, for McNemar's test and for the rate "
+        "test given its events. "
         "Targets also apply to one-sample tests and two-stage designs. "
         "A size can be certified as sufficient or as the smallest in the declared range. "
         "Cited tests get approximate power from a normal formula, by calculation only.",
@@ -219,6 +219,14 @@ OBJECT_CLASSES = {
     "GroupCandidates": (
         "Planning objects",
         "Cohort or case-control designs searched by the number exposed or of cases.",
+    ),
+    "OutcomePrevalence": (
+        "Planning objects",
+        "Planning point for a cross-sectional study: prevalence by exposure, and share exposed.",
+    ),
+    "TotalCandidates": (
+        "Planning objects",
+        "Studies that fix only their total, searched by the total; sufficiency only.",
     ),
     "DiscordantPairs": (
         "Planning objects",

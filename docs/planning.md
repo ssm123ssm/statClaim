@@ -78,8 +78,9 @@ treated participants. See `examples/unequal_allocation.stat`.
 ## Plan an observational study
 
 Fisher's test of association in a cohort or case-control study has exact power too.
-A cohort is planned at `risks(...)`, a case-control study at `exposure_prevalence(...)`,
-and `cohort_sizes` and `case_control_sizes` search their group sizes. McNemar's test is
+A cohort is planned at `risks(...)`, a case-control study at `exposure_prevalence(...)`
+and a cross-sectional study at `outcome_prevalence(...)`; `cohort_sizes`,
+`case_control_sizes` and `total_sizes` search their sizes. McNemar's test is
 planned at `discordant_pairs(...)` and the rate test at `incidence_rates(...)`. See
 [observational studies](observational.md#power-and-sample-size) and
 `examples/observational_power.stat`.

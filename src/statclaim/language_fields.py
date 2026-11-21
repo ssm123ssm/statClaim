@@ -55,6 +55,7 @@ from statclaim.language import (
     OutcomeIR,
     OutcomeModelIR,
     OutcomeNullIR,
+    OutcomePrevalenceIR,
     PersonTimeStudyIR,
     PlanIR,
     PlannableIR,
@@ -75,6 +76,7 @@ from statclaim.language import (
     SizingIR,
     StratumIR,
     StudyModelIR,
+    TotalCandidatesIR,
     TwoArmTestIR,
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
@@ -395,6 +397,21 @@ SCHEMAS = {
     RisksIR: {
         "unexposed": FieldSpec(Fraction, description="Risk of the outcome without exposure."),
         "exposed": FieldSpec(Fraction, description="Risk of the outcome with exposure."),
+        "exposed_share": FieldSpec(
+            Fraction, optional=True, description="Probability that a participant is exposed."
+        ),
+    },
+    OutcomePrevalenceIR: {
+        "unexposed": FieldSpec(Fraction, description="Prevalence without exposure."),
+        "exposed": FieldSpec(Fraction, description="Prevalence with exposure."),
+        "exposed_share": FieldSpec(
+            Fraction, description="Probability that a participant is exposed."
+        ),
+    },
+    TotalCandidatesIR: {
+        "analysis": FieldSpec(AssociationAnalysisIR),
+        "min_n": FieldSpec(int),
+        "max_n": FieldSpec(int),
     },
     ExposurePrevalenceIR: {
         "controls": FieldSpec(Fraction, description="Share of controls who were exposed."),
@@ -467,6 +484,14 @@ SCHEMAS = {
         "risk_difference": FieldSpec(
             Fraction, optional=True, description="Risk difference at the planning point (cohort)."
         ),
+        "prevalence_ratio": FieldSpec(
+            Fraction, optional=True, description="Prevalence ratio at the point (cross-sectional)."
+        ),
+        "prevalence_difference": FieldSpec(Fraction, optional=True),
+        "exposed_share": FieldSpec(
+            Fraction, optional=True, description="Probability that a participant is exposed."
+        ),
+        "expected_exposed": FieldSpec(Fraction, optional=True),
         "odds_ratio": FieldSpec(
             Fraction, optional=True, description="Odds ratio at the planning point, when finite."
         ),

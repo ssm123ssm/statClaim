@@ -1,5 +1,5 @@
-# Exact power of the proved observational tests: Fisher's test of no association when the
-# design fixes two groups, McNemar's test for matched pairs, and the rate test given its events.
+# Exact power of the proved observational tests: Fisher's test of no association in every
+# design, McNemar's test for matched pairs, and the rate test given its events.
 # Power is the exact probability that the test rejects at a planning point; verify has Lean
 # recompute it. Power concerns association: it says nothing about an effect of the exposure.
 use models.observational
@@ -50,3 +50,13 @@ let rates_target = power_target(
     maximum_typeI=1/40,
 )
 let rates_power = verify(meets(analysis=rates, target=rates_target))
+
+# A cross-sectional study fixes only its total, so the share exposed is part of the point.
+let survey = cross_sectional(n=60, exposure="night shifts", outcome="insomnia")
+let survey_test = fisher_exact(design=fixed(model=survey), null=no_association(model=survey), alpha=1/20)
+let survey_target = power_target(
+    at=outcome_prevalence(unexposed=1/10, exposed=1/2, exposed_share=3/10),
+    minimum=4/5,
+    maximum_typeI=1/20,
+)
+let survey_power = verify(meets(analysis=survey_test, target=survey_target))

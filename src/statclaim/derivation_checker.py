@@ -103,7 +103,9 @@ CRITERIA = ["optimal", "minimax"]
 GROUP_POINT_KEYS = {
     "cohort": ("risk_unexposed", "risk_exposed"),
     "case_control": ("exposure_controls", "exposure_cases"),
+    "cross_sectional": ("prevalence_unexposed", "prevalence_exposed"),
 }
+TOTAL_LIMIT = 150  # participants when only the total is fixed
 PAIRS_LIMIT, EVENTS_LIMIT = 400, 500  # exact power for McNemar's test and the rate test
 GROUP_SEARCH_KEYS = {
     "cohort": ("min_exposed", "max_exposed", "unexposed_per_exposed"),
@@ -456,6 +458,38 @@ def _association_planning_expected(name: str, subject: dict, search, analysis: d
     steps, assumptions = _association_expected(inner, analysis)
     kind = study["study"]
     keys = GROUP_POINT_KEYS.get(kind)
+    if "n" in study:  # only the total is fixed: the point also gives the share exposed
+        share = point.get("exposed_share")
+        valid = (
+            keys is not None
+            and set(point) == {*keys, "exposed_share"}
+            and all(_probability(point[key]) for key in keys)
+            and 0 < Fraction(share) < 1
+            and (search is not None or study["n"] <= TOTAL_LIMIT)
+        )
+        outside = valid and Fraction(point[keys[0]]) != Fraction(point[keys[1]])
+        bounds = {key: value for key, value in (search or {}).items() if key != "analysis"}
+        search_ok = (
+            search is not None
+            and set(bounds) == {"min_n", "max_n"}
+            and _whole(bounds["min_n"], 1)
+            and _whole(bounds["max_n"], bounds["min_n"])
+            and bounds["max_n"] <= TOTAL_LIMIT
+        )
+        return _planning_steps(
+            name,
+            inner,
+            steps,
+            assumptions,
+            point,
+            valid,
+            outside,
+            NULL_STATEMENTS[kind],
+            target,
+            search,
+            search_ok,
+            analysis,
+        )
     groups = (
         (study["cases"], study["controls"])
         if kind == "case_control"
