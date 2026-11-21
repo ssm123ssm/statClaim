@@ -29,6 +29,7 @@ from statclaim.language import (
     DifferenceIntervalIR,
     DiscordantPairsIR,
     EffectIntervalIR,
+    ExponentialSurvivalIR,
     ExposurePrevalenceIR,
     FamilyIR,
     FeasibilityIR,
@@ -400,6 +401,16 @@ SCHEMAS = {
             Fraction, optional=True, description="Intracluster correlation, for cluster tests."
         ),
     },
+    ExponentialSurvivalIR: {
+        "hazard_ratio": FieldSpec(Fraction, description="Hazard ratio, treatment over control."),
+        "control_median": FieldSpec(Fraction, description="Median time to the event in control."),
+        "accrual": FieldSpec(Fraction, description="Time over which participants enter."),
+        "follow_up": FieldSpec(Fraction, description="Follow-up after accrual ends."),
+        "dropout": FieldSpec(
+            Fraction, optional=True, description="Probability of dropping out by dropout_time."
+        ),
+        "dropout_time": FieldSpec(Fraction, optional=True),
+    },
     HazardRatioIR: {
         "value": FieldSpec(Fraction, description="True hazard ratio, treatment over control."),
         "events": FieldSpec(int, description="Expected total number of events."),
@@ -702,6 +713,13 @@ SCHEMAS = {
             "variance of a mean.",
         ),
         "degrees_of_freedom": FieldSpec(int, optional=True),
+        "expected_events": FieldSpec(
+            Fraction,
+            optional=True,
+            description="Events expected by the analysis, from the survival times; six decimals.",
+        ),
+        "event_probability_control": FieldSpec(Fraction, optional=True),
+        "event_probability_treatment": FieldSpec(Fraction, optional=True),
         "power": FieldSpec(
             Fraction,
             optional=True,

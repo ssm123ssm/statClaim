@@ -281,6 +281,7 @@ Planning points:
 | Cluster means or proportions | the same points with `icc=...` | Noncentral t on cluster summaries with the design effect |
 | Yes-or-no | `binomial_rates(p_control=..., p_treatment=...)` | Two proportions: pooled variance under the null, unpooled at the point |
 | Survival | `hazard_ratio(value=..., events=...)` | Schoenfeld's formula in the number of events |
+| Survival, from times | `exponential_survival(hazard_ratio=..., control_median=..., accrual=..., follow_up=...)` | Schoenfeld's formula at the events the arm sizes expect |
 
 - `sd` is the standard deviation of one participant's outcome on the analysed
   scale. For a mixed model, give the effective SD of the contrast.
@@ -306,7 +307,29 @@ What is calculated:
 
 `equal_arm_sizes` and `allocated_arm_sizes` accept a cited test, up to 100,000
 per arm. `calculate(smallest_sample_size(...))` returns the first size in the
-range that reaches the target. It is not offered for `hazard_ratio`.
+range that reaches the target. It is not offered for `hazard_ratio`, whose power
+does not depend on the arm sizes; plan at `exponential_survival` instead.
+
+### Survival times
+
+`exponential_survival` plans the log-rank test from times: the hazard ratio, the
+control median, a steady accrual period, the follow-up after it and, if you like,
+`dropout` by `dropout_time`. Each arm's chance of an event by the analysis, times
+its size, gives the expected events, and power is Schoenfeld's formula there.
+
+```stat
+let expected = exponential_survival(hazard_ratio=7/10, control_median=12, accrual=24,
+    follow_up=12, dropout=1/10, dropout_time=12)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20)
+let sizes = equal_arm_sizes(analysis=analysis, min_per_arm=50, max_per_arm=1000)
+let sizing = calculate(smallest_sample_size(candidates=sizes, target=target))
+```
+
+The result gives `expected_events` and each arm's probability of an event. It
+assumes exponential times, steady entry and dropout unrelated to the event. The
+expected events equal gsDesign's `eEvents` to ten decimals, and the search agrees
+with rpact's `getSampleSizeSurvival` and gsDesign's `nSurv`. See
+`examples/log_rank.stat` and lesson 32 of the tutorial.
 
 A test without a formula, such as a declared test, gets `no_power_formula`. See
 `examples/cited_power.stat`.

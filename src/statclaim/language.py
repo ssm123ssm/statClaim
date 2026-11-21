@@ -132,7 +132,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.26.0"
+LANGUAGE_VERSION = "0.27.0"
 
 
 class PlannableIR:
@@ -1021,6 +1021,21 @@ class HazardRatioIR(PlanningPointIR):
 
 
 @dataclass(frozen=True)
+class ExponentialSurvivalIR(PlanningPointIR):
+    """A planning point for a survival outcome given by its times: the hazard ratio, the
+    control arm's median time to the event, the accrual period and the follow-up after it,
+    and optionally the probability of dropping out by dropout_time. All times are in one
+    unit, such as months."""
+
+    hazard_ratio: Fraction
+    control_median: Fraction
+    accrual: Fraction
+    follow_up: Fraction
+    dropout: Fraction | None = None
+    dropout_time: Fraction | None = None
+
+
+@dataclass(frozen=True)
 class RisksIR(PlanningPointIR):
     """A planning point for a cohort: the risk of the outcome without and with exposure, and
     for a cohort of one population, the share of participants exposed."""
@@ -1831,6 +1846,16 @@ def normalize(value: object) -> object:
             return point if icc is None else {**point, "icc": str(icc)}
         case HazardRatioIR(value=ratio, events=events):
             return {"hazard_ratio": str(ratio), "events": events}
+        case ExponentialSurvivalIR(hazard_ratio=ratio, control_median=median):
+            point = {
+                "hazard_ratio": str(ratio),
+                "control_median": str(median),
+                "accrual": str(value.accrual),
+                "follow_up": str(value.follow_up),
+            }
+            if value.dropout is not None:
+                point.update(dropout=str(value.dropout), dropout_time=str(value.dropout_time))
+            return point
         case PowerTargetIR(at=point, minimum=minimum, maximum_typeI=maximum):
             return {
                 "at": normalize(point),
@@ -3342,6 +3367,42 @@ def _hazard_ratio(arguments: dict[str, LocatedValue], span: Span) -> HazardRatio
     return HazardRatioIR(ratio.value, events.value)
 
 
+def _exponential_survival(arguments: dict[str, LocatedValue], span: Span) -> ExponentialSurvivalIR:
+    ratio, median = arguments["hazard_ratio"], arguments["control_median"]
+    accrual, follow_up = arguments["accrual"], arguments["follow_up"]
+    if ratio.value <= 0:
+        fail("domain", "A hazard ratio must be positive.", ratio.span)
+    if median.value <= 0:
+        fail("domain", "control_median must be a positive time.", median.span)
+    for argument, name in ((accrual, "accrual"), (follow_up, "follow_up")):
+        if argument.value < 0:
+            fail("domain", f"{name} must be a time of at least 0.", argument.span)
+    if accrual.value + follow_up.value <= 0:
+        fail("domain", "accrual and follow_up cannot both be 0: no one would be followed.", span)
+    dropout, when = arguments.get("dropout"), arguments.get("dropout_time")
+    given = [a for a in (dropout, when) if a is not None and a.value is not None]
+    if len(given) == 1:
+        fail(
+            "domain",
+            "Give dropout and dropout_time together: the probability of dropping out by that "
+            "time, such as dropout=1/10, dropout_time=12.",
+            given[0].span,
+        )
+    if given:
+        if not 0 <= dropout.value < 1:
+            fail("domain", "dropout must lie in [0, 1).", dropout.span)
+        if when.value <= 0:
+            fail("domain", "dropout_time must be a positive time.", when.span)
+    return ExponentialSurvivalIR(
+        ratio.value,
+        median.value,
+        accrual.value,
+        follow_up.value,
+        dropout.value if given else None,
+        when.value if given else None,
+    )
+
+
 def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTargetIR:
     return PowerTargetIR(
         arguments["at"].value,
@@ -3605,6 +3666,10 @@ POINT_SIGNATURES = {
     "mean_difference": (MeanDifferenceIR, "mean_difference(value=..., sd=...)"),
     "binomial_rates": (RatesIR, "binomial_rates(p_control=..., p_treatment=...)"),
     "hazard_ratio": (HazardRatioIR, "hazard_ratio(value=..., events=...)"),
+    "exponential_survival": (
+        ExponentialSurvivalIR,
+        "exponential_survival(hazard_ratio=..., control_median=..., accrual=..., follow_up=...)",
+    ),
 }
 # A test of cluster summaries also takes the intracluster correlation.
 CLUSTER_POINT_SIGNATURES = {
@@ -3622,6 +3687,14 @@ def clustered_test(analysis: object) -> bool:
     return isinstance(analysis, CitedAnalysisIR) and analysis.method.unit == "cluster"
 
 
+def cited_formula(analysis: CitedAnalysisIR, point: PlanningPointIR):
+    """The cited test's power formula at this kind of planning point, or None."""
+    return next(
+        (f for f in analysis.method.formulas if isinstance(point, POINT_SIGNATURES[f.point][0])),
+        None,
+    )
+
+
 def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: Span) -> None:
     """A cited test can be planned only with a power formula, at that formula's kind of point."""
     method, point = analysis.method, target.value.at
@@ -3633,11 +3706,15 @@ def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: S
             f"for this outcome with one: {others}.",
             where,
         )
-    kind, signature = POINT_SIGNATURES[method.power.point]
+    formula = cited_formula(analysis, point)
+    signature = POINT_SIGNATURES[(formula or method.power).point][1]
     if clustered_test(analysis):
         signature = CLUSTER_POINT_SIGNATURES[method.power.point]
-    if not isinstance(point, kind):
-        fail("planning_point", f"Plan {method.key} at {signature}.", target.span)
+    if formula is None:
+        signatures = " or ".join(POINT_SIGNATURES[f.point][1] for f in method.formulas)
+        if clustered_test(analysis):
+            signatures = signature
+        fail("planning_point", f"Plan {method.key} at {signatures}.", target.span)
     if clustered_test(analysis) and point.icc is None:
         fail(
             "planning_point",
@@ -3660,6 +3737,8 @@ def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: S
         effect = point.value
     elif isinstance(point, RatesIR):
         effect = point.p_treatment - point.p_control
+    elif isinstance(point, ExponentialSurvivalIR):
+        effect = point.hazard_ratio - 1
     else:
         effect = point.value - 1  # a hazard ratio of 1 is no effect
     favours = NULL_FORMS[null.predicate][1].favours
@@ -3976,9 +4055,10 @@ def _sizing(minimal: bool) -> Callable:
         if isinstance(arguments["target"].value.at, HazardRatioIR):
             fail(
                 "unsupported_claim",
-                "Log-rank power depends on the number of events, not on the arm sizes, so a "
-                "search over arm sizes does not apply. Calculate meets(...) for a number "
-                "of events instead.",
+                "At hazard_ratio(...), log-rank power depends on the number of events, not on "
+                "the arm sizes, so a search over arm sizes does not apply. Plan at "
+                "exponential_survival(...), whose times give the events each size expects, or "
+                "calculate meets(...) for a number of events.",
                 arguments["target"].span,
             )
         return ClaimIR(
@@ -4906,6 +4986,26 @@ MODULES = {
                     documentation="A planning point for a survival outcome: the true hazard "
                     "ratio, treatment over control, and the expected total number of events. "
                     "Power depends on the events, not on the arm sizes. Both are planning inputs.",
+                ),
+                _constructor(
+                    "exponential_survival",
+                    (
+                        ("hazard_ratio", "number"),
+                        ("control_median", "number"),
+                        ("accrual", "number"),
+                        ("follow_up", "number"),
+                        ("dropout", "number", True),
+                        ("dropout_time", "number", True),
+                    ),
+                    "ExponentialSurvival",
+                    _exponential_survival,
+                    documentation="A planning point for a survival outcome given by its "
+                    "times: the hazard ratio, treatment over control; the control arm's median "
+                    "time to the event; participants entering steadily over accrual and "
+                    "followed for follow_up after it; and optionally the probability of "
+                    "dropping out by dropout_time. Times are exponential and in one unit, such "
+                    "as months. The arm sizes then give the expected events, so arm sizes can "
+                    "be searched. All are planning inputs.",
                 ),
                 _constructor(
                     "risks",

@@ -67,21 +67,28 @@ for _module in METHOD_MODULES:
             raise ValueError(f"Method {_method.key!r}: a mirrored null must face the other way.")
         METHODS[_method.key] = _method
 
-# The planning point each outcome's power formulas take.
-POINT_OF_OUTCOME = {
-    "continuous": "mean_difference",
-    "binary": "binomial_rates",
-    "survival": "hazard_ratio",
+# The planning point each outcome's power formulas take: the first is the main one, and
+# simulation models take it too. A survival outcome can also be planned at its times.
+POINTS_OF_OUTCOME = {
+    "continuous": ("mean_difference",),
+    "binary": ("binomial_rates",),
+    "survival": ("hazard_ratio", "exponential_survival"),
 }
+POINT_OF_OUTCOME = {outcome: points[0] for outcome, points in POINTS_OF_OUTCOME.items()}
 POWER_FORMULAS: dict[str, PowerFormula] = {}
 for _method in METHODS.values():
-    _formula = _method.power
-    if _formula is None:
-        continue
-    if _formula.point != POINT_OF_OUTCOME.get(_method.outcome):
-        raise ValueError(f"Method {_method.key!r} has a power formula for another outcome.")
-    if POWER_FORMULAS.setdefault(_formula.key, _formula) is not _formula:
-        raise ValueError(f"Power formula {_formula.key!r} is defined twice.")
+    if _method.power is None and _method.more_power:
+        raise ValueError(f"Method {_method.key!r} has further formulas but no main one.")
+    if _method.power is not None and _method.power.point != POINT_OF_OUTCOME[_method.outcome]:
+        raise ValueError(f"Method {_method.key!r} has a main power formula at another point.")
+    _points = [_formula.point for _formula in _method.formulas]
+    if len(set(_points)) != len(_points):
+        raise ValueError(f"Method {_method.key!r} has two power formulas at one point.")
+    for _formula in _method.formulas:
+        if _formula.point not in POINTS_OF_OUTCOME.get(_method.outcome, ()):
+            raise ValueError(f"Method {_method.key!r} has a power formula for another outcome.")
+        if POWER_FORMULAS.setdefault(_formula.key, _formula) is not _formula:
+            raise ValueError(f"Power formula {_formula.key!r} is defined twice.")
 
 # Simulation models, by key. Each serves methods at its outcome's planning point.
 SIMULATIONS: dict[str, SimulationModel] = {}
@@ -130,7 +137,7 @@ def versions() -> dict:
         for key, method in METHODS.items()
     }
     for key, formula in POWER_FORMULAS.items():
-        users = sorted(m.key for m in METHODS.values() if m.power is formula)
+        users = sorted(m.key for m in METHODS.values() if any(f is formula for f in m.formulas))
         content = repr(formula) + inspect.getsource(formula.function) + repr(users)
         if formula.approximation != NORMAL_APPROXIMATION:
             content += f" approximation={formula.approximation!r}"

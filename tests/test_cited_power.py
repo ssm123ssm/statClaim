@@ -191,7 +191,7 @@ def test_r_values_agree_within_the_stated_tolerance():
 
 
 def test_every_method_with_a_formula_names_assumptions_and_references():
-    assert {m.power.key for m in METHODS.values() if m.power} == set(POWER_FORMULAS)
+    assert {f.key for m in METHODS.values() for f in m.formulas} == set(POWER_FORMULAS)
     for formula in POWER_FORMULAS.values():
         assert formula.assumptions and formula.references
         # Each says how power is approximated: a normal formula, or the noncentral t.

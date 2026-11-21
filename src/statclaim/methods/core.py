@@ -176,6 +176,10 @@ class PowerResult:
     critical: float  # the value the estimate must pass for the test to reject
     direction: str  # "above" or "below": which side of `critical` rejects
     standard_error: float  # on the analysed scale; for a hazard ratio, of its logarithm
+    # For a survival point that gives times rather than events: the expected events in all,
+    # and the probability that a participant of each arm has an event by the analysis.
+    expected_events: float | None = None
+    event_probabilities: tuple[float, float] | None = None
 
 
 NORMAL_APPROXIMATION = "normal approximation, not a bound"
@@ -264,6 +268,9 @@ class CitedMethod:
     # How to approximate the test's power, if it can be. Versioned on its own, since the
     # Type I guarantee does not depend on it.
     power: PowerFormula | None = field(default=None, repr=False, compare=False)
+    # Further power formulas, each at another kind of planning point, such as survival times
+    # rather than a number of events. Each is versioned on its own.
+    more_power: tuple[PowerFormula, ...] = field(default=(), repr=False, compare=False)
     # How to estimate its power by simulation, if it can be. Versioned on its own.
     simulation: SimulationModel | None = field(default=None, repr=False, compare=False)
     # What min_per_arm and min_total count: participants, or clusters for a test of one
@@ -274,6 +281,15 @@ class CitedMethod:
     def __post_init__(self):
         if self.unit not in ("participant", "cluster"):
             raise ValueError(f"Unknown unit {self.unit!r}.")
+
+    @property
+    def formulas(self) -> tuple[PowerFormula, ...]:
+        """Every power formula of the test, the main one first."""
+        return (*((self.power,) if self.power else ()), *self.more_power)
+
+    def formula_at(self, point: str) -> PowerFormula | None:
+        """The formula at a kind of planning point, named by its constructor."""
+        return next((f for f in self.formulas if f.point == point), None)
 
     @property
     def nulls(self) -> tuple[str, ...]:

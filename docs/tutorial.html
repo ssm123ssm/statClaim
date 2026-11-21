@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirty-one short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Thirty-two short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2464,6 +2464,72 @@ instead.</div>
     <div class="task"><h4>Try it</h4><p>Set <code>icc</code> to 1/5. How many clinics of twenty do you need now? Does <code>cluster_sizes</code> still find a size?</p></div>
   </div>
 </section>
+<section class="lesson" id="survival-power">
+  <p class="eyebrow">Lesson 32</p>
+  <h2>Power for a survival trial, from its times</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Lesson 18 planned the log-rank test at a number of events. Here we say how long patients take to have the event, how long they enter and how long they are followed. The arm sizes then give the events, so the sizes can be searched.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/32_survival_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 32: planning a survival trial from its times.</span>
+<span class="k">use</span> models.two_arm_survival
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.survival
+<span class="k">use</span> planning
+
+<span class="k">let</span> followed = <span class="f">two_arm_survival</span>(n_control=200, n_treatment=200)
+<span class="k">let</span> analysis = <span class="f">log_rank</span>(design=<span class="f">fixed</span>(model=followed), null=<span class="f">equal_survival</span>(model=followed), alpha=1/20)
+
+<span class="c"># Half the control patients have the event by 12 months; treatment cuts the hazard by 30%.</span>
+<span class="c"># Patients enter over 24 months and are followed 12 more; 1 in 10 drops out within a year.</span>
+<span class="k">let</span> expected = <span class="f">exponential_survival</span>(
+    hazard_ratio=7/10,
+    control_median=12,
+    accrual=24,
+    follow_up=12,
+    dropout=1/10,
+    dropout_time=12,
+)
+<span class="k">let</span> target = <span class="f">power_target</span>(at=expected, minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> declared = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=analysis, target=target))
+<span class="k">let</span> events = declared.calculation.expected_events
+
+<span class="c"># Now the arm sizes can be searched: each size expects its own number of events.</span>
+<span class="k">let</span> sizes = <span class="f">equal_arm_sizes</span>(analysis=analysis, min_per_arm=50, max_per_arm=1000)
+<span class="k">let</span> sizing = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=sizes, target=target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>exponential_survival(hazard_ratio=..., control_median=..., accrual=..., follow_up=...)</code></dt>
+  <dd>The hazard ratio, treatment over control; the median time to the event in control;
+  how long patients enter, at a steady rate; and how long they are followed after the last
+  one enters. Times are exponential and in one unit, here months.</dd>
+  <dt><code>dropout=..., dropout_time=...</code></dt>
+  <dd>Optional, together: the chance of dropping out by that time, the same in both arms.</dd>
+  <dt><code>calculation.expected_events</code></dt>
+  <dd>The events the arm sizes expect by the analysis. Power is Schoenfeld&#x27;s formula at
+  that number, as in lesson 18.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [declared]: meets(analysis)
+  arm sizes = (200, 200); total = 400
+  expected events ~ 245.50; probability of an event by the analysis 0.6730 (control), 0.5545 (treatment)
+  power ~ 0.7979 (normal approximation, not a bound); power target met = false
+  ...
+<span class="calc">calculated</span> [sizing]: sample_size(sizes)
+  arm sizes = (202, 202); total = 404
+  expected events ~ 247.95; probability of an event by the analysis 0.6730 (control), 0.5545 (treatment)
+  power ~ 0.8018 (normal approximation, not a bound); power target met = true
+  ...
+Program status: calculated</code></pre></div>
+<p>Two hundred patients per arm expect 245 events and just miss 80% power; 202 per arm
+reach it. rpact and gsDesign ask for 402.1 patients in all with the same inputs, and give
+the same expected events to ten decimals.</p>
+<div class="note"><strong>What the times assume.</strong> Constant hazards, so
+proportional hazards too; steady entry; and dropout that does not depend on the event. The
+result lists each one. Slow early entry or a hazard that falls over time give fewer
+events than planned.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>exponential_survival</code> plans the log-rank test from times, not events.</li><li>Arm sizes can then be searched with <code>equal_arm_sizes</code> or <code>allocated_arm_sizes</code>.</li><li><code>expected_events</code> says how many events each size expects.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Halve the follow-up to 6 months. How many more patients do you need?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2493,6 +2559,7 @@ instead.</div>
       <tr><td>Plan a cohort, case-control or cross-sectional study</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>risks</code>, <code>exposure_prevalence</code> or <code>outcome_prevalence</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code> or <code>total_sizes</code></td><td>29</td></tr>
       <tr><td>Plan a matched study, or a cohort followed over person-time</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>discordant_pairs</code> or <code>incidence_rates</code>, with <code>matched_sizes</code> or <code>event_counts</code></td><td>30</td></tr>
       <tr><td>Plan a cluster-randomised trial</td><td><code>planning</code>, <code>tests.cluster</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>mean_difference</code> or <code>binomial_rates</code> with <code>icc</code>, with <code>cluster_counts</code> or <code>cluster_sizes</code></td><td>31</td></tr>
+      <tr><td>Plan a survival trial from its times</td><td><code>planning</code>, <code>tests.survival</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>exponential_survival</code>, with <code>equal_arm_sizes</code></td><td>32</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>

@@ -1,0 +1,26 @@
+# Lesson 32: planning a survival trial from its times.
+use models.two_arm_survival
+use sampling
+use tests.survival
+use planning
+
+let followed = two_arm_survival(n_control=200, n_treatment=200)
+let analysis = log_rank(design=fixed(model=followed), null=equal_survival(model=followed), alpha=1/20)
+
+# Half the control patients have the event by 12 months; treatment cuts the hazard by 30%.
+# Patients enter over 24 months and are followed 12 more; 1 in 10 drops out within a year.
+let expected = exponential_survival(
+    hazard_ratio=7/10,
+    control_median=12,
+    accrual=24,
+    follow_up=12,
+    dropout=1/10,
+    dropout_time=12,
+)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20)
+let declared = calculate(meets(analysis=analysis, target=target))
+let events = declared.calculation.expected_events
+
+# Now the arm sizes can be searched: each size expects its own number of events.
+let sizes = equal_arm_sizes(analysis=analysis, min_per_arm=50, max_per_arm=1000)
+let sizing = calculate(smallest_sample_size(candidates=sizes, target=target))

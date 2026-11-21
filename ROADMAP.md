@@ -63,6 +63,9 @@
 - Power and sample sizes for cluster-randomised trials: the t-test on cluster
   summaries planned with the intracluster correlation, by number of clusters or
   cluster size, cross-checked against R.
+- Sample sizes for the log-rank test from survival times: control median, accrual,
+  follow-up and dropout give the expected events, cross-checked against rpact and
+  gsDesign.
 
 ## Direction
 

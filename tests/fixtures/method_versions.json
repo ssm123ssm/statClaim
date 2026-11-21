@@ -51,6 +51,10 @@
     "version": 2,
     "sha256": "14e7c050b3a9786c62b07d7cf0ca94708b595df39e3e06e57817fb49fae68f3f"
   },
+  "power:schoenfeld_exponential_times": {
+    "version": 1,
+    "sha256": "ec8a803d6e7813c8f59858c473119242054ec9b736b35cb10a8ece0b187954d9"
+  },
   "power:normal_two_proportions": {
     "version": 2,
     "sha256": "15a9192b2ed84573251d9334f11e6da247f1fe98759e10d7a88d8a7b2884ce9e"

@@ -1,0 +1,125 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "packages": {
+    "gsDesign": "3.11.0",
+    "rpact": "5.0.0"
+  },
+  "powers": [
+    {
+      "n_c": 200,
+      "n_t": 200,
+      "hazard_ratio": "7/10",
+      "control_median": "12",
+      "accrual": "24",
+      "follow_up": "12",
+      "dropout": "1/10",
+      "dropout_time": "12",
+      "alpha": "1/20",
+      "probability_control": 0.672987727755637,
+      "probability_treatment": 0.55450351150005,
+      "expected_events": 245.498247851137,
+      "power": 0.797942884606927
+    },
+    {
+      "n_c": 100,
+      "n_t": 100,
+      "hazard_ratio": "3/5",
+      "control_median": "6",
+      "accrual": "12",
+      "follow_up": "6",
+      "alpha": "1/20",
+      "probability_control": 0.729494679833319,
+      "probability_treatment": 0.552067996179148,
+      "expected_events": 128.156267601247,
+      "power": 0.82419358576337
+    },
+    {
+      "n_c": 150,
+      "n_t": 150,
+      "hazard_ratio": "7/5",
+      "control_median": "24",
+      "accrual": "0",
+      "follow_up": "36",
+      "dropout": "1/20",
+      "dropout_time": "12",
+      "alpha": "1/20",
+      "probability_control": 0.607030884870585,
+      "probability_treatment": 0.723522901959055,
+      "expected_events": 199.583068024446,
+      "power": 0.661577697880193
+    },
+    {
+      "n_c": 150,
+      "n_t": 300,
+      "hazard_ratio": "3/4",
+      "control_median": "18",
+      "accrual": "18",
+      "follow_up": "24",
+      "dropout": "1/5",
+      "dropout_time": "24",
+      "alpha": "1/20",
+      "probability_control": 0.634017792538694,
+      "probability_treatment": 0.537625480197774,
+      "expected_events": 256.390312940136,
+      "power": 0.583760635611553
+    },
+    {
+      "n_c": 400,
+      "n_t": 400,
+      "hazard_ratio": "4/5",
+      "control_median": "10",
+      "accrual": "30",
+      "follow_up": "0",
+      "alpha": "1/100",
+      "probability_control": 0.579213946407386,
+      "probability_treatment": 0.512768564936776,
+      "expected_events": 436.793004537665,
+      "power": 0.403605900602188
+    }
+  ],
+  "searches": [
+    {
+      "hazard_ratio": "7/10",
+      "control_median": "12",
+      "accrual": "24",
+      "follow_up": "12",
+      "dropout": "1/10",
+      "dropout_time": "12",
+      "alpha": "1/20",
+      "power": "4/5",
+      "ratio": 1,
+      "controls": 202,
+      "power_at": 0.801845749527273,
+      "rpact": 402.099985164868,
+      "nsurv": 402.099985164868
+    },
+    {
+      "hazard_ratio": "3/5",
+      "control_median": "6",
+      "accrual": "12",
+      "follow_up": "6",
+      "alpha": "1/20",
+      "power": "9/10",
+      "ratio": 1,
+      "controls": 126,
+      "power_at": 0.900718698785808,
+      "rpact": 251.362800927403,
+      "nsurv": 251.362800927403
+    },
+    {
+      "hazard_ratio": "3/4",
+      "control_median": "18",
+      "accrual": "18",
+      "follow_up": "24",
+      "dropout": "1/5",
+      "dropout_time": "24",
+      "alpha": "1/20",
+      "power": "4/5",
+      "ratio": 2,
+      "controls": 250,
+      "power_at": 0.800501643858283,
+      "rpact": 749.040831170227,
+      "nsurv": 749.040831170227
+    }
+  ]
+}

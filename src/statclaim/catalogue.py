@@ -209,6 +209,10 @@ OBJECT_CLASSES = {
         "Planning objects",
         "Planning point for a survival outcome: a hazard ratio and a number of events.",
     ),
+    "ExponentialSurvival": (
+        "Planning objects",
+        "Planning point for a survival outcome given by times: hazard ratio, median, accrual.",
+    ),
     "Risks": (
         "Planning objects",
         "Planning point for a cohort: the risk without and with exposure; an input, not a fact.",
@@ -507,7 +511,7 @@ def catalogue() -> dict:
                     "total": method.min_total,
                     "unit": method.unit,
                 },
-                "power": method.power.key if method.power else None,
+                "power": ", ".join(f.key for f in method.formulas) or None,
             }
             for method in METHODS.values()
         ],
@@ -717,7 +721,9 @@ def render_catalogue() -> str:
                     f"{m['minimum_sizes']['per_arm']} "
                     + ("clusters " if m["minimum_sizes"]["unit"] == "cluster" else "")
                     + f"per arm, {m['minimum_sizes']['total']} total",
-                    f"`{m['power']}`" if m["power"] else "none",
+                    ", ".join(f"`{key}`" for key in m["power"].split(", "))
+                    if m["power"]
+                    else "none",
                 )
                 for m in data["cited_methods"]
             ),

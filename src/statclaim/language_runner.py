@@ -658,6 +658,13 @@ def _approximate_lines(details: dict) -> list[str]:
                 f"icc {calculation['icc']['fraction']}"
                 + (f"; design effect {effect['fraction']}" if effect else "")
             )
+        if "expected_events" in calculation:
+            show = lambda key: float(calculation[key]["decimal_approximation"])  # noqa: E731
+            lines.append(
+                f"  expected events ~ {show('expected_events'):.2f}; probability of an event by "
+                f"the analysis {show('event_probability_control'):.4f} (control), "
+                f"{show('event_probability_treatment'):.4f} (treatment)"
+            )
         lines += [
             f"  power ~ {float(calculation['power']['decimal_approximation']):.4f} "
             f"({approximation}); "

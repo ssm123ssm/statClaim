@@ -102,6 +102,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | Rate | Planning point for a single response rate. | `value: exact number` |
 | MeanDifference | Planning point for a continuous outcome: a mean difference and an SD. | `value: exact number`, `sd: exact number`, `icc: Option[exact number]` |
 | HazardRatio | Planning point for a survival outcome: a hazard ratio and a number of events. | `value: exact number`, `events: integer` |
+| ExponentialSurvival | Planning point for a survival outcome given by times: hazard ratio, median, accrual. | `hazard_ratio: exact number`, `control_median: exact number`, `accrual: exact number`, `follow_up: exact number`, `dropout: Option[exact number]`, `dropout_time: Option[exact number]` |
 | Risks | Planning point for a cohort: the risk without and with exposure; an input, not a fact. | `unexposed: exact number`, `exposed: exact number`, `exposed_share: Option[exact number]` |
 | ExposurePrevalence | Planning point for a case-control study: the share of controls and of cases exposed. | `controls: exact number`, `cases: exact number` |
 | GroupCandidates | Cohort or case-control designs searched by the number exposed or of cases. | `analysis: AssociationAnalysis`, `min_size: integer`, `max_size: integer`, `ratio: integer` |
@@ -140,7 +141,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | AssociationPowerDetails | Group sizes, the planning point's measures and the exact power of Fisher's test of association; not proof evidence. | `design: Option[string]`, `exposed: Option[integer]`, `unexposed: Option[integer]`, `cases: Option[integer]`, `controls: Option[integer]`, `total_sample_size: Option[integer]`, `risk_ratio: Option[exact number]`, `risk_difference: Option[exact number]`, `prevalence_ratio: Option[exact number]`, `prevalence_difference: Option[exact number]`, `exposed_share: Option[exact number]`, `expected_exposed: Option[exact number]`, `odds_ratio: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | MatchedPowerDetails | Pairs, the planning point and the exact power of McNemar's test; not proof evidence. | `pairs: Option[integer]`, `discordant: Option[exact number]`, `odds_ratio: Option[exact number]`, `case_exposed_share: Option[exact number]`, `expected_discordant_pairs: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | RatePowerDetails | Events, the planning point and the exact power of the rate test; not proof evidence. | `events: Option[integer]`, `rate_ratio: Option[exact number]`, `exposed_time_share: Option[exact number]`, `exposed_event_share: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
-| ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `clusters_control: Option[integer]`, `clusters_treatment: Option[integer]`, `total_clusters: Option[integer]`, `cluster_size_control: Option[exact number]`, `cluster_size_treatment: Option[exact number]`, `icc: Option[exact number]`, `design_effect: Option[exact number]`, `degrees_of_freedom: Option[integer]`, `power: Option[exact number]`, `power_ceiling: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
+| ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `clusters_control: Option[integer]`, `clusters_treatment: Option[integer]`, `total_clusters: Option[integer]`, `cluster_size_control: Option[exact number]`, `cluster_size_treatment: Option[exact number]`, `icc: Option[exact number]`, `design_effect: Option[exact number]`, `degrees_of_freedom: Option[integer]`, `expected_events: Option[exact number]`, `event_probability_control: Option[exact number]`, `event_probability_treatment: Option[exact number]`, `power: Option[exact number]`, `power_ceiling: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
 | SimulationDetails | Power and Type I error estimated by simulate(...), with 95% intervals, the number of runs and the seed. Estimates, not bounds and not evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_lower: Option[exact number]`, `power_upper: Option[exact number]`, `power_target_met: boolean`, `typeI: Option[exact number]`, `typeI_lower: Option[exact number]`, `typeI_upper: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `runs: Option[integer]`, `seed: Option[integer]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
@@ -488,6 +489,8 @@ Exact power at a planning point, target checks and a bounded sample-size search 
   A planning point for a continuous outcome: the true mean difference, treatment minus control, and the standard deviation of one participant's outcome on the analysed scale. For a mixed model, sd is the effective standard deviation of the contrast. A test of cluster means also needs icc, the intracluster correlation: the share of the variance that lies between clusters. All are planning inputs.
 - `hazard_ratio(value: number, events: integer) -> HazardRatio`
   A planning point for a survival outcome: the true hazard ratio, treatment over control, and the expected total number of events. Power depends on the events, not on the arm sizes. Both are planning inputs.
+- `exponential_survival(hazard_ratio: number, control_median: number, accrual: number, follow_up: number, dropout?: number, dropout_time?: number) -> ExponentialSurvival`
+  A planning point for a survival outcome given by its times: the hazard ratio, treatment over control; the control arm's median time to the event; participants entering steadily over accrual and followed for follow_up after it; and optionally the probability of dropping out by dropout_time. Times are exponential and in one unit, such as months. The arm sizes then give the expected events, so arm sizes can be searched. All are planning inputs.
 - `risks(unexposed: number, exposed?: number, risk_ratio?: number, exposed_share?: number) -> Risks`
   A planning point for a cohort: the risk of the outcome without exposure, and with it, given as exposed or as risk_ratio, exposed over unexposed. A cohort of one population, declared with n, also needs exposed_share, the probability that a participant is exposed. A planning input, not an established fact.
 - `outcome_prevalence(unexposed: number, exposed?: number, prevalence_ratio?: number, exposed_share: number) -> OutcomePrevalence`
@@ -762,7 +765,7 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 | `welch_test_one_sided` | 2 | continuous | `mean_difference_at_most` or `mean_difference_at_least` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
 | `mmrm_test` | 1 | continuous | `equal_means` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
 | `mmrm_test_one_sided` | 2 | continuous | `mean_difference_at_most` or `mean_difference_at_least` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_means` |
-| `log_rank` | 1 | survival | `equal_survival` | equals alpha | `asymptotic` | 1 per arm, 2 total | `schoenfeld_log_rank` |
+| `log_rank` | 1 | survival | `equal_survival` | equals alpha | `asymptotic` | 1 per arm, 2 total | `schoenfeld_log_rank`, `schoenfeld_exponential_times` |
 | `logistic_regression` | 1 | binary | `equal_proportions` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
 | `logistic_regression_one_sided` | 1 | binary | `proportion_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
 | `cluster_t_test` | 1 | continuous | `equal_means` | equals alpha | `finite_sample` | 4 clusters per arm, 8 total | `cluster_t_means` |
@@ -838,6 +841,7 @@ Approximate power for cited tests, by calculation only. See [power for cited tes
 | --- | --- | --- | --- |
 | `normal_two_means` | 2 | `mean_difference` | `normal_approximation_power`, `planning_standard_deviation` |
 | `schoenfeld_log_rank` | 2 | `hazard_ratio` | `normal_approximation_power`, `proportional_hazards`, `planning_events`, `at_risk_shares` |
+| `schoenfeld_exponential_times` | 1 | `exponential_survival` | `normal_approximation_power`, `proportional_hazards`, `at_risk_shares`, `exponential_times`, `uniform_accrual`, `exponential_dropout` |
 | `normal_two_proportions` | 2 | `binomial_rates` | `normal_approximation_power`, `unadjusted_proportions` |
 | `cluster_t_means` | 1 | `mean_difference` | `noncentral_t_power`, `planning_standard_deviation`, `planning_icc`, `equal_cluster_sizes` |
 | `cluster_t_proportions` | 1 | `binomial_rates` | `noncentral_t_power`, `planning_icc`, `equal_cluster_sizes` |
@@ -851,6 +855,13 @@ Approximate power for cited tests, by calculation only. See [power for cited tes
 
 - Schoenfeld, D. (1981). The asymptotic properties of nonparametric tests for comparing survival distributions. Biometrika 68(1), 316-319.
 - Schoenfeld, D. A. (1983). Sample-size formula for the proportional-hazards regression model. Biometrics 39(2), 499-503.
+
+**`schoenfeld_exponential_times`** (Log-rank test, Schoenfeld's formula at the events expected from exponential times). References:
+
+- Schoenfeld, D. (1981). The asymptotic properties of nonparametric tests for comparing survival distributions. Biometrika 68(1), 316-319.
+- Schoenfeld, D. A. (1983). Sample-size formula for the proportional-hazards regression model. Biometrics 39(2), 499-503.
+- Lachin, J. M. and Foulkes, M. A. (1986). Evaluation of sample size and power for analyses of survival with allowance for nonuniform patient entry, losses to follow-up, noncompliance, and stratification. Biometrics 42(3), 507-519. [to verify]
+- Anderson, K. M. gsDesign (nSurv, eEvents), and Wassmer, G. and Pahlke, F. rpact (getSampleSizeSurvival), R packages for survival designs.
 
 **`normal_two_proportions`** (Difference of two proportions, normal approximation). References:
 
@@ -917,6 +928,9 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `noncentral_t_power` | approximation | Power comes from the noncentral t distribution of the t-test on cluster summaries, with the variance of a cluster's summary at the planning values. Exact for normal cluster means of equal variance; otherwise an approximation, not a bound. |
 | `planning_icc` | scope | The intracluster correlation is a planning input, not an established fact: the share of the outcome's variance that lies between clusters. A cluster of m participants has a summary with variance (1 + (m - 1) icc) / m times that of one participant. |
 | `equal_cluster_sizes` | approximation | Every cluster in an arm has the arm's mean size. Clusters of unequal sizes give less power than this. |
+| `exponential_times` | approximation | Times to the event are exponential in each arm: the control hazard comes from its median, and the treatment hazard is the hazard ratio times it. Power from these times is an approximation, not a bound. |
+| `uniform_accrual` | approximation | Participants enter at a steady rate over the accrual period, and the analysis is at its end plus the follow-up. Entry that is slower at first gives fewer events. |
+| `exponential_dropout` | approximation | Dropout is at a constant rate, the same in both arms, and independent of the event. With no dropout declared, nobody is lost before the analysis. |
 | `accounts_for_repeated_measures` | vouched | The declared test accounts for the several measurements on each participant, which may be correlated. |
 | `accounts_for_clusters` | vouched | The declared test accounts for randomisation by cluster: participants in one cluster may be correlated. |
 

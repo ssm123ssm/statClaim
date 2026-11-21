@@ -288,3 +288,22 @@ EQUAL_CLUSTER_SIZES = Assumption(
     "Every cluster in an arm has the arm's mean size. Clusters of unequal sizes give less "
     "power than this.",
 )
+EXPONENTIAL_TIMES = Assumption(
+    "exponential_times",
+    "approximation",
+    "Times to the event are exponential in each arm: the control hazard comes from its "
+    "median, and the treatment hazard is the hazard ratio times it. Power from these times is "
+    "an approximation, not a bound.",
+)
+UNIFORM_ACCRUAL = Assumption(
+    "uniform_accrual",
+    "approximation",
+    "Participants enter at a steady rate over the accrual period, and the analysis is at its "
+    "end plus the follow-up. Entry that is slower at first gives fewer events.",
+)
+EXPONENTIAL_DROPOUT = Assumption(
+    "exponential_dropout",
+    "approximation",
+    "Dropout is at a constant rate, the same in both arms, and independent of the event. With "
+    "no dropout declared, nobody is lost before the analysis.",
+)

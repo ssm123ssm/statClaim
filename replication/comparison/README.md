@@ -13,7 +13,7 @@ R_LIBS=path/to/library Rscript replication/comparison/simon_clinfun.R
 ```
 
 Run every script from the repository root. Versions used: R 4.6.1, clinfun 1.1.6,
-gsDesign 3.11.0, graphicalMCP 0.3.0, DeclareDesign 2.0.0, exact2x2 1.7.0, epiR 3.0.1, exactci 1.4.5, CRTSize 1.2.
+gsDesign 3.11.0, graphicalMCP 0.3.0, DeclareDesign 2.0.0, exact2x2 1.7.0, epiR 3.0.1, exactci 1.4.5, CRTSize 1.2, rpact 5.0.0.
 gMCP was not used: it needs Java.
 
 | Script | Output | What it compares |
@@ -24,6 +24,7 @@ gMCP was not used: it needs Java.
 | `power_base_r.R` | `power_base_r.txt` | Base R's `power.t.test` and `power.prop.test`; writes `tests/fixtures/power_r.json`, which `replication/power.py` compares with StatClaim |
 | `declaredesign_two_arm.R` | `declaredesign_two_arm.txt` | DeclareDesign's simulated diagnosands for a two-arm design |
 | `cluster_power_r.R` | `cluster_power_r.txt` | Power of the t-test on cluster means and proportions with the design effect (`power.t.test`, the noncentral t through `pt`, and CRTSize's normal-approximation cluster counts); writes `tests/fixtures/cluster_power_r.json`, which `tests/test_cluster_power.py` compares with StatClaim |
+| `survival_power_r.R` | `survival_power_r.txt` | Log-rank power from exponential survival times: expected events (`gsDesign::eEvents` and numerical integration), Schoenfeld's power, and sample sizes from `rpact::getSampleSizeSurvival` and `gsDesign::nSurv`; writes `tests/fixtures/survival_power_r.json`, which `tests/test_survival_power.py` compares with StatClaim |
 | `observational_power_r.R` | `observational_power_r.txt` | Exact power of Fisher's test of association for cohort and case-control studies (every table through `fisher.test`, `exact2x2::power2x2` and epiR's normal formulas), McNemar's test (`binom.test`, `exact2x2::powerPaired2x2`) and the rate test (`exactci::poisson.exact`); writes `tests/fixtures/observational_power_r.json`, which `tests/test_observational_planning.py` compares with StatClaim |
 
 StatClaim's side of the same designs is `graph.stat`, `sequential.stat` and
@@ -63,6 +64,11 @@ graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup
   arms) to twelve decimals, and its searches find the same number of clusters and
   cluster size as R. CRTSize's normal formula asks for 0.2 to 1.9 fewer clusters per
   arm before rounding, since it ignores the t distribution.
+- **Survival times.** For five designs, with and without accrual and dropout,
+  StatClaim's expected events equal `eEvents` and numerical integration to ten
+  decimals, and its power equals Schoenfeld's formula at them to twelve. Its
+  searches find the smallest arm sizes above rpact's and nSurv's unrounded totals,
+  which agree with each other.
 - **DeclareDesign.** For 100 per arm and a difference of 0.4 standard deviations,
   2,000 simulations give power 0.81 (standard error 0.009), bias 0.002 and coverage
   0.96. StatClaim's normal approximation gives 0.807; `power.t.test` gives 0.804.

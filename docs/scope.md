@@ -77,12 +77,15 @@ What is supported:
   Lean checks that the levels fit the budget and that the union bound gives the
   family bound. Each member's own bound is a hypothesis of that theorem.
 - **Two survival curves, cited.** The two-sided log-rank test, with a
-  large-sample guarantee in the number of events.
+  large-sample guarantee in the number of events. Its power can be planned at a
+  number of events, or at exponential survival times with accrual, follow-up and
+  dropout, whose expected events let arm sizes be searched.
 - **Two means, cited.** Pooled-variance and Welch t-tests, two-sided or
   one-sided with a margin. The contract is checked; the guarantee is cited from
   the literature and not proved. See [cited methods](cited-methods.md).
 - **Power for cited tests, calculated.** Approximate power and the value the
-  estimate must pass, from a normal formula, and a sample-size search. Status
+  estimate must pass, from a normal formula (the noncentral t for cluster tests),
+  and a sample-size search. Status
   `calculated`, never verified. See
   [power for cited tests](planning.md#power-for-cited-tests).
 

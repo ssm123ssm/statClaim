@@ -38,6 +38,7 @@ from statclaim.language import (
     RatesIR,
     TotalCandidatesIR,
     TwoStageAnalysisIR,
+    cited_formula,
     named_outcomes,
     normalize,
 )
@@ -1148,7 +1149,7 @@ def derive_cited_planning(name: str, claim: ClaimIR, analysis: CitedAnalysisIR) 
     subject, method = claim.subject, analysis.method
     target, inner = subject.target, f"{name}.analysis"
     search = None if isinstance(subject, FeasibilityIR) else subject.candidates
-    formula, point = method.power, normalize(subject.target.at)
+    formula, point = cited_formula(analysis, subject.target.at), normalize(subject.target.at)
     builder = _Builder()
     used = [
         _cited_steps(builder, inner, analysis),

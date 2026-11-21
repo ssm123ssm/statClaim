@@ -98,7 +98,9 @@ POINT_KEYS = {
     "mean_difference": {"mean_difference", "sd"},
     "binomial_rates": {"p_control", "p_treatment"},
     "hazard_ratio": {"hazard_ratio", "events"},
+    "exponential_survival": {"hazard_ratio", "control_median", "accrual", "follow_up"},
 }
+DROPOUT_KEYS = {"dropout", "dropout_time"}  # given together, or not at all
 CRITERIA = ["optimal", "minimax"]
 # What each observational design with fixed groups is planned at, and a search's keys.
 GROUP_POINT_KEYS = {
@@ -311,10 +313,23 @@ def _block(name: str, analysis: dict, start: int = 0) -> list[tuple]:
 
 def _point_valid(point: dict, kind: str, total: int, clustered: bool = False) -> bool:
     """A test of cluster summaries is planned with the intracluster correlation too."""
+    if kind == "exponential_survival" and set(point) == POINT_KEYS[kind] | DROPOUT_KEYS:
+        if not (0 <= Fraction(point["dropout"]) < 1 and Fraction(point["dropout_time"]) > 0):
+            return False
+        point = {key: value for key, value in point.items() if key not in DROPOUT_KEYS}
     if set(point) != POINT_KEYS[kind] | ({"icc"} if clustered else set()):
         return False
     if clustered and not 0 <= Fraction(point["icc"]) < 1:
         return False
+    if kind == "exponential_survival":
+        accrual, follow_up = Fraction(point["accrual"]), Fraction(point["follow_up"])
+        return (
+            Fraction(point["hazard_ratio"]) > 0
+            and Fraction(point["control_median"]) > 0
+            and accrual >= 0
+            and follow_up >= 0
+            and accrual + follow_up > 0
+        )
     if kind == "mean_difference":
         return Fraction(point["sd"]) > 0
     if kind == "binomial_rates":
@@ -329,9 +344,11 @@ def _point_valid(point: dict, kind: str, total: int, clustered: bool = False) ->
 def _cited_planning_expected(name: str, subject: dict, search, analysis: dict):
     """Approximate power for a cited test. The registry's formula is data, like its methods."""
     method = METHODS[analysis["test"]]
-    formula = method.power
+    point = subject["target"]["at"]
+    # The formula whose kind of point this is, told apart by the point's arguments.
+    formula = next((f for f in method.formulas if POINT_KEYS[f.point] <= set(point)), None)
     if formula is None:
-        raise ValueError("the method has no power formula")
+        raise ValueError("the method has no power formula at this point")
     inner = f"{name}.analysis"
     steps, _, test_assumptions, _ = _cited_expected(
         inner, analysis, f"{method.module}/{method.key}"

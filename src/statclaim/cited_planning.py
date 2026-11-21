@@ -12,11 +12,13 @@ from statclaim.fisher import fraction_record
 from statclaim.language import (
     CitedAnalysisIR,
     ClusterCandidatesIR,
+    ExponentialSurvivalIR,
     FeasibilityIR,
     HazardRatioIR,
     MeanDifferenceIR,
     PowerTargetIR,
     RatesIR,
+    cited_formula,
     clustered_test,
     planned_analysis,
 )
@@ -36,6 +38,15 @@ def _values(point) -> dict[str, float]:
         values = {"value": float(point.value), "sd": float(point.sd)}
     elif isinstance(point, RatesIR):
         values = {"p_control": float(point.p_control), "p_treatment": float(point.p_treatment)}
+    elif isinstance(point, ExponentialSurvivalIR):
+        values = {
+            "value": float(point.hazard_ratio),
+            "control_median": float(point.control_median),
+            "accrual": float(point.accrual),
+            "follow_up": float(point.follow_up),
+        }
+        if point.dropout is not None:
+            values.update(dropout=float(point.dropout), dropout_time=float(point.dropout_time))
     else:
         values = {"value": float(point.value), "events": float(point.events)}
     if getattr(point, "icc", None) is not None:
@@ -50,6 +61,17 @@ def describe_point(point) -> str:
         return f"a mean difference of {point.value} with standard deviation {point.sd}{clustering}"
     if isinstance(point, HazardRatioIR):
         return f"a hazard ratio of {point.value} with {point.events} events"
+    if isinstance(point, ExponentialSurvivalIR):
+        lost = (
+            f", {point.dropout} dropping out by time {point.dropout_time}"
+            if point.dropout is not None
+            else ""
+        )
+        return (
+            f"a hazard ratio of {point.hazard_ratio}, a control median of "
+            f"{point.control_median}, accrual over {point.accrual} and follow-up of "
+            f"{point.follow_up}{lost}"
+        )
     return f"p_control = {point.p_control}, p_treatment = {point.p_treatment}{clustering}"
 
 
@@ -73,7 +95,7 @@ def approximate_power(
     values = _values(point)
     if cluster_sizes is not None:
         values["size_control"], values["size_treatment"] = (float(m) for m in cluster_sizes)
-    return analysis.method.power.function(
+    return cited_formula(analysis, point).function(
         values,
         n_control,
         n_treatment,
@@ -120,7 +142,7 @@ def evaluate(
     result: PowerResult = approximate_power(
         analysis, target.at, n_control, n_treatment, cluster_sizes
     )
-    formula = analysis.method.power
+    formula = cited_formula(analysis, target.at)
     if cluster_sizes is None:
         design = {
             "n_control": n_control,
@@ -129,6 +151,10 @@ def evaluate(
         }
     else:
         design = _cluster_record(target, sizes, cluster_sizes)
+    if result.expected_events is not None:
+        design["expected_events"] = _record(result.expected_events)
+        design["event_probability_control"] = _record(result.event_probabilities[0])
+        design["event_probability_treatment"] = _record(result.event_probabilities[1])
     return {
         **design,
         "power": _record(result.power),
@@ -146,9 +172,10 @@ def evaluate(
     }
 
 
-def assumptions(analysis: CitedAnalysisIR) -> list[dict]:
+def assumptions(analysis: CitedAnalysisIR, point) -> list[dict]:
     """The test's own assumptions, then the formula's, then the planning point's."""
-    items = [mark(item) for item in (*analysis.assumptions, *analysis.method.power.assumptions)]
+    formula = cited_formula(analysis, point)
+    items = [mark(item) for item in (*analysis.assumptions, *formula.assumptions)]
     return [*items, identify(PLANNING_POINT)]
 
 
@@ -192,13 +219,14 @@ def describe(subject) -> dict:
             f"{method.title}: the first {allocation} size from {candidates.min_per_arm} to "
             f"{candidates.max_per_arm} controls with {goal}."
         )
-    text += f" Power is a {method.power.approximation}."
-    listed = assumptions(analysis)
+    formula = cited_formula(analysis, target.at)
+    text += f" Power is a {formula.approximation}."
+    listed = assumptions(analysis, target.at)
     report = planning_report("cited_planning", text, [item["text"] for item in listed])
     report["method"] = method.to_dict()
-    report["formula"] = method.power.to_dict()
+    report["formula"] = formula.to_dict()
     report["assumptions"] = listed
-    report["references"] = [*method.references, *method.power.references]
+    report["references"] = [*method.references, *formula.references]
     return report
 
 
@@ -231,7 +259,7 @@ def run(report: dict, subject) -> dict:
         **search,
         "candidates_evaluated": candidates.max_per_arm - candidates.min_per_arm + 1,
         "power_target_met": False,
-        "approximation": analysis.method.power.approximation,
+        "approximation": cited_formula(analysis, target.at).approximation,
     }
     report["decision"] = "no_feasible_candidate"
     return report
@@ -261,7 +289,7 @@ def _run_clusters(report: dict, analysis, target, candidates: ClusterCandidatesI
         **search,
         "candidates_evaluated": evaluated,
         "power_target_met": False,
-        "approximation": analysis.method.power.approximation,
+        "approximation": cited_formula(analysis, target.at).approximation,
     }
     if candidates.varies == "cluster_size" and target.at.icc > 0:
         clusters, _ = declared_clusters(analysis)

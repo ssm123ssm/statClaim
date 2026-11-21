@@ -1,0 +1,38 @@
+Log-rank power from survival times, written to tests/fixtures/survival_power_r.json
+
+arms (200, 200), HR 7/10, median 12, accrual 24, follow-up 12, dropout 1/10 by 12, alpha 1/20: events 245.4982478511, power 0.797942884607
+arms (100, 100), HR 3/5, median 6, accrual 12, follow-up 6, no dropout, alpha 1/20: events 128.1562676012, power 0.824193585763
+arms (150, 150), HR 7/5, median 24, accrual 0, follow-up 36, dropout 1/20 by 12, alpha 1/20: events 199.5830680244, power 0.661577697880
+arms (150, 300), HR 3/4, median 18, accrual 18, follow-up 24, dropout 1/5 by 24, alpha 1/20: events 256.3903129401, power 0.583760635612
+arms (400, 400), HR 4/5, median 10, accrual 30, follow-up 0, no dropout, alpha 1/100: events 436.7930045377, power 0.403605900602
+
+Searches
+HR 7/10, median 12, accrual 24, follow-up 12, power 4/5, 1:1: 202 controls (power 0.801846); rpact 402.100 in all, nSurv 402.100
+HR 3/5, median 6, accrual 12, follow-up 6, power 9/10, 1:1: 126 controls (power 0.900719); rpact 251.363 in all, nSurv 251.363
+HR 3/4, median 18, accrual 18, follow-up 24, power 4/5, 1:2: 250 controls (power 0.800502); rpact 749.041 in all, nSurv 749.041
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0  rpact_5.0.0     gsDesign_3.11.0
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6       dplyr_1.2.1        compiler_4.6.1     tidyselect_1.2.1
+ [5] Rcpp_1.1.2         xml2_1.6.0         tidyr_1.3.2        scales_1.4.0
+ [9] fastmap_1.2.0      ggplot2_4.0.3      R6_2.6.1           generics_0.1.4
+[13] knitr_1.52         tibble_3.3.1       r2rtf_1.3.1        pillar_1.11.1
+[17] RColorBrewer_1.1-3 rlang_1.3.0        xfun_0.61          fs_2.1.0
+[21] S7_0.2.2           otel_0.2.0         cli_3.6.6          magrittr_2.0.5
+[25] digest_0.6.39      grid_4.6.1         xtable_1.8-8       rappdirs_0.3.4
+[29] lifecycle_1.0.5    vctrs_0.7.3        evaluate_1.0.5     glue_1.8.1
+[33] farver_2.1.2       gt_1.3.0           purrr_1.2.2        tools_4.6.1
+[37] pkgconfig_2.0.3    htmltools_0.5.9

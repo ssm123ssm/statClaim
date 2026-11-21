@@ -2,6 +2,7 @@
 use models.two_arm_survival
 use sampling
 use tests.survival
+use planning
 
 let study = two_arm_survival(n_control=200, n_treatment=200)
 let plan = fixed(model=study)
@@ -11,3 +12,20 @@ let analysis = log_rank(design=plan, null=null, alpha=1/20)
 let checked = verify(typeI(analysis))
 let scope = checked.claim.scope
 let assumptions = checked.evidence.required_assumptions
+
+# Planning from survival times: a control median of 12 months, a hazard ratio of 7/10,
+# two years of accrual, a year of follow-up after it and 10% dropping out by a year.
+# The arm sizes then give the expected events, so the sizes can be searched.
+let expected = exponential_survival(
+    hazard_ratio=7/10,
+    control_median=12,
+    accrual=24,
+    follow_up=12,
+    dropout=1/10,
+    dropout_time=12,
+)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20)
+let power = calculate(meets(analysis=analysis, target=target))
+let sizes = equal_arm_sizes(analysis=analysis, min_per_arm=50, max_per_arm=1000)
+let sizing = calculate(smallest_sample_size(candidates=sizes, target=target))
+let events = sizing.calculation.expected_events

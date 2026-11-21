@@ -14,6 +14,8 @@ from statistics import NormalDist
 from statclaim.methods.assumptions import (
     AT_RISK_SHARES,
     EQUAL_CLUSTER_SIZES,
+    EXPONENTIAL_DROPOUT,
+    EXPONENTIAL_TIMES,
     NONCENTRAL_T_POWER,
     NORMAL_APPROXIMATION_POWER,
     PLANNING_EVENTS,
@@ -21,6 +23,7 @@ from statclaim.methods.assumptions import (
     PLANNING_SD,
     PROPORTIONAL_HAZARDS,
     UNADJUSTED_PROPORTIONS,
+    UNIFORM_ACCRUAL,
 )
 from statclaim.methods.core import PowerFormula, PowerResult
 from statclaim.methods.t_distribution import (
@@ -58,6 +61,15 @@ DONNER_BIRKETT_BUCK = (
     "requirements and analysis. American Journal of Epidemiology 114(6), 906-914. [to verify]"
 )
 R_POWER_T = "R Core Team. power.t.test, in the stats package of R."
+LACHIN_FOULKES = (
+    "Lachin, J. M. and Foulkes, M. A. (1986). Evaluation of sample size and power for analyses "
+    "of survival with allowance for nonuniform patient entry, losses to follow-up, "
+    "noncompliance, and stratification. Biometrics 42(3), 507-519. [to verify]"
+)
+R_SURVIVAL_PACKAGES = (
+    "Anderson, K. M. gsDesign (nSurv, eEvents), and Wassmer, G. and Pahlke, F. rpact "
+    "(getSampleSizeSurvival), R packages for survival designs."
+)
 
 
 SIDES = ("higher", "lower", "both")
@@ -125,6 +137,48 @@ def log_rank_events(point, n_control, n_treatment, null_value, alpha, side) -> P
     sign = 1 if log_ratio >= 0 else -1
     return PowerResult(
         _NORMAL.cdf(abs(log_ratio) / se - z), math.exp(sign * z * se), _side(log_ratio), se
+    )
+
+
+def log_rank_times(point, n_control, n_treatment, null_value, alpha, side) -> PowerResult:
+    """Schoenfeld's formula at the expected number of events. Times are exponential, the
+    control hazard log 2 / median; participants enter uniformly over the accrual period and
+    are followed to its end plus the follow-up; dropout is exponential, with probability
+    `dropout` by `dropout_time`. A participant has an event by the analysis with probability
+    h / (h + d) (1 - (e^(-(h + d) f) - e^(-(h + d)(a + f))) / ((h + d) a)) for hazard h,
+    dropout hazard d, accrual a and follow-up f, or h / (h + d) (1 - e^(-(h + d) f)) when
+    a = 0."""
+    if side != "both" or null_value != 0:
+        raise ValueError("The log-rank power formula is for the two-sided test of equal survival.")
+    control = math.log(2) / point["control_median"]
+    dropout = point.get("dropout", 0.0)
+    loss = -math.log1p(-dropout) / point["dropout_time"] if dropout else 0.0
+    accrual, follow_up = point["accrual"], point["follow_up"]
+
+    def event_probability(hazard: float) -> float:
+        rate = hazard + loss
+        if accrual == 0:
+            seen = -math.expm1(-rate * follow_up)
+        else:
+            seen = 1 - (math.exp(-rate * follow_up) - math.exp(-rate * (accrual + follow_up))) / (
+                rate * accrual
+            )
+        return hazard / rate * seen
+
+    probabilities = (event_probability(control), event_probability(point["value"] * control))
+    events = n_control * probabilities[0] + n_treatment * probabilities[1]
+    share = n_control / (n_control + n_treatment)
+    se = 1 / math.sqrt(events * share * (1 - share))
+    z = _quantile(alpha, side)
+    log_ratio = math.log(point["value"])
+    sign = 1 if log_ratio >= 0 else -1
+    return PowerResult(
+        _NORMAL.cdf(abs(log_ratio) / se - z),
+        math.exp(sign * z * se),
+        _side(log_ratio),
+        se,
+        events,
+        probabilities,
     )
 
 
@@ -223,4 +277,20 @@ CLUSTER_PROPORTIONS = PowerFormula(
     assumptions=(NONCENTRAL_T_POWER, PLANNING_ICC, EQUAL_CLUSTER_SIZES),
     references=(DONNER_BIRKETT_BUCK, R_POWER_T, LENTH, BENTON_KRISHNAMOORTHY),
     approximation=NONCENTRAL_T,
+)
+SCHOENFELD_TIMES = PowerFormula(
+    key="schoenfeld_exponential_times",
+    title="Log-rank test, Schoenfeld's formula at the events expected from exponential times",
+    version=1,
+    point="exponential_survival",
+    function=log_rank_times,
+    assumptions=(
+        NORMAL_APPROXIMATION_POWER,
+        PROPORTIONAL_HAZARDS,
+        AT_RISK_SHARES,
+        EXPONENTIAL_TIMES,
+        UNIFORM_ACCRUAL,
+        EXPONENTIAL_DROPOUT,
+    ),
+    references=(SCHOENFELD_1981, SCHOENFELD_1983, LACHIN_FOULKES, R_SURVIVAL_PACKAGES),
 )
