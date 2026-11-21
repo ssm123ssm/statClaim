@@ -137,7 +137,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.32.0"
+LANGUAGE_VERSION = "0.33.0"
 
 
 class PlannableIR:
@@ -1006,6 +1006,8 @@ class RatesIR(PlanningPointIR):
     p_control: Fraction
     p_treatment: Fraction
     icc: Fraction | None = None
+    # How much cluster sizes vary, for simulating a cluster test: their coefficient of variation.
+    cluster_size_cv: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1021,6 +1023,7 @@ class MeanDifferenceIR(PlanningPointIR):
     value: Fraction
     sd: Fraction
     icc: Fraction | None = None
+    cluster_size_cv: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1699,6 +1702,12 @@ def _study_extras(study: "ObservationalStudyIR") -> dict:
     return extras
 
 
+def _with_cluster_cv(point: dict, value) -> dict:
+    """How much cluster sizes vary is written only when the point gives it."""
+    cv = getattr(value, "cluster_size_cv", None)
+    return point if cv is None else {**point, "cluster_size_cv": str(cv)}
+
+
 def _with_design_effect(point: dict, value) -> dict:
     """A survey's design effect is written only when the point gives one."""
     effect = getattr(value, "design_effect", None)
@@ -1931,7 +1940,8 @@ def normalize(value: object) -> object:
             }
         case RatesIR(p_control=control, p_treatment=treatment, icc=icc):
             point = {"p_control": str(control), "p_treatment": str(treatment)}
-            return point if icc is None else {**point, "icc": str(icc)}
+            point = point if icc is None else {**point, "icc": str(icc)}
+            return _with_cluster_cv(point, value)
         case RateIR(value=rate):
             return {"response_rate": str(rate)}
         case RisksIR(unexposed=unexposed, exposed=exposed, exposed_share=share):
@@ -1965,7 +1975,8 @@ def normalize(value: object) -> object:
             return {"analysis": normalize(analysis), low_key: low, high_key: high, ratio_key: ratio}
         case MeanDifferenceIR(value=difference, sd=sd, icc=icc):
             point = {"mean_difference": str(difference), "sd": str(sd)}
-            return point if icc is None else {**point, "icc": str(icc)}
+            point = point if icc is None else {**point, "icc": str(icc)}
+            return _with_cluster_cv(point, value)
         case HazardRatioIR(value=ratio, events=events):
             return {"hazard_ratio": str(ratio), "events": events}
         case CorrelationIR(value=rho):
@@ -2279,6 +2290,7 @@ def _outcome_piece(kind: str) -> Callable:
 
 # Longest outcome name.
 MAX_NAME = 100
+MAX_SIMULATED_CLUSTER = 1000  # participants per cluster when simulating cluster proportions
 
 
 def _leaves(members) -> Iterator[tuple[str, object]]:
@@ -3486,6 +3498,14 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             "Use verify(claim) for design guarantees.",
             claim.span,
         )
+    target = getattr(claim.value.subject, "target", None)
+    if getattr(getattr(target, "at", None), "cluster_size_cv", None):
+        fail(
+            "unsupported_claim",
+            "The noncentral t assumes clusters of equal size. For clusters whose sizes vary, "
+            "use simulate(...), which draws the sizes.",
+            claim.span,
+        )
     return claim.value
 
 
@@ -3508,11 +3528,22 @@ def _icc(arguments: dict[str, LocatedValue]) -> Fraction | None:
     return icc.value
 
 
+def _cluster_cv(arguments: dict[str, LocatedValue]) -> Fraction | None:
+    """The coefficient of variation of cluster sizes, when given: 0 for equal clusters."""
+    cv = arguments.get("cluster_size_cv")
+    if cv is None or cv.value is None:
+        return None
+    if not 0 <= cv.value <= 3:
+        fail("domain", "cluster_size_cv must lie between 0 and 3.", cv.span)
+    return cv.value
+
+
 def _rates(arguments: dict[str, LocatedValue], span: Span) -> RatesIR:
     return RatesIR(
         _probability(arguments["p_control"], "p_control"),
         _probability(arguments["p_treatment"], "p_treatment"),
         _icc(arguments),
+        _cluster_cv(arguments),
     )
 
 
@@ -3520,7 +3551,9 @@ def _mean_difference(arguments: dict[str, LocatedValue], span: Span) -> MeanDiff
     sd = arguments["sd"]
     if sd.value <= 0:
         fail("domain", "sd must be positive.", sd.span)
-    return MeanDifferenceIR(arguments["value"].value, sd.value, _icc(arguments))
+    return MeanDifferenceIR(
+        arguments["value"].value, sd.value, _icc(arguments), _cluster_cv(arguments)
+    )
 
 
 def _hazard_ratio(arguments: dict[str, LocatedValue], span: Span) -> HazardRatioIR:
@@ -4013,6 +4046,12 @@ def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: S
         )
     if not clustered_test(analysis) and getattr(point, "icc", None) is not None:
         fail("planning_point", ICC_REFUSED, target.span)
+    if not clustered_test(analysis) and getattr(point, "cluster_size_cv", None) is not None:
+        fail(
+            "planning_point",
+            "cluster_size_cv describes the clusters of a cluster-randomised trial; leave it out.",
+            target.span,
+        )
     model = analysis.plan.model
     if isinstance(point, HazardRatioIR) and point.events > model.n_control + model.n_treatment:
         fail(
@@ -4180,7 +4219,7 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
     if isinstance(analysis, CitedAnalysisIR):
         _check_cited_point(analysis, target, where)
         return
-    if getattr(point, "icc", None) is not None:
+    if any(getattr(point, name, None) is not None for name in ("icc", "cluster_size_cv")):
         fail("planning_point", ICC_REFUSED, target.span)
     survey = isinstance(analysis, CitedAssociationIR) and analysis.method.module == "tests.survey"
     if getattr(point, "design_effect", None) is not None and not survey:
@@ -5049,11 +5088,32 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     kind, signature = POINT_SIGNATURES[method.simulation.point]
     if not isinstance(subject.target.at, kind):
         fail("planning_point", f"Simulate {method.key} at {signature}.", claim.span)
-    if getattr(subject.target.at, "icc", None) is not None:
+    if not clustered_test(analysis) and getattr(subject.target.at, "icc", None) is not None:
         fail("planning_point", ICC_REFUSED, claim.span)
     settings = simulation_settings(arguments)
+    if clustered_test(analysis) and method.outcome == "binary":
+        if isinstance(subject, SizingIR):
+            largest = max(size for _, sizes in subject.candidates.designs() for size in sizes)
+        else:
+            model = analysis.plan.model
+            largest = max(
+                Fraction(model.n_control, model.assignment.clusters_control),
+                Fraction(model.n_treatment, model.assignment.clusters_treatment),
+            )
+        if largest > MAX_SIMULATED_CLUSTER:
+            fail(
+                "domain",
+                f"Simulating cluster proportions draws every participant, so clusters are "
+                f"limited to {MAX_SIMULATED_CLUSTER:,} participants here.",
+                claim.span,
+            )
     if isinstance(subject, SizingIR):
-        candidates = subject.candidates.max_per_arm - subject.candidates.min_per_arm + 1
+        space = subject.candidates
+        candidates = (
+            space.high - space.low + 1
+            if isinstance(space, ClusterCandidatesIR)
+            else space.max_per_arm - space.min_per_arm + 1
+        )
         if candidates * settings.runs > MAX_SIMULATED_STUDIES:
             fail(
                 "domain",
@@ -5781,17 +5841,28 @@ MODULES = {
             (
                 _constructor(
                     "binomial_rates",
-                    (("p_control", "number"), ("p_treatment", "number"), ("icc", "number", True)),
+                    (
+                        ("p_control", "number"),
+                        ("p_treatment", "number"),
+                        ("icc", "number", True),
+                        ("cluster_size_cv", "number", True),
+                    ),
                     "Rates",
                     _rates,
                     documentation="A planning point: one success probability per arm. "
                     "It is an input for power, not the null and not an established fact. "
                     "A test of cluster proportions also needs icc, the intracluster "
-                    "correlation.",
+                    "correlation, and simulate(...) takes cluster_size_cv, how much cluster "
+                    "sizes vary.",
                 ),
                 _constructor(
                     "mean_difference",
-                    (("value", "number"), ("sd", "number"), ("icc", "number", True)),
+                    (
+                        ("value", "number"),
+                        ("sd", "number"),
+                        ("icc", "number", True),
+                        ("cluster_size_cv", "number", True),
+                    ),
                     "MeanDifference",
                     _mean_difference,
                     documentation="A planning point for a continuous outcome: the true mean "
@@ -5799,7 +5870,8 @@ MODULES = {
                     "participant's outcome on the analysed scale. For a mixed model, sd is the "
                     "effective standard deviation of the contrast. A test of cluster means "
                     "also needs icc, the intracluster correlation: the share of the variance "
-                    "that lies between clusters. All are planning inputs.",
+                    "that lies between clusters; simulate(...) also takes cluster_size_cv, the "
+                    "coefficient of variation of cluster sizes. All are planning inputs.",
                 ),
                 _constructor(
                     "hazard_ratio",

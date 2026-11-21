@@ -94,6 +94,36 @@ class Stream:
     def chi_square(self, df: float) -> float:
         return 2.0 * self.gamma(df / 2.0)
 
+    def beta(self, a: float, b: float) -> float:
+        """A beta draw as the share of two gamma draws."""
+        x = self.gamma(a)
+        return x / (x + self.gamma(b))
+
+    def binomial(self, n: int, p: float) -> int:
+        """Successes in n trials by geometric skips between them, so the cost grows with the
+        smaller of the successes and the failures, not with n."""
+        if p <= 0.0 or n <= 0:
+            return 0
+        if p >= 1.0:
+            return n
+        if p > 0.5:
+            return n - self.binomial(n, 1.0 - p)
+        log_q = math.log1p(-p)
+        count, position = 0, 0
+        while True:
+            position += int(math.log(self.uniform()) / log_q) + 1
+            if position > n:
+                return count
+            count += 1
+
+    def cluster_size(self, mean: float, cv: float) -> int:
+        """A cluster's size: the mean when cv is 0, else a gamma draw with that mean and
+        coefficient of variation, rounded, and at least 1."""
+        if cv <= 0.0:
+            return max(1, round(mean))
+        shape = 1.0 / (cv * cv)
+        return max(1, round(self.gamma(shape) * mean / shape))
+
 
 def _beta_fraction(x: float, a: float, b: float) -> float:
     """The continued fraction of the incomplete beta function, by Lentz's method."""
@@ -199,6 +229,39 @@ def estimate(trial: Callable[[Stream], bool], runs: int, stream: Stream) -> Esti
 
 
 SIDES = ("higher", "lower", "both")
+
+
+def pooled_t(first: list[float], second: list[float]) -> float:
+    """Student's pooled t statistic, second minus first; 0 when there is no spread."""
+    k1, k2 = len(first), len(second)
+    m1, m2 = sum(first) / k1, sum(second) / k2
+    ss = sum((x - m1) ** 2 for x in first) + sum((x - m2) ** 2 for x in second)
+    df = k1 + k2 - 2
+    if ss <= 0.0 or df <= 0:
+        return 0.0 if m1 == m2 else math.copysign(math.inf, m2 - m1)
+    return (m2 - m1) / math.sqrt(ss / df * (1.0 / k1 + 1.0 / k2))
+
+
+def cluster_trial(
+    summary: Callable[[Stream, int, float], float],
+    clusters: tuple[int, int],
+    sizes: tuple[float, float],
+    cv: float,
+    alpha: float,
+) -> Callable[[Stream], bool]:
+    """One simulated cluster-randomised study: each arm's clusters, each drawn with a size and
+    summarised by `summary(stream, size, arm)`, compared by the two-sided pooled t-test of
+    the cluster summaries with k_control + k_treatment - 2 degrees of freedom."""
+    k_c, k_t = clusters
+    critical = t_quantile(1.0 - alpha / 2.0, k_c + k_t - 2)
+
+    def study(stream: Stream) -> bool:
+        arms = []
+        for arm, (k, mean) in enumerate(zip(clusters, sizes, strict=True)):
+            arms.append([summary(stream, stream.cluster_size(mean, cv), arm) for _ in range(k)])
+        return abs(pooled_t(arms[0], arms[1])) > critical
+
+    return study
 
 
 def two_means_trial(

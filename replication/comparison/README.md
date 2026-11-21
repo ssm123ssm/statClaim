@@ -29,6 +29,7 @@ gMCP was not used: it needs Java.
 | `logistic_power_r.R` | `logistic_power_r.txt` | Hsieh's formulas for logistic regression and Signorini's for Poisson rates (`pwrss`), Connor's for matched pairs (`MESS::power_mcnemar_test`), the log risk ratio for modified Poisson regression (`glm` with `sandwich`'s robust variance), and `glm` on simulated studies; writes `tests/fixtures/logistic_power_r.json`, which `tests/test_logistic_power.py` compares with StatClaim |
 | `survey_power_r.R` | `survey_power_r.txt` | Survey tests through the design effect: `pwrss`'s Hsieh sizes for a simple random sample, times the design effect, and the Wald test of a slope; writes `tests/fixtures/survey_power_r.json`, which `tests/test_survey_power.py` compares with StatClaim |
 | `precision_r.R` | `precision_r.txt` | Margins of error and assurance of StatClaim's exact intervals (`binom.test` for every count, `qbeta` at expected counts), the normal intervals (`presize`'s `prec_prop`, `prec_riskdiff`, `prec_riskratio`, `prec_or`), and Cochran's survey size; writes `tests/fixtures/precision_r.json`, which `tests/test_precision.py` compares with StatClaim |
+| `cluster_simulation_r.R` | `cluster_simulation_r.txt` | Power of the t-test on cluster means and proportions from a simulation that draws every participant, with cluster sizes that vary; writes `tests/fixtures/cluster_simulation_r.json`, which `tests/test_cluster_simulation.py` compares with StatClaim's simulation |
 | `observational_power_r.R` | `observational_power_r.txt` | Exact power of Fisher's test of association for cohort and case-control studies (every table through `fisher.test`, `exact2x2::power2x2` and epiR's normal formulas), McNemar's test (`binom.test`, `exact2x2::powerPaired2x2`) and the rate test (`exactci::poisson.exact`); writes `tests/fixtures/observational_power_r.json`, which `tests/test_observational_planning.py` compares with StatClaim |
 
 StatClaim's side of the same designs is `graph.stat`, `sequential.stat` and
@@ -86,6 +87,10 @@ graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup
   Spearman's formula equals R's to twelve and is up to 0.017 below simulations of the
   exact test; the log risk ratio's Wald formula equals R's, and `glm` with a robust
   variance agrees within 0.012.
+- **Simulated cluster trials.** For three cluster-mean and two cluster-proportion designs,
+  with and without cluster sizes that vary, StatClaim's simulation agrees with R's
+  raw-data simulation within four standard errors; with equal clusters its interval holds
+  the noncentral t.
 - **Precision.** Margins and assurances of the exact intervals, for a proportion, two
   groups, matched pairs and a rate ratio, equal R's enumeration with `binom.test` to about
   1e-13; presize's exact widths differ by under 1e-4, since StatClaim rounds outward to the

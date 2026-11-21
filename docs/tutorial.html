@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirty-six short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Thirty-seven short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2909,6 +2909,70 @@ beyond that still describes the Clopper-Pearson interval, and the result says so
     <div class="task"><h4>Try it</h4><p>Ask for a margin of 2 percentage points. How many does the exact interval need, and how many does <code>method="normal"</code> need?</p></div>
   </div>
 </section>
+<section class="lesson" id="cluster-simulation">
+  <p class="eyebrow">Lesson 37</p>
+  <h2>Clusters of unequal sizes, by simulation</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>The noncentral t of lesson 31 assumes every clinic has the same number of patients. Real clinics differ, and that costs power. Simulation can say how much, and how many clinics make up for it.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/37_cluster_simulation.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 37: clusters of unequal sizes, by simulation.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.cluster
+<span class="k">use</span> planning
+
+<span class="c"># The trial of lesson 31: six clinics per arm, twenty patients in each on average.</span>
+<span class="k">let</span> clinics = <span class="f">cluster_assignment</span>(clusters_control=6, clusters_treatment=6, n_control=120, n_treatment=120)
+<span class="k">let</span> practice = <span class="f">two_arm</span>(assignment=clinics, outcome=<span class="f">continuous_outcome</span>(better=&quot;higher&quot;))
+<span class="k">let</span> analysis = <span class="f">cluster_t_test</span>(design=<span class="f">fixed</span>(model=practice), null=<span class="f">equal_means</span>(model=practice), alpha=1/20)
+
+<span class="c"># The noncentral t of lesson 31 assumes every clinic has twenty patients.</span>
+<span class="k">let</span> equal = <span class="f">power_target</span>(at=<span class="f">mean_difference</span>(value=5, sd=10, icc=1/20), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> formula = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=analysis, target=equal))
+<span class="k">let</span> simulated = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=analysis, target=equal), seed=2026)
+
+<span class="c"># Real clinics vary: a coefficient of variation of 3/5 in their sizes.</span>
+<span class="k">let</span> uneven = <span class="f">power_target</span>(at=<span class="f">mean_difference</span>(value=5, sd=10, icc=1/20, cluster_size_cv=3/5), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> varied = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=analysis, target=uneven), seed=2026)
+
+<span class="c"># How many clinics of twenty, on average, when their sizes vary?</span>
+<span class="k">let</span> more_clinics = <span class="f">cluster_counts</span>(analysis=analysis, cluster_size=20, min_per_arm=6, max_per_arm=20)
+<span class="k">let</span> needed = <span class="f">simulate</span>(<span class="f">smallest_sample_size</span>(candidates=more_clinics, target=uneven), seed=2026)</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>cluster_size_cv=...</code></dt>
+  <dd>How much cluster sizes vary: their standard deviation over their mean. Each simulated
+  clinic gets a size drawn around the arm&#x27;s mean with this coefficient of variation.
+  <code>calculate</code> refuses it, since the noncentral t assumes equal clusters.</dd>
+  <dt><code>simulate(..., seed=...)</code></dt>
+  <dd>As in lesson 28: the test itself on 10,000 simulated studies, with a 95% interval for
+  its power.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [formula]: meets(analysis)
+  power ~ 0.7058 (noncentral t at the planning values, not a bound); power target met = false
+  ...
+<span class="calc">simulated</span> [simulated]: meets(analysis)
+  power ~ 0.7060 (95% interval 0.6970 to 0.7149); power target met = false
+  ...
+<span class="calc">simulated</span> [varied]: meets(analysis)
+  clusters = (6, 6) of mean size (20, 20); icc 1/20; sizes vary with CV 3/5
+  power ~ 0.6132 (95% interval 0.6036 to 0.6228); power target met = false
+  ...
+<span class="calc">simulated</span> [needed]: sample_size(more_clinics)
+  arm sizes = (180, 180); total = 360
+  ...
+Program status: simulated</code></pre></div>
+<p>With equal clinics the simulation agrees with the noncentral t, 70.6% either way. When
+sizes vary with a coefficient of variation of 3/5, power falls to about 61%. Nine clinics
+per arm restore 80%, one more than equal clinics need. A simulation in R that draws every
+patient gives the same powers within its Monte Carlo error.</p>
+<div class="note"><strong>Why unequal clusters cost power.</strong> The t-test gives every
+clinic one summary, weighted equally. A small clinic&#x27;s mean is noisier, so the spread of
+the summaries grows, and the test sees more noise for the same difference.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>simulate</code> plans cluster tests, including clusters of unequal sizes.</li><li><code>cluster_size_cv</code> says how much the sizes vary.</li><li>Unequal clusters need more of them.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Raise the coefficient of variation to 1. How many clinics per arm do you need now?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2943,6 +3007,7 @@ beyond that still describes the Clopper-Pearson interval, and the result says so
       <tr><td>Plan a logistic, modified Poisson, conditional logistic or Poisson rate regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
       <tr><td>Plan a complex survey</td><td><code>planning</code>, <code>tests.survey</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>design_effect</code> on the point, with <code>total_sizes</code></td><td>35</td></tr>
       <tr><td>Size a study for a margin of error</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code>, <code>sample_size</code> with <code>planned_interval</code>, <code>precision_target</code> and <code>interval_sizes</code></td><td>36</td></tr>
+      <tr><td>Simulate a cluster trial, with clusters of unequal sizes</td><td><code>planning</code>, <code>tests.cluster</code></td><td><code>simulate</code> with <code>meets</code> or a cluster search, at a point with <code>icc</code> and <code>cluster_size_cv</code></td><td>37</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>

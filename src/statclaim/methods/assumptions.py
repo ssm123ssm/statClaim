@@ -307,3 +307,19 @@ EXPONENTIAL_DROPOUT = Assumption(
     "Dropout is at a constant rate, the same in both arms, and independent of the event. With "
     "no dropout declared, nobody is lost before the analysis.",
 )
+SIMULATED_CLUSTERS = Assumption(
+    "simulated_clusters",
+    "monte_carlo",
+    "The simulation gives each cluster a normal effect with variance icc times the planning "
+    "variance, and its participants normal outcomes about it. Cluster sizes are the arm's mean, "
+    "or with cluster_size_cv, gamma draws with that coefficient of variation, rounded and at "
+    "least 1. The test is the unweighted t-test of the cluster means.",
+)
+SIMULATED_CLUSTER_PROPORTIONS = Assumption(
+    "simulated_cluster_proportions",
+    "monte_carlo",
+    "The simulation gives each cluster a response rate drawn from a beta distribution with "
+    "the arm's planning rate as its mean and icc as the intracluster correlation, and binomial "
+    "responses; sizes as for cluster means. The test is the unweighted t-test of the cluster "
+    "proportions.",
+)

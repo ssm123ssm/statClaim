@@ -1,0 +1,24 @@
+Simulated power of the cluster t-test, written to tests/fixtures/cluster_simulation_r.json
+
+means: 6 clusters of 20 per arm, cv 0, icc 1/20, difference 5, sd 10: 0.7033 of 20000
+means: 6 clusters of 20 per arm, cv 3/5, icc 1/20, difference 5, sd 10: 0.6197 of 20000
+means: 10 clusters of 10 per arm, cv 1, icc 1/10, difference 3, sd 8: 0.2864 of 20000
+proportions: 8 clusters of 30 per arm, cv 2/5, icc 1/50, rates (3/10, 1/2): 0.8798 of 20000
+proportions: 6 clusters of 20 per arm, cv 0, icc 1/50, rates (3/10, 1/2): 0.6889 of 20000
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

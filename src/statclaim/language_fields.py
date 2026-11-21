@@ -403,6 +403,9 @@ SCHEMAS = {
         "icc": FieldSpec(
             Fraction, optional=True, description="Intracluster correlation, for cluster tests."
         ),
+        "cluster_size_cv": FieldSpec(
+            Fraction, optional=True, description="How much cluster sizes vary, for simulation."
+        ),
     },
     RateIR: {"value": FieldSpec(Fraction)},
     MeanDifferenceIR: {
@@ -410,6 +413,9 @@ SCHEMAS = {
         "sd": FieldSpec(Fraction, description="Standard deviation of one participant's outcome."),
         "icc": FieldSpec(
             Fraction, optional=True, description="Intracluster correlation, for cluster tests."
+        ),
+        "cluster_size_cv": FieldSpec(
+            Fraction, optional=True, description="How much cluster sizes vary, for simulation."
         ),
     },
     ExponentialSurvivalIR: {
@@ -801,6 +807,20 @@ SCHEMAS = {
         "runs": FieldSpec(int, optional=True, description="Simulated studies per estimate."),
         "seed": FieldSpec(int, optional=True),
         "candidates_evaluated": FieldSpec(int, optional=True),
+        "clusters_control": FieldSpec(int, optional=True),
+        "clusters_treatment": FieldSpec(int, optional=True),
+        "total_clusters": FieldSpec(int, optional=True),
+        "cluster_size_control": FieldSpec(
+            Fraction, optional=True, description="Mean participants per control cluster."
+        ),
+        "cluster_size_treatment": FieldSpec(
+            Fraction, optional=True, description="Mean participants per treated cluster."
+        ),
+        "icc": FieldSpec(Fraction, optional=True, description="Intracluster correlation."),
+        "cluster_size_cv": FieldSpec(
+            Fraction, optional=True, description="Coefficient of variation of cluster sizes."
+        ),
+        "degrees_of_freedom": FieldSpec(int, optional=True),
     },
     ApproximatePowerDetails: {
         "n_control": FieldSpec(int, optional=True),

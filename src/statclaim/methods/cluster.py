@@ -14,6 +14,8 @@ from statclaim.methods.assumptions import (
 )
 from statclaim.methods.core import CitedMethod, MethodModule
 from statclaim.methods.power import CLUSTER_MEANS, CLUSTER_PROPORTIONS
+from statclaim.methods.simulation import CLUSTER_MEANS as CLUSTER_MEANS_SIMULATED
+from statclaim.methods.simulation import CLUSTER_PROPORTIONS as CLUSTER_PROPORTIONS_SIMULATED
 
 TO_VERIFY = " [to verify]"
 DONNER_KLAR = (
@@ -56,6 +58,7 @@ MODULE = MethodModule(
             min_total=8,
             unit="cluster",
             power=CLUSTER_MEANS,
+            simulation=CLUSTER_MEANS_SIMULATED,
         ),
         # The same test on each cluster's proportion of responders. Its null compares the
         # mean cluster proportions, which equal the arms' response rates under the model.
@@ -79,6 +82,7 @@ MODULE = MethodModule(
             min_total=8,
             unit="cluster",
             power=CLUSTER_PROPORTIONS,
+            simulation=CLUSTER_PROPORTIONS_SIMULATED,
         ),
     ),
 )

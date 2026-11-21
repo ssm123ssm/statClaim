@@ -75,6 +75,14 @@
     "version": 1,
     "sha256": "005d005aec52a8ca8f4bf36c91c791b35d2c7d2845eefa12b2eadde08bb944b0"
   },
+  "simulation:cluster_t_means_simulated": {
+    "version": 1,
+    "sha256": "e4fd90371462cc6b2b9b2c784e62ee43f8a50a8d11a9224f54afed243e4fd05b"
+  },
+  "simulation:cluster_t_proportions_simulated": {
+    "version": 1,
+    "sha256": "8370f560d5cb77aa57fc4d791317f824651a15b333e1652bb45f6262387028e8"
+  },
   "power:hsieh_logistic_binary": {
     "version": 1,
     "sha256": "d8e1e619407e2be557de46abf0c2be3eca6803643a0b2e0aae591355c9191ca9"
@@ -133,6 +141,6 @@
   },
   "simulation:engine": {
     "version": 1,
-    "sha256": "2d95ce3e2667364b352b7e8a9d783505e252598076d1478203212ecf7695f8da"
+    "sha256": "18db6e15a89e59bc99c3b495b6ad8cfc88f1b35b8b19239b2e69c09b56725503"
   }
 }

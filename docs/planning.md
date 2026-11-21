@@ -446,8 +446,29 @@ simulated [estimate]: meets(analysis)
   may simulate at most 20 million studies.
 
 Simulation covers the t-tests, Student's and Welch's, on normal outcomes with the
-planning SD in both arms. Other tests get `no_simulation_model`; exact tests are
-refused, since `calculate` gives their exact power. See lesson 28 of the tutorial.
+planning SD in both arms, and the t-tests on cluster summaries. Other tests get
+`no_simulation_model`; exact tests are refused, since `calculate` gives their exact
+power. See lesson 28 of the tutorial.
+
+### Clusters of unequal sizes
+
+The noncentral t of a cluster test assumes every cluster has the arm's mean size.
+`simulate` drops that: give `cluster_size_cv`, the coefficient of variation of
+cluster sizes, on the planning point.
+
+```stat
+let uneven = power_target(at=mean_difference(value=5, sd=10, icc=1/20, cluster_size_cv=3/5),
+    minimum=4/5, maximum_typeI=1/20)
+let varied = simulate(meets(analysis=summaries, target=uneven), seed=2026)
+```
+
+Each simulated cluster gets a size from a gamma distribution with that mean and
+coefficient of variation (rounded, at least 1), a normal cluster effect with variance
+icc × sd², and its participants' mean about it; for proportions, a beta cluster rate
+and binomial responses. The test is the unweighted t-test of the cluster summaries.
+`calculate` refuses `cluster_size_cv`. `cluster_counts` and `cluster_sizes` searches
+can be simulated too. A raw-data simulation in R agrees within its Monte Carlo error
+(`replication/comparison/cluster_simulation_r.R`). See lesson 37.
 
 ## What is checked
 

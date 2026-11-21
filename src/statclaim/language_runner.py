@@ -736,9 +736,21 @@ def _simulated_lines(details: dict) -> list[str]:
     show = lambda record: f"{float(record['decimal_approximation']):.4f}"  # noqa: E731
     lines = [f"  {details['target_property']}"]
     if "power_lower" in calculation:
-        lines += [
+        lines.append(
             f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
-            f"total = {calculation['total_sample_size']}",
+            f"total = {calculation['total_sample_size']}"
+        )
+        if "clusters_control" in calculation:
+            varied = calculation.get("cluster_size_cv")
+            lines.append(
+                f"  clusters = ({calculation['clusters_control']}, "
+                f"{calculation['clusters_treatment']}) of mean size "
+                f"({calculation['cluster_size_control']['fraction']}, "
+                f"{calculation['cluster_size_treatment']['fraction']}); icc "
+                f"{calculation['icc']['fraction']}"
+                + (f"; sizes vary with CV {varied['fraction']}" if varied else "")
+            )
+        lines += [
             f"  power ~ {show(calculation['power'])} "
             f"(95% interval {show(calculation['power_lower'])} to "
             f"{show(calculation['power_upper'])}); power target met = "

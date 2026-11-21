@@ -44,3 +44,11 @@ let clinics_needed = calculate(
         target=target,
     ),
 )
+
+# Clinics of unequal sizes, by simulation: their sizes vary with a coefficient of variation of 3/5.
+let uneven = power_target(
+    at=mean_difference(value=5, sd=10, icc=1/20, cluster_size_cv=3/5),
+    minimum=4/5,
+    maximum_typeI=1/20,
+)
+let simulated = simulate(meets(analysis=summaries, target=uneven), seed=2026)

@@ -322,6 +322,10 @@ def _point_valid(point: dict, kind: str, total: int, clustered: bool = False) ->
         if not (0 <= Fraction(point["dropout"]) < 1 and Fraction(point["dropout_time"]) > 0):
             return False
         point = {key: value for key, value in point.items() if key not in DROPOUT_KEYS}
+    if clustered and "cluster_size_cv" in point:
+        if not 0 <= Fraction(point["cluster_size_cv"]) <= 3:
+            return False
+        point = {key: value for key, value in point.items() if key != "cluster_size_cv"}
     if set(point) != POINT_KEYS[kind] | ({"icc"} if clustered else set()):
         return False
     if clustered and not 0 <= Fraction(point["icc"]) < 1:
