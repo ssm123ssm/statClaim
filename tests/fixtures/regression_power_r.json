@@ -1,0 +1,128 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "packages": {
+    "pwr": "1.3.0"
+  },
+  "correlations": [
+    {
+      "rho": "3/10",
+      "n": 30,
+      "alpha": "1/20",
+      "integrate": 0.370250709867524,
+      "pwr": 0.371168259281977,
+      "simulation": 0.372425
+    },
+    {
+      "rho": "3/10",
+      "n": 85,
+      "alpha": "1/20",
+      "integrate": 0.80507298297882,
+      "pwr": 0.804395691838674,
+      "simulation": 0.80425
+    },
+    {
+      "rho": "1/5",
+      "n": 193,
+      "alpha": "1/20",
+      "integrate": 0.800083391684501,
+      "pwr": 0.79982173977571
+    },
+    {
+      "rho": "-1/4",
+      "n": 100,
+      "alpha": "1/100",
+      "integrate": 0.477754789255197,
+      "pwr": 0.477752641064625,
+      "simulation": 0.47995
+    },
+    {
+      "rho": "1/2",
+      "n": 10,
+      "alpha": "1/20",
+      "integrate": 0.326478809662225,
+      "pwr": 0.329074892964555,
+      "simulation": 0.326525
+    },
+    {
+      "rho": "1/10",
+      "n": 782,
+      "alpha": "1/20",
+      "integrate": 0.800183302187276,
+      "pwr": 0.800124937741926
+    }
+  ],
+  "slopes": [
+    {
+      "slope": "1/2",
+      "exposure_sd": "4",
+      "residual_sd": "15",
+      "exposure_r2": "1/10",
+      "k": 2,
+      "n": 250,
+      "alpha": "1/20",
+      "integrate": 0.507242633450558,
+      "simulation": 0.506775,
+      "pwr_f2": 0.509709588016386
+    },
+    {
+      "slope": "1/2",
+      "exposure_sd": "4",
+      "residual_sd": "15",
+      "exposure_r2": "0",
+      "k": 0,
+      "n": 100,
+      "alpha": "1/20",
+      "integrate": 0.258876892248723,
+      "simulation": 0.256575,
+      "pwr_f2": 0.261708546392746
+    },
+    {
+      "slope": "2",
+      "exposure_sd": "1",
+      "residual_sd": "10",
+      "exposure_r2": "3/10",
+      "k": 5,
+      "n": 300,
+      "alpha": "1/100",
+      "integrate": 0.607479020094854,
+      "simulation": 0.605725,
+      "pwr_f2": 0.610996386794031
+    },
+    {
+      "slope": "-3/10",
+      "exposure_sd": "2",
+      "residual_sd": "3",
+      "exposure_r2": "0",
+      "k": 1,
+      "n": 40,
+      "alpha": "1/20",
+      "integrate": 0.223713957197912,
+      "simulation": 0.224675,
+      "pwr_f2": 0.229411076334944
+    }
+  ],
+  "searches": [
+    {
+      "kind": "correlation",
+      "rho": "1/5",
+      "alpha": "1/20",
+      "power": "4/5",
+      "k": 0,
+      "n": 193,
+      "power_at": 0.800083391684501,
+      "pwr_n": 193.086747144137
+    },
+    {
+      "kind": "slope",
+      "slope": "1/2",
+      "exposure_sd": "4",
+      "residual_sd": "15",
+      "exposure_r2": "1/10",
+      "k": 2,
+      "alpha": "1/20",
+      "power": "9/10",
+      "n": 665,
+      "power_at": 0.900342784684514
+    }
+  ]
+}

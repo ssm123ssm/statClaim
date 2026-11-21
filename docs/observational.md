@@ -193,6 +193,23 @@ exposed (`AssociationPower.total_power_of_check`, one theorem per number exposed
 over totals certifies a sufficient total only: `smallest_sample_size` would need a full
 check of every smaller total.
 
+### Cited tests
+
+Some cited tests have power too, calculated but never verified:
+
+| Test | Planning point | Search |
+|---|---|---|
+| `pearson_correlation` | `correlation(value=)` | `total_sizes(analysis, min_n, max_n)` |
+| `linear_association`, measured exposure | `slope(value=, exposure_sd=, residual_sd=, exposure_r2=)` | `total_sizes(analysis, min_n, max_n)` |
+
+Given the exposure, the test statistic is noncentral t with n − k − 2 degrees of
+freedom for k covariates; power averages it over a normal exposure, whose residual
+sum of squares is chi-square. It is exact when the variables are normal, as the tests
+assume. `exposure_r2` is the share of the exposure's variance the covariates explain.
+A search of totals is by bisection, up to 100,000. R agrees to twelve decimals by
+numerical integration, and a raw-data simulation agrees within its error
+(`replication/comparison/regression_power_r.R`).
+
 ## What is refused
 
 Tests and nulls of randomised arms (`fisher`, `t_test`, `randomisation_test`,

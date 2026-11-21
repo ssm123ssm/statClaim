@@ -1,0 +1,36 @@
+Power of the t-tests of a correlation and a slope, written to tests/fixtures/regression_power_r.json
+
+Correlations
+rho 3/10, n 30, alpha 1/20: integrate 0.370250709868, pwr 0.371168, simulation 0.3724
+rho 3/10, n 85, alpha 1/20: integrate 0.805072982979, pwr 0.804396, simulation 0.8043
+rho 1/5, n 193, alpha 1/20: integrate 0.800083391685, pwr 0.799822
+rho -1/4, n 100, alpha 1/100: integrate 0.477754789255, pwr 0.477753, simulation 0.4799
+rho 1/2, n 10, alpha 1/20: integrate 0.326478809662, pwr 0.329075, simulation 0.3265
+rho 1/10, n 782, alpha 1/20: integrate 0.800183302187, pwr 0.800125
+
+Slopes
+slope 1/2, sd(x) 4, residual sd 15, r2 1/10, 2 covariates, n 250, alpha 1/20: integrate 0.507242633451, simulation 0.5068, pwr.f2.test 0.509710
+slope 1/2, sd(x) 4, residual sd 15, r2 0, 0 covariates, n 100, alpha 1/20: integrate 0.258876892249, simulation 0.2566, pwr.f2.test 0.261709
+slope 2, sd(x) 1, residual sd 10, r2 3/10, 5 covariates, n 300, alpha 1/100: integrate 0.607479020095, simulation 0.6057, pwr.f2.test 0.610996
+slope -3/10, sd(x) 2, residual sd 3, r2 0, 1 covariates, n 40, alpha 1/20: integrate 0.223713957198, simulation 0.2247, pwr.f2.test 0.229411
+
+Searches
+correlation, power 4/5: n = 193 (power 0.800083); pwr.r.test n = 193.087
+slope, power 9/10: n = 665 (power 0.900343)
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0 pwr_1.3-0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

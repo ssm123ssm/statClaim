@@ -84,8 +84,8 @@ What is supported:
   one-sided with a margin. The contract is checked; the guarantee is cited from
   the literature and not proved. See [cited methods](cited-methods.md).
 - **Power for cited tests, calculated.** Approximate power and the value the
-  estimate must pass, from a normal formula (the noncentral t for cluster tests),
-  and a sample-size search. Status
+  estimate must pass, from a normal formula (the noncentral t for cluster tests,
+  a correlation and a regression slope), and a sample-size search. Status
   `calculated`, never verified. See
   [power for cited tests](planning.md#power-for-cited-tests).
 

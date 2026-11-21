@@ -7,7 +7,7 @@ from collections.abc import Collection
 from fractions import Fraction
 from pathlib import Path
 
-from statclaim import cited_planning, simulated_planning
+from statclaim import association_planning, cited_planning, simulated_planning
 from statclaim.composition import composition_claims
 from statclaim.language import (
     LANGUAGE_VERSION,
@@ -159,6 +159,8 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         if isinstance(analysis, CitedAnalysisIR):
             # verify(...) was refused while compiling: approximate power is a calculation.
             return cited_planning.run(report, subject)
+        if isinstance(analysis, CitedAssociationIR):
+            return association_planning.run(report, subject)
         if isinstance(analysis, (MatchedAnalysisIR, RateAnalysisIR)):
             if isinstance(subject, FeasibilityIR):
                 return run_association_plan(report, subject.lower(), **options)
@@ -643,6 +645,20 @@ def _approximate_lines(details: dict) -> list[str]:
     calculation = details["calculation"]
     approximation = calculation.get("approximation", cited_planning.APPROXIMATE)
     lines = []
+    if "covariates" in calculation and "power" in calculation:
+        # A cited observational test: power in the total, given the covariates.
+        lines += [
+            f"  n = {calculation['total_sample_size']}; covariates = {calculation['covariates']}; "
+            f"degrees of freedom = {calculation['degrees_of_freedom']}",
+            f"  power ~ {float(calculation['power']['decimal_approximation']):.4f} "
+            f"({approximation}); "
+            f"power target met = {str(calculation['power_target_met']).lower()}",
+            f"  rejects when the estimate is {calculation['reject_when']} "
+            f"{float(calculation['critical_estimate']['decimal_approximation']):.4g}",
+            f"  level {calculation['alpha']['fraction']}; requested Type I bound "
+            f"{calculation['maximum_typeI']['fraction']}; Type I target met = "
+            f"{str(calculation['typeI_target_met']).lower()}",
+        ]
     if "n_control" in calculation:
         lines.append(
             f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "

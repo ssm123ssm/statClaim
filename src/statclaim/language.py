@@ -103,6 +103,7 @@ from statclaim.observational_planning import SEARCH_KEYS as GROUP_SEARCH_KEYS
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
+    MAX_CITED_TOTAL,
     MAX_CLUSTER_SIZE,
     MAX_CLUSTERS,
     MAX_MARGIN_ARM,
@@ -132,7 +133,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.27.0"
+LANGUAGE_VERSION = "0.28.0"
 
 
 class PlannableIR:
@@ -638,9 +639,10 @@ class AssociationAnalysisIR(LevelTestIR, PlannableIR):
 
 
 @dataclass(frozen=True)
-class CitedAssociationIR(LevelTestIR):
+class CitedAssociationIR(LevelTestIR, PlannableIR):
     """A test of no association whose guarantee is cited, not proved: regression with
-    covariates, correlation, or an analysis of a complex survey sample."""
+    covariates, correlation, or an analysis of a complex survey sample. Its power, when its
+    method has a formula, is a calculation only."""
 
     plan: PlanIR
     hypothesis: AssociationNullIR
@@ -1033,6 +1035,25 @@ class ExponentialSurvivalIR(PlanningPointIR):
     follow_up: Fraction
     dropout: Fraction | None = None
     dropout_time: Fraction | None = None
+
+
+@dataclass(frozen=True)
+class CorrelationIR(PlanningPointIR):
+    """A planning point for two continuous variables: their correlation."""
+
+    value: Fraction
+
+
+@dataclass(frozen=True)
+class SlopeIR(PlanningPointIR):
+    """A planning point for a linear regression: the exposure's slope, the exposure's and
+    the residual standard deviations, and the share of the exposure's variance the
+    covariates explain."""
+
+    value: Fraction
+    exposure_sd: Fraction
+    residual_sd: Fraction
+    exposure_r2: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1846,6 +1867,17 @@ def normalize(value: object) -> object:
             return point if icc is None else {**point, "icc": str(icc)}
         case HazardRatioIR(value=ratio, events=events):
             return {"hazard_ratio": str(ratio), "events": events}
+        case CorrelationIR(value=rho):
+            return {"correlation": str(rho)}
+        case SlopeIR(value=slope, exposure_sd=exposure, residual_sd=residual):
+            point = {
+                "slope": str(slope),
+                "exposure_sd": str(exposure),
+                "residual_sd": str(residual),
+            }
+            if value.exposure_r2 is not None:
+                point["exposure_r2"] = str(value.exposure_r2)
+            return point
         case ExponentialSurvivalIR(hazard_ratio=ratio, control_median=median):
             point = {
                 "hazard_ratio": str(ratio),
@@ -3403,6 +3435,29 @@ def _exponential_survival(arguments: dict[str, LocatedValue], span: Span) -> Exp
     )
 
 
+def _correlation(arguments: dict[str, LocatedValue], span: Span) -> CorrelationIR:
+    rho = arguments["value"]
+    if not -1 < rho.value < 1:
+        fail("domain", "A correlation must lie strictly between -1 and 1.", rho.span)
+    return CorrelationIR(rho.value)
+
+
+def _slope(arguments: dict[str, LocatedValue], span: Span) -> SlopeIR:
+    for name in ("exposure_sd", "residual_sd"):
+        if arguments[name].value <= 0:
+            fail("domain", f"{name} must be positive.", arguments[name].span)
+    explained = arguments.get("exposure_r2")
+    share = None if explained is None or explained.value is None else explained.value
+    if share is not None and not 0 <= share < 1:
+        fail("domain", "exposure_r2 must lie in [0, 1).", explained.span)
+    return SlopeIR(
+        arguments["value"].value,
+        arguments["exposure_sd"].value,
+        arguments["residual_sd"].value,
+        share,
+    )
+
+
 def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTargetIR:
     return PowerTargetIR(
         arguments["at"].value,
@@ -3475,6 +3530,13 @@ def _outcome_prevalence(arguments: dict[str, LocatedValue], span: Span) -> Outco
 
 def _total_sizes(arguments: dict[str, LocatedValue], span: Span) -> TotalCandidatesIR:
     analysis, low, high = arguments["analysis"], arguments["min_n"], arguments["max_n"]
+    if not isinstance(analysis.value, (AssociationAnalysisIR, CitedAssociationIR)):
+        fail(
+            "type",
+            "total_sizes searches an observational study by its total: give it Fisher's test "
+            "of association or a cited observational test.",
+            analysis.span,
+        )
     if analysis.value.plan.model.groups is not None:
         fail(
             "type",
@@ -3482,6 +3544,20 @@ def _total_sizes(arguments: dict[str, LocatedValue], span: Span) -> TotalCandida
             "groups: use cohort_sizes or case_control_sizes.",
             analysis.span,
         )
+    if isinstance(analysis.value, CitedAssociationIR):
+        fewest = len(analysis.value.covariates) + 3
+        if low.value < fewest:
+            fail(
+                "domain",
+                f"min_n must be at least {fewest}: the error needs a degree of freedom after "
+                "the exposure, the intercept and the covariates.",
+                low.span,
+            )
+        if high.value < low.value:
+            fail("domain", "max_n must be at least min_n.", high.span)
+        if high.value > MAX_CITED_TOTAL:
+            fail("domain", f"max_n is currently limited to {MAX_CITED_TOTAL:,}.", high.span)
+        return TotalCandidatesIR(analysis.value, low.value, high.value)
     if low.value < 1:
         fail("domain", "min_n must be a positive integer.", low.span)
     if high.value < low.value:
@@ -3670,6 +3746,8 @@ POINT_SIGNATURES = {
         ExponentialSurvivalIR,
         "exponential_survival(hazard_ratio=..., control_median=..., accrual=..., follow_up=...)",
     ),
+    "correlation": (CorrelationIR, "correlation(value=...)"),
+    "slope": (SlopeIR, "slope(value=..., exposure_sd=..., residual_sd=...)"),
 }
 # A test of cluster summaries also takes the intracluster correlation.
 CLUSTER_POINT_SIGNATURES = {
@@ -3756,6 +3834,39 @@ def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: S
         )
 
 
+def _check_cited_association_point(
+    analysis: CitedAssociationIR, target: LocatedValue, where: Span
+) -> None:
+    """A cited observational test is planned at its formula's kind of point, away from 0."""
+    method, point = analysis.method, target.value.at
+    if method.power is None:
+        others = ", ".join(m.key for m in OBSERVATIONAL_METHODS.values() if m.power)
+        fail(
+            "no_power_formula",
+            f"{method.key} has no power formula yet, so its power cannot be calculated. Cited "
+            f"observational tests with one: {others}.",
+            where,
+        )
+    kind, signature = POINT_SIGNATURES[method.power.point]
+    if not isinstance(point, kind):
+        fail("planning_point", f"Plan {method.key} at {signature}.", target.span)
+    scale = analysis.plan.model.exposure_scale
+    if scale not in method.power_exposures:
+        fail(
+            "planning_point",
+            f"{method.key}'s power formula is for a {' or '.join(method.power_exposures)} "
+            f"exposure; this study declares a {scale} exposure.",
+            target.span,
+        )
+    if point.value == 0:
+        fail(
+            "alternative_in_null",
+            f"The planning point satisfies the analysis's null ({analysis.hypothesis.statement}). "
+            "Power is assessed at an alternative; choose a point outside the null.",
+            target.span,
+        )
+
+
 def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> None:
     """The planning point must belong to the analysis's parameter space, outside its null."""
     point = target.value.at
@@ -3764,6 +3875,9 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
         return
     if getattr(point, "icc", None) is not None:
         fail("planning_point", ICC_REFUSED, target.span)
+    if isinstance(analysis, CitedAssociationIR):
+        _check_cited_association_point(analysis, target, where)
+        return
     if isinstance(analysis, AssociationAnalysisIR):
         _check_association_point(analysis, target, where)
         return
@@ -3805,8 +3919,24 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
         )
 
 
+def _residual_df(analysis: CitedAssociationIR, n: int) -> int:
+    """Degrees of freedom left for a regression's error: n less the slope, the intercept and
+    the covariates."""
+    return n - len(analysis.covariates) - 2
+
+
 def _check_planned_size(analysis: PlannableIR, where: Span) -> None:
     """The declared study's size, for exact power at it; a search checks its own bounds."""
+    if (
+        isinstance(analysis, CitedAssociationIR)
+        and _residual_df(analysis, analysis.plan.model.total) < 1
+    ):
+        fail(
+            "domain",
+            f"{analysis.plan.model.total} participants leave no degrees of freedom for the "
+            f"error after the exposure, the intercept and {len(analysis.covariates)} covariates.",
+            where,
+        )
     if isinstance(analysis, MatchedAnalysisIR) and analysis.plan.model.pairs > MAX_PLANNED_PAIRS:
         fail("domain", f"Exact power is limited to {MAX_PLANNED_PAIRS} pairs.", where)
     if not isinstance(analysis, AssociationAnalysisIR):
@@ -4027,7 +4157,11 @@ def _sizing(minimal: bool) -> Callable:
                 "sufficient design.",
                 candidates.span,
             )
-        if minimal and isinstance(candidates.value, TotalCandidatesIR):
+        if (
+            minimal
+            and isinstance(candidates.value, TotalCandidatesIR)
+            and isinstance(candidates.value.analysis, AssociationAnalysisIR)
+        ):
             fail(
                 "unsupported_claim",
                 "With only the total fixed, each candidate's check covers every number "
@@ -4169,7 +4303,7 @@ def planned_analysis(subject: object) -> object:
 def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     claim = arguments["claim"]
     if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject), CitedAnalysisIR
+        planned_analysis(claim.value.subject), (CitedAnalysisIR, CitedAssociationIR)
     ):
         fail(
             "unsupported_claim",
@@ -4207,6 +4341,12 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         )
     subject = claim.value.subject
     analysis = planned_analysis(subject)
+    if isinstance(analysis, CitedAssociationIR):
+        fail(
+            "no_simulation_model",
+            f"{analysis.method.key} has no simulation model yet. calculate(...) gives its power.",
+            claim.span,
+        )
     if not isinstance(analysis, CitedAnalysisIR):
         fail(
             "unsupported_claim",
@@ -4988,6 +5128,31 @@ MODULES = {
                     "Power depends on the events, not on the arm sizes. Both are planning inputs.",
                 ),
                 _constructor(
+                    "correlation",
+                    (("value", "number"),),
+                    "Correlation",
+                    _correlation,
+                    documentation="A planning point for two continuous variables: their "
+                    "correlation, strictly between -1 and 1. For pearson_correlation. A "
+                    "planning input, not an established fact.",
+                ),
+                _constructor(
+                    "slope",
+                    (
+                        ("value", "number"),
+                        ("exposure_sd", "number"),
+                        ("residual_sd", "number"),
+                        ("exposure_r2", "number", True),
+                    ),
+                    "Slope",
+                    _slope,
+                    documentation="A planning point for linear_association with a continuous "
+                    "exposure: the change in the outcome's mean per unit of exposure, the "
+                    "exposure's standard deviation, the outcome's standard deviation about the "
+                    "regression, and optionally exposure_r2, the share of the exposure's "
+                    "variance the covariates explain. All are planning inputs.",
+                ),
+                _constructor(
                     "exponential_survival",
                     (
                         ("hazard_ratio", "number"),
@@ -5180,7 +5345,7 @@ MODULES = {
                 _constructor(
                     "total_sizes",
                     (
-                        ("analysis", AssociationAnalysisIR),
+                        ("analysis", PlannableIR),
                         ("min_n", "integer"),
                         ("max_n", "integer"),
                     ),
@@ -5188,8 +5353,9 @@ MODULES = {
                     _total_sizes,
                     documentation="Cross-sectional studies, or cohorts of one population, with "
                     "min_n to max_n participants, keeping the analysis's study, null and alpha. "
-                    "sample_size certifies a sufficient total; smallest_sample_size is not "
-                    "offered.",
+                    "For Fisher's test, sample_size certifies a sufficient total and "
+                    "smallest_sample_size is not offered; for a cited test with a power "
+                    "formula, both are calculated.",
                 ),
                 _constructor(
                     "matched_sizes",

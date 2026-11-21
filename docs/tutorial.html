@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirty-two short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Thirty-three short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2530,6 +2530,89 @@ events than planned.</div>
     <div class="task"><h4>Try it</h4><p>Halve the follow-up to 6 months. How many more patients do you need?</p></div>
   </div>
 </section>
+<section class="lesson" id="correlation-power">
+  <p class="eyebrow">Lesson 33</p>
+  <h2>Power for a correlation and a regression slope</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Lesson 27 tested two measured variables with cited tests. Their power can be planned too: at a correlation, or at a slope with its standard deviations, and the total searched.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/33_correlation_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 33: power for a correlation and a regression slope.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.regression
+<span class="k">use</span> tests.correlation
+<span class="k">use</span> planning
+
+<span class="k">let</span> clinic = <span class="f">cross_sectional</span>(
+    n=250,
+    exposure=&quot;BMI&quot;,
+    outcome=&quot;systolic pressure&quot;,
+    exposure_scale=&quot;continuous&quot;,
+    outcome_scale=&quot;continuous&quot;,
+)
+
+<span class="c"># A correlation of 1/5 between BMI and systolic pressure.</span>
+<span class="k">let</span> rho = <span class="f">pearson_correlation</span>(design=<span class="f">fixed</span>(model=clinic), null=<span class="f">no_association</span>(model=clinic), alpha=1/20)
+<span class="k">let</span> rho_target = <span class="f">power_target</span>(at=<span class="f">correlation</span>(value=1/5), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> rho_power = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=rho, target=rho_target))
+<span class="k">let</span> rho_sizes = <span class="f">total_sizes</span>(analysis=rho, min_n=4, max_n=5000)
+<span class="k">let</span> rho_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=rho_sizes, target=rho_target))
+
+<span class="c"># Half a point of pressure per unit of BMI, adjusted for age and sex, which explain a tenth</span>
+<span class="c"># of BMI&#x27;s variance; BMI&#x27;s SD is 4 and the pressure varies by 15 about the line.</span>
+<span class="k">let</span> fitted = <span class="f">linear_association</span>(
+    design=<span class="f">fixed</span>(model=clinic),
+    null=<span class="f">no_association</span>(model=clinic),
+    alpha=1/20,
+    adjusted_for=[&quot;age&quot;, &quot;sex&quot;],
+)
+<span class="k">let</span> expected = <span class="f">slope</span>(value=1/2, exposure_sd=4, residual_sd=15, exposure_r2=1/10)
+<span class="k">let</span> slope_target = <span class="f">power_target</span>(at=expected, minimum=9/10, maximum_typeI=1/20)
+<span class="k">let</span> slope_power = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=fitted, target=slope_target))
+<span class="k">let</span> slope_sizes = <span class="f">total_sizes</span>(analysis=fitted, min_n=10, max_n=5000)
+<span class="k">let</span> slope_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=slope_sizes, target=slope_target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>correlation(value=...)</code></dt>
+  <dd>The correlation you expect, for <code>pearson_correlation</code>.</dd>
+  <dt><code>slope(value=..., exposure_sd=..., residual_sd=..., exposure_r2=...)</code></dt>
+  <dd>The change in the outcome per unit of exposure, the exposure&#x27;s standard deviation,
+  the outcome&#x27;s spread about the line, and optionally the share of the exposure&#x27;s
+  variance the covariates explain. For <code>linear_association</code> with a measured
+  exposure.</dd>
+  <dt><code>total_sizes(analysis=..., min_n=..., max_n=...)</code></dt>
+  <dd>The totals from lesson 29, now for a cited test. The first total that is enough is
+  found by bisection, since power rises with n.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [rho_power]: meets(rho)
+  n = 250; covariates = 0; degrees of freedom = 248
+  power ~ 0.8912 (noncentral t averaged over a normal exposure, not a bound); power target met = true
+  ...
+<span class="calc">calculated</span> [rho_needed]: sample_size(rho_sizes)
+  n = 193; covariates = 0; degrees of freedom = 191
+  ...
+<span class="calc">calculated</span> [slope_power]: meets(fitted)
+  n = 250; covariates = 2; degrees of freedom = 246
+  power ~ 0.5072 (noncentral t averaged over a normal exposure, not a bound); power target met = false
+  ...
+<span class="calc">calculated</span> [slope_needed]: sample_size(slope_sizes)
+  n = 665; covariates = 2; degrees of freedom = 661
+  ...
+Program status: calculated</code></pre></div>
+<p>A correlation of 1/5 needs 193 participants for 80% power. The slope needs 665 for 90%:
+age and sex take two degrees of freedom and a tenth of BMI&#x27;s spread.</p>
+<p>Given the exposure, the test statistic is noncentral t; power averages that over a
+normal exposure. So it is exact when exposure and outcome are normal, as the tests assume.
+R agrees to twelve decimals by numerical integration, and a simulation of raw data agrees
+within its error. <code>pwr</code>&#x27;s formulas are close: Fisher&#x27;s z for the correlation,
+and a fixed exposure for the slope, which promises a little more power.</p>
+<div class="note"><strong>A yes-or-no exposure.</strong> The slope formula needs a measured
+exposure. For a binary one, the slope is a difference of two means; plan it as such until
+StatClaim plans it directly.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>correlation</code> and <code>slope</code> are planning points for cited observational tests.</li><li><code>total_sizes</code> searches their totals.</li><li>Covariates cost degrees of freedom, and the share of the exposure they explain.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Leave out <code>exposure_r2</code>. How many participants does the slope need now?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2560,6 +2643,7 @@ events than planned.</div>
       <tr><td>Plan a matched study, or a cohort followed over person-time</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>discordant_pairs</code> or <code>incidence_rates</code>, with <code>matched_sizes</code> or <code>event_counts</code></td><td>30</td></tr>
       <tr><td>Plan a cluster-randomised trial</td><td><code>planning</code>, <code>tests.cluster</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>mean_difference</code> or <code>binomial_rates</code> with <code>icc</code>, with <code>cluster_counts</code> or <code>cluster_sizes</code></td><td>31</td></tr>
       <tr><td>Plan a survival trial from its times</td><td><code>planning</code>, <code>tests.survival</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>exponential_survival</code>, with <code>equal_arm_sizes</code></td><td>32</td></tr>
+      <tr><td>Plan a correlation or a regression slope</td><td><code>planning</code>, <code>tests.correlation</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>correlation</code> or <code>slope</code>, with <code>total_sizes</code></td><td>33</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>

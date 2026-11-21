@@ -29,6 +29,7 @@ from statclaim.methods.core import (
     PowerFormula,
     SimulationModel,
 )
+from statclaim.methods.observational import METHODS as OBSERVATIONAL
 from statclaim.methods.outcomes import OUTCOMES as _OUTCOMES
 from statclaim.methods.outcomes import SHARP_NULL
 
@@ -151,6 +152,13 @@ def versions() -> dict:
             + repr(users)
         )
         recorded[f"simulation:{key}"] = {"version": model.version, "sha256": _sha256(content)}
+    # Power formulas of the cited observational tests, which take the total and covariates.
+    for formula in {m.power.key: m.power for m in OBSERVATIONAL.values() if m.power}.values():
+        users = sorted(m.key for m in OBSERVATIONAL.values() if m.power is formula)
+        content = repr(formula) + inspect.getsource(formula.function) + repr(users)
+        if formula.approximation != NORMAL_APPROXIMATION:
+            content += f" approximation={formula.approximation!r}"
+        recorded[f"power:{formula.key}"] = {"version": formula.version, "sha256": _sha256(content)}
     # The t distribution behind the power of tests of cluster summaries.
     recorded["power:t_distribution"] = {
         "version": t_distribution.VERSION,

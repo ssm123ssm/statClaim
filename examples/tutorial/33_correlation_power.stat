@@ -1,0 +1,35 @@
+# Lesson 33: power for a correlation and a regression slope.
+use models.observational
+use sampling
+use tests.regression
+use tests.correlation
+use planning
+
+let clinic = cross_sectional(
+    n=250,
+    exposure="BMI",
+    outcome="systolic pressure",
+    exposure_scale="continuous",
+    outcome_scale="continuous",
+)
+
+# A correlation of 1/5 between BMI and systolic pressure.
+let rho = pearson_correlation(design=fixed(model=clinic), null=no_association(model=clinic), alpha=1/20)
+let rho_target = power_target(at=correlation(value=1/5), minimum=4/5, maximum_typeI=1/20)
+let rho_power = calculate(meets(analysis=rho, target=rho_target))
+let rho_sizes = total_sizes(analysis=rho, min_n=4, max_n=5000)
+let rho_needed = calculate(smallest_sample_size(candidates=rho_sizes, target=rho_target))
+
+# Half a point of pressure per unit of BMI, adjusted for age and sex, which explain a tenth
+# of BMI's variance; BMI's SD is 4 and the pressure varies by 15 about the line.
+let fitted = linear_association(
+    design=fixed(model=clinic),
+    null=no_association(model=clinic),
+    alpha=1/20,
+    adjusted_for=["age", "sex"],
+)
+let expected = slope(value=1/2, exposure_sd=4, residual_sd=15, exposure_r2=1/10)
+let slope_target = power_target(at=expected, minimum=9/10, maximum_typeI=1/20)
+let slope_power = calculate(meets(analysis=fitted, target=slope_target))
+let slope_sizes = total_sizes(analysis=fitted, min_n=10, max_n=5000)
+let slope_needed = calculate(smallest_sample_size(candidates=slope_sizes, target=slope_target))

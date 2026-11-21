@@ -46,6 +46,8 @@ def policy_theorems(plan) -> list[str]:
 MAX_PER_ARM = 500
 # Approximate power for a cited test is a closed formula, so a search can go further.
 MAX_CITED_ARM = 100_000
+# The total of an observational study for a cited test's power, found by bisection.
+MAX_CITED_TOTAL = 100_000
 # Searches of a cluster-randomised trial: clusters per arm, and participants per cluster.
 MAX_CLUSTERS = 1000
 MAX_CLUSTER_SIZE = 10_000

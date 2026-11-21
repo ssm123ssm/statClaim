@@ -66,6 +66,8 @@
 - Sample sizes for the log-rank test from survival times: control median, accrual,
   follow-up and dropout give the expected events, cross-checked against rpact and
   gsDesign.
+- Power and sample sizes for Pearson's correlation and the slope of a linear
+  regression with covariates, exact under normality and cross-checked against R.
 
 ## Direction
 

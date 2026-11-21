@@ -341,6 +341,98 @@ def _point_valid(point: dict, kind: str, total: int, clustered: bool = False) ->
     )
 
 
+# The arguments of each kind of point a cited observational test is planned at.
+ASSOCIATION_POINT_KEYS = {
+    "correlation": ({"correlation"}, set()),
+    "slope": ({"slope", "exposure_sd", "residual_sd"}, {"exposure_r2"}),
+}
+CITED_TOTAL_LIMIT = 100_000
+
+
+def _association_point_valid(point: dict, kind: str) -> bool:
+    required, optional = ASSOCIATION_POINT_KEYS[kind]
+    if not required <= set(point) <= required | optional:
+        return False
+    if kind == "correlation":
+        return -1 < Fraction(point["correlation"]) < 1
+    return (
+        Fraction(point["exposure_sd"]) > 0
+        and Fraction(point["residual_sd"]) > 0
+        and 0 <= Fraction(point.get("exposure_r2", "0")) < 1
+    )
+
+
+def _cited_association_planning_expected(name: str, subject: dict, search, analysis: dict):
+    """Power of a cited observational test, from its formula in the method registry."""
+    method = OBSERVATIONAL_METHODS[analysis["test"]]
+    formula = method.power
+    if formula is None:
+        raise ValueError("the method has no power formula")
+    inner = f"{name}.analysis"
+    steps, test_assumptions = _cited_association_expected(
+        inner, analysis, f"{method.module}/{method.key}"
+    )
+    used = [len(steps) - 1]
+    target, point = subject["target"], subject["target"]["at"]
+    study = analysis["design"]["model"]
+    covariates = len(analysis.get("adjusted_for", []))
+    total = study.get("n") or study.get("exposed", 0) + study.get("unexposed", 0)
+    facts = {
+        "subject": name,
+        "method": method.key,
+        "formula": formula.key,
+        "version": formula.version,
+        "point": point,
+    }
+    valid = (
+        _association_point_valid(point, formula.point)
+        and study.get("exposure_scale", "binary") in method.power_exposures
+        and (search is not None or total - covariates - 2 >= 1)
+    )
+    steps.append(("power-formula", facts, valid, ()))
+    effect = Fraction(point["correlation" if formula.point == "correlation" else "slope"])
+    statement = steps[1][1]["statement"]
+    steps.append(
+        ("alternative", {"subject": name, "point": point, "null": statement}, effect != 0, ())
+    )
+    minimum, maximum = target["minimum_power"], target["maximum_typeI"]
+    steps.append(
+        (
+            "target-range",
+            {"subject": name, "minimum": minimum, "maximum_typeI": maximum},
+            0 < Fraction(minimum) <= 1 and _probability(maximum),
+            (),
+        )
+    )
+    used += [len(steps) - 3, len(steps) - 2, len(steps) - 1]
+    if search is not None:
+        bounds = {key: value for key, value in search.items() if key != "analysis"}
+        low, high = bounds.get("min_n"), bounds.get("max_n")
+        holds = (
+            set(bounds) == {"min_n", "max_n"}
+            and _whole(low, covariates + 3)
+            and _whole(high, low)
+            and high <= CITED_TOTAL_LIMIT
+        )
+        steps.append(("search-range", {"subject": name, "search": bounds}, holds, ()))
+        used.append(len(steps) - 1)
+    steps.append(("cited-planning-contract", {"subject": name}, True, tuple(used)))
+    obligations = [
+        (
+            "cited-error-budget",
+            {"subject": name, "alpha": analysis["alpha"], "maximum_typeI": maximum},
+            Fraction(analysis["alpha"]) <= Fraction(maximum),
+        ),
+        _sampling_expectation(inner, analysis),
+    ]
+    assumptions = (
+        *test_assumptions,
+        *(item.text for item in formula.assumptions),
+        PLANNING_POINT_ASSUMPTION,
+    )
+    return steps, obligations, assumptions
+
+
 def _cited_planning_expected(name: str, subject: dict, search, analysis: dict):
     """Approximate power for a cited test. The registry's formula is data, like its methods."""
     method = METHODS[analysis["test"]]
@@ -644,6 +736,8 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
     analysis = subject["analysis"] if search is None else search.get("analysis")
     if analysis is not None and analysis.get("test") in METHODS:
         return _cited_planning_expected(name, subject, search, analysis)
+    if analysis is not None and analysis.get("test") in OBSERVATIONAL_METHODS:
+        return _cited_association_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("test") in ("fisher_exact", "mcnemar", "rate_test"):
         return _association_planning_expected(name, subject, search, analysis)
     target, inner = subject["target"], f"{name}.analysis"

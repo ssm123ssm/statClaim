@@ -3,6 +3,7 @@
 use models.observational
 use sampling
 use tests.regression
+use planning
 
 let paired = matched_case_control(pairs=220, exposure="benzodiazepine use", outcome="hip fracture")
 let conditional = conditional_logistic(
@@ -31,3 +32,27 @@ let risk = modified_poisson(
 let conditional_claim = verify(typeI(conditional))
 let rates_claim = verify(typeI(rates))
 let risk_claim = verify(typeI(risk))
+
+# Power for a measured exposure and outcome: the slope of systolic pressure on BMI.
+let clinic = cross_sectional(
+    n=250,
+    exposure="BMI",
+    outcome="systolic pressure",
+    exposure_scale="continuous",
+    outcome_scale="continuous",
+)
+let fitted = linear_association(
+    design=fixed(model=clinic),
+    null=no_association(model=clinic),
+    alpha=1/20,
+    adjusted_for=["age", "sex"],
+)
+let target = power_target(
+    at=slope(value=1/2, exposure_sd=4, residual_sd=15, exposure_r2=1/10),
+    minimum=9/10,
+    maximum_typeI=1/20,
+)
+let power = calculate(meets(analysis=fitted, target=target))
+let needed = calculate(
+    smallest_sample_size(candidates=total_sizes(analysis=fitted, min_n=10, max_n=5000), target=target),
+)

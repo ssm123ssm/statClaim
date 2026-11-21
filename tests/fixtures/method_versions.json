@@ -75,9 +75,17 @@
     "version": 1,
     "sha256": "005d005aec52a8ca8f4bf36c91c791b35d2c7d2845eefa12b2eadde08bb944b0"
   },
-  "power:t_distribution": {
+  "power:slope_random_normal": {
     "version": 1,
-    "sha256": "ea2a17329b2cbed9962b66037a5539b4fc398dd5df869b3fd7b13911f63b59ff"
+    "sha256": "5a5bbe33ee868bc34577fc778626d396868d9948fd58c19d55fee31d243a6292"
+  },
+  "power:pearson_random_normal": {
+    "version": 1,
+    "sha256": "7c99200b4eee21dcd450476f562799c124d09aa5573caf6f225661797c2b120e"
+  },
+  "power:t_distribution": {
+    "version": 2,
+    "sha256": "dab1da4c7147d7f09aebd1185dac7588df8019083dda5077b91b5409ebf338d8"
   },
   "simulation:engine": {
     "version": 1,

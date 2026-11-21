@@ -1,6 +1,6 @@
 """Pure claim descriptions and inspection data for reports and editor views."""
 
-from statclaim import cited_planning, simulated_planning
+from statclaim import association_planning, cited_planning, simulated_planning
 from statclaim.composition import DISCHARGED, composition_assumptions
 from statclaim.design import inspect_design
 from statclaim.family import inspect_family
@@ -159,6 +159,8 @@ def inspect_planning(request: RequestIR) -> dict:
     analysis = subject.analysis if feasibility else subject.candidates.analysis
     if isinstance(analysis, CitedAnalysisIR):
         return cited_planning.describe(subject)
+    if isinstance(analysis, CitedAssociationIR):
+        return association_planning.describe(subject)
     if isinstance(analysis, AssociationAnalysisIR):
         return _association_planning(subject, analysis, feasibility)
     if isinstance(analysis, (MatchedAnalysisIR, RateAnalysisIR)):

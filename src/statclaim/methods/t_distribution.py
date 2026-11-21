@@ -11,7 +11,7 @@ import math
 from statistics import NormalDist
 
 # Bump whenever this file changes: every power that uses it may change.
-VERSION = 1
+VERSION = 2  # 2: random_design_power for slopes and correlations
 
 _NORMAL = NormalDist()
 _TINY = 1e-300
@@ -174,3 +174,51 @@ def noncentral_t_cdf(t: float, df: float, noncentrality: float) -> float:
 def noncentral_t_sf(t: float, df: float, noncentrality: float) -> float:
     """P(T > t) for the noncentral t."""
     return 1 - noncentral_t_cdf(t, df, noncentrality)
+
+
+# Gauss-Legendre nodes and weights on [-1, 1], by Newton's method on the Legendre polynomial.
+def _legendre(points: int) -> tuple[tuple[float, float], ...]:
+    pairs = []
+    for i in range(1, points + 1):
+        x = math.cos(math.pi * (i - 0.25) / (points + 0.5))
+        for _ in range(100):
+            p0, p1 = 1.0, x
+            for k in range(2, points + 1):
+                p0, p1 = p1, ((2 * k - 1) * x * p1 - (k - 1) * p0) / k
+            derivative = points * (x * p1 - p0) / (x * x - 1)
+            step = p1 / derivative
+            x -= step
+            if abs(step) < 1e-15:
+                break
+        pairs.append((x, 2 / ((1 - x * x) * derivative * derivative)))
+    return tuple(pairs)
+
+
+_NODES = _legendre(16)
+
+
+def random_design_power(critical: float, df: float, effect: float, chi_df: float) -> float:
+    """P(T > critical) when, given W, T is noncentral t with df degrees of freedom and
+    noncentrality effect * sqrt(W), and W is chi-square with chi_df degrees of freedom.
+
+    This is the exact power of the t-test of a slope, or of a correlation, when the exposure
+    is random and normal: given the exposure, the statistic is noncentral t, and the
+    exposure's sum of squares is chi-square. With W = s^2, W's density becomes
+    2 s^(chi_df - 1) e^(-s^2 / 2) / (2^(chi_df / 2) Gamma(chi_df / 2)), smooth in s, which
+    is integrated by Gauss-Legendre over panels of width 1/2 where it is not negligible.
+    """
+    centre = math.sqrt(max(chi_df - 0.5, 0.0))
+    low, high = max(0.0, centre - 9), centre + 9
+    log_scale = math.log(2) - (chi_df / 2) * math.log(2) - math.lgamma(chi_df / 2)
+    panels = int(math.ceil((high - low) / 0.5))
+    width = (high - low) / panels
+    total = 0.0
+    for panel in range(panels):
+        middle = low + (panel + 0.5) * width
+        for node, weight in _NODES:
+            s = middle + node * width / 2
+            if s <= 0:
+                continue
+            density = math.exp(log_scale + (chi_df - 1) * math.log(s) - s * s / 2)
+            total += weight * width / 2 * density * noncentral_t_sf(critical, df, effect * s)
+    return min(1.0, max(0.0, total))

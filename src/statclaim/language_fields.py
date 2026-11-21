@@ -24,6 +24,7 @@ from statclaim.language import (
     ClusterCandidatesIR,
     CohortStudyIR,
     ComposedFamilyIR,
+    CorrelationIR,
     CountCandidatesIR,
     CrossSectionalStudyIR,
     DifferenceIntervalIR,
@@ -76,6 +77,7 @@ from statclaim.language import (
     SequentialIR,
     SharpNullIR,
     SizingIR,
+    SlopeIR,
     StratumIR,
     StudyModelIR,
     TotalCandidatesIR,
@@ -411,6 +413,15 @@ SCHEMAS = {
         ),
         "dropout_time": FieldSpec(Fraction, optional=True),
     },
+    CorrelationIR: {"value": FieldSpec(Fraction, description="Correlation of the two variables.")},
+    SlopeIR: {
+        "value": FieldSpec(Fraction, description="Change in the outcome per unit of exposure."),
+        "exposure_sd": FieldSpec(Fraction, description="Standard deviation of the exposure."),
+        "residual_sd": FieldSpec(Fraction, description="Outcome's SD about the regression."),
+        "exposure_r2": FieldSpec(
+            Fraction, optional=True, description="Share of the exposure the covariates explain."
+        ),
+    },
     HazardRatioIR: {
         "value": FieldSpec(Fraction, description="True hazard ratio, treatment over control."),
         "events": FieldSpec(int, description="Expected total number of events."),
@@ -430,7 +441,7 @@ SCHEMAS = {
         ),
     },
     TotalCandidatesIR: {
-        "analysis": FieldSpec(AssociationAnalysisIR),
+        "analysis": FieldSpec(PlannableIR),
         "min_n": FieldSpec(int),
         "max_n": FieldSpec(int),
     },
@@ -713,6 +724,7 @@ SCHEMAS = {
             "variance of a mean.",
         ),
         "degrees_of_freedom": FieldSpec(int, optional=True),
+        "covariates": FieldSpec(int, optional=True, description="Covariates adjusted for."),
         "expected_events": FieldSpec(
             Fraction,
             optional=True,
@@ -853,7 +865,7 @@ def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
     analysis = (
         subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
     )
-    if isinstance(analysis, CitedAnalysisIR):
+    if isinstance(analysis, (CitedAnalysisIR, CitedAssociationIR)):
         return ApproximatePowerDetails
     if isinstance(analysis, AssociationAnalysisIR):
         return AssociationPowerDetails

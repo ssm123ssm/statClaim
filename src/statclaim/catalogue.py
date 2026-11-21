@@ -209,6 +209,11 @@ OBJECT_CLASSES = {
         "Planning objects",
         "Planning point for a survival outcome: a hazard ratio and a number of events.",
     ),
+    "Correlation": ("Planning objects", "Planning point for two continuous variables."),
+    "Slope": (
+        "Planning objects",
+        "Planning point for a linear regression: a slope and two standard deviations.",
+    ),
     "ExponentialSurvival": (
         "Planning objects",
         "Planning point for a survival outcome given by times: hazard ratio, median, accrual.",

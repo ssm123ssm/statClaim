@@ -785,10 +785,8 @@ def _rate_steps(builder: _Builder, name: str, analysis: RateAnalysisIR) -> int:
     return builder.apply("rate-test-contract", {"subject": name}, used)
 
 
-def derive_cited_association(name: str, analysis: CitedAssociationIR) -> Derivation:
-    """Why a cited observational test fits. Its guarantee is cited and is not carried here:
-    the derivation concerns compatibility only."""
-    builder = _Builder()
+def _cited_association_steps(builder: "_Builder", name: str, analysis: CitedAssociationIR) -> int:
+    """The premises of a cited observational test and its contract; returns the contract."""
     study = normalize(analysis.plan.model)
     method = analysis.method
     used = (
@@ -820,9 +818,17 @@ def derive_cited_association(name: str, analysis: CitedAssociationIR) -> Derivat
             },
         ),
     )
-    final = builder.apply(
+    return builder.apply(
         "cited-association-contract", {"subject": name, "method": method.key}, used
     )
+
+
+def derive_cited_association(name: str, analysis: CitedAssociationIR) -> Derivation:
+    """Why a cited observational test fits. Its guarantee is cited and is not carried here:
+    the derivation concerns compatibility only."""
+    builder = _Builder()
+    method = analysis.method
+    final = _cited_association_steps(builder, name, analysis)
     _sampling(builder, name, analysis)
     return Derivation(
         name,
@@ -1200,6 +1206,64 @@ def derive_cited_planning(name: str, claim: ClaimIR, analysis: CitedAnalysisIR) 
     )
 
 
+def derive_cited_association_planning(
+    name: str, claim: ClaimIR, analysis: CitedAssociationIR
+) -> Derivation:
+    """Power of a cited observational test: it fits its contract and has a power formula."""
+    subject, method = claim.subject, analysis.method
+    target, inner = subject.target, f"{name}.analysis"
+    search = None if isinstance(subject, FeasibilityIR) else subject.candidates
+    formula, point = method.power, normalize(target.at)
+    builder = _Builder()
+    used = [
+        _cited_association_steps(builder, inner, analysis),
+        builder.apply(
+            "power-formula",
+            {
+                "subject": name,
+                "method": method.key,
+                "formula": formula.key,
+                "version": formula.version,
+                "point": point,
+            },
+        ),
+        builder.apply(
+            "alternative",
+            {"subject": name, "point": point, "null": analysis.hypothesis.statement},
+        ),
+        builder.apply(
+            "target-range",
+            {
+                "subject": name,
+                "minimum": str(target.minimum),
+                "maximum_typeI": str(target.maximum_typeI),
+            },
+        ),
+    ]
+    if search is not None:
+        bounds = {key: value for key, value in normalize(search).items() if key != "analysis"}
+        used.append(builder.apply("search-range", {"subject": name, "search": bounds}))
+    final = builder.apply("cited-planning-contract", {"subject": name}, tuple(used))
+    builder.settle(
+        "cited-error-budget",
+        {"subject": name, "alpha": str(analysis.alpha), "maximum_typeI": str(target.maximum_typeI)},
+        analysis.alpha <= target.maximum_typeI,
+    )
+    _sampling(builder, inner, analysis)
+    return Derivation(
+        name,
+        f"planning/{claim.kind}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        (
+            *(item.text for item in (*method.assumptions, *formula.assumptions)),
+            PLANNING_POINT_ASSUMPTION,
+        ),
+        tuple(builder.obligations),
+        normalize(claim),
+    )
+
+
 def derive_association_planning(name: str, claim: ClaimIR, analysis) -> Derivation:
     """Exact power of a proved observational test: the test fits, and the target can be
     assessed at a point of the kind the design is planned at."""
@@ -1271,6 +1335,8 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
         analysis = search.analysis
     if isinstance(analysis, CitedAnalysisIR):
         return derive_cited_planning(name, claim, analysis)
+    if isinstance(analysis, CitedAssociationIR):
+        return derive_cited_association_planning(name, claim, analysis)
     if isinstance(analysis, (AssociationAnalysisIR, MatchedAnalysisIR, RateAnalysisIR)):
         return derive_association_planning(name, claim, analysis)
     target, inner = subject.target, f"{name}.analysis"

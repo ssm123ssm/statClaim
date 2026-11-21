@@ -6,10 +6,12 @@ compiler checks that fit and the null; the guarantee is the published result, re
 with its assumptions. A bound concerns association, never an effect of the exposure.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 
-from statclaim.methods.core import Assumption, Guarantee
+from statclaim.methods.association_power import CORRELATION as CORRELATION_POWER
+from statclaim.methods.association_power import SLOPE as SLOPE_POWER
+from statclaim.methods.core import Assumption, Guarantee, PowerFormula
 
 SCALES = {
     "binary": "A yes-or-no variable.",
@@ -174,6 +176,11 @@ class ObservationalMethod:
     min_clusters: int | None = None
     limit: str = "the sample size grows"
     grade: str = "cited"
+    # How to calculate the test's power, if it can be: a formula in the total n and the
+    # number of covariates. Versioned on its own, since the guarantee does not depend on it.
+    power: PowerFormula | None = field(default=None, repr=False, compare=False)
+    # The exposure scales the formula takes, when narrower than the test's own.
+    power_exposures: tuple[str, ...] = field(default=("binary", "continuous"), repr=False)
 
     def guarantee(self, alpha: Fraction) -> Guarantee:
         return Guarantee("type_I_error", self.relation, alpha, self.null, self.scope, self.limit)
@@ -278,6 +285,8 @@ REGRESSION = (
         assumptions=(INDEPENDENT_SAMPLE, PRESPECIFIED_MODEL, LINEAR_MODEL, COEFFICIENT_NULL),
         references=(SEBER,),
         min_total=4,
+        power=SLOPE_POWER,
+        power_exposures=("continuous",),
     ),
 )
 CORRELATION = (
@@ -297,6 +306,7 @@ CORRELATION = (
         references=(FISHER_1915,),
         covariates=False,
         min_total=4,
+        power=CORRELATION_POWER,
     ),
     ObservationalMethod(
         key="spearman_correlation",
