@@ -232,6 +232,8 @@ unrelated to the exposure. pwrss and MESS agree with each formula, and 4,000 sim
 studies analysed with `glm` agree within 0.02
 (`replication/comparison/logistic_power_r.R`). `modified_poisson` uses the Wald test of the
 log risk or prevalence ratio; `glm` with a robust variance agrees within 0.02.
+Conditional logistic and Poisson rate regression on a measured exposure have no formula
+yet: their points describe a yes-or-no exposure.
 
 A survey test of a complex sample needs `design_effect` on its point: the variance of the
 exposure's estimate over that of a simple random sample of the same size. Power is then
