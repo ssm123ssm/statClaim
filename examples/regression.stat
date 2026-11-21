@@ -56,3 +56,13 @@ let power = calculate(meets(analysis=fitted, target=target))
 let needed = calculate(
     smallest_sample_size(candidates=total_sizes(analysis=fitted, min_n=10, max_n=5000), target=target),
 )
+
+# The same slope unadjusted, if the pressure's error were skewed: its power is simulated,
+# and its Type I error judged against Bradley's 3/40.
+let unadjusted = linear_association(design=fixed(model=clinic), null=no_association(model=clinic), alpha=1/20)
+let skewed = power_target(
+    at=slope(value=1/2, exposure_sd=4, residual_sd=15, skewness=2),
+    minimum=9/10,
+    maximum_typeI=3/40,
+)
+let skewed_power = simulate(meets(analysis=unadjusted, target=skewed), seed=2026)

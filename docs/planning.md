@@ -447,7 +447,8 @@ simulated [estimate]: meets(analysis)
 
 Simulation covers the t-tests, Student's and Welch's, on normal outcomes with the
 planning SD in both arms or in the scenarios below, the t-tests on cluster summaries,
-and the log-rank test from survival times. Other tests get
+the log-rank test from survival times, and the tests of a correlation or a slope with
+skewed data. Other tests get
 `no_simulation_model`; exact tests are refused, since `calculate` gives their exact
 power. See lesson 28 of the tutorial.
 
@@ -522,6 +523,25 @@ Every participant is drawn, so the same budget applies as for skewed outcomes. A
 search over hundreds of sizes may need fewer runs or a narrower range; bracket it
 with the formula. A simulation in R with `survival::survdiff` agrees within its
 Monte Carlo error (`replication/comparison/survival_simulation_r.R`). See lesson 39.
+
+### Skewed data for a correlation or a slope
+
+Under normality the power of `pearson_correlation`, and of `linear_association` with a
+measured exposure, is exact, so `simulate` refuses them there. With skewed data it
+runs them: give `skewness` (of the outcome's error) or `exposure_skewness`, from -4 to
+4, on `correlation` or `slope`.
+
+```stat
+let skewed = power_target(at=correlation(value=1/2, skewness=3, exposure_skewness=3),
+    minimum=4/5, maximum_typeI=3/40)
+let simulated = simulate(meets(analysis=pearson, target=skewed), seed=2026)
+```
+
+Each variable is a gamma distribution shifted and scaled to mean 0 and the planning SD.
+As for the t-tests, Type I is judged on the simulation. Searches take `total_sizes`.
+Covariates are not simulated yet, and Spearman's exact permutation test is not
+simulated. A raw-data simulation in R with `cor.test` and `lm` agrees within its Monte
+Carlo error (`replication/comparison/correlation_simulation_r.R`). See lesson 40.
 
 ## What is checked
 

@@ -23,6 +23,7 @@ where it is not met.
 import math
 from fractions import Fraction
 
+from statclaim import association_planning
 from statclaim import simulation as engine
 from statclaim.cited_planning import (
     PLANNING_POINT,
@@ -34,6 +35,7 @@ from statclaim.cited_planning import (
 from statclaim.fisher import fraction_record
 from statclaim.language import (
     CitedAnalysisIR,
+    CitedAssociationIR,
     ClusterCandidatesIR,
     FeasibilityIR,
     PowerTargetIR,
@@ -187,6 +189,8 @@ def assumptions(analysis: CitedAnalysisIR) -> list[dict]:
 
 def describe(subject, settings: SimulationIR) -> dict:
     """The simulated planning claim before running: what will be estimated and how."""
+    if isinstance(planned_analysis(subject), CitedAssociationIR):
+        return _association_describe(subject, settings)
     analysis, target = planned_analysis(subject), subject.target
     method, model = analysis.method, analysis.method.simulation
     point = target.at
@@ -270,6 +274,8 @@ def _decision(calculation: dict) -> str:
 def run(report: dict, subject, settings: SimulationIR) -> dict:
     """Estimate power at the declared sizes, or search up the range for the first size that
     passes, and confirm it with an independent run."""
+    if isinstance(planned_analysis(subject), CitedAssociationIR):
+        return _association_run(report, subject, settings)
     analysis, target = planned_analysis(subject), subject.target
     if isinstance(subject, FeasibilityIR):
         model = analysis.plan.model
@@ -329,6 +335,179 @@ def run(report: dict, subject, settings: SimulationIR) -> dict:
         if not calculation["power_target_met"]:
             continue
         if calculation["typeI_judged"] and not calculation["typeI_target_met"]:
+            continue
+        report["calculation"] = {
+            **calculation,
+            **search,
+            "candidates_evaluated": evaluated,
+            "confirmations": confirmations,
+            "search_power": _rate(found),
+            "curve": curve,
+        }
+        report["decision"] = _decision(calculation)
+        return report
+    report["calculation"] = {
+        **search,
+        "candidates_evaluated": len(curve),
+        "confirmations": confirmations,
+        "power_target_met": False,
+        "minimum_power": fraction_record(target.minimum),
+        "runs": settings.runs,
+        "seed": settings.seed,
+        "curve": curve,
+        "note": ESTIMATE,
+    }
+    report["decision"] = "no_feasible_candidate"
+    return report
+
+
+# Cited tests of observational studies, simulated in a scenario their formula cannot describe:
+# a total of participants, and Type I judged, since the scenario leaves normal data.
+
+
+def _association_values(analysis: CitedAssociationIR, point, *, at_null=False) -> dict:
+    values, _ = association_planning.inputs(analysis, point, 0)
+    for name in ("skewness", "exposure_skewness"):
+        if getattr(point, name, None) is not None:
+            values[name] = float(getattr(point, name))
+    if at_null:
+        values["value"] = 0.0
+    return values
+
+
+def _association_trial(analysis: CitedAssociationIR, point, n: int, *, at_null=False):
+    values = _association_values(analysis, point, at_null=at_null)
+    return analysis.method.simulation.trial(
+        values, n, len(analysis.covariates), float(analysis.alpha)
+    )
+
+
+def _association_evaluate(analysis, target, n: int, settings, stream: str) -> dict:
+    power = engine.estimate(
+        _association_trial(analysis, target.at, n),
+        settings.runs,
+        engine.Stream(settings.seed, stream, n),
+    )
+    error = engine.estimate(
+        _association_trial(analysis, target.at, n, at_null=True),
+        settings.runs,
+        engine.Stream(settings.seed, "typeI", n),
+    )
+    maximum = float(target.maximum_typeI)
+    model = analysis.method.simulation
+    met = power.lower >= float(target.minimum)
+    typeI_met = error.upper <= maximum
+    return {
+        "total_sample_size": n,
+        "covariates": len(analysis.covariates),
+        "degrees_of_freedom": n - len(analysis.covariates) - 2,
+        "power": _rate(power),
+        "power_lower": _bound(power.lower, "down"),
+        "power_upper": _bound(power.upper, "up"),
+        "power_rejected": power.rejected,
+        "minimum_power": fraction_record(target.minimum),
+        "power_target_met": met,
+        "power_settled": met or power.upper < float(target.minimum),
+        "typeI": _rate(error),
+        "typeI_lower": _bound(error.lower, "down"),
+        "typeI_upper": _bound(error.upper, "up"),
+        "typeI_rejected": error.rejected,
+        "alpha": fraction_record(analysis.alpha),
+        "maximum_typeI": fraction_record(target.maximum_typeI),
+        "typeI_target_met": typeI_met,
+        "typeI_settled": typeI_met or error.lower > maximum,
+        "typeI_judged": True,
+        "runs": settings.runs,
+        "seed": settings.seed,
+        "stream": stream,
+        "scenario": model.scenario(_association_values(analysis, target.at)),
+        "model": model.key,
+        "model_version": model.version,
+        "engine_version": engine.ENGINE_VERSION,
+        "generator": engine.GENERATOR,
+        "interval": INTERVAL,
+        "note": ESTIMATE,
+    }
+
+
+def _association_describe(subject, settings: SimulationIR) -> dict:
+    analysis, target = planned_analysis(subject), subject.target
+    method, model = analysis.method, analysis.method.simulation
+    point = target.at
+    shape = ", ".join(
+        f"{label} skewness {getattr(point, name)}"
+        for name, label in (("exposure_skewness", "exposure"), ("skewness", "error"))
+        if getattr(point, name, None)
+    )
+    goal = (
+        f"power at least {target.minimum} at {association_planning.describe_point(point)}, "
+        f"with {shape}, and simulated Type I at most {target.maximum_typeI}, judged like power "
+        "since skewed data leave the test's theory"
+    )
+    runs = f"{settings.runs:,} simulated studies from seed {settings.seed}"
+    if isinstance(subject, FeasibilityIR):
+        text = (
+            f"{method.title} with {analysis.plan.model.total} participants: {goal}, estimated "
+            f"from {runs}."
+        )
+    else:
+        space = subject.candidates
+        text = (
+            f"{method.title}: the first total from {space.min_n} to {space.max_n} whose "
+            f"simulated power has its 95% interval at or above {target.minimum}, confirmed by "
+            f"an independent run: {goal}. Each size uses {runs}."
+        )
+    text += f" Power is a {ESTIMATE}."
+    listed = [
+        *(mark(item) for item in (*analysis.assumptions, *model.assumptions)),
+        identify(PLANNING_POINT),
+    ]
+    report = planning_report("simulated_planning", text, [item["text"] for item in listed])
+    report["method"] = method.to_dict()
+    report["simulation"] = {
+        **model.to_dict(),
+        "runs": settings.runs,
+        "seed": settings.seed,
+        "engine_version": engine.ENGINE_VERSION,
+        "generator": engine.GENERATOR,
+        "interval": INTERVAL,
+    }
+    report["assumptions"] = listed
+    report["references"] = list(dict.fromkeys((*method.references, *model.references)))
+    return report
+
+
+def _association_run(report: dict, subject, settings: SimulationIR) -> dict:
+    analysis, target = planned_analysis(subject), subject.target
+    if isinstance(subject, FeasibilityIR):
+        calculation = _association_evaluate(
+            analysis, target, analysis.plan.model.total, settings, "power"
+        )
+        report["calculation"] = calculation
+        report["decision"] = _decision(calculation)
+        return report
+    space = subject.candidates
+    search = {"min_n": space.min_n, "max_n": space.max_n}
+    curve, confirmations = [], 0
+    for evaluated, n in enumerate(range(space.min_n, space.max_n + 1), 1):
+        found = engine.estimate(
+            _association_trial(analysis, target.at, n),
+            settings.runs,
+            engine.Stream(settings.seed, "search", n),
+        )
+        curve.append(
+            {
+                "total_sample_size": n,
+                "power": round(found.rate, 6),
+                "lower": round(found.lower, 6),
+                "upper": round(found.upper, 6),
+            }
+        )
+        if not _passes(found, target.minimum):
+            continue
+        confirmations += 1
+        calculation = _association_evaluate(analysis, target, n, settings, "confirm")
+        if not (calculation["power_target_met"] and calculation["typeI_target_met"]):
             continue
         report["calculation"] = {
             **calculation,

@@ -152,8 +152,8 @@ def test_the_formulas_each_test_has():
         ),
         (
             f"let s = simulate(meets(analysis=rho, target={RHO}), seed=1)",
-            "no_simulation_model",
-            "calculate",
+            "unsupported_claim",
+            "exact",
         ),
     ],
 )

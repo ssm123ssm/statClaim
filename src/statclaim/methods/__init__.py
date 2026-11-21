@@ -153,6 +153,18 @@ def versions() -> dict:
             + repr(users)
         )
         recorded[f"simulation:{key}"] = {"version": model.version, "sha256": _sha256(content)}
+    # Simulation models of the cited observational tests.
+    for model in {
+        m.simulation.key: m.simulation for m in OBSERVATIONAL.values() if m.simulation
+    }.values():
+        users = sorted(m.key for m in OBSERVATIONAL.values() if m.simulation is model)
+        content = (
+            repr(model)
+            + inspect.getsource(model.trial)
+            + inspect.getsource(model.scenario)
+            + repr(users)
+        )
+        recorded[f"simulation:{model.key}"] = {"version": model.version, "sha256": _sha256(content)}
     # Power formulas of the cited observational tests, which take the total and covariates.
     known = {f.key: f for m in OBSERVATIONAL.values() for f in m.formulas}
     for formula in known.values():

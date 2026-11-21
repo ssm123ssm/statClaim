@@ -439,7 +439,15 @@ SCHEMAS = {
             description="For simulation: when the hazard ratio starts to apply after entry.",
         ),
     },
-    CorrelationIR: {"value": FieldSpec(Fraction, description="Correlation of the two variables.")},
+    CorrelationIR: {
+        "value": FieldSpec(Fraction, description="Correlation of the two variables."),
+        "skewness": FieldSpec(
+            Fraction, optional=True, description="Skewness of the outcome's error, for simulation."
+        ),
+        "exposure_skewness": FieldSpec(
+            Fraction, optional=True, description="Skewness of the exposure, for simulation."
+        ),
+    },
     OutcomeMeansIR: {
         "unexposed": FieldSpec(Fraction, description="Outcome's mean without the exposure."),
         "exposed": FieldSpec(Fraction, description="Outcome's mean with the exposure."),
@@ -470,6 +478,12 @@ SCHEMAS = {
         ),
         "design_effect": FieldSpec(
             Fraction, optional=True, description="A survey's design effect, a planning input."
+        ),
+        "skewness": FieldSpec(
+            Fraction, optional=True, description="Skewness of the outcome's error, for simulation."
+        ),
+        "exposure_skewness": FieldSpec(
+            Fraction, optional=True, description="Skewness of the exposure, for simulation."
         ),
     },
     HazardRatioIR: {

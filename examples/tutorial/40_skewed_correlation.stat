@@ -1,0 +1,25 @@
+# Lesson 40: a correlation with skewed data, by simulation.
+use models.observational
+use sampling
+use tests.correlation
+use planning
+
+# Thirty households, their income and their spending: both strongly skewed.
+let households = cross_sectional(
+    n=30,
+    exposure="income",
+    outcome="spending",
+    exposure_scale="continuous",
+    outcome_scale="continuous",
+)
+let pearson = pearson_correlation(design=fixed(model=households), null=no_association(model=households), alpha=1/20)
+
+# With normal data, power for a correlation of 1/2 is exact.
+let normal = power_target(at=correlation(value=1/2), minimum=4/5, maximum_typeI=1/20)
+let exact = calculate(meets(analysis=pearson, target=normal))
+
+# With skewness 3 in income and in spending's error, simulate; Type I is judged.
+let skewed = power_target(at=correlation(value=1/2, skewness=3, exposure_skewness=3), minimum=4/5, maximum_typeI=3/40)
+let simulated = simulate(meets(analysis=pearson, target=skewed), seed=2026)
+let sizes = total_sizes(analysis=pearson, min_n=20, max_n=80)
+let needed = simulate(smallest_sample_size(candidates=sizes, target=skewed), seed=2026)

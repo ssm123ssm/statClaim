@@ -144,7 +144,7 @@ from statclaim.simulation import (
     MIN_RUNS,
 )
 
-LANGUAGE_VERSION = "0.35.0"
+LANGUAGE_VERSION = "0.36.0"
 
 
 class PlannableIR:
@@ -1064,9 +1064,12 @@ class ExponentialSurvivalIR(PlanningPointIR):
 
 @dataclass(frozen=True)
 class CorrelationIR(PlanningPointIR):
-    """A planning point for two continuous variables: their correlation."""
+    """A planning point for two continuous variables: their correlation, and for simulation,
+    the skewness of the exposure and of the outcome's error."""
 
     value: Fraction
+    skewness: Fraction | None = None
+    exposure_skewness: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1105,6 +1108,8 @@ class SlopeIR(PlanningPointIR):
     residual_sd: Fraction
     exposure_r2: Fraction | None = None
     design_effect: Fraction | None = None
+    skewness: Fraction | None = None  # of the residual, for simulation
+    exposure_skewness: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1716,24 +1721,47 @@ def _study_extras(study: "ObservationalStudyIR") -> dict:
 
 
 def _with_cluster_cv(point: dict, value) -> dict:
-    """How much cluster sizes vary, and a t-test scenario, are written only when given."""
-    for name in ("cluster_size_cv", "sd_treatment", "skewness"):
+    """How much cluster sizes vary, and a simulation's scenario, are written only when given."""
+    for name in ("cluster_size_cv", "sd_treatment", "skewness", "exposure_skewness"):
         if getattr(value, name, None) is not None:
             point = {**point, name: str(getattr(value, name))}
     return point
 
 
+def skewed(point) -> bool:
+    """Whether a planning point describes skewed data, for simulation."""
+    return any(getattr(point, name, None) for name in ("skewness", "exposure_skewness"))
+
+
 def departs(point) -> bool:
-    """Whether a planning point leaves normal outcomes with a common SD."""
+    """Whether a planning point leaves normal data, with a common SD for two means."""
     sd_treatment = getattr(point, "sd_treatment", None)
-    return bool(getattr(point, "skewness", None)) or (
-        sd_treatment is not None and sd_treatment != point.sd
-    )
+    return skewed(point) or (sd_treatment is not None and sd_treatment != point.sd)
 
 
 def participant_draws(point) -> bool:
     """Whether simulating at this point draws every participant, not summary statistics."""
-    return isinstance(point, ExponentialSurvivalIR) or bool(getattr(point, "skewness", None))
+    return isinstance(point, ExponentialSurvivalIR) or skewed(point)
+
+
+def _check_skewed_point(analysis: object, target: LocatedValue) -> None:
+    """Skewed data are simulated for the correlation and slope tests, without covariates."""
+    simulated = isinstance(analysis, CitedAssociationIR) and analysis.method.simulation
+    if not simulated:
+        key = getattr(getattr(analysis, "method", None), "key", "this analysis")
+        fail(
+            "planning_point",
+            f"{key} is not simulated with skewed data. skewness and exposure_skewness are for "
+            "simulating the tests of a correlation or a regression slope.",
+            target.span,
+        )
+    if analysis.covariates:
+        fail(
+            "planning_point",
+            "Skewed data are simulated without covariates for now. With covariates and normal "
+            "data, calculate(...) gives the slope's exact power.",
+            target.span,
+        )
 
 
 SCENARIO_REFUSED = (
@@ -2014,7 +2042,7 @@ def normalize(value: object) -> object:
         case HazardRatioIR(value=ratio, events=events):
             return {"hazard_ratio": str(ratio), "events": events}
         case CorrelationIR(value=rho):
-            return {"correlation": str(rho)}
+            return _with_cluster_cv({"correlation": str(rho)}, value)
         case OutcomeMeansIR(unexposed=unexposed, exposed=exposed, sd=sd, exposed_share=share):
             point = {"mean_unexposed": str(unexposed), "mean_exposed": str(exposed), "sd": str(sd)}
             point = point if share is None else {**point, "exposed_share": str(share)}
@@ -2031,7 +2059,7 @@ def normalize(value: object) -> object:
             }
             if value.exposure_r2 is not None:
                 point["exposure_r2"] = str(value.exposure_r2)
-            return _with_design_effect(point, value)
+            return _with_cluster_cv(_with_design_effect(point, value), value)
         case ExponentialSurvivalIR(hazard_ratio=ratio, control_median=median):
             point = {
                 "hazard_ratio": str(ratio),
@@ -3550,11 +3578,11 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             "that starts later, use simulate(...), which draws the survival times.",
             claim.span,
         )
-    if isinstance(point, MeanDifferenceIR) and departs(point):
+    if departs(point):
         fail(
             "unsupported_claim",
-            "The formula assumes normal outcomes with a common SD. For unequal SDs or a "
-            "skewed outcome, use simulate(...), which runs the test on that scenario.",
+            "The formula assumes normal data, with a common SD for two means. For unequal SDs "
+            "or skewed data, use simulate(...), which runs the test on that scenario.",
             claim.span,
         )
     return claim.value
@@ -3674,7 +3702,7 @@ def _correlation(arguments: dict[str, LocatedValue], span: Span) -> CorrelationI
     rho = arguments["value"]
     if not -1 < rho.value < 1:
         fail("domain", "A correlation must lie strictly between -1 and 1.", rho.span)
-    return CorrelationIR(rho.value)
+    return CorrelationIR(rho.value, *_skews(arguments))
 
 
 def _outcome_means(arguments: dict[str, LocatedValue], span: Span) -> OutcomeMeansIR:
@@ -3722,7 +3750,21 @@ def _slope(arguments: dict[str, LocatedValue], span: Span) -> SlopeIR:
         arguments["residual_sd"].value,
         share,
         _design_effect(arguments),
+        *_skews(arguments),
     )
+
+
+def _skews(arguments: dict[str, LocatedValue]) -> tuple:
+    """The skewness of the outcome's error and of the exposure, for simulation."""
+    found = []
+    for name in ("skewness", "exposure_skewness"):
+        given = arguments.get(name)
+        if given is not None and given.value is not None and abs(given.value) > MAX_SKEWNESS:
+            fail(
+                "domain", f"{name} must lie between -{MAX_SKEWNESS} and {MAX_SKEWNESS}.", given.span
+            )
+        found.append(None if given is None else given.value)
+    return tuple(found)
 
 
 def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTargetIR:
@@ -4293,8 +4335,12 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
         return
     if any(getattr(point, name, None) is not None for name in ("icc", "cluster_size_cv")):
         fail("planning_point", ICC_REFUSED, target.span)
-    if any(getattr(point, name, None) is not None for name in ("sd_treatment", "skewness")):
+    if getattr(point, "sd_treatment", None) is not None or (
+        isinstance(point, MeanDifferenceIR) and point.skewness is not None
+    ):
         fail("planning_point", SCENARIO_REFUSED, target.span)
+    if any(getattr(point, name, None) is not None for name in ("skewness", "exposure_skewness")):
+        _check_skewed_point(analysis, target)
     survey = isinstance(analysis, CitedAssociationIR) and analysis.method.module == "tests.survey"
     if getattr(point, "design_effect", None) is not None and not survey:
         fail("planning_point", DESIGN_EFFECT_REFUSED, target.span)
@@ -5138,11 +5184,7 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             claim.span,
         )
     if isinstance(analysis, CitedAssociationIR):
-        fail(
-            "no_simulation_model",
-            f"{analysis.method.key} has no simulation model yet. calculate(...) gives its power.",
-            claim.span,
-        )
+        return _association_simulation(analysis, subject, arguments, claim)
     if not isinstance(analysis, CitedAnalysisIR):
         fail(
             "unsupported_claim",
@@ -5213,6 +5255,56 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
                 "use fewer runs.",
                 claim.span,
             )
+    return claim.value
+
+
+def _association_simulation(analysis, subject, arguments, claim) -> ClaimIR:
+    """A cited test of an observational study is simulated in a scenario its formula cannot
+    describe: skewed data, for the tests of a correlation or a slope."""
+    method = analysis.method
+    if method.simulation is None:
+        fail(
+            "no_simulation_model",
+            f"{method.key} has no simulation model yet. calculate(...) gives its power.",
+            claim.span,
+        )
+    kind, signature = POINT_SIGNATURES[method.simulation.point]
+    if not isinstance(subject.target.at, kind):
+        fail("planning_point", f"Simulate {method.key} at {signature}.", claim.span)
+    if not skewed(subject.target.at):
+        fail(
+            "unsupported_claim",
+            "With normal data this test's power is exact, so there is nothing to simulate: "
+            "calculate(...) gives it. Give skewness or exposure_skewness to simulate skewed data.",
+            claim.span,
+        )
+    settings = simulation_settings(arguments)
+    if isinstance(subject, SizingIR):
+        space = subject.candidates
+        if not isinstance(space, TotalCandidatesIR):
+            fail(
+                "unsupported_claim", "Simulation searches totals: use total_sizes(...).", claim.span
+            )
+        totals = list(range(space.min_n, space.max_n + 1))
+        if len(totals) * settings.runs > MAX_SIMULATED_STUDIES:
+            fail(
+                "domain",
+                f"Searching {len(totals):,} sizes with {settings.runs:,} runs each could "
+                f"simulate more than {MAX_SIMULATED_STUDIES:,} studies. Narrow the range or "
+                "use fewer runs.",
+                claim.span,
+            )
+        drawn = sum(totals) + 2 * totals[-1]
+    else:
+        drawn = 2 * analysis.plan.model.total
+    if drawn * settings.runs > MAX_SIMULATED_PARTICIPANTS:
+        fail(
+            "domain",
+            "This scenario is simulated one participant at a time, and this could draw more "
+            f"than {MAX_SIMULATED_PARTICIPANTS:,} participants. Narrow the range or use fewer "
+            "runs.",
+            claim.span,
+        )
     return claim.value
 
 
@@ -5980,12 +6072,17 @@ MODULES = {
                 ),
                 _constructor(
                     "correlation",
-                    (("value", "number"),),
+                    (
+                        ("value", "number"),
+                        ("skewness", "number", True),
+                        ("exposure_skewness", "number", True),
+                    ),
                     "Correlation",
                     _correlation,
                     documentation="A planning point for two continuous variables: their "
-                    "correlation, strictly between -1 and 1. For pearson_correlation. A "
-                    "planning input, not an established fact.",
+                    "correlation, strictly between -1 and 1. For pearson_correlation. To "
+                    "simulate skewed data, give skewness (of the outcome's error) or "
+                    "exposure_skewness. Planning inputs, not established facts.",
                 ),
                 _constructor(
                     "outcome_means",
@@ -6029,6 +6126,8 @@ MODULES = {
                         ("residual_sd", "number"),
                         ("exposure_r2", "number", True),
                         ("design_effect", "number", True),
+                        ("skewness", "number", True),
+                        ("exposure_skewness", "number", True),
                     ),
                     "Slope",
                     _slope,
@@ -6037,7 +6136,8 @@ MODULES = {
                     "exposure's standard deviation, the outcome's standard deviation about the "
                     "regression, and optionally exposure_r2, the share of the exposure's "
                     "variance the covariates explain. A survey test of a complex sample also "
-                    "takes design_effect. All are planning inputs.",
+                    "takes design_effect. To simulate skewed data, give skewness (of the "
+                    "residual) or exposure_skewness. All are planning inputs.",
                 ),
                 _constructor(
                     "exponential_survival",

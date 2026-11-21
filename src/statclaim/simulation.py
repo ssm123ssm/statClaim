@@ -468,3 +468,49 @@ def log_rank_trial(
         return variance > 0.0 and score * score / variance > critical
 
     return study
+
+
+def standardised(skewness: float) -> Callable[[Stream], float]:
+    """Draws with mean 0 and SD 1: normal, or for a skewness g a gamma distribution with
+    shape 4 / g^2, shifted and scaled, and mirrored when g is negative."""
+    if not skewness:
+        return lambda stream: stream.normal()
+    shape = 4.0 / (skewness * skewness)
+    scale = (1.0 if skewness > 0 else -1.0) / math.sqrt(shape)
+    return lambda stream: scale * (stream.gamma(shape) - shape)
+
+
+def correlation_trial(
+    rho: float, n: int, alpha: float, *, skewness: float = 0.0, exposure_skewness: float = 0.0
+) -> Callable[[Stream], bool]:
+    """One simulated study of two measured variables: does the two-sided t-test of Pearson's
+    correlation reject? It is also the t-test of a simple regression's slope.
+
+    The exposure and the outcome's error each have mean 0 and SD 1, normal or skewed, and the
+    outcome is rho times the exposure plus the root of 1 - rho^2 times the error, so the
+    correlation is rho. The test rejects when |r| passes t_c / sqrt(t_c^2 + n - 2).
+    """
+    if n < 4:
+        raise ValueError("The correlation test needs at least four participants.")
+    df = n - 2
+    critical = t_quantile(1.0 - alpha / 2.0, df)
+    passes = critical / math.sqrt(critical * critical + df)
+    exposure, error = standardised(exposure_skewness), standardised(skewness)
+    rest = math.sqrt(1.0 - rho * rho)
+
+    def study(stream: Stream) -> bool:
+        sx = sy = sxx = syy = sxy = 0.0
+        for _ in range(n):
+            x = exposure(stream)
+            y = rho * x + rest * error(stream)
+            sx += x
+            sy += y
+            sxx += x * x
+            syy += y * y
+            sxy += x * y
+        cxx, cyy, cxy = sxx - sx * sx / n, syy - sy * sy / n, sxy - sx * sy / n
+        if cxx <= 0.0 or cyy <= 0.0:
+            return False
+        return abs(cxy) > passes * math.sqrt(cxx * cyy)
+
+    return study

@@ -369,8 +369,12 @@ def _point_valid(
 # The arguments of each kind of point a cited observational test is planned at, the ones
 # that may be left out, and the exposure scale its formula needs.
 ASSOCIATION_POINT_KEYS = {
-    "correlation": ({"correlation"}, set(), "continuous"),
-    "slope": ({"slope", "exposure_sd", "residual_sd"}, {"exposure_r2"}, "continuous"),
+    "correlation": ({"correlation"}, {"skewness", "exposure_skewness"}, "continuous"),
+    "slope": (
+        {"slope", "exposure_sd", "residual_sd"},
+        {"exposure_r2", "skewness", "exposure_skewness"},
+        "continuous",
+    ),
     "odds_per_sd": ({"odds_ratio_per_sd", "baseline"}, {"exposure_r2"}, "continuous"),
     "outcome_means": ({"mean_unexposed", "mean_exposed", "sd"}, {"exposed_share"}, "binary"),
     "discordant_pairs": ({"discordant", "odds_ratio"}, set(), "binary"),
@@ -399,6 +403,9 @@ def _association_point_valid(point: dict, kind: str, study: dict, search) -> tup
         return _groups_point(point, study)
     required, optional, _ = ASSOCIATION_POINT_KEYS[kind]
     if not required <= set(point) <= required | optional:
+        return False, Fraction(0)
+    # Skewness, for simulation, lies within the gamma shapes the engine draws.
+    if any(abs(Fraction(point.get(name, "0"))) > 4 for name in ("skewness", "exposure_skewness")):
         return False, Fraction(0)
     if kind == "correlation":
         rho = Fraction(point["correlation"])

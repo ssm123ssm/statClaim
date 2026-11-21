@@ -74,6 +74,8 @@
   simulation, cross-checked against a raw-data simulation in R.
 - Simulated log-rank tests from survival times, with an effect that starts late,
   cross-checked against survival::survdiff in R.
+- Simulated tests of a correlation or a regression slope with skewed data, cross-checked
+  against cor.test and lm in R. Covariates and Spearman's test are not simulated yet.
 - Precision targets: sample sizes for a margin of error, absolute or relative, with an
   optional assurance, for every interval StatClaim reports, and for surveys through the
   normal interval with a design effect and a finite population correction.

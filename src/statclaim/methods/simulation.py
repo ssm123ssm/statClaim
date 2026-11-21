@@ -11,13 +11,20 @@ from statclaim.methods.assumptions import (
     MONTE_CARLO_ERROR,
     PLANNING_ICC,
     PLANNING_SD,
+    SIMULATED_ASSOCIATION,
     SIMULATED_CLUSTER_PROPORTIONS,
     SIMULATED_CLUSTERS,
     SIMULATED_SURVIVAL,
     SIMULATED_TWO_MEANS,
 )
 from statclaim.methods.core import SimulationModel
-from statclaim.simulation import REFERENCES, cluster_trial, log_rank_trial, two_means_trial
+from statclaim.simulation import (
+    REFERENCES,
+    cluster_trial,
+    correlation_trial,
+    log_rank_trial,
+    two_means_trial,
+)
 
 STUDENT_1908 = "Student (1908). The probable error of a mean. Biometrika 6(1), 1-25."
 WELCH_1947 = (
@@ -211,4 +218,76 @@ LOG_RANK = SimulationModel(
     scenario=_survival_scenario,
     assumptions=(SIMULATED_SURVIVAL, MONTE_CARLO_ERROR),
     references=(MANTEL_1966, *REFERENCES),
+)
+
+
+# Cited tests of observational studies take a total and covariates:
+# trial(point, n, covariates, alpha).
+FISHER_1915 = (
+    "Fisher, R. A. (1915). Frequency distribution of the values of the correlation coefficient "
+    "in samples from an indefinitely large population. Biometrika 10(4), 507-521."
+)
+
+
+def _skew_words(point: dict) -> str:
+    parts = [
+        f"{label} with skewness {point[name]:g}"
+        for name, label in (("exposure_skewness", "an exposure"), ("skewness", "an outcome error"))
+        if point.get(name)
+    ]
+    return " and ".join(parts) or "normal data"
+
+
+def _correlation_scenario(point: dict) -> str:
+    return f"{_skew_words(point)}, and a correlation of {point['value']:g}"
+
+
+def _slope_scenario(point: dict) -> str:
+    return (
+        f"{_skew_words(point)}, a slope of {point['value']:g}, exposure SD "
+        f"{point['exposure_sd']:g} and residual SD {point['residual_sd']:g}"
+    )
+
+
+def _skews(point: dict) -> dict:
+    return {
+        "skewness": point.get("skewness", 0.0),
+        "exposure_skewness": point.get("exposure_skewness", 0.0),
+    }
+
+
+def _pearson(point, n, covariates, alpha):
+    """The t-test of Pearson's correlation on simulated, possibly skewed, data."""
+    return correlation_trial(point["value"], n, alpha, **_skews(point))
+
+
+def _slope(point, n, covariates, alpha):
+    """The t-test of a simple regression's slope, which is the correlation's t-test at the
+    correlation slope * exposure SD / the root of slope^2 exposure SD^2 + residual SD^2."""
+    if covariates:
+        raise ValueError("Skewed data are simulated without covariates.")
+    signal = point["value"] * point["exposure_sd"]
+    rho = signal / math.sqrt(signal * signal + point["residual_sd"] ** 2)
+    return correlation_trial(rho, n, alpha, **_skews(point))
+
+
+PEARSON = SimulationModel(
+    key="pearson_simulated",
+    title="t-test of Pearson's correlation on simulated skewed data",
+    version=1,
+    point="correlation",
+    trial=_pearson,
+    scenario=_correlation_scenario,
+    assumptions=(SIMULATED_ASSOCIATION, MONTE_CARLO_ERROR),
+    references=(FISHER_1915, *REFERENCES),
+)
+SLOPE = SimulationModel(
+    key="slope_simulated",
+    title="t-test of a regression slope on simulated skewed data",
+    version=1,
+    point="slope",
+    trial=_slope,
+    scenario=_slope_scenario,
+    assumptions=(SIMULATED_ASSOCIATION, MONTE_CARLO_ERROR),
+    references=(FISHER_1915, *REFERENCES),
 )

@@ -334,3 +334,12 @@ SIMULATED_SURVIVAL = Assumption(
     "exponential, and follow-up ends at the accrual period plus the follow-up. The test is "
     "the log-rank test with its normal approximation.",
 )
+SIMULATED_ASSOCIATION = Assumption(
+    "simulated_association",
+    "monte_carlo",
+    "The simulation draws the exposure and the outcome's error from the declared scenario: "
+    "each normal, or with its skewness, a gamma distribution shifted and scaled to mean 0 and "
+    "the planning SD, mirrored when the skewness is negative. The outcome is linear in the "
+    "exposure, with the planning correlation or slope; other shapes may give other power and "
+    "Type I error.",
+)

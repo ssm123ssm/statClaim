@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirty-nine short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Forty short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li><li><a href="#survival-simulation"><span class="n">39</span>Survival trials by simulation</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li><li><a href="#survival-simulation"><span class="n">39</span>Survival trials by simulation</a></li><li><a href="#skewed-correlation"><span class="n">40</span>A correlation with skewed data</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -3102,6 +3102,69 @@ dilute the difference that comes later.</div>
     <div class="task"><h4>Try it</h4><p>Lengthen the follow-up to 24 months. Does the delay still cost as much?</p></div>
   </div>
 </section>
+<section class="lesson" id="skewed-correlation">
+  <p class="eyebrow">Lesson 40</p>
+  <h2>A correlation with skewed data</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Income and spending are both skewed. Pearson&#x27;s test assumes normal data, where its power is exact. Simulation shows what skewness costs, and checks the test&#x27;s Type I error.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/40_skewed_correlation.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 40: a correlation with skewed data, by simulation.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.correlation
+<span class="k">use</span> planning
+
+<span class="c"># Thirty households, their income and their spending: both strongly skewed.</span>
+<span class="k">let</span> households = <span class="f">cross_sectional</span>(
+    n=30,
+    exposure=&quot;income&quot;,
+    outcome=&quot;spending&quot;,
+    exposure_scale=&quot;continuous&quot;,
+    outcome_scale=&quot;continuous&quot;,
+)
+<span class="k">let</span> pearson = <span class="f">pearson_correlation</span>(design=<span class="f">fixed</span>(model=households), null=<span class="f">no_association</span>(model=households), alpha=1/20)
+
+<span class="c"># With normal data, power for a correlation of 1/2 is exact.</span>
+<span class="k">let</span> normal = <span class="f">power_target</span>(at=<span class="f">correlation</span>(value=1/2), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> exact = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=pearson, target=normal))
+
+<span class="c"># With skewness 3 in income and in spending&#x27;s error, simulate; Type I is judged.</span>
+<span class="k">let</span> skewed = <span class="f">power_target</span>(at=<span class="f">correlation</span>(value=1/2, skewness=3, exposure_skewness=3), minimum=4/5, maximum_typeI=3/40)
+<span class="k">let</span> simulated = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=pearson, target=skewed), seed=2026)
+<span class="k">let</span> sizes = <span class="f">total_sizes</span>(analysis=pearson, min_n=20, max_n=80)
+<span class="k">let</span> needed = <span class="f">simulate</span>(<span class="f">smallest_sample_size</span>(candidates=sizes, target=skewed), seed=2026)</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>skewness=3, exposure_skewness=3</code></dt>
+  <dd>The skewness of the outcome&#x27;s error and of the exposure. Each is a gamma distribution
+  shifted and scaled to the planning SD. <code>calculate</code> refuses them.</dd>
+  <dt><code>total_sizes(...)</code></dt>
+  <dd>As in lesson 33: totals to search, here simulated one by one.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [exact]: meets(pearson)
+  power ~ 0.8277 (noncentral t averaged over a normal exposure, not a bound); power target met = true
+  ...
+<span class="calc">simulated</span> [simulated]: meets(pearson)
+  n = 30; covariates = 0; degrees of freedom = 28
+  power ~ 0.7497 (95% interval 0.7411 to 0.7582); power target met = false
+  Type I at the null ~ 0.0534 (95% interval 0.0491 to 0.0580); level 1/20; Type I target met = true (judged on the simulation: at most 3/40)
+  ...
+<span class="calc">simulated</span> [needed]: sample_size(sizes)
+  n = 36; covariates = 0; degrees of freedom = 34
+  power ~ 0.8143 (95% interval 0.8065 to 0.8219); power target met = true
+  ...
+Program status: simulated</code></pre></div>
+<p>With normal data, 30 households give 83% power. With both variables skewed, power falls
+to 75%, and 36 households bring it back to 80%. The test&#x27;s Type I error stays near 5%: a
+few extreme households move the estimate, not the test&#x27;s level. A simulation in R with
+<code>cor.test</code> gives the same rates within its Monte Carlo error.</p>
+<div class="note"><strong>Why skewness costs power here.</strong> A long tail puts a few
+households far from the rest. Pearson&#x27;s correlation weighs them heavily, so its estimate
+varies more from sample to sample.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>simulate</code> runs Pearson&#x27;s test and the slope test with skewed data.</li><li>With normal data their power is exact, so there is nothing to simulate.</li><li>Type I is judged on the simulation.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Make only the exposure skewed. How much power is lost now?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -3136,6 +3199,7 @@ dilute the difference that comes later.</div>
       <tr><td>Plan a logistic, modified Poisson, conditional logistic or Poisson rate regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
       <tr><td>Plan a complex survey</td><td><code>planning</code>, <code>tests.survey</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>design_effect</code> on the point, with <code>total_sizes</code></td><td>35</td></tr>
       <tr><td>Size a study for a margin of error</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code>, <code>sample_size</code> with <code>planned_interval</code>, <code>precision_target</code> and <code>interval_sizes</code></td><td>36</td></tr>
+      <tr><td>Simulate a correlation or a slope with skewed data</td><td><code>planning</code>, <code>tests.correlation</code></td><td><code>simulate</code> at <code>correlation</code> or <code>slope</code> with <code>skewness</code></td><td>40</td></tr>
       <tr><td>Simulate a survival trial, with an effect that starts late</td><td><code>planning</code>, <code>tests.survival</code></td><td><code>simulate</code> at <code>exponential_survival</code>, with <code>effect_delay</code></td><td>39</td></tr>
       <tr><td>Simulate a t-test with unequal SDs or a skewed outcome</td><td><code>planning</code>, <code>tests.t</code></td><td><code>simulate</code> at a <code>mean_difference</code> with <code>sd_treatment</code> or <code>skewness</code></td><td>38</td></tr>
       <tr><td>Simulate a cluster trial, with clusters of unequal sizes</td><td><code>planning</code>, <code>tests.cluster</code></td><td><code>simulate</code> with <code>meets</code> or a cluster search, at a point with <code>icc</code> and <code>cluster_size_cv</code></td><td>37</td></tr>

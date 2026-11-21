@@ -24,7 +24,9 @@ from statclaim.methods.association_power import (
     SURVEY_TREND,
 )
 from statclaim.methods.association_power import SLOPE as SLOPE_POWER
-from statclaim.methods.core import Assumption, Guarantee, PowerFormula
+from statclaim.methods.core import Assumption, Guarantee, PowerFormula, SimulationModel
+from statclaim.methods.simulation import PEARSON as PEARSON_SIMULATED
+from statclaim.methods.simulation import SLOPE as SLOPE_SIMULATED
 
 SCALES = {
     "binary": "A yes-or-no variable.",
@@ -194,6 +196,8 @@ class ObservationalMethod:
     # the guarantee does not depend on them.
     power: PowerFormula | None = field(default=None, repr=False, compare=False)
     more_power: tuple[PowerFormula, ...] = field(default=(), repr=False, compare=False)
+    # How to simulate the test in a scenario its formula cannot describe, such as skewed data.
+    simulation: SimulationModel | None = field(default=None, repr=False, compare=False)
 
     @property
     def formulas(self) -> tuple[PowerFormula, ...]:
@@ -310,6 +314,7 @@ REGRESSION = (
         min_total=4,
         power=SLOPE_POWER,
         more_power=(EXPOSURE_MEANS,),
+        simulation=SLOPE_SIMULATED,
     ),
 )
 CORRELATION = (
@@ -330,6 +335,7 @@ CORRELATION = (
         covariates=False,
         min_total=4,
         power=CORRELATION_POWER,
+        simulation=PEARSON_SIMULATED,
     ),
     ObservationalMethod(
         key="spearman_correlation",

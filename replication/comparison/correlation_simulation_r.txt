@@ -1,0 +1,24 @@
+Rejection rates with skewed data, written to tests/fixtures/correlation_simulation_r.json
+
+correlation: n 30, value 1/2, skewness (exposure 3, error 3): 0.7497 of 20000
+correlation: n 20, value 0, skewness (exposure 3, error 3): 0.0491 of 20000
+correlation: n 10, value 0, skewness (exposure 4, error 4): 0.0708 of 20000
+correlation: n 50, value -3/10, skewness (exposure -2, error 0): 0.5574 of 20000
+slope: n 30, value 1/2, skewness (exposure 0, error 2): 0.7417 of 20000
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

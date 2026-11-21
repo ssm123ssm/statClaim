@@ -1,0 +1,52 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "cases": [
+    {
+      "kind": "correlation",
+      "n": 30,
+      "value": "1/2",
+      "skewness": "3",
+      "exposure_skewness": "3",
+      "rate": 0.74965,
+      "runs": 20000
+    },
+    {
+      "kind": "correlation",
+      "n": 20,
+      "value": "0",
+      "skewness": "3",
+      "exposure_skewness": "3",
+      "rate": 0.04915,
+      "runs": 20000
+    },
+    {
+      "kind": "correlation",
+      "n": 10,
+      "value": "0",
+      "skewness": "4",
+      "exposure_skewness": "4",
+      "rate": 0.07085,
+      "runs": 20000
+    },
+    {
+      "kind": "correlation",
+      "n": 50,
+      "value": "-3/10",
+      "skewness": "0",
+      "exposure_skewness": "-2",
+      "rate": 0.5574,
+      "runs": 20000
+    },
+    {
+      "kind": "slope",
+      "n": 30,
+      "value": "1/2",
+      "exposure_sd": "4",
+      "residual_sd": "4",
+      "skewness": "2",
+      "exposure_skewness": "0",
+      "rate": 0.7417,
+      "runs": 20000
+    }
+  ]
+}

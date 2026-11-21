@@ -87,6 +87,14 @@
     "version": 1,
     "sha256": "8370f560d5cb77aa57fc4d791317f824651a15b333e1652bb45f6262387028e8"
   },
+  "simulation:slope_simulated": {
+    "version": 1,
+    "sha256": "b9de5c63228be6cced6e088174011a7161e8b411dcff45b06b0d68b10dc5477b"
+  },
+  "simulation:pearson_simulated": {
+    "version": 1,
+    "sha256": "be16b4d25d8e52aa995d02869ad6a750e5224f2105f2aa3030f77815adc00103"
+  },
   "power:hsieh_logistic_binary": {
     "version": 1,
     "sha256": "d8e1e619407e2be557de46abf0c2be3eca6803643a0b2e0aae591355c9191ca9"
@@ -145,6 +153,6 @@
   },
   "simulation:engine": {
     "version": 1,
-    "sha256": "7cec8a4ac08fce911655416a54ce1e4e49e87dca57860ac3cb509057a0a9f9a4"
+    "sha256": "73206b9949f505153ac7447aff60b917a7fffe4902de259b0b5fbb9e4141a8c4"
   }
 }

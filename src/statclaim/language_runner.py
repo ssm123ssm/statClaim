@@ -739,6 +739,10 @@ def _simulated_lines(details: dict) -> list[str]:
         lines.append(
             f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
             f"total = {calculation['total_sample_size']}"
+            if "n_control" in calculation
+            else f"  n = {calculation['total_sample_size']}; covariates = "
+            f"{calculation['covariates']}; degrees of freedom = "
+            f"{calculation['degrees_of_freedom']}"
         )
         if "clusters_control" in calculation:
             varied = calculation.get("cluster_size_cv")
