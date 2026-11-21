@@ -144,7 +144,7 @@ from statclaim.simulation import (
     MIN_RUNS,
 )
 
-LANGUAGE_VERSION = "0.37.0"
+LANGUAGE_VERSION = "0.38.0"
 
 
 class PlannableIR:
@@ -1186,6 +1186,34 @@ class PowerTargetIR(TargetIR):
     at: PlanningPointIR
     minimum: Fraction
     maximum_typeI: Fraction
+    # Where the Type I error is judged by simulation, for a design whose level is not proved.
+    nulls: "NullScenariosIR | None" = None
+
+
+@dataclass(frozen=True)
+class NullScenariosIR:
+    """Points at the null at which a design's simulated Type I error is judged: for a design
+    whose level is not proved, such as one that re-estimates its size."""
+
+    points: tuple[PlanningPointIR, ...]
+
+
+@dataclass(frozen=True)
+class ReestimationIR(PlannableIR):
+    """A two-arm Student t-test whose size per arm is re-estimated after interim_per_arm per
+    arm, from the variance of all outcomes with the arms pooled (blinded). The new size gives
+    power at the planned difference; it is never below the analysis's size per arm nor above
+    max_per_arm. Its Type I error is not proved: it is judged by simulation at declared nulls."""
+
+    analysis: "CitedAnalysisIR"
+    interim_per_arm: int
+    difference: Fraction
+    power: Fraction
+    max_per_arm: int
+
+    @property
+    def initial_per_arm(self) -> int:
+        return self.analysis.plan.model.n_control
 
 
 @dataclass(frozen=True)
@@ -2103,10 +2131,24 @@ def normalize(value: object) -> object:
                 "ratio": ratio,
             }
         case PowerTargetIR(at=point, minimum=minimum, maximum_typeI=maximum):
-            return {
+            target = {
                 "at": normalize(point),
                 "minimum_power": str(minimum),
                 "maximum_typeI": str(maximum),
+            }
+            if value.nulls is not None:
+                target["nulls"] = [normalize(null) for null in value.nulls.points]
+            return target
+        case NullScenariosIR(points=points):
+            return {"null_scenarios": [normalize(point) for point in points]}
+        case ReestimationIR(analysis=analysis):
+            return {
+                "rule": "blinded_reestimation",
+                "analysis": normalize(analysis),
+                "interim_per_arm": value.interim_per_arm,
+                "max_per_arm": value.max_per_arm,
+                "difference": str(value.difference),
+                "power": str(value.power),
             }
         case TwoStageModelIR(n_stage1=first, n_stage2=second):
             return {"module": "two_stage_binomial", "n_stage1": first, "n_stage2": second}
@@ -3579,6 +3621,15 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             "look by look.",
             claim.span,
         )
+    if claim.value.kind in ("meets", "sample_size") and isinstance(
+        planned_analysis(claim.value.subject), ReestimationIR
+    ):
+        fail(
+            "unsupported_claim",
+            "A re-estimated design has no power formula and no proved Type I error. Use "
+            "simulate(...), which judges both.",
+            claim.span,
+        )
     if getattr(point, "cluster_size_cv", None):
         fail(
             "unsupported_claim",
@@ -3783,11 +3834,82 @@ def _skews(arguments: dict[str, LocatedValue]) -> tuple:
 
 
 def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTargetIR:
+    nulls = arguments.get("nulls")
     return PowerTargetIR(
         arguments["at"].value,
         _probability(arguments["minimum"], "minimum", positive=True),
         arguments["maximum_typeI"].value,
+        None if nulls is None else nulls.value,
     )
+
+
+MAX_NULL_SCENARIOS = 20
+
+
+def _null_scenarios(arguments: dict[str, LocatedValue], span: Span) -> NullScenariosIR:
+    items = arguments["at"].value
+    if not 1 <= len(items) <= MAX_NULL_SCENARIOS:
+        fail(
+            "domain",
+            f"List between 1 and {MAX_NULL_SCENARIOS} null scenarios.",
+            arguments["at"].span,
+        )
+    for item in items:
+        if not isinstance(item.value, PlanningPointIR):
+            fail(
+                "type",
+                "Each null scenario is a planning point at the null, such as "
+                "mean_difference(value=0, sd=10).",
+                item.span,
+            )
+        if type(item.value) is not type(items[0].value):
+            fail("type", "Every null scenario must be the same kind of point.", item.span)
+    return NullScenariosIR(tuple(item.value for item in items))
+
+
+REESTIMATED_TESTS = ("t_test", "t_test_one_sided")
+
+
+def _reestimation(arguments: dict[str, LocatedValue], span: Span) -> ReestimationIR:
+    analysis = arguments["analysis"]
+    test = analysis.value
+    if not isinstance(test, CitedAnalysisIR) or test.method.key not in REESTIMATED_TESTS:
+        fail(
+            "unsupported_claim",
+            "Blinded re-estimation is simulated for Student's t-test: t_test or t_test_one_sided.",
+            analysis.span,
+        )
+    model = test.plan.model
+    if model.n_control != model.n_treatment:
+        fail(
+            "domain",
+            "Blinded re-estimation keeps the arms equal: give the analysis equal arm sizes.",
+            analysis.span,
+        )
+    interim, largest = arguments["interim_per_arm"], arguments["max_per_arm"]
+    if not 2 <= interim.value < model.n_control:
+        fail(
+            "domain",
+            f"interim_per_arm must be at least 2 and below the planned {model.n_control} per arm.",
+            interim.span,
+        )
+    if not model.n_control <= largest.value <= MAX_CITED_ARM:
+        fail(
+            "domain",
+            f"max_per_arm must lie from the planned {model.n_control} to {MAX_CITED_ARM}.",
+            largest.span,
+        )
+    difference = arguments["difference"]
+    if difference.value == 0:
+        fail(
+            "domain",
+            "The planned difference cannot be 0: no size would detect it.",
+            difference.span,
+        )
+    power = arguments["power"]
+    if not 0 < power.value < 1:
+        fail("domain", "power must lie strictly between 0 and 1.", power.span)
+    return ReestimationIR(test, interim.value, difference.value, power.value, largest.value)
 
 
 def _reference_and_other(
@@ -4345,6 +4467,18 @@ def _check_cited_association_point(
 def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> None:
     """The planning point must belong to the analysis's parameter space, outside its null."""
     point = target.value.at
+    if isinstance(analysis, ReestimationIR):
+        _check_reestimation_point(analysis, target)
+        _check_cited_point(analysis.analysis, target, where)
+        return
+    if getattr(target.value, "nulls", None) is not None:
+        fail(
+            "planning_point",
+            "null_scenarios are for a design whose Type I error is judged by simulation, such "
+            "as blinded_reestimation(...). This analysis's level is proved or cited; leave "
+            "nulls out.",
+            target.span,
+        )
     if isinstance(analysis, SequentialIR):
         _check_sequential(analysis, where)
         _check_cited_point(analysis.final, target, where)
@@ -4411,6 +4545,42 @@ def _residual_df(analysis: CitedAssociationIR, n: int) -> int:
     """Degrees of freedom left for a regression's error: n less the slope, the intercept and
     the covariates."""
     return n - len(analysis.covariates) - 2
+
+
+SIMULATION_SCENARIO = ("icc", "cluster_size_cv", "sd_treatment", "skewness")
+
+
+def _check_reestimation_point(design: ReestimationIR, target: LocatedValue) -> None:
+    """Normal outcomes with a common SD, and the nulls at which Type I error is judged."""
+    point, nulls = target.value.at, target.value.nulls
+    plain = (
+        "Blinded re-estimation is simulated for normal outcomes with a common SD: give "
+        "mean_difference(value=..., sd=...)"
+    )
+    if not isinstance(point, MeanDifferenceIR) or any(
+        getattr(point, name, None) is not None for name in SIMULATION_SCENARIO
+    ):
+        fail("planning_point", plain + ".", target.span)
+    if nulls is None:
+        fail(
+            "planning_point",
+            "The Type I error of a re-estimated design is not proved. List the nulls at which "
+            "to judge it: power_target(..., nulls=null_scenarios(at=[mean_difference(value="
+            f"{design.analysis.hypothesis.value}, sd=...), ...])).",
+            target.span,
+        )
+    for null in nulls.points:
+        if not isinstance(null, MeanDifferenceIR) or any(
+            getattr(null, name, None) is not None for name in SIMULATION_SCENARIO
+        ):
+            fail("planning_point", plain + " for each null scenario.", target.span)
+        if null.value != design.analysis.hypothesis.value:
+            fail(
+                "planning_point",
+                f"A null scenario lies on the null: its difference must be "
+                f"{design.analysis.hypothesis.value}, not {null.value}.",
+                target.span,
+            )
 
 
 def _check_sequential(analysis: SequentialIR, where: Span) -> None:
@@ -5171,7 +5341,8 @@ def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             claim.span,
         )
     if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject), (CitedAnalysisIR, CitedAssociationIR, SequentialIR)
+        planned_analysis(claim.value.subject),
+        (CitedAnalysisIR, CitedAssociationIR, SequentialIR, ReestimationIR),
     ):
         fail(
             "unsupported_claim",
@@ -5220,6 +5391,15 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         return _association_simulation(analysis, subject, arguments, claim)
     if isinstance(analysis, SequentialIR):
         return _sequential_simulation(analysis, subject, arguments, claim)
+    if isinstance(analysis, ReestimationIR):
+        if isinstance(subject, SizingIR):
+            fail(
+                "unsupported_claim",
+                "A re-estimated design chooses its own size; simulate meets(...) for it.",
+                claim.span,
+            )
+        simulation_settings(arguments)
+        return claim.value
     if not isinstance(analysis, CitedAnalysisIR):
         fail(
             "unsupported_claim",
@@ -6360,12 +6540,29 @@ MODULES = {
                 ),
                 _constructor(
                     "power_target",
-                    (("at", PlanningPointIR), ("minimum", "number"), ("maximum_typeI", "level")),
+                    (
+                        ("at", PlanningPointIR),
+                        ("minimum", "number"),
+                        ("maximum_typeI", "level"),
+                        ("nulls", NullScenariosIR, True),
+                    ),
                     "PowerTarget",
                     _power_target,
                     documentation="Require power of at least minimum at one planning point, "
                     "and a Type I error bound of at most maximum_typeI under the null. "
-                    "Power at this point is not a guarantee for other alternatives.",
+                    "Power at this point is not a guarantee for other alternatives. For a "
+                    "design whose level is not proved, nulls lists where simulate(...) judges "
+                    "its Type I error.",
+                ),
+                _constructor(
+                    "null_scenarios",
+                    (("at", "list"),),
+                    "NullScenarios",
+                    _null_scenarios,
+                    documentation="Points at the null, such as mean_difference(value=0, "
+                    "sd=10), at which simulate(...) judges the Type I error of a design whose "
+                    "level is not proved. Planning inputs; the error at other points is not "
+                    "claimed.",
                 ),
                 _constructor(
                     "meets",
@@ -6548,6 +6745,29 @@ MODULES = {
                     "assumed. The split is conservative.",
                 ),
                 TYPE_I,
+            ),
+        ),
+        Module(
+            "designs.adaptive",
+            (
+                _constructor(
+                    "blinded_reestimation",
+                    (
+                        ("analysis", CitedAnalysisIR),
+                        ("interim_per_arm", "integer"),
+                        ("difference", "number"),
+                        ("power", "number"),
+                        ("max_per_arm", "integer"),
+                    ),
+                    "Reestimation",
+                    _reestimation,
+                    documentation="Student's t-test whose size per arm is re-estimated after "
+                    "interim_per_arm per arm, from the variance of all outcomes with the arms "
+                    "pooled, so no one sees the groups. The new size gives power at the planned "
+                    "difference; it is never below the analysis's size per arm nor above "
+                    "max_per_arm. Its Type I error is not proved: simulate(...) judges it at "
+                    "the target's null scenarios.",
+                ),
             ),
         ),
         Module(

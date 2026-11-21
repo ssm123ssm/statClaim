@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Forty-one short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Forty-two short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li><li><a href="#survival-simulation"><span class="n">39</span>Survival trials by simulation</a></li><li><a href="#skewed-correlation"><span class="n">40</span>A correlation with skewed data</a></li><li><a href="#interim-power"><span class="n">41</span>What an interim look costs and saves</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li><li><a href="#survival-simulation"><span class="n">39</span>Survival trials by simulation</a></li><li><a href="#skewed-correlation"><span class="n">40</span>A correlation with skewed data</a></li><li><a href="#interim-power"><span class="n">41</span>What an interim look costs and saves</a></li><li><a href="#reestimation"><span class="n">42</span>Re-estimate the sample size</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -3222,6 +3222,72 @@ Lean (lesson 14). The power, the stopping rates and the expected size are estima
     <div class="task"><h4>Try it</h4><p>Spend half the level at each look. How do power and the expected size change?</p></div>
   </div>
 </section>
+<section class="lesson" id="reestimation">
+  <p class="eyebrow">Lesson 42</p>
+  <h2>Re-estimate the sample size</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>A sample size is only as good as the SD it was computed from. A blinded re-estimation looks at the SD halfway and adjusts the size. Its Type I error is not proved, so you declare where to check it, and simulation judges it there.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/42_reestimation.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 42: re-estimate the sample size when the SD is uncertain.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.t
+<span class="k">use</span> designs.adaptive
+<span class="k">use</span> planning
+
+<span class="c"># Planned for a difference of 5 with an SD of 10: 64 per arm gives 80% power.</span>
+<span class="k">let</span> study = <span class="f">two_arm_continuous</span>(n_control=64, n_treatment=64)
+<span class="k">let</span> final = <span class="f">t_test</span>(design=<span class="f">fixed</span>(model=study), null=<span class="f">equal_means</span>(model=study), alpha=1/20)
+
+<span class="c"># After 30 per arm, estimate the SD from everyone with the arms pooled (no one sees the</span>
+<span class="c"># groups) and recompute the size: never below 64 per arm, never above 200.</span>
+<span class="k">let</span> trial = <span class="f">blinded_reestimation</span>(analysis=final, interim_per_arm=30, difference=5, power=4/5, max_per_arm=200)
+
+<span class="c"># Its Type I error is not proved, so it is judged at null scenarios: SDs of 6, 10 and 14.</span>
+<span class="k">let</span> nulls = <span class="f">null_scenarios</span>(at=[<span class="f">mean_difference</span>(value=0, sd=6), <span class="f">mean_difference</span>(value=0, sd=10), <span class="f">mean_difference</span>(value=0, sd=14)])
+
+<span class="c"># Suppose the SD is really 14.</span>
+<span class="k">let</span> target = <span class="f">power_target</span>(at=<span class="f">mean_difference</span>(value=5, sd=14), minimum=3/4, maximum_typeI=3/40, nulls=nulls)
+<span class="k">let</span> adapted = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=trial, target=target), seed=2026)
+
+<span class="c"># The fixed design, for comparison.</span>
+<span class="k">let</span> fixed_target = <span class="f">power_target</span>(at=<span class="f">mean_difference</span>(value=5, sd=14), minimum=3/4, maximum_typeI=1/20)
+<span class="k">let</span> unadapted = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=final, target=fixed_target), seed=2026)</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>blinded_reestimation(...)</code></dt>
+  <dd>After 30 per arm, the SD is estimated from everyone together, without the groups, and
+  the size per arm is recomputed for a difference of 5 with 80% power, between 64 and 200.</dd>
+  <dt><code>null_scenarios(at=[...])</code></dt>
+  <dd>Points on the null where the Type I error is judged: SDs of 6, 10 and 14. They become
+  part of the claim, and the checker verifies each lies on the null.</dd>
+  <dt><code>nulls=nulls</code></dt>
+  <dd>The target is met only if the simulated Type I error is at most 3/40 at every
+  scenario.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">simulated</span> [adapted]: meets(trial)
+  re-estimated after 30 per arm, ending with 64 to 200 per arm; expected total ~ 254.4
+  Type I at sd 6 ~ 0.0507 (95% interval 0.0465 to 0.0552); expected total ~ 128.0
+  Type I at sd 10 ~ 0.0497 (95% interval 0.0455 to 0.0541); expected total ~ 136.4
+  Type I at sd 14 ~ 0.0477 (95% interval 0.0436 to 0.0521); expected total ~ 247.1
+  power ~ 0.7904 (95% interval 0.7823 to 0.7983); power target met = true
+  ...
+  decision = target_met; an estimate, not evidence.
+<span class="calc">simulated</span> [unadapted]: meets(final)
+  power ~ 0.5262 (95% interval 0.5164 to 0.5360); power target met = false
+  ...
+Program status: simulated</code></pre></div>
+<p>If the SD is really 14, the fixed design has only 53% power. The re-estimated design
+grows to about 127 per arm and keeps 79%. Its Type I error stays near 5% at every
+scenario. When the SD is smaller than planned, it stays at 64 per arm. A simulation in R
+gives the same rates and sizes within its Monte Carlo error.</p>
+<div class="note"><strong>Why the SD can be estimated blind.</strong> Pooling both arms
+inflates the variance by only a quarter of the squared difference, so the estimate barely
+depends on the treatment effect, and no one at the interim learns which arm is ahead.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>blinded_reestimation</code> adjusts the size to the SD seen at an interim look.</li><li>A design whose level is not proved lists <code>null_scenarios</code>.</li><li>Type I is judged at each one, and only there.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Add an SD of 20 to the null scenarios. Does the maximum of 200 per arm still give enough power at that SD?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -3256,6 +3322,7 @@ Lean (lesson 14). The power, the stopping rates and the expected size are estima
       <tr><td>Plan a logistic, modified Poisson, conditional logistic or Poisson rate regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
       <tr><td>Plan a complex survey</td><td><code>planning</code>, <code>tests.survey</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>design_effect</code> on the point, with <code>total_sizes</code></td><td>35</td></tr>
       <tr><td>Size a study for a margin of error</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code>, <code>sample_size</code> with <code>planned_interval</code>, <code>precision_target</code> and <code>interval_sizes</code></td><td>36</td></tr>
+      <tr><td>Re-estimate the sample size at an interim look, judging Type I at null scenarios</td><td><code>designs.adaptive</code>, <code>planning</code></td><td><code>blinded_reestimation</code>, <code>null_scenarios</code>, <code>simulate</code></td><td>42</td></tr>
       <tr><td>Simulate a trial with interim looks: power, stopping and expected size</td><td><code>planning</code>, <code>designs.group_sequential</code></td><td><code>simulate(meets(analysis=trial, ...))</code> for an <code>alpha_spending</code> design</td><td>41</td></tr>
       <tr><td>Simulate a correlation or a slope with skewed data</td><td><code>planning</code>, <code>tests.correlation</code></td><td><code>simulate</code> at <code>correlation</code> or <code>slope</code> with <code>skewness</code></td><td>40</td></tr>
       <tr><td>Simulate a survival trial, with an effect that starts late</td><td><code>planning</code>, <code>tests.survival</code></td><td><code>simulate</code> at <code>exponential_survival</code>, with <code>effect_delay</code></td><td>39</td></tr>

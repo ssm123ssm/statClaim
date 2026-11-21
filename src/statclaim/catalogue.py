@@ -125,6 +125,12 @@ MODULE_CLASSES = {
         "bound; each look's own bound is assumed. Conservative: it ignores the correlation "
         "between looks.",
     ),
+    "designs.adaptive": (
+        "Adaptive designs",
+        "Student's t-test whose size per arm is re-estimated at an interim look from the "
+        "blinded variance. Its Type I error is not proved; simulate(...) judges it at the "
+        "target's null scenarios.",
+    ),
     "designs.two_stage": (
         "Adaptive designs",
         "Single-arm two-stage binomial policy with an interim stop, using count thresholds "
@@ -277,6 +283,15 @@ OBJECT_CLASSES = {
     ),
     "IntervalCandidates": ("Planning objects", "Sizes searched for a planned interval."),
     "PowerTarget": ("Planning objects", "Required power at a point and a Type I bound."),
+    "NullScenarios": (
+        "Planning objects",
+        "Points at the null where a simulated Type I error is judged, for a design whose level "
+        "is not proved.",
+    ),
+    "Reestimation": (
+        "Adaptive design objects",
+        "Student's t-test with its size per arm re-estimated from the blinded interim variance.",
+    ),
     "Feasibility": ("Planning objects", "One analysis assessed against one target."),
     "Candidates": ("Planning objects", "Finite equal-arm design space for a search."),
     "Sizing": ("Planning objects", "Candidates searched for a design meeting a target."),

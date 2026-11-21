@@ -730,6 +730,13 @@ def _approximate_lines(details: dict) -> list[str]:
     return lines
 
 
+def _type_one_label(calculation: dict) -> str:
+    """At the null; for a design judged at several null scenarios, the worst of them."""
+    if "null_scenarios" in calculation:
+        return "worst Type I over the null scenarios"
+    return "Type I at the null"
+
+
 def _simulated_lines(details: dict) -> list[str]:
     """A simulated estimate: what was simulated, the numbers with intervals, and the basis."""
     calculation = details["calculation"]
@@ -744,6 +751,20 @@ def _simulated_lines(details: dict) -> list[str]:
             f"{calculation['covariates']}; degrees of freedom = "
             f"{calculation['degrees_of_freedom']}"
         )
+        if "null_scenarios" in calculation:
+            lines.append(
+                f"  re-estimated after {calculation['interim_per_arm']} per arm, ending with "
+                f"{calculation['initial_per_arm']} to {calculation['max_per_arm']} per arm; "
+                "expected total ~ "
+                f"{float(calculation['expected_sample_size']['decimal_approximation']):.1f}"
+            )
+            for null in calculation["null_scenarios"]:
+                lines.append(
+                    f"  Type I at sd {null['sd']['fraction']} ~ {show(null['typeI'])} (95% "
+                    f"interval {show(null['typeI_lower'])} to {show(null['typeI_upper'])}); "
+                    "expected total ~ "
+                    f"{float(null['expected_sample_size']['decimal_approximation']):.1f}"
+                )
         if "looks" in calculation:
             looks = calculation["looks"]
             lines.append(
@@ -778,7 +799,7 @@ def _simulated_lines(details: dict) -> list[str]:
             f"(95% interval {show(calculation['power_lower'])} to "
             f"{show(calculation['power_upper'])}); power target met = "
             f"{str(calculation['power_target_met']).lower()}",
-            f"  Type I at the null ~ {show(calculation['typeI'])} (95% interval "
+            f"  {_type_one_label(calculation)} ~ {show(calculation['typeI'])} (95% interval "
             f"{show(calculation['typeI_lower'])} to {show(calculation['typeI_upper'])}); "
             f"level {calculation['alpha']['fraction']}; Type I target met = "
             f"{str(calculation['typeI_target_met']).lower()}"

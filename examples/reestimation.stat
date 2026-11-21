@@ -1,0 +1,34 @@
+# Blinded sample-size re-estimation: the size per arm is recomputed from the SD seen at an
+# interim look, without unblinding. Its Type I error is not proved, so it is judged by
+# simulation at the null scenarios the target lists, and nowhere else.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use designs.adaptive
+use planning
+
+let study = two_arm_continuous(n_control=64, n_treatment=64)
+let final = t_test(design=fixed(model=study), null=equal_means(model=study), alpha=1/20)
+let trial = blinded_reestimation(
+    analysis=final,
+    interim_per_arm=30,
+    difference=5,
+    power=4/5,
+    max_per_arm=200,
+)
+let nulls = null_scenarios(
+    at=[
+        mean_difference(value=0, sd=6),
+        mean_difference(value=0, sd=10),
+        mean_difference(value=0, sd=14),
+    ],
+)
+let target = power_target(
+    at=mean_difference(value=5, sd=12),
+    minimum=3/4,
+    maximum_typeI=3/40,
+    nulls=nulls,
+)
+let claim = meets(analysis=trial, target=target)
+let simulated = simulate(claim, seed=2026)
+let expected_total = simulated.calculation.expected_sample_size

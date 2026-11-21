@@ -77,8 +77,10 @@
 - Simulated tests of a correlation or a regression slope with skewed data, cross-checked
   against cor.test and lm in R. Covariates and Spearman's test are not simulated yet.
 - Simulated power of t-tests at interim looks: stopping at each look and the expected
-  size, cross-checked against a raw-data simulation in R. Next: adaptive rules whose
-  Type I is judged over declared null scenarios.
+  size, cross-checked against a raw-data simulation in R.
+- Blinded sample-size re-estimation for Student's t-test, whose Type I error is judged
+  by simulation at null scenarios listed on the target, cross-checked against R. Next:
+  more adaptive rules (unblinded re-estimation, dropping an arm) on the same footing.
 - Precision targets: sample sizes for a margin of error, absolute or relative, with an
   optional assurance, for every interval StatClaim reports, and for surveys through the
   normal interval with a design effect and a finite population correction.

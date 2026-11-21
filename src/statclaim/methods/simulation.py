@@ -19,7 +19,9 @@ from statclaim.methods.assumptions import (
 )
 from statclaim.methods.core import SimulationModel
 from statclaim.simulation import (
+    KIESER_FRIEDE,
     REFERENCES,
+    blinded_reestimation_trial,
     cluster_trial,
     correlation_trial,
     log_rank_trial,
@@ -84,6 +86,23 @@ def _welch_looks(point, looks, null_value, side):
     return _two_means_looks(point, looks, null_value, side, welch=True)
 
 
+def _student_reestimated(point, rule, null_value, alpha, side):
+    """Student's t-test after blinded re-estimation of the size per arm."""
+    initial, interim, largest, difference, power = rule
+    return blinded_reestimation_trial(
+        point["value"],
+        point["sd"],
+        initial,
+        interim,
+        largest,
+        difference,
+        power,
+        null_value,
+        alpha,
+        side,
+    )
+
+
 def _student(point, n_control, n_treatment, null_value, alpha, side):
     """Student's pooled t-test on simulated outcomes of the declared scenario."""
     return _two_means(point, n_control, n_treatment, null_value, alpha, side, welch=False)
@@ -95,16 +114,18 @@ def _welch(point, n_control, n_treatment, null_value, alpha, side):
 
 
 # Version 2: also simulates unequal SDs and skewed outcomes. Version 3: designs with looks.
+# Version 4: blinded sample-size re-estimation.
 STUDENT = SimulationModel(
     key="normal_two_means_student",
     title="Student's t-test on simulated outcomes",
-    version=3,
+    version=4,
     point="mean_difference",
     trial=_student,
     scenario=_two_means_scenario,
     assumptions=(SIMULATED_TWO_MEANS, PLANNING_SD, MONTE_CARLO_ERROR),
-    references=(STUDENT_1908, *REFERENCES),
+    references=(STUDENT_1908, *REFERENCES, KIESER_FRIEDE),
     looks=_student_looks,
+    reestimation=_student_reestimated,
 )
 WELCH = SimulationModel(
     key="normal_two_means_welch",

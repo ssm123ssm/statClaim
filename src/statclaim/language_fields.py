@@ -51,6 +51,7 @@ from statclaim.language import (
     MeanDifferenceIR,
     ModelIR,
     NullIR,
+    NullScenariosIR,
     ObservationIR,
     ObservedEventsIR,
     OddsPerSdIR,
@@ -78,6 +79,7 @@ from statclaim.language import (
     RateRatioIR,
     RateResultIR,
     RatesIR,
+    ReestimationIR,
     RisksIR,
     RuleIR,
     SequentialIR,
@@ -347,6 +349,19 @@ SCHEMAS = {
     SequentialIR: {
         "looks": FieldSpec("list", attribute="analyses"),
         "alpha": FieldSpec(Fraction, description="Overall error level across all looks."),
+    },
+    NullScenariosIR: {
+        "scenarios": FieldSpec(
+            "list", attribute="points", description="The points at which Type I is judged."
+        ),
+    },
+    ReestimationIR: {
+        "analysis": FieldSpec(CitedAnalysisIR, description="The t-test run at the end."),
+        "interim_per_arm": FieldSpec(int, description="Where the size is re-estimated."),
+        "initial_per_arm": FieldSpec(int, description="The smallest size per arm."),
+        "max_per_arm": FieldSpec(int, description="The largest size per arm."),
+        "difference": FieldSpec(Fraction, description="The difference the new size is for."),
+        "power": FieldSpec(Fraction, description="The power the new size is for."),
     },
     FamilyIR: {
         "analyses": FieldSpec("list"),
@@ -854,6 +869,15 @@ SCHEMAS = {
         ),
         "expected_sample_size_null": FieldSpec(
             Fraction, optional=True, description="The same, under the null."
+        ),
+        "initial_per_arm": FieldSpec(
+            int, optional=True, description="A re-estimated design's smallest size per arm."
+        ),
+        "interim_per_arm": FieldSpec(
+            int, optional=True, description="Where a re-estimated design re-estimates."
+        ),
+        "max_per_arm": FieldSpec(
+            int, optional=True, description="A re-estimated design's largest size per arm."
         ),
         "typeI_judged": FieldSpec(
             bool,

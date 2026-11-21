@@ -448,7 +448,8 @@ simulated [estimate]: meets(analysis)
 Simulation covers the t-tests, Student's and Welch's, on normal outcomes with the
 planning SD in both arms or in the scenarios below, the t-tests on cluster summaries,
 the log-rank test from survival times, the tests of a correlation or a slope with
-skewed data, and t-tests repeated at interim looks. Other tests get
+skewed data, t-tests repeated at interim looks, and Student's t-test with its sample
+size re-estimated at an interim look. Other tests get
 `no_simulation_model`; exact tests are refused, since `calculate` gives their exact
 power. See lesson 28 of the tutorial.
 
@@ -573,6 +574,34 @@ let looked = simulate(meets(analysis=trial, target=target), seed=2026)
 
 A raw-data simulation in R that applies `t.test` at each look agrees within its Monte
 Carlo error (`replication/comparison/group_sequential_r.R`). See lesson 41.
+
+### Re-estimating the sample size
+
+`blinded_reestimation` (in `designs.adaptive`) wraps Student's t-test. After
+`interim_per_arm` per arm it estimates the variance from everyone with the arms pooled,
+so no one sees the groups (Kieser and Friede, 2003). It recomputes the size per arm for
+the planned `difference` and `power`, never below the analysis's size per arm nor above
+`max_per_arm`, and runs the t-test on everyone.
+
+```stat
+let trial = blinded_reestimation(analysis=final, interim_per_arm=30, difference=5,
+    power=4/5, max_per_arm=200)
+let nulls = null_scenarios(at=[mean_difference(value=0, sd=6),
+    mean_difference(value=0, sd=10), mean_difference(value=0, sd=14)])
+let target = power_target(at=mean_difference(value=5, sd=14), minimum=3/4,
+    maximum_typeI=3/40, nulls=nulls)
+let adapted = simulate(meets(analysis=trial, target=target), seed=2026)
+```
+
+Its Type I error is not proved, so the target must list null scenarios: points on the
+null, here different SDs. `simulate` estimates Type I at each one and judges each like
+power; the target is met only when every scenario's whole 95% interval is at or below
+`maximum_typeI`. Nothing is claimed at SDs not listed. The derivation records the rule
+and the scenarios, and the checker verifies that each lies on the null. The report gives
+power, each scenario's Type I and expected size, and the expected size at the planning
+point. `calculate` and `verify` refuse the claim, and `nulls` is refused for analyses
+whose level is proved or cited. A raw-data simulation in R agrees within its Monte Carlo
+error (`replication/comparison/reestimation_r.R`). See lesson 42.
 
 ## What is checked
 

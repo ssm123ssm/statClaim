@@ -1,0 +1,23 @@
+Blinded re-estimation after 30 per arm (64 to 200 per arm, difference 5, power 4/5),
+written to tests/fixtures/reestimation_r.json
+
+sd 6: Type I 0.0491 (mean 64.00 per arm); power at difference 5 0.9961 (mean 64.00 per arm); 20000 runs
+sd 10: Type I 0.0475 (mean 68.19 per arm); power at difference 5 0.8290 (mean 70.55 per arm); 20000 runs
+sd 14: Type I 0.0520 (mean 123.37 per arm); power at difference 5 0.7934 (mean 127.28 per arm); 20000 runs
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

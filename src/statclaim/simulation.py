@@ -18,6 +18,7 @@ import math
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
+from fractions import Fraction
 from statistics import NormalDist
 
 ENGINE_VERSION = 1
@@ -621,3 +622,99 @@ def sequential_two_means_trial(
         return None
 
     return study
+
+
+KIESER_FRIEDE = (
+    "Kieser, M. and Friede, T. (2003). Simple procedures for blinded sample size adjustment "
+    "that do not affect the type I error rate. Statistics in Medicine 22(23), 3571-3581."
+)
+
+
+def reestimated_size(variance: float, difference: float, power: float, tail: float) -> int:
+    """Participants per arm for a normal approximation at this variance: the ceiling of
+    2 variance (z_(1 - tail) + z_power)^2 / difference^2."""
+    normal = NormalDist()
+    z = normal.inv_cdf(1.0 - tail) + normal.inv_cdf(power)
+    return math.ceil(2.0 * variance * z * z / (difference * difference))
+
+
+def blinded_reestimation_trial(
+    difference: float,
+    sd: float,
+    initial: int,
+    interim: int,
+    largest: int,
+    planned_difference: float,
+    power: float,
+    null_value: float,
+    alpha: float,
+    side: str,
+) -> Callable[[Stream], tuple[bool, int]]:
+    """One simulated trial with blinded sample-size re-estimation: does Student's t-test
+    reject, and how many participants per arm did the trial end with?
+
+    After `interim` participants per arm, the variance is estimated from all of them with
+    the arms pooled (the one-sample variance, which needs no unblinding), and the size per
+    arm is recomputed for `planned_difference` and `power`. The trial never ends below the
+    `initial` size per arm nor above `largest`. Normal outcomes are drawn as each stage's
+    summaries; the final test uses every participant at level alpha.
+    """
+    if side not in SIDES:
+        raise ValueError(f"Unknown side {side!r}.")
+    tail = alpha / 2.0 if side == "both" else alpha
+    means = (0.0, difference)
+    normal = NormalDist()
+    z = normal.inv_cdf(1.0 - tail) + normal.inv_cdf(power)
+    factor = 2.0 * z * z / (planned_difference * planned_difference)
+    criticals: dict[int, float] = {}  # by the final size per arm
+
+    def stage(stream: Stream, arm: int, m: int) -> tuple[float, float]:
+        mean = means[arm] + sd / math.sqrt(m) * stream.normal()
+        return mean, sd * sd * stream.chi_square(m - 1) if m > 1 else 0.0
+
+    def study(stream: Stream) -> tuple[bool, int]:
+        first = [stage(stream, arm, interim) for arm in (0, 1)]
+        (mean_c, ss_c), (mean_t, ss_t) = first
+        lumped = (ss_c + ss_t + interim * (mean_c - mean_t) ** 2 / 2.0) / (2 * interim - 1)
+        n = min(max(math.ceil(factor * lumped), initial), largest)
+        totals = []
+        for arm, (mean, ss) in enumerate(first):
+            m = n - interim
+            if m > 0:
+                later, later_ss = stage(stream, arm, m)
+                ss += later_ss + interim * m / n * (mean - later) ** 2
+                mean = (interim * mean + m * later) / n
+            totals.append((mean, ss))
+        (mean_c, ss_c), (mean_t, ss_t) = totals
+        df = 2 * n - 2
+        pooled = (ss_c + ss_t) / df * (2.0 / n)
+        t = (mean_t - mean_c - null_value) / math.sqrt(pooled)
+        critical = criticals.get(n)
+        if critical is None:
+            critical = criticals[n] = t_quantile(1.0 - tail, df)
+        if side == "higher":
+            return t > critical, n
+        if side == "lower":
+            return t < -critical, n
+        return abs(t) > critical, n
+
+    return study
+
+
+@dataclass(frozen=True)
+class SizedEstimate:
+    """Rejections in `runs` simulated trials of varying size, and their mean size per arm."""
+
+    found: Estimate
+    mean_per_arm: Fraction
+
+
+def estimate_sized(trial: Callable[[Stream], tuple[bool, int]], runs: int, stream: Stream):
+    rejected, sizes = 0, 0
+    for _ in range(runs):
+        rejects, n = trial(stream)
+        rejected += rejects
+        sizes += n
+    return SizedEstimate(
+        Estimate(rejected, runs, *clopper_pearson(rejected, runs)), Fraction(sizes, runs)
+    )

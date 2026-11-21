@@ -12,6 +12,10 @@ study has a total and covariates. A design with interim looks draws each study s
 stage and stops at the first look that rejects; its report adds how often each look
 stopped the trial and the expected sample size, at the planning point and at the null.
 
+A design that re-estimates its size has no proved level, so its Type I error is simulated
+at every null scenario the target lists and judged at each; the report gives each one's
+estimate and expected size.
+
 A size passes when the whole 95% interval for its power is at or above the target. A
 sample-size search goes up from the smallest size and simulates every size it passes, so
 nothing assumes that power rises with the sample size. The first size that passes is
@@ -44,6 +48,7 @@ from statclaim.language import (
     ClusterCandidatesIR,
     FeasibilityIR,
     PowerTargetIR,
+    ReestimationIR,
     SequentialIR,
     SimulationIR,
     clustered_test,
@@ -51,6 +56,7 @@ from statclaim.language import (
     planned_analysis,
 )
 from statclaim.methods import NULL_FORMS
+from statclaim.methods.assumptions import REESTIMATION_TYPE_I
 from statclaim.methods.identify import identify, mark
 from statclaim.report import planning_report
 
@@ -84,8 +90,101 @@ def _observational(analysis) -> bool:
 
 
 def _method(analysis):
-    """The cited method simulated: the test's, or for a design with looks, the looks' test."""
-    return analysis.final.method if isinstance(analysis, SequentialIR) else analysis.method
+    """The cited method simulated: the test's, or for a design with looks or a re-estimated
+    design, the test it runs."""
+    if isinstance(analysis, SequentialIR):
+        return analysis.final.method
+    if isinstance(analysis, ReestimationIR):
+        return analysis.analysis.method
+    return analysis.method
+
+
+def _reestimation_evaluate(
+    design: ReestimationIR, target: PowerTargetIR, settings: SimulationIR
+) -> dict:
+    """Power at the planning point, and Type I error at each null scenario, judged at each."""
+    analysis = design.analysis
+    model = analysis.method.simulation
+    rule = (
+        design.initial_per_arm,
+        design.interim_per_arm,
+        design.max_per_arm,
+        float(design.difference),
+        float(design.power),
+    )
+    labels = (*rule[:3], str(design.difference), str(design.power))
+    null_value = float(analysis.hypothesis.value)
+    side = NULL_FORMS[analysis.hypothesis.predicate][1].favours or "both"
+
+    def run(point, *stream):
+        trial = model.reestimation(
+            _point_values(analysis, point), rule, null_value, float(analysis.alpha), side
+        )
+        return engine.estimate_sized(
+            trial, settings.runs, engine.Stream(settings.seed, *stream, *labels)
+        )
+
+    power = run(target.at, "power")
+    maximum = float(target.maximum_typeI)
+    nulls = []
+    for index, point in enumerate(target.nulls.points):
+        sized = run(point, "typeI", index)
+        found = sized.found
+        nulls.append(
+            {
+                "sd": fraction_record(point.sd),
+                "typeI": _rate(found),
+                "typeI_lower": _bound(found.lower, "down"),
+                "typeI_upper": _bound(found.upper, "up"),
+                "typeI_rejected": found.rejected,
+                "typeI_target_met": found.upper <= maximum,
+                "expected_sample_size": fraction_record(2 * sized.mean_per_arm),
+                "_estimate": found,
+            }
+        )
+    worst = max(nulls, key=lambda item: item["_estimate"].upper)
+    met = all(item["typeI_target_met"] for item in nulls)
+    settled = met or any(item["_estimate"].lower > maximum for item in nulls)
+    for item in nulls:
+        del item["_estimate"]
+    found = power.found
+    power_met = _passes(found, target.minimum)
+    return {
+        "n_control": design.initial_per_arm,
+        "n_treatment": design.initial_per_arm,
+        "total_sample_size": 2 * design.initial_per_arm,
+        "initial_per_arm": design.initial_per_arm,
+        "interim_per_arm": design.interim_per_arm,
+        "max_per_arm": design.max_per_arm,
+        "expected_sample_size": fraction_record(2 * power.mean_per_arm),
+        "null_scenarios": nulls,
+        "power": _rate(found),
+        "power_lower": _bound(found.lower, "down"),
+        "power_upper": _bound(found.upper, "up"),
+        "power_rejected": found.rejected,
+        "minimum_power": fraction_record(target.minimum),
+        "power_target_met": power_met,
+        "power_settled": power_met or found.upper < float(target.minimum),
+        "typeI": worst["typeI"],
+        "typeI_lower": worst["typeI_lower"],
+        "typeI_upper": worst["typeI_upper"],
+        "typeI_rejected": worst["typeI_rejected"],
+        "alpha": fraction_record(analysis.alpha),
+        "maximum_typeI": fraction_record(target.maximum_typeI),
+        "typeI_target_met": met,
+        "typeI_settled": settled,
+        "typeI_judged": True,
+        "runs": settings.runs,
+        "seed": settings.seed,
+        "stream": "power",
+        "scenario": model.scenario(_point_values(analysis, target.at)),
+        "model": model.key,
+        "model_version": model.version,
+        "engine_version": engine.ENGINE_VERSION,
+        "generator": engine.GENERATOR,
+        "interval": INTERVAL,
+        "note": ESTIMATE,
+    }
 
 
 def _point_values(analysis, point, cluster_sizes=None) -> dict[str, float]:
@@ -330,9 +429,15 @@ def evaluate(
 
 def assumptions(analysis) -> list[dict]:
     """The test's own assumptions, then the simulation's, then the planning point's."""
-    test = analysis.final if isinstance(analysis, SequentialIR) else analysis
+    test = analysis
+    if isinstance(analysis, SequentialIR):
+        test = analysis.final
+    elif isinstance(analysis, ReestimationIR):
+        test = analysis.analysis
     model = _method(analysis).simulation
     items = [mark(item) for item in (*test.assumptions, *model.assumptions)]
+    if isinstance(analysis, ReestimationIR):
+        items.append(mark(REESTIMATION_TYPE_I))
     return [*items, identify(PLANNING_POINT)]
 
 
@@ -353,12 +458,19 @@ def _goal(analysis, target: PowerTargetIR) -> str:
     point, observational = target.at, _observational(analysis)
     words = association_planning.describe_point(point) if observational else describe_point(point)
     level = "the design's level" if isinstance(analysis, SequentialIR) else "the test's level"
-    typeI = (
-        f"simulated Type I at most {target.maximum_typeI}, judged like power since the "
-        "scenario leaves the test's theory"
-        if departs(point)
-        else f"{level} {analysis.alpha} at most {target.maximum_typeI}"
-    )
+    if isinstance(analysis, ReestimationIR):
+        sds = ", ".join(str(null.sd) for null in target.nulls.points)
+        typeI = (
+            f"simulated Type I at most {target.maximum_typeI} at each null scenario (standard "
+            f"deviation {sds}), judged since the re-estimated design's level is not proved"
+        )
+    elif departs(point):
+        typeI = (
+            f"simulated Type I at most {target.maximum_typeI}, judged like power since the "
+            "scenario leaves the test's theory"
+        )
+    else:
+        typeI = f"{level} {analysis.alpha} at most {target.maximum_typeI}"
     return (
         f"power at least {target.minimum} at {words}{_scenario_words(point, observational)}, "
         f"and {typeI}"
@@ -369,6 +481,14 @@ def _statement(subject, analysis, target: PowerTargetIR, runs: str) -> str:
     """What will be simulated: the declared study, or a search and its range."""
     title, goal = _method(analysis).title, _goal(analysis, target)
     if isinstance(subject, FeasibilityIR):
+        if isinstance(analysis, ReestimationIR):
+            return (
+                f"{title} with blinded sample-size re-estimation after "
+                f"{analysis.interim_per_arm} per arm, ending with {analysis.initial_per_arm} to "
+                f"{analysis.max_per_arm} per arm, sized for a difference of "
+                f"{analysis.difference} with power {analysis.power}: {goal}, estimated from "
+                f"{runs} at each point."
+            )
         if isinstance(analysis, SequentialIR):
             looks = ", ".join(
                 f"({look.plan.model.n_control}, {look.plan.model.n_treatment}) at {look.alpha}"
@@ -454,6 +574,11 @@ def run(report: dict, subject, settings: SimulationIR) -> dict:
     """Estimate power at the declared sizes, or search up the range for the first size that
     passes, and confirm it with an independent run."""
     analysis, target = planned_analysis(subject), subject.target
+    if isinstance(analysis, ReestimationIR):
+        calculation = _reestimation_evaluate(analysis, target, settings)
+        report["calculation"] = calculation
+        report["decision"] = _decision(calculation)
+        return report
     if isinstance(subject, FeasibilityIR):
         calculation = evaluate(analysis, target, _declared(analysis, target), settings, "power")
         report["calculation"] = calculation

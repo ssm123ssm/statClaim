@@ -1,0 +1,37 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "design": {
+    "initial": 64,
+    "interim": 30,
+    "largest": 200,
+    "difference": "5",
+    "power": "4/5",
+    "alpha": "1/20"
+  },
+  "scenarios": [
+    {
+      "sd": 6,
+      "typeI": 0.04905,
+      "null_per_arm": 64,
+      "power": 0.99615,
+      "power_per_arm": 64,
+      "runs": 20000
+    },
+    {
+      "sd": 10,
+      "typeI": 0.0475,
+      "null_per_arm": 68.1868,
+      "power": 0.829,
+      "power_per_arm": 70.55315,
+      "runs": 20000
+    },
+    {
+      "sd": 14,
+      "typeI": 0.05195,
+      "null_per_arm": 123.3749,
+      "power": 0.7934,
+      "power_per_arm": 127.285,
+      "runs": 20000
+    }
+  ]
+}

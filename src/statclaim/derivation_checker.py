@@ -59,6 +59,7 @@ from statclaim.methods.assumptions import (
     PRESPECIFIED_GRAPH,
     PRESPECIFIED_LOOKS,
     PRESPECIFIED_ORDER,
+    REESTIMATION_TYPE_I,
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
@@ -746,6 +747,102 @@ def _cited_association_planning_expected(name: str, subject: dict, search, analy
     return steps, obligations, assumptions
 
 
+REESTIMATED_TESTS = ("t_test", "t_test_one_sided")
+PLAIN_MEAN_DIFFERENCE = {"mean_difference", "sd"}
+
+
+def _reestimation_planning_expected(name: str, subject: dict, search, design: dict):
+    """Simulated power and Type I error of a re-estimated design: its t-test's contract, the
+    rule's bounds, the model's point, and nulls that each lie on the null."""
+    if search is not None:
+        raise ValueError("a re-estimated design chooses its own size; it is not searched")
+    analysis = design["analysis"]
+    method = _method(analysis)
+    if method is None or method.key not in REESTIMATED_TESTS or method.simulation is None:
+        raise ValueError("blinded re-estimation is simulated for Student's t-test only")
+    model = method.simulation
+    if model.reestimation is None:
+        raise ValueError("the test's simulation model does not re-estimate sizes")
+    inner = f"{name}.analysis"
+    steps, _, test_assumptions, _ = _cited_expected(
+        inner, analysis, f"{method.module}/{method.key}"
+    )
+    used = [len(steps) - 1]
+    sizes = analysis["design"]["model"]
+    initial = sizes["n_control"]
+    interim, largest = design["interim_per_arm"], design["max_per_arm"]
+    rule = {
+        "subject": name,
+        "interim_per_arm": interim,
+        "initial_per_arm": initial,
+        "max_per_arm": largest,
+        "difference": design["difference"],
+        "power": design["power"],
+    }
+    rule_valid = (
+        sizes["n_treatment"] == initial
+        and _whole(interim, 2)
+        and interim < initial
+        and _whole(largest, initial)
+        and largest <= CITED_ARM_LIMIT
+        and Fraction(design["difference"]) != 0
+        and 0 < Fraction(design["power"]) < 1
+    )
+    steps.append(("reestimation-rule", rule, rule_valid, ()))
+    target, point = subject["target"], subject["target"]["at"]
+    facts = {
+        "subject": name,
+        "method": method.key,
+        "model": model.key,
+        "version": model.version,
+        "point": point,
+    }
+    plain = set(point) == PLAIN_MEAN_DIFFERENCE and Fraction(point["sd"]) > 0
+    steps.append(("simulation-model", facts, plain, ()))
+    null = analysis["null"]
+    statement = _null_statement(null)
+    margin = Fraction(null.get("value", "0"))
+    nulls = target.get("nulls") or []
+    on_null = 1 <= len(nulls) <= 20 and all(
+        set(item) == PLAIN_MEAN_DIFFERENCE
+        and Fraction(item["sd"]) > 0
+        and Fraction(item["mean_difference"]) == margin
+        for item in nulls
+    )
+    steps.append(
+        (
+            "null-scenarios",
+            {"subject": name, "count": len(nulls), "nulls": nulls, "null": statement},
+            on_null,
+            (),
+        )
+    )
+    effect = Fraction(point["mean_difference"])
+    outside = {"higher": effect > margin, "lower": effect < margin, None: effect != margin}[
+        _favours(null)
+    ]
+    steps.append(("alternative", {"subject": name, "point": point, "null": statement}, outside, ()))
+    minimum, maximum = target["minimum_power"], target["maximum_typeI"]
+    steps.append(
+        (
+            "target-range",
+            {"subject": name, "minimum": minimum, "maximum_typeI": maximum},
+            0 < Fraction(minimum) <= 1 and _probability(maximum),
+            (),
+        )
+    )
+    used += [len(steps) - 5, len(steps) - 4, len(steps) - 3, len(steps) - 2, len(steps) - 1]
+    steps.append(("adaptive-planning-contract", {"subject": name}, True, tuple(used)))
+    obligations = [_sampling_expectation(inner, analysis)]
+    assumptions = (
+        *test_assumptions,
+        *(item.text for item in model.assumptions),
+        REESTIMATION_TYPE_I.text,
+        PLANNING_POINT_ASSUMPTION,
+    )
+    return steps, obligations, assumptions
+
+
 def _sequential_planning_expected(name: str, subject: dict, search, design: dict):
     """Simulated power of a design with looks: its looks form one sequential test, re-derived
     as for typeI(...), and their test has a simulation model for looks at this point."""
@@ -1115,6 +1212,8 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
     analysis = subject["analysis"] if search is None else search.get("analysis")
     if analysis is not None and analysis.get("method") == "alpha_spending":
         return _sequential_planning_expected(name, subject, search, analysis)
+    if analysis is not None and analysis.get("rule") == "blinded_reestimation":
+        return _reestimation_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("test") in METHODS:
         return _cited_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("test") in OBSERVATIONAL_METHODS:

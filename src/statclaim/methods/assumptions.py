@@ -343,3 +343,9 @@ SIMULATED_ASSOCIATION = Assumption(
     "exposure, with the planning correlation or slope; other shapes may give other power and "
     "Type I error.",
 )
+REESTIMATION_TYPE_I = Assumption(
+    "reestimation_type_i",
+    "monte_carlo",
+    "The re-estimated design's Type I error is not proved. It is judged by simulation at the "
+    "declared null scenarios only; at other values of the standard deviation it may differ.",
+)

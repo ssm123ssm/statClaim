@@ -38,6 +38,7 @@ from statclaim.language import (
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RatesIR,
+    ReestimationIR,
     SequentialIR,
     TotalCandidatesIR,
     TwoStageAnalysisIR,
@@ -48,6 +49,7 @@ from statclaim.language import (
     planned_analysis,
 )
 from statclaim.matched import matched_assumptions
+from statclaim.methods.assumptions import REESTIMATION_TYPE_I
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
 from statclaim.precision import MEASURES as PLANNED_KINDS
 from statclaim.precision import assumptions as precision_assumptions
@@ -333,6 +335,23 @@ RULES = {
         "point is the kind it takes, with valid values.",
         "{subject}: {method} has the simulation model {model} (version {version}) for this "
         "planning point.",
+    ),
+    "reestimation-rule": Rule(
+        "The re-estimation rule is well formed: an interim look of at least 2 per arm before "
+        "the planned size, a maximum at or above it, a non-zero planned difference, and power "
+        "strictly between 0 and 1.",
+        "{subject}: the size is re-estimated after {interim_per_arm} per arm, between "
+        "{initial_per_arm} and {max_per_arm} per arm, for a difference of {difference} with "
+        "power {power}.",
+    ),
+    "null-scenarios": Rule(
+        "Each null scenario is a valid point on the analysis's null.",
+        "{subject}: Type I error is judged at {count} null scenarios on the null {null}.",
+    ),
+    "adaptive-planning-contract": Rule(
+        "The cited-contract, reestimation-rule, simulation-model, null-scenarios, alternative "
+        "and target-range rules hold.",
+        "{subject}: power and Type I error can be simulated for this re-estimated design.",
     ),
     "sequential-planning-contract": Rule(
         "The sequential-contract, simulation-model, alternative and target-range rules hold.",
@@ -1299,6 +1318,75 @@ def derive_sequential_planning(name: str, claim: ClaimIR, design: SequentialIR) 
     )
 
 
+def derive_reestimation_planning(name: str, claim: ClaimIR, design: ReestimationIR) -> Derivation:
+    """Simulated power and Type I error of a re-estimated design: its t-test fits, the rule is
+    well formed, the model takes the point, and each null scenario lies on the null."""
+    target, inner = claim.subject.target, f"{name}.analysis"
+    analysis = design.analysis
+    model, point = analysis.method.simulation, normalize(target.at)
+    builder = _Builder()
+    used = [
+        _cited_steps(builder, inner, analysis),
+        builder.apply(
+            "reestimation-rule",
+            {
+                "subject": name,
+                "interim_per_arm": design.interim_per_arm,
+                "initial_per_arm": design.initial_per_arm,
+                "max_per_arm": design.max_per_arm,
+                "difference": str(design.difference),
+                "power": str(design.power),
+            },
+        ),
+        builder.apply(
+            "simulation-model",
+            {
+                "subject": name,
+                "method": analysis.method.key,
+                "model": model.key,
+                "version": model.version,
+                "point": point,
+            },
+        ),
+        builder.apply(
+            "null-scenarios",
+            {
+                "subject": name,
+                "count": len(target.nulls.points),
+                "nulls": [normalize(null) for null in target.nulls.points],
+                "null": analysis.hypothesis.statement,
+            },
+        ),
+        builder.apply(
+            "alternative",
+            {"subject": name, "point": point, "null": analysis.hypothesis.statement},
+        ),
+        builder.apply(
+            "target-range",
+            {
+                "subject": name,
+                "minimum": str(target.minimum),
+                "maximum_typeI": str(target.maximum_typeI),
+            },
+        ),
+    ]
+    final = builder.apply("adaptive-planning-contract", {"subject": name}, tuple(used))
+    _sampling(builder, inner, analysis)
+    return Derivation(
+        name,
+        f"planning/{claim.kind}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        (
+            *(item.text for item in (*analysis.assumptions, *model.assumptions)),
+            REESTIMATION_TYPE_I.text,
+            PLANNING_POINT_ASSUMPTION,
+        ),
+        tuple(builder.obligations),
+        normalize(claim),
+    )
+
+
 def derive_cited_association_planning(
     name: str, claim: ClaimIR, analysis: CitedAssociationIR
 ) -> Derivation:
@@ -1481,6 +1569,8 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
         analysis = search.analysis
     if isinstance(analysis, SequentialIR):
         return derive_sequential_planning(name, claim, analysis)
+    if isinstance(analysis, ReestimationIR):
+        return derive_reestimation_planning(name, claim, analysis)
     if isinstance(analysis, CitedAnalysisIR):
         return derive_cited_planning(name, claim, analysis)
     if isinstance(analysis, CitedAssociationIR):

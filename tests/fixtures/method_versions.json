@@ -68,8 +68,8 @@
     "sha256": "4f49c397ba42cfb8f6c2dcab325b9049437a95470f0ef7d4fd713202dc72736b"
   },
   "simulation:normal_two_means_student": {
-    "version": 3,
-    "sha256": "d191825993eda5ffc74fa133610a1365f1eeae64661108d0da7d3d78356e1acd"
+    "version": 4,
+    "sha256": "3ef2f32a4be4cdf68e098aaff363c031095268d2d3c838c54adac7ae68476a7c"
   },
   "simulation:normal_two_means_welch": {
     "version": 3,
@@ -153,6 +153,6 @@
   },
   "simulation:engine": {
     "version": 1,
-    "sha256": "bfa05c67ed610c06d99b16ac791b6a3475eeb90d128c12bf16124059e4332d10"
+    "sha256": "bb321e3bb768de5cc6b4c9125adf0003489bd5fb79f1f14c8050cdf8491e40cd"
   }
 }

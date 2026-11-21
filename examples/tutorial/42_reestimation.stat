@@ -1,0 +1,25 @@
+# Lesson 42: re-estimate the sample size when the SD is uncertain.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use designs.adaptive
+use planning
+
+# Planned for a difference of 5 with an SD of 10: 64 per arm gives 80% power.
+let study = two_arm_continuous(n_control=64, n_treatment=64)
+let final = t_test(design=fixed(model=study), null=equal_means(model=study), alpha=1/20)
+
+# After 30 per arm, estimate the SD from everyone with the arms pooled (no one sees the
+# groups) and recompute the size: never below 64 per arm, never above 200.
+let trial = blinded_reestimation(analysis=final, interim_per_arm=30, difference=5, power=4/5, max_per_arm=200)
+
+# Its Type I error is not proved, so it is judged at null scenarios: SDs of 6, 10 and 14.
+let nulls = null_scenarios(at=[mean_difference(value=0, sd=6), mean_difference(value=0, sd=10), mean_difference(value=0, sd=14)])
+
+# Suppose the SD is really 14.
+let target = power_target(at=mean_difference(value=5, sd=14), minimum=3/4, maximum_typeI=3/40, nulls=nulls)
+let adapted = simulate(meets(analysis=trial, target=target), seed=2026)
+
+# The fixed design, for comparison.
+let fixed_target = power_target(at=mean_difference(value=5, sd=14), minimum=3/4, maximum_typeI=1/20)
+let unadapted = simulate(meets(analysis=final, target=fixed_target), seed=2026)
