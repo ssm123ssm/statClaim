@@ -224,11 +224,13 @@ NORMAL_APPROXIMATION_POWER = Assumption(
     "Power comes from a normal approximation to the test statistic, with its variance at "
     "the planning values. It is an approximation, not a bound.",
 )
-SIMULATED_NORMAL = Assumption(
-    "simulated_normal_outcomes",
+SIMULATED_TWO_MEANS = Assumption(
+    "simulated_two_means",
     "monte_carlo",
-    "The simulation draws normal outcomes with the planning standard deviation in both arms. "
-    "Power for outcomes with another distribution or unequal spreads may differ.",
+    "The simulation draws normal outcomes with the planning standard deviation in both arms, "
+    "or the declared scenario: with sd_treatment, each arm its own SD; with skewness, a gamma "
+    "distribution shifted and scaled to the arm's mean and SD, mirrored when the skewness is "
+    "negative. Outcomes with another distribution may give other power and Type I error.",
 )
 MONTE_CARLO_ERROR = Assumption(
     "monte_carlo_error",

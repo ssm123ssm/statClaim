@@ -1,9 +1,10 @@
 """Monte Carlo estimates of rejection rates: estimates with Monte Carlo error, never proofs.
 
-Each simulated study draws its summary statistics directly, so one run costs the same at
-any sample size: the difference in means is normal and each sum of squares is a scaled
-chi-square, as they are for normal outcomes. The test is then applied exactly as it would
-be to the data: Student's pooled t-test or Welch's test, with t quantiles, not normal ones.
+For normal outcomes each simulated study draws its summary statistics directly, so one run
+costs the same at any sample size: the difference in means is normal and each sum of
+squares is a scaled chi-square. Skewed outcomes are drawn participant by participant. The
+test is then applied exactly as it would be to the data: Student's pooled t-test or
+Welch's test, with t quantiles, not normal ones.
 
 Reproducible by construction. A stream is seeded from SHA-256 of the seed and a label, and
 only `random.Random(...).random()` is used, the part of Python's generator that Python
@@ -28,6 +29,11 @@ MAX_RUNS = 200_000
 # A sample-size search may simulate at most this many studies, so a run stays within
 # about half a minute.
 MAX_SIMULATED_STUDIES = 20_000_000
+# Skewed outcomes are drawn one participant at a time, about 4 million a second. The check
+# counts each size of a search once and one confirmation; more confirmations, when Type I
+# fails at sizes whose power passes, can take longer.
+MAX_SIMULATED_PARTICIPANTS = 120_000_000
+MAX_SKEWNESS = 4  # a gamma shape of at least 1/4
 
 MARSAGLIA_BRAY = (
     "Marsaglia, G. and Bray, T. A. (1964). A convenient method for generating normal "
@@ -273,61 +279,127 @@ def two_means_trial(
     alpha: float,
     side: str,
     welch: bool,
+    *,
+    sd_treatment: float | None = None,
+    skewness: float = 0.0,
 ) -> Callable[[Stream], bool]:
-    """One simulated study of normal outcomes with a common SD: does the t-test reject?
+    """One simulated study of two arms: does the t-test reject?
 
     `side` is "higher" (the null says the difference is at most null_value), "lower" (at
-    least) or "both" (equal). The pooled test uses n_control + n_treatment - 2 degrees of
-    freedom; Welch's uses the Welch-Satterthwaite degrees of freedom of each study.
+    least) or "both" (equal). `sd` is the control arm's SD, and the treatment arm's unless
+    `sd_treatment` is given. With `skewness`, each arm's outcomes are a gamma distribution
+    shifted and scaled to the arm's mean and SD, mirrored when the skewness is negative.
+    The pooled test uses n_control + n_treatment - 2 degrees of freedom; Welch's uses the
+    Welch-Satterthwaite degrees of freedom of each study.
     """
     if side not in SIDES:
         raise ValueError(f"Unknown side {side!r}.")
-    if sd <= 0:
+    sd_t = sd if sd_treatment is None else sd_treatment
+    if sd <= 0 or sd_t <= 0:
         raise ValueError("A t-test needs a positive standard deviation.")
     if welch and min(n_control, n_treatment) < 2 or min(n_control, n_treatment) < 1:
         raise ValueError("Welch's test needs two participants per arm; Student's, one.")
     if n_control + n_treatment < 3:
         raise ValueError("A t-test needs at least three participants in all.")
-    spread = sd * math.sqrt(1.0 / n_control + 1.0 / n_treatment)
+    equal = sd_t == sd
+    # Kept as it was for equal SDs, so a seed gives the same numbers as before.
+    spread = (
+        sd * math.sqrt(1.0 / n_control + 1.0 / n_treatment)
+        if equal
+        else math.sqrt(sd * sd / n_control + sd_t * sd_t / n_treatment)
+    )
     tail = alpha / 2.0 if side == "both" else alpha
+    df_pooled = n_control + n_treatment - 2
 
     def rejects(t: float, df: float) -> bool:
         if side == "higher" and t <= 0 or side == "lower" and t >= 0:
             return False
         return t_tail(t, df) <= tail
 
-    if not welch:
-        df = n_control + n_treatment - 2
-        critical = t_quantile(1.0 - tail, df)
+    def beyond(t: float, critical: float) -> bool:
+        if side == "higher":
+            return t > critical
+        if side == "lower":
+            return t < -critical
+        return abs(t) > critical
+
+    if welch:
+        # Welch's degrees of freedom lie between the smaller arm's n - 1 and n_control +
+        # n_treatment - 2, so most studies are decided by these two quantiles alone.
+        sure = t_quantile(1.0 - tail, min(n_control, n_treatment) - 1)
+        never = t_quantile(1.0 - tail, df_pooled)
+
+        def welch_decision(shift: float, var_c: float, var_t: float) -> bool:
+            t = shift / math.sqrt(var_c + var_t)
+            size = abs(t) if side == "both" else (t if side == "higher" else -t)
+            if size > sure:
+                return True
+            if size <= never:
+                return False
+            df = (var_c + var_t) ** 2 / (var_c**2 / (n_control - 1) + var_t**2 / (n_treatment - 1))
+            return rejects(t, df)
+
+    critical = t_quantile(1.0 - tail, df_pooled)
+    factor = 1.0 / n_control + 1.0 / n_treatment
+
+    if skewness:
+        shape = 4.0 / (skewness * skewness)
+        sign = 1.0 if skewness > 0 else -1.0
+        root = math.sqrt(shape)
+
+        def arm(stream: Stream, n: int) -> tuple[float, float]:
+            """The mean and sum of squares of n gamma draws of the arm's shape."""
+            draws = [stream.gamma(shape) for _ in range(n)]
+            mean = sum(draws) / n
+            return mean, sum((x - mean) ** 2 for x in draws)
+
+        def skewed_study(stream: Stream) -> bool:
+            mean_c, ss_c = arm(stream, n_control)
+            mean_t, ss_t = arm(stream, n_treatment)
+            shift = (
+                difference
+                - null_value
+                + sign * (sd_t * (mean_t - shape) - sd * (mean_c - shape)) / root
+            )
+            ss_c, ss_t = sd * sd * ss_c / shape, sd_t * sd_t * ss_t / shape
+            if welch:
+                return welch_decision(
+                    shift,
+                    ss_c / (n_control - 1) / n_control,
+                    ss_t / (n_treatment - 1) / n_treatment,
+                )
+            pooled = (ss_c + ss_t) / df_pooled * factor
+            if pooled <= 0.0:
+                return False
+            return beyond(shift / math.sqrt(pooled), critical)
+
+        return skewed_study
+
+    def chi(stream: Stream, df: int) -> float:
+        return stream.chi_square(df) if df > 0 else 0.0
+
+    if not welch and equal:
 
         def pooled(stream: Stream) -> bool:
             shift = difference - null_value + spread * stream.normal()
-            pooled_sd = sd * math.sqrt(stream.chi_square(df) / df)
-            t = shift / (pooled_sd * math.sqrt(1.0 / n_control + 1.0 / n_treatment))
-            if side == "higher":
-                return t > critical
-            if side == "lower":
-                return t < -critical
-            return abs(t) > critical
+            pooled_sd = sd * math.sqrt(stream.chi_square(df_pooled) / df_pooled)
+            return beyond(shift / (pooled_sd * math.sqrt(factor)), critical)
 
         return pooled
 
-    # Welch's degrees of freedom lie between the smaller arm's n - 1 and n_control +
-    # n_treatment - 2, so most studies are decided by these two quantiles alone.
-    sure = t_quantile(1.0 - tail, min(n_control, n_treatment) - 1)
-    never = t_quantile(1.0 - tail, n_control + n_treatment - 2)
+    if not welch:
+
+        def unequal_pooled(stream: Stream) -> bool:
+            shift = difference - null_value + spread * stream.normal()
+            ss = sd * sd * chi(stream, n_control - 1) + sd_t * sd_t * chi(stream, n_treatment - 1)
+            return beyond(shift / math.sqrt(ss / df_pooled * factor), critical)
+
+        return unequal_pooled
 
     def welch_study(stream: Stream) -> bool:
         shift = difference - null_value + spread * stream.normal()
         var_c = sd * sd * stream.chi_square(n_control - 1) / (n_control - 1) / n_control
-        var_t = sd * sd * stream.chi_square(n_treatment - 1) / (n_treatment - 1) / n_treatment
-        t = shift / math.sqrt(var_c + var_t)
-        size = abs(t) if side == "both" else (t if side == "higher" else -t)
-        if size > sure:
-            return True
-        if size <= never:
-            return False
-        df = (var_c + var_t) ** 2 / (var_c**2 / (n_control - 1) + var_t**2 / (n_treatment - 1))
-        return rejects(t, df)
+        var_t = sd_t * sd_t * stream.chi_square(n_treatment - 1) / (n_treatment - 1) / n_treatment
+        return welch_decision(shift, var_c, var_t)
 
     return welch_study

@@ -446,7 +446,7 @@ simulated [estimate]: meets(analysis)
   may simulate at most 20 million studies.
 
 Simulation covers the t-tests, Student's and Welch's, on normal outcomes with the
-planning SD in both arms, and the t-tests on cluster summaries. Other tests get
+planning SD in both arms or in the scenarios below, and the t-tests on cluster summaries. Other tests get
 `no_simulation_model`; exact tests are refused, since `calculate` gives their exact
 power. See lesson 28 of the tutorial.
 
@@ -469,6 +469,34 @@ and binomial responses. The test is the unweighted t-test of the cluster summari
 `calculate` refuses `cluster_size_cv`. `cluster_counts` and `cluster_sizes` searches
 can be simulated too. A raw-data simulation in R agrees within its Monte Carlo error
 (`replication/comparison/cluster_simulation_r.R`). See lesson 37.
+
+### When the t-test's assumptions fail
+
+Two inputs on `mean_difference` describe another scenario for simulating a
+two-sample t-test:
+
+- `sd_treatment`: the treatment arm's SD; `sd` is then the control arm's.
+- `skewness`: a skewed outcome, from -4 to 4. Each arm is a gamma distribution
+  shifted and scaled to the arm's mean and SD, mirrored when the skewness is negative.
+
+```stat
+let spread = power_target(at=mean_difference(value=8, sd=20, sd_treatment=10),
+    minimum=4/5, maximum_typeI=3/40)
+let pooled = simulate(meets(analysis=student, target=spread), seed=2026)
+```
+
+The test's level holds by theory only for normal outcomes with a common SD (Welch's,
+approximately, for unequal SDs too). In these scenarios that theory no longer applies,
+so simulated Type I is judged like power: met when its whole 95% interval is at or
+below `maximum_typeI`, not met when the whole interval is above it, and otherwise
+undecided. A search passes over sizes where Type I is not met. A target of exactly
+alpha is rarely met this way. Bradley's liberal criterion, 1.5 × alpha, is a common
+tolerance (Bradley, 1978, *Br J Math Stat Psychol* 31, 144-152).
+
+`calculate` refuses these inputs. Normal outcomes are drawn as summaries, so their
+cost does not grow with the size; skewed outcomes are drawn one participant at a time,
+up to 120 million in a run. A raw-data simulation in R agrees within its Monte Carlo
+error (`replication/comparison/t_scenarios_r.R`). See lesson 38.
 
 ## What is checked
 

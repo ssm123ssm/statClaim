@@ -13,7 +13,7 @@ from statclaim.methods.assumptions import (
     PLANNING_SD,
     SIMULATED_CLUSTER_PROPORTIONS,
     SIMULATED_CLUSTERS,
-    SIMULATED_NORMAL,
+    SIMULATED_TWO_MEANS,
 )
 from statclaim.methods.core import SimulationModel
 from statclaim.simulation import REFERENCES, cluster_trial, two_means_trial
@@ -25,45 +25,62 @@ WELCH_1947 = (
 )
 
 
-def _normal_scenario(point: dict) -> str:
-    return (
-        f"normal outcomes with standard deviation {point['sd']:g} in both arms and a true mean "
-        f"difference of {point['value']:g}"
+def _two_means_scenario(point: dict) -> str:
+    sd, sd_treatment = point["sd"], point.get("sd_treatment", point["sd"])
+    skewness = point.get("skewness", 0.0)
+    shape = f"gamma-shaped outcomes (skewness {skewness:g})" if skewness else "normal outcomes"
+    spread = (
+        f"standard deviation {sd:g} in both arms"
+        if sd_treatment == sd
+        else f"standard deviations {sd:g} (control) and {sd_treatment:g} (treatment)"
+    )
+    return f"{shape} with {spread} and a true mean difference of {point['value']:g}"
+
+
+def _two_means(point, n_control, n_treatment, null_value, alpha, side, welch):
+    return two_means_trial(
+        point["value"],
+        point["sd"],
+        n_control,
+        n_treatment,
+        null_value,
+        alpha,
+        side,
+        welch=welch,
+        sd_treatment=point.get("sd_treatment"),
+        skewness=point.get("skewness", 0.0),
     )
 
 
 def _student(point, n_control, n_treatment, null_value, alpha, side):
-    """Student's pooled t-test on simulated normal outcomes."""
-    return two_means_trial(
-        point["value"], point["sd"], n_control, n_treatment, null_value, alpha, side, welch=False
-    )
+    """Student's pooled t-test on simulated outcomes of the declared scenario."""
+    return _two_means(point, n_control, n_treatment, null_value, alpha, side, welch=False)
 
 
 def _welch(point, n_control, n_treatment, null_value, alpha, side):
-    """Welch's t-test on simulated normal outcomes."""
-    return two_means_trial(
-        point["value"], point["sd"], n_control, n_treatment, null_value, alpha, side, welch=True
-    )
+    """Welch's t-test on simulated outcomes of the declared scenario."""
+    return _two_means(point, n_control, n_treatment, null_value, alpha, side, welch=True)
 
 
+# Version 2: also simulates unequal SDs and skewed outcomes.
 STUDENT = SimulationModel(
     key="normal_two_means_student",
-    title="Student's t-test on simulated normal outcomes",
-    version=1,
+    title="Student's t-test on simulated outcomes",
+    version=2,
     point="mean_difference",
     trial=_student,
-    scenario=_normal_scenario,
-    assumptions=(SIMULATED_NORMAL, PLANNING_SD, MONTE_CARLO_ERROR),
+    scenario=_two_means_scenario,
+    assumptions=(SIMULATED_TWO_MEANS, PLANNING_SD, MONTE_CARLO_ERROR),
     references=(STUDENT_1908, *REFERENCES),
 )
 WELCH = SimulationModel(
     key="normal_two_means_welch",
-    title="Welch's t-test on simulated normal outcomes",
-    version=1,
+    title="Welch's t-test on simulated outcomes",
+    version=2,
     point="mean_difference",
     trial=_welch,
-    scenario=_normal_scenario,
-    assumptions=(SIMULATED_NORMAL, PLANNING_SD, MONTE_CARLO_ERROR),
+    scenario=_two_means_scenario,
+    assumptions=(SIMULATED_TWO_MEANS, PLANNING_SD, MONTE_CARLO_ERROR),
     references=(WELCH_1947, *REFERENCES),
 )
 

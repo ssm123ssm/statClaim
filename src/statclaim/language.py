@@ -135,9 +135,16 @@ from statclaim.randomisation import (
     groups_of,
     splits_needed,
 )
-from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
+from statclaim.simulation import (
+    DEFAULT_RUNS,
+    MAX_RUNS,
+    MAX_SIMULATED_PARTICIPANTS,
+    MAX_SIMULATED_STUDIES,
+    MAX_SKEWNESS,
+    MIN_RUNS,
+)
 
-LANGUAGE_VERSION = "0.33.0"
+LANGUAGE_VERSION = "0.34.0"
 
 
 class PlannableIR:
@@ -1024,6 +1031,10 @@ class MeanDifferenceIR(PlanningPointIR):
     sd: Fraction
     icc: Fraction | None = None
     cluster_size_cv: Fraction | None = None
+    # A scenario for simulating a two-sample t-test: the treatment arm's own SD (sd is then
+    # the control arm's) and the skewness of the outcome.
+    sd_treatment: Fraction | None = None
+    skewness: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1703,9 +1714,25 @@ def _study_extras(study: "ObservationalStudyIR") -> dict:
 
 
 def _with_cluster_cv(point: dict, value) -> dict:
-    """How much cluster sizes vary is written only when the point gives it."""
-    cv = getattr(value, "cluster_size_cv", None)
-    return point if cv is None else {**point, "cluster_size_cv": str(cv)}
+    """How much cluster sizes vary, and a t-test scenario, are written only when given."""
+    for name in ("cluster_size_cv", "sd_treatment", "skewness"):
+        if getattr(value, name, None) is not None:
+            point = {**point, name: str(getattr(value, name))}
+    return point
+
+
+def departs(point) -> bool:
+    """Whether a planning point leaves normal outcomes with a common SD."""
+    sd_treatment = getattr(point, "sd_treatment", None)
+    return bool(getattr(point, "skewness", None)) or (
+        sd_treatment is not None and sd_treatment != point.sd
+    )
+
+
+SCENARIO_REFUSED = (
+    "sd_treatment and skewness describe a scenario for simulating a two-sample t-test; "
+    "leave them out here."
+)
 
 
 def _with_design_effect(point: dict, value) -> dict:
@@ -3499,11 +3526,19 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             claim.span,
         )
     target = getattr(claim.value.subject, "target", None)
-    if getattr(getattr(target, "at", None), "cluster_size_cv", None):
+    point = getattr(target, "at", None)
+    if getattr(point, "cluster_size_cv", None):
         fail(
             "unsupported_claim",
             "The noncentral t assumes clusters of equal size. For clusters whose sizes vary, "
             "use simulate(...), which draws the sizes.",
+            claim.span,
+        )
+    if isinstance(point, MeanDifferenceIR) and departs(point):
+        fail(
+            "unsupported_claim",
+            "The formula assumes normal outcomes with a common SD. For unequal SDs or a "
+            "skewed outcome, use simulate(...), which runs the test on that scenario.",
             claim.span,
         )
     return claim.value
@@ -3551,8 +3586,22 @@ def _mean_difference(arguments: dict[str, LocatedValue], span: Span) -> MeanDiff
     sd = arguments["sd"]
     if sd.value <= 0:
         fail("domain", "sd must be positive.", sd.span)
+    sd_treatment, skewness = arguments.get("sd_treatment"), arguments.get("skewness")
+    if sd_treatment is not None and sd_treatment.value is not None and sd_treatment.value <= 0:
+        fail("domain", "sd_treatment must be positive.", sd_treatment.span)
+    if skewness is not None and skewness.value is not None and abs(skewness.value) > MAX_SKEWNESS:
+        fail(
+            "domain",
+            f"skewness must lie between -{MAX_SKEWNESS} and {MAX_SKEWNESS}.",
+            skewness.span,
+        )
     return MeanDifferenceIR(
-        arguments["value"].value, sd.value, _icc(arguments), _cluster_cv(arguments)
+        arguments["value"].value,
+        sd.value,
+        _icc(arguments),
+        _cluster_cv(arguments),
+        None if sd_treatment is None else sd_treatment.value,
+        None if skewness is None else skewness.value,
     )
 
 
@@ -4052,6 +4101,9 @@ def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: S
             "cluster_size_cv describes the clusters of a cluster-randomised trial; leave it out.",
             target.span,
         )
+    scenario = any(getattr(point, name, None) is not None for name in ("sd_treatment", "skewness"))
+    if scenario and analysis.method.module != "tests.t":
+        fail("planning_point", SCENARIO_REFUSED, target.span)
     model = analysis.plan.model
     if isinstance(point, HazardRatioIR) and point.events > model.n_control + model.n_treatment:
         fail(
@@ -4221,6 +4273,8 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
         return
     if any(getattr(point, name, None) is not None for name in ("icc", "cluster_size_cv")):
         fail("planning_point", ICC_REFUSED, target.span)
+    if any(getattr(point, name, None) is not None for name in ("sd_treatment", "skewness")):
+        fail("planning_point", SCENARIO_REFUSED, target.span)
     survey = isinstance(analysis, CitedAssociationIR) and analysis.method.module == "tests.survey"
     if getattr(point, "design_effect", None) is not None and not survey:
         fail("planning_point", DESIGN_EFFECT_REFUSED, target.span)
@@ -5122,6 +5176,23 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
                 "use fewer runs.",
                 claim.span,
             )
+    if getattr(subject.target.at, "skewness", None):
+        # A search simulates each size for power, then confirms the one that passes with
+        # power and Type I runs; a claim at the declared sizes runs power and Type I.
+        if isinstance(subject, SizingIR):
+            space = subject.candidates
+            sizes = [s + space.ratio * s for s in range(space.min_per_arm, space.max_per_arm + 1)]
+            drawn = sum(sizes) + 2 * sizes[-1]
+        else:
+            drawn = 2 * (analysis.plan.model.n_control + analysis.plan.model.n_treatment)
+        if drawn * settings.runs > MAX_SIMULATED_PARTICIPANTS:
+            fail(
+                "domain",
+                "A skewed outcome is simulated one participant at a time, and this could "
+                f"draw more than {MAX_SIMULATED_PARTICIPANTS:,} participants. Narrow the "
+                "range or use fewer runs.",
+                claim.span,
+            )
     return claim.value
 
 
@@ -5862,6 +5933,8 @@ MODULES = {
                         ("sd", "number"),
                         ("icc", "number", True),
                         ("cluster_size_cv", "number", True),
+                        ("sd_treatment", "number", True),
+                        ("skewness", "number", True),
                     ),
                     "MeanDifference",
                     _mean_difference,
@@ -5871,7 +5944,10 @@ MODULES = {
                     "effective standard deviation of the contrast. A test of cluster means "
                     "also needs icc, the intracluster correlation: the share of the variance "
                     "that lies between clusters; simulate(...) also takes cluster_size_cv, the "
-                    "coefficient of variation of cluster sizes. All are planning inputs.",
+                    "coefficient of variation of cluster sizes. To simulate a two-sample "
+                    "t-test in another scenario, give sd_treatment, the treatment arm's SD "
+                    "(sd is then the control arm's), or skewness, for a gamma-shaped outcome. "
+                    "All are planning inputs.",
                 ),
                 _constructor(
                     "hazard_ratio",

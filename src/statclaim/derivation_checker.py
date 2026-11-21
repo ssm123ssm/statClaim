@@ -316,8 +316,20 @@ def _block(name: str, analysis: dict, start: int = 0) -> list[tuple]:
     return steps
 
 
-def _point_valid(point: dict, kind: str, total: int, clustered: bool = False) -> bool:
-    """A test of cluster summaries is planned with the intracluster correlation too."""
+SCENARIO_KEYS = {"sd_treatment", "skewness"}
+
+
+def _point_valid(
+    point: dict, kind: str, total: int, clustered: bool = False, scenario: bool = False
+) -> bool:
+    """A test of cluster summaries is planned with the intracluster correlation too; a
+    two-sample t-test may give a scenario for simulation."""
+    if scenario and kind == "mean_difference" and SCENARIO_KEYS & set(point):
+        if "sd_treatment" in point and Fraction(point["sd_treatment"]) <= 0:
+            return False
+        if "skewness" in point and abs(Fraction(point["skewness"])) > 4:
+            return False
+        point = {key: value for key, value in point.items() if key not in SCENARIO_KEYS}
     if kind == "exponential_survival" and set(point) == POINT_KEYS[kind] | DROPOUT_KEYS:
         if not (0 <= Fraction(point["dropout"]) < 1 and Fraction(point["dropout_time"]) > 0):
             return False
@@ -750,7 +762,9 @@ def _cited_planning_expected(name: str, subject: dict, search, analysis: dict):
         (
             "power-formula",
             facts,
-            _point_valid(point, formula.point, sum(sizes.values()), clustered),
+            _point_valid(
+                point, formula.point, sum(sizes.values()), clustered, method.module == "tests.t"
+            ),
             (),
         )
     )

@@ -417,6 +417,12 @@ SCHEMAS = {
         "cluster_size_cv": FieldSpec(
             Fraction, optional=True, description="How much cluster sizes vary, for simulation."
         ),
+        "sd_treatment": FieldSpec(
+            Fraction, optional=True, description="The treatment arm's SD, for simulation."
+        ),
+        "skewness": FieldSpec(
+            Fraction, optional=True, description="The outcome's skewness, for simulation."
+        ),
     },
     ExponentialSurvivalIR: {
         "hazard_ratio": FieldSpec(Fraction, description="Hazard ratio, treatment over control."),
@@ -821,6 +827,12 @@ SCHEMAS = {
             Fraction, optional=True, description="Coefficient of variation of cluster sizes."
         ),
         "degrees_of_freedom": FieldSpec(int, optional=True),
+        "typeI_judged": FieldSpec(
+            bool,
+            optional=True,
+            description="Whether Type I is judged on the simulation, as in a scenario that "
+            "leaves normal outcomes with a common SD.",
+        ),
     },
     ApproximatePowerDetails: {
         "n_control": FieldSpec(int, optional=True),

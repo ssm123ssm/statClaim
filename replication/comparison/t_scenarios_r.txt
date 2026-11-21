@@ -1,0 +1,27 @@
+Rejection rates of t-tests in other scenarios, written to tests/fixtures/t_scenarios_r.json
+
+student (both): n (20, 40), difference 0, SDs (20, 10), skewness 0: 0.1137 of 20000
+welch (both): n (20, 40), difference 0, SDs (20, 10), skewness 0: 0.0522 of 20000
+student (both): n (20, 40), difference 8, SDs (20, 10), skewness 0: 0.5283 of 20000
+welch (both): n (20, 40), difference 8, SDs (20, 10), skewness 0: 0.3688 of 20000
+student (higher): n (10, 10), difference 0, SDs (10, 10), skewness 2: 0.0469 of 20000
+welch (higher): n (10, 30), difference 0, SDs (10, 10), skewness 2: 0.0929 of 20000
+student (both): n (65, 65), difference 5, SDs (10, 10), skewness 2: 0.8109 of 20000
+welch (lower): n (30, 30), difference -4, SDs (10, 15), skewness -3/2: 0.3157 of 20000
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

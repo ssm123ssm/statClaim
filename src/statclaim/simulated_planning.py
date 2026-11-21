@@ -12,6 +12,12 @@ so picking the size does not bias the estimate.
 
 A test of cluster summaries is simulated in clusters: its sizes are clusters per arm, and
 each arm's mean cluster size and the variation of sizes go to the model.
+
+Simulated Type I is reported, not judged, while the test's level holds by theory. In a
+scenario that leaves normal outcomes with a common SD (sd_treatment or skewness on the
+planning point), the level no longer holds by theory, so Type I is judged like power: met
+when its whole 95% interval is at or below maximum_typeI, and a search passes over sizes
+where it is not met.
 """
 
 import math
@@ -33,6 +39,7 @@ from statclaim.language import (
     PowerTargetIR,
     SimulationIR,
     clustered_test,
+    departs,
     planned_analysis,
 )
 from statclaim.methods import NULL_FORMS
@@ -47,17 +54,24 @@ def _side(analysis: CitedAnalysisIR) -> str:
     return NULL_FORMS[analysis.hypothesis.predicate][1].favours or "both"
 
 
+def _simulated_values(point, cluster_sizes=None) -> dict[str, float]:
+    """The planning point as the model reads it, with cluster sizes and any scenario."""
+    values = _values(point)
+    for name in ("sd_treatment", "skewness", "cluster_size_cv"):
+        if getattr(point, name, None) is not None:
+            values[name] = float(getattr(point, name))
+    if cluster_sizes is not None:
+        values["size_control"], values["size_treatment"] = (float(m) for m in cluster_sizes)
+    return values
+
+
 def _trial(
     analysis: CitedAnalysisIR, point, sizes: tuple[int, int], cluster_sizes=None, *, at_null=False
 ):
     """One simulated study at the planning point, or at the null's boundary for Type I error.
     For a cluster test, sizes are clusters and cluster_sizes the participants in each."""
-    values = _values(point)
+    values = _simulated_values(point, cluster_sizes)
     null_value = float(analysis.hypothesis.value)
-    if cluster_sizes is not None:
-        values["size_control"], values["size_treatment"] = (float(m) for m in cluster_sizes)
-        if getattr(point, "cluster_size_cv", None) is not None:
-            values["cluster_size_cv"] = float(point.cluster_size_cv)
     if at_null:
         values = {**values, "value": null_value}
         if "p_treatment" in values:
@@ -122,11 +136,15 @@ def evaluate(
             design.pop("design_effect", None)
         if getattr(target.at, "cluster_size_cv", None) is not None:
             design["cluster_size_cv"] = fraction_record(target.at.cluster_size_cv)
-    values = _values(target.at)
-    if cluster_sizes is not None:
-        values.update(size_control=float(cluster_sizes[0]), size_treatment=float(cluster_sizes[1]))
-        if getattr(target.at, "cluster_size_cv", None) is not None:
-            values["cluster_size_cv"] = float(target.at.cluster_size_cv)
+    judged = departs(target.at)
+    if judged:
+        typeI_met = error.upper <= float(target.maximum_typeI)
+        typeI_settled = typeI_met or error.lower > float(target.maximum_typeI)
+    else:
+        # Judged on the test's level, as calculate(...) does. Under these scenarios the
+        # level holds exactly or nearly, so the simulated error is reported, not judged: an
+        # interval above the target would mostly be chance.
+        typeI_met, typeI_settled = analysis.alpha <= target.maximum_typeI, True
     return {
         **design,
         "power": _rate(power),
@@ -142,14 +160,13 @@ def evaluate(
         "typeI_rejected": error.rejected,
         "alpha": fraction_record(analysis.alpha),
         "maximum_typeI": fraction_record(target.maximum_typeI),
-        # Judged on the test's level, as calculate(...) does. Under these scenarios the
-        # level holds exactly or nearly, so the simulated error is reported, not judged: an
-        # interval above the target would mostly be chance.
-        "typeI_target_met": analysis.alpha <= target.maximum_typeI,
+        "typeI_target_met": typeI_met,
+        "typeI_settled": typeI_settled,
+        "typeI_judged": judged,
         "runs": settings.runs,
         "seed": settings.seed,
         "stream": stream,
-        "scenario": model.scenario(values),
+        "scenario": model.scenario(_simulated_values(target.at, cluster_sizes)),
         "model": model.key,
         "model_version": model.version,
         "engine_version": engine.ENGINE_VERSION,
@@ -170,10 +187,19 @@ def describe(subject, settings: SimulationIR) -> dict:
     """The simulated planning claim before running: what will be estimated and how."""
     analysis, target = planned_analysis(subject), subject.target
     method, model = analysis.method, analysis.method.simulation
-    goal = (
-        f"power at least {target.minimum} at {describe_point(target.at)}, and the test's level "
-        f"{analysis.alpha} at most {target.maximum_typeI}"
+    point = target.at
+    scenario = ""
+    if getattr(point, "sd_treatment", None) is not None:
+        scenario += f", standard deviation {point.sd_treatment} in the treatment arm"
+    if getattr(point, "skewness", None):
+        scenario += f", skewness {point.skewness}"
+    typeI = (
+        f"simulated Type I at most {target.maximum_typeI}, judged like power since the "
+        "scenario leaves normal outcomes with a common SD"
+        if departs(point)
+        else f"the test's level {analysis.alpha} at most {target.maximum_typeI}"
     )
+    goal = f"power at least {target.minimum} at {describe_point(point)}{scenario}, and {typeI}"
     runs = f"{settings.runs:,} simulated studies from seed {settings.seed}"
     if isinstance(subject, FeasibilityIR) and clustered_test(analysis):
         (k_c, k_t), (m_c, m_t) = declared_clusters(analysis)
@@ -227,11 +253,14 @@ def describe(subject, settings: SimulationIR) -> dict:
 
 
 def _decision(calculation: dict) -> str:
-    if not calculation["typeI_target_met"]:
+    """Met when both targets are met; not met when either is clearly missed; else undecided."""
+    outcomes = [
+        (calculation["power_target_met"], calculation["power_settled"]),
+        (calculation["typeI_target_met"], calculation.get("typeI_settled", True)),
+    ]
+    if any(not met and settled for met, settled in outcomes):
         return "target_not_met"
-    if calculation["power_target_met"]:
-        return "target_met"
-    return "target_not_met" if calculation["power_settled"] else "undecided"
+    return "target_met" if all(met for met, _ in outcomes) else "undecided"
 
 
 def run(report: dict, subject, settings: SimulationIR) -> dict:
@@ -294,6 +323,8 @@ def run(report: dict, subject, settings: SimulationIR) -> dict:
         confirmations += 1
         calculation = evaluate(analysis, target, sizes, settings, "confirm", cluster_sizes)
         if not calculation["power_target_met"]:
+            continue
+        if calculation["typeI_judged"] and not calculation["typeI_target_met"]:
             continue
         report["calculation"] = {
             **calculation,

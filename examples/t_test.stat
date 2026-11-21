@@ -20,3 +20,15 @@ let welch = welch_test_one_sided(design=plan, null=margin, alpha=1/40)
 let approximate = verify(typeI(welch))
 let scope = approximate.claim.scope
 let statement = approximate.claim.guarantee.sentence
+
+# Planning by simulation when the smaller arm varies more: Student's level fails there,
+# so its simulated Type I is judged, here against Bradley's 3/40.
+use planning
+let small_arm = two_arm_continuous(n_control=20, n_treatment=40)
+let student = t_test(design=fixed(model=small_arm), null=equal_means(model=small_arm), alpha=1/20)
+let spread = power_target(
+    at=mean_difference(value=8, sd=20, sd_treatment=10),
+    minimum=4/5,
+    maximum_typeI=3/40,
+)
+let robustness = simulate(meets(analysis=student, target=spread), seed=2026)

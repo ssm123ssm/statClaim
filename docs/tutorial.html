@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirty-seven short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Thirty-eight short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2973,6 +2973,71 @@ the summaries grows, and the test sees more noise for the same difference.</div>
     <div class="task"><h4>Try it</h4><p>Raise the coefficient of variation to 1. How many clinics per arm do you need now?</p></div>
   </div>
 </section>
+<section class="lesson" id="t-scenarios">
+  <p class="eyebrow">Lesson 38</p>
+  <h2>When the t-test&#x27;s assumptions fail</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Student&#x27;s t-test assumes normal outcomes with the same SD in both arms. Simulation shows what happens when they differ, or when the outcome is skewed, and judges the test&#x27;s Type I error as well as its power.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/38_t_scenarios.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 38: when the t-test&#x27;s assumptions fail, by simulation.</span>
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.t
+<span class="k">use</span> planning
+
+<span class="c"># Twenty controls and forty treated, analysed by Student&#x27;s test or by Welch&#x27;s.</span>
+<span class="k">let</span> study = <span class="f">two_arm_continuous</span>(n_control=20, n_treatment=40)
+<span class="k">let</span> student = <span class="f">t_test</span>(design=<span class="f">fixed</span>(model=study), null=<span class="f">equal_means</span>(model=study), alpha=1/20)
+<span class="k">let</span> welch = <span class="f">welch_test</span>(design=<span class="f">fixed</span>(model=study), null=<span class="f">equal_means</span>(model=study), alpha=1/20)
+
+<span class="c"># The smaller arm varies twice as much: SD 20 for controls, 10 for the treated.</span>
+<span class="c"># Bradley&#x27;s liberal criterion allows Type I up to one and a half times alpha.</span>
+<span class="k">let</span> spread = <span class="f">power_target</span>(at=<span class="f">mean_difference</span>(value=8, sd=20, sd_treatment=10), minimum=4/5, maximum_typeI=3/40)
+<span class="k">let</span> pooled = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=student, target=spread), seed=2026)
+<span class="k">let</span> separate = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=welch, target=spread), seed=2026)
+
+<span class="c"># A skewed outcome, such as days in hospital: skewness 2.</span>
+<span class="k">let</span> skewed = <span class="f">power_target</span>(at=<span class="f">mean_difference</span>(value=5, sd=10, skewness=2), minimum=4/5, maximum_typeI=3/40)
+<span class="k">let</span> sizes = <span class="f">equal_arm_sizes</span>(analysis=student, min_per_arm=40, max_per_arm=100)
+<span class="k">let</span> enough = <span class="f">simulate</span>(<span class="f">smallest_sample_size</span>(candidates=sizes, target=skewed), seed=2026)</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>sd_treatment=...</code></dt>
+  <dd>The treatment arm&#x27;s own SD. <code>sd</code> is then the control arm&#x27;s.</dd>
+  <dt><code>skewness=...</code></dt>
+  <dd>A skewed outcome: each arm is a gamma distribution with this skewness, shifted and
+  scaled to the arm&#x27;s mean and SD.</dd>
+  <dt><code>maximum_typeI=3/40</code></dt>
+  <dd>In these scenarios the level no longer holds by theory, so simulated Type I is judged
+  like power: its whole 95% interval must be at or below this. 3/40 is Bradley&#x27;s liberal
+  criterion, one and a half times alpha.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">simulated</span> [pooled]: meets(student)
+  power ~ 0.5299 (95% interval 0.5201 to 0.5397); power target met = false
+  Type I at the null ~ 0.1150 (95% interval 0.1088 to 0.1214); level 1/20; Type I target met = false (judged on the simulation: at most 3/40)
+  ...
+<span class="calc">simulated</span> [separate]: meets(welch)
+  power ~ 0.3748 (95% interval 0.3653 to 0.3844); power target met = false
+  Type I at the null ~ 0.0516 (95% interval 0.0473 to 0.0561); level 1/20; Type I target met = true (judged on the simulation: at most 3/40)
+  ...
+<span class="calc">simulated</span> [enough]: sample_size(sizes)
+  arm sizes = (65, 65); total = 130
+  power ~ 0.8095 (95% interval 0.8017 to 0.8172); power target met = true
+  Type I at the null ~ 0.0509 (95% interval 0.0467 to 0.0554); level 1/20; Type I target met = true (judged on the simulation: at most 3/40)
+  ...
+Program status: simulated</code></pre></div>
+<p>When the smaller arm varies more, Student&#x27;s test rejects a true null 11.5% of the
+time, more than twice its 5% level. Its higher power is partly that error. Welch&#x27;s test
+keeps its level near 5%, but needs more participants. A skewed outcome barely moves the
+t-test here: 65 per arm, as for a normal outcome. A simulation in R that draws every
+participant gives the same rates within its Monte Carlo error.</p>
+<div class="note"><strong>Why the smaller arm matters.</strong> The pooled SD weights each
+arm by its size, so it mostly reflects the larger, calmer arm. The noisier small arm then
+looks more certain than it is, and chance differences look significant.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>sd_treatment</code> and <code>skewness</code> describe a scenario to simulate.</li><li>There Type I is judged, not assumed.</li><li>With unequal SDs and unequal arms, prefer Welch&#x27;s test.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Swap the SDs, so the larger arm varies more. What happens to Student&#x27;s Type I error?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -3007,6 +3072,7 @@ the summaries grows, and the test sees more noise for the same difference.</div>
       <tr><td>Plan a logistic, modified Poisson, conditional logistic or Poisson rate regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
       <tr><td>Plan a complex survey</td><td><code>planning</code>, <code>tests.survey</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>design_effect</code> on the point, with <code>total_sizes</code></td><td>35</td></tr>
       <tr><td>Size a study for a margin of error</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code>, <code>sample_size</code> with <code>planned_interval</code>, <code>precision_target</code> and <code>interval_sizes</code></td><td>36</td></tr>
+      <tr><td>Simulate a t-test with unequal SDs or a skewed outcome</td><td><code>planning</code>, <code>tests.t</code></td><td><code>simulate</code> at a <code>mean_difference</code> with <code>sd_treatment</code> or <code>skewness</code></td><td>38</td></tr>
       <tr><td>Simulate a cluster trial, with clusters of unequal sizes</td><td><code>planning</code>, <code>tests.cluster</code></td><td><code>simulate</code> with <code>meets</code> or a cluster search, at a point with <code>icc</code> and <code>cluster_size_cv</code></td><td>37</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>

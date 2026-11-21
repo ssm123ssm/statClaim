@@ -1,0 +1,21 @@
+# Lesson 38: when the t-test's assumptions fail, by simulation.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use planning
+
+# Twenty controls and forty treated, analysed by Student's test or by Welch's.
+let study = two_arm_continuous(n_control=20, n_treatment=40)
+let student = t_test(design=fixed(model=study), null=equal_means(model=study), alpha=1/20)
+let welch = welch_test(design=fixed(model=study), null=equal_means(model=study), alpha=1/20)
+
+# The smaller arm varies twice as much: SD 20 for controls, 10 for the treated.
+# Bradley's liberal criterion allows Type I up to one and a half times alpha.
+let spread = power_target(at=mean_difference(value=8, sd=20, sd_treatment=10), minimum=4/5, maximum_typeI=3/40)
+let pooled = simulate(meets(analysis=student, target=spread), seed=2026)
+let separate = simulate(meets(analysis=welch, target=spread), seed=2026)
+
+# A skewed outcome, such as days in hospital: skewness 2.
+let skewed = power_target(at=mean_difference(value=5, sd=10, skewness=2), minimum=4/5, maximum_typeI=3/40)
+let sizes = equal_arm_sizes(analysis=student, min_per_arm=40, max_per_arm=100)
+let enough = simulate(smallest_sample_size(candidates=sizes, target=skewed), seed=2026)

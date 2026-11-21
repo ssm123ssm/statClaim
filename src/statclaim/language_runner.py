@@ -758,7 +758,12 @@ def _simulated_lines(details: dict) -> list[str]:
             f"  Type I at the null ~ {show(calculation['typeI'])} (95% interval "
             f"{show(calculation['typeI_lower'])} to {show(calculation['typeI_upper'])}); "
             f"level {calculation['alpha']['fraction']}; Type I target met = "
-            f"{str(calculation['typeI_target_met']).lower()}",
+            f"{str(calculation['typeI_target_met']).lower()}"
+            + (
+                f" (judged on the simulation: at most {calculation['maximum_typeI']['fraction']})"
+                if calculation.get("typeI_judged")
+                else ""
+            ),
             f"  scenario: {calculation['scenario']}",
         ]
     if "candidates_evaluated" in calculation:

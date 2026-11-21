@@ -1,0 +1,101 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "cases": [
+    {
+      "test": "student",
+      "side": "both",
+      "n_control": 20,
+      "n_treatment": 40,
+      "difference": "0",
+      "sd": "20",
+      "sd_treatment": "10",
+      "skewness": "0",
+      "rate": 0.11365,
+      "runs": 20000
+    },
+    {
+      "test": "welch",
+      "side": "both",
+      "n_control": 20,
+      "n_treatment": 40,
+      "difference": "0",
+      "sd": "20",
+      "sd_treatment": "10",
+      "skewness": "0",
+      "rate": 0.05225,
+      "runs": 20000
+    },
+    {
+      "test": "student",
+      "side": "both",
+      "n_control": 20,
+      "n_treatment": 40,
+      "difference": "8",
+      "sd": "20",
+      "sd_treatment": "10",
+      "skewness": "0",
+      "rate": 0.5283,
+      "runs": 20000
+    },
+    {
+      "test": "welch",
+      "side": "both",
+      "n_control": 20,
+      "n_treatment": 40,
+      "difference": "8",
+      "sd": "20",
+      "sd_treatment": "10",
+      "skewness": "0",
+      "rate": 0.36875,
+      "runs": 20000
+    },
+    {
+      "test": "student",
+      "side": "higher",
+      "n_control": 10,
+      "n_treatment": 10,
+      "difference": "0",
+      "sd": "10",
+      "sd_treatment": "10",
+      "skewness": "2",
+      "rate": 0.0469,
+      "runs": 20000
+    },
+    {
+      "test": "welch",
+      "side": "higher",
+      "n_control": 10,
+      "n_treatment": 30,
+      "difference": "0",
+      "sd": "10",
+      "sd_treatment": "10",
+      "skewness": "2",
+      "rate": 0.0929,
+      "runs": 20000
+    },
+    {
+      "test": "student",
+      "side": "both",
+      "n_control": 65,
+      "n_treatment": 65,
+      "difference": "5",
+      "sd": "10",
+      "sd_treatment": "10",
+      "skewness": "2",
+      "rate": 0.8109,
+      "runs": 20000
+    },
+    {
+      "test": "welch",
+      "side": "lower",
+      "n_control": 30,
+      "n_treatment": 30,
+      "difference": "-4",
+      "sd": "10",
+      "sd_treatment": "15",
+      "skewness": "-3/2",
+      "rate": 0.31575,
+      "runs": 20000
+    }
+  ]
+}
