@@ -341,42 +341,137 @@ def _point_valid(point: dict, kind: str, total: int, clustered: bool = False) ->
     )
 
 
-# The arguments of each kind of point a cited observational test is planned at.
+# The arguments of each kind of point a cited observational test is planned at, the ones
+# that may be left out, and the exposure scale its formula needs.
 ASSOCIATION_POINT_KEYS = {
-    "correlation": ({"correlation"}, set()),
-    "slope": ({"slope", "exposure_sd", "residual_sd"}, {"exposure_r2"}),
+    "correlation": ({"correlation"}, set(), "continuous"),
+    "slope": ({"slope", "exposure_sd", "residual_sd"}, {"exposure_r2"}, "continuous"),
+    "odds_per_sd": ({"odds_ratio_per_sd", "baseline"}, {"exposure_r2"}, "continuous"),
+    "discordant_pairs": ({"discordant", "odds_ratio"}, set(), "binary"),
+    "incidence_rates": ({"rate_ratio", "exposed_time", "unexposed_time"}, {"events"}, "binary"),
+    "association_groups": (None, None, "binary"),  # the design's own point; see below
 }
 CITED_TOTAL_LIMIT = 100_000
 
 
-def _association_point_valid(point: dict, kind: str) -> bool:
-    required, optional = ASSOCIATION_POINT_KEYS[kind]
+def _groups_point(point: dict, study: dict) -> tuple[bool, Fraction]:
+    """A design's own two-group point: whether it is valid, and the gap between the groups."""
+    keys = GROUP_POINT_KEYS.get(study["study"])
+    if keys is None:
+        return False, Fraction(0)
+    wanted = {*keys, "exposed_share"} if "n" in study else set(keys)
+    if set(point) != wanted or not all(_probability(point[key]) for key in keys):
+        return False, Fraction(0)
+    if "n" in study and not 0 < Fraction(point["exposed_share"]) < 1:
+        return False, Fraction(0)
+    return True, Fraction(point[keys[1]]) - Fraction(point[keys[0]])
+
+
+def _association_point_valid(point: dict, kind: str, study: dict, search) -> tuple[bool, Fraction]:
+    """Whether a cited observational test's point is valid, and its distance from the null."""
+    if kind == "association_groups":
+        return _groups_point(point, study)
+    required, optional, _ = ASSOCIATION_POINT_KEYS[kind]
     if not required <= set(point) <= required | optional:
-        return False
+        return False, Fraction(0)
     if kind == "correlation":
-        return -1 < Fraction(point["correlation"]) < 1
+        rho = Fraction(point["correlation"])
+        return -1 < rho < 1, rho
+    if kind == "slope":
+        valid = (
+            Fraction(point["exposure_sd"]) > 0
+            and Fraction(point["residual_sd"]) > 0
+            and 0 <= Fraction(point.get("exposure_r2", "0")) < 1
+        )
+        return valid, Fraction(point["slope"])
+    if kind == "odds_per_sd":
+        ratio = Fraction(point["odds_ratio_per_sd"])
+        valid = (
+            ratio > 0
+            and 0 < Fraction(point["baseline"]) < 1
+            and 0 <= Fraction(point.get("exposure_r2", "0")) < 1
+        )
+        return valid, ratio - 1
+    if kind == "discordant_pairs":
+        ratio = Fraction(point["odds_ratio"])
+        return 0 < Fraction(point["discordant"]) <= 1 and ratio > 0, ratio - 1
+    ratio = Fraction(point["rate_ratio"])
+    valid = (
+        ratio > 0
+        and Fraction(point["exposed_time"]) > 0
+        and Fraction(point["unexposed_time"]) > 0
+        # Power is given the events: the point gives them, unless a search varies them.
+        and (("events" in point) == (search is None))
+        and (search is not None or _whole(point["events"], 1))
+    )
+    return valid, ratio - 1
+
+
+def _point_kind(point: dict) -> str:
+    """The kind of point, told apart by its arguments."""
+    for kind, (required, _, _) in ASSOCIATION_POINT_KEYS.items():
+        if required is not None and required <= set(point):
+            return kind
+    return "association_groups"
+
+
+def _cited_association_search_valid(bounds: dict, kind: str, study: dict, covariates: int) -> bool:
+    if "min_n" in bounds:
+        low, high = bounds["min_n"], bounds["max_n"]
+        fewest = covariates + 3 if kind in ("correlation", "slope") else 1
+        return (
+            set(bounds) == {"min_n", "max_n"}
+            and "n" in study
+            and _whole(low, fewest)
+            and _whole(high, low)
+            and high <= CITED_TOTAL_LIMIT
+        )
+    if study["study"] in GROUP_SEARCH_KEYS and "n" not in study:
+        low_key, high_key, ratio_key = GROUP_SEARCH_KEYS[study["study"]]
+        if set(bounds) != {low_key, high_key, ratio_key}:
+            return False
+        low, high, ratio = bounds[low_key], bounds[high_key], bounds[ratio_key]
+        return (
+            _whole(low, 1)
+            and _whole(high, low)
+            and _whole(ratio, 1)
+            and ratio <= RATIO_LIMIT
+            and high * (1 + ratio) <= CITED_TOTAL_LIMIT
+        )
+    unit = "pairs" if study["study"] == "matched_case_control" else "events"
+    low, high = bounds.get(f"min_{unit}"), bounds.get(f"max_{unit}")
     return (
-        Fraction(point["exposure_sd"]) > 0
-        and Fraction(point["residual_sd"]) > 0
-        and 0 <= Fraction(point.get("exposure_r2", "0")) < 1
+        set(bounds) == {f"min_{unit}", f"max_{unit}"}
+        and _whole(low, 1)
+        and _whole(high, low)
+        and high <= CITED_TOTAL_LIMIT
     )
 
 
 def _cited_association_planning_expected(name: str, subject: dict, search, analysis: dict):
     """Power of a cited observational test, from its formula in the method registry."""
     method = OBSERVATIONAL_METHODS[analysis["test"]]
-    formula = method.power
+    target, point = subject["target"], subject["target"]["at"]
+    study = analysis["design"]["model"]
+    kind = _point_kind(point)
+    scale = study.get("exposure_scale", "binary")
+    # The formula at this kind of point, for the study's exposure scale.
+    formula = next(
+        (
+            f
+            for f in method.formulas
+            if f.point == kind and ASSOCIATION_POINT_KEYS[kind][2] == scale
+        ),
+        None,
+    )
     if formula is None:
-        raise ValueError("the method has no power formula")
+        raise ValueError("the method has no power formula at this point")
     inner = f"{name}.analysis"
     steps, test_assumptions = _cited_association_expected(
         inner, analysis, f"{method.module}/{method.key}"
     )
     used = [len(steps) - 1]
-    target, point = subject["target"], subject["target"]["at"]
-    study = analysis["design"]["model"]
     covariates = len(analysis.get("adjusted_for", []))
-    total = study.get("n") or study.get("exposed", 0) + study.get("unexposed", 0)
     facts = {
         "subject": name,
         "method": method.key,
@@ -384,13 +479,10 @@ def _cited_association_planning_expected(name: str, subject: dict, search, analy
         "version": formula.version,
         "point": point,
     }
-    valid = (
-        _association_point_valid(point, formula.point)
-        and study.get("exposure_scale", "binary") in method.power_exposures
-        and (search is not None or total - covariates - 2 >= 1)
-    )
+    valid, effect = _association_point_valid(point, kind, study, search)
+    if kind in ("correlation", "slope") and search is None:
+        valid = valid and study.get("n", 0) - covariates - 2 >= 1
     steps.append(("power-formula", facts, valid, ()))
-    effect = Fraction(point["correlation" if formula.point == "correlation" else "slope"])
     statement = steps[1][1]["statement"]
     steps.append(
         ("alternative", {"subject": name, "point": point, "null": statement}, effect != 0, ())
@@ -407,13 +499,7 @@ def _cited_association_planning_expected(name: str, subject: dict, search, analy
     used += [len(steps) - 3, len(steps) - 2, len(steps) - 1]
     if search is not None:
         bounds = {key: value for key, value in search.items() if key != "analysis"}
-        low, high = bounds.get("min_n"), bounds.get("max_n")
-        holds = (
-            set(bounds) == {"min_n", "max_n"}
-            and _whole(low, covariates + 3)
-            and _whole(high, low)
-            and high <= CITED_TOTAL_LIMIT
-        )
+        holds = _cited_association_search_valid(bounds, kind, study, covariates)
         steps.append(("search-range", {"subject": name, "search": bounds}, holds, ()))
         used.append(len(steps) - 1)
     steps.append(("cited-planning-contract", {"subject": name}, True, tuple(used)))

@@ -10,6 +10,12 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 
 from statclaim.methods.association_power import CORRELATION as CORRELATION_POWER
+from statclaim.methods.association_power import (
+    LOGISTIC_GROUPS,
+    LOGISTIC_TREND,
+    MATCHED_PAIRS,
+    POISSON_RATES,
+)
 from statclaim.methods.association_power import SLOPE as SLOPE_POWER
 from statclaim.methods.core import Assumption, Guarantee, PowerFormula
 
@@ -176,11 +182,16 @@ class ObservationalMethod:
     min_clusters: int | None = None
     limit: str = "the sample size grows"
     grade: str = "cited"
-    # How to calculate the test's power, if it can be: a formula in the total n and the
-    # number of covariates. Versioned on its own, since the guarantee does not depend on it.
+    # How to calculate the test's power, if it can be, and further formulas at other kinds
+    # of planning point, such as a measured exposure. Each is versioned on its own, since
+    # the guarantee does not depend on them.
     power: PowerFormula | None = field(default=None, repr=False, compare=False)
-    # The exposure scales the formula takes, when narrower than the test's own.
-    power_exposures: tuple[str, ...] = field(default=("binary", "continuous"), repr=False)
+    more_power: tuple[PowerFormula, ...] = field(default=(), repr=False, compare=False)
+
+    @property
+    def formulas(self) -> tuple[PowerFormula, ...]:
+        """Every power formula of the test, the main one first."""
+        return (*((self.power,) if self.power else ()), *self.more_power)
 
     def guarantee(self, alpha: Fraction) -> Guarantee:
         return Guarantee("type_I_error", self.relation, alpha, self.null, self.scope, self.limit)
@@ -215,6 +226,8 @@ REGRESSION = (
         ),
         references=(COX, PRENTICE_PYKE),
         limit="the numbers with and without the outcome grow",
+        power=LOGISTIC_GROUPS,
+        more_power=(LOGISTIC_TREND,),
     ),
     ObservationalMethod(
         key="conditional_logistic",
@@ -231,6 +244,7 @@ REGRESSION = (
         assumptions=(MATCHED_SETS, PRESPECIFIED_MODEL, LOGIT_MODEL, COEFFICIENT_NULL),
         references=(BRESLOW_DAY,),
         limit="the number of discordant pairs grows",
+        power=MATCHED_PAIRS,
     ),
     ObservationalMethod(
         key="poisson_rate_regression",
@@ -247,6 +261,7 @@ REGRESSION = (
         assumptions=(POISSON_COUNTS, PRESPECIFIED_MODEL, LOG_LINEAR_MODEL, COEFFICIENT_NULL),
         references=(BRESLOW_DAY_COHORT,),
         limit="the number of events grows",
+        power=POISSON_RATES,
     ),
     ObservationalMethod(
         key="modified_poisson",
@@ -286,7 +301,6 @@ REGRESSION = (
         references=(SEBER,),
         min_total=4,
         power=SLOPE_POWER,
-        power_exposures=("continuous",),
     ),
 )
 CORRELATION = (

@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirty-three short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Thirty-four short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2613,6 +2613,105 @@ StatClaim plans it directly.</div>
     <div class="task"><h4>Try it</h4><p>Leave out <code>exposure_r2</code>. How many participants does the slope need now?</p></div>
   </div>
 </section>
+<section class="lesson" id="regression-power">
+  <p class="eyebrow">Lesson 34</p>
+  <h2>Power for logistic, conditional logistic and Poisson regressions</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>The regressions of lesson 27 adjust for covariates, so their guarantees are cited. Their power is planned at the same points as the exact tests of lessons 29 and 30, with a published formula, and searched with the same blocks.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/34_regression_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 34: power for logistic, conditional logistic and Poisson regressions.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.regression
+<span class="k">use</span> planning
+
+<span class="c"># A cohort that samples 300 statin users and 600 non-users, adjusted for age: logistic</span>
+<span class="c"># regression is planned at the cohort&#x27;s own point, as for Fisher&#x27;s test.</span>
+<span class="k">let</span> followed = <span class="f">cohort</span>(exposed=300, unexposed=600, exposure=&quot;statin use&quot;, outcome=&quot;dementia&quot;)
+<span class="k">let</span> cohort_test = <span class="f">logistic_association</span>(
+    design=<span class="f">fixed</span>(model=followed),
+    null=<span class="f">no_association</span>(model=followed),
+    alpha=1/20,
+    adjusted_for=[&quot;age&quot;],
+)
+<span class="k">let</span> cohort_target = <span class="f">power_target</span>(at=<span class="f">risks</span>(unexposed=1/10, risk_ratio=3/2), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> cohort_power = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=cohort_test, target=cohort_target))
+<span class="k">let</span> cohort_sizes_ = <span class="f">cohort_sizes</span>(analysis=cohort_test, min_exposed=10, max_exposed=5000, unexposed_per_exposed=2)
+<span class="k">let</span> cohort_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=cohort_sizes_, target=cohort_target))
+
+<span class="c"># A case-control study, two controls per case, at the controls&#x27; exposure and an odds ratio.</span>
+<span class="k">let</span> sampled = <span class="f">case_control</span>(cases=150, controls=300, exposure=&quot;smoking&quot;, outcome=&quot;lung cancer&quot;)
+<span class="k">let</span> case_control_test = <span class="f">logistic_association</span>(design=<span class="f">fixed</span>(model=sampled), null=<span class="f">no_association</span>(model=sampled), alpha=1/20)
+<span class="k">let</span> case_control_target = <span class="f">power_target</span>(at=<span class="f">exposure_prevalence</span>(controls=1/5, odds_ratio=2), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> case_control_space = <span class="f">case_control_sizes</span>(analysis=case_control_test, min_cases=10, max_cases=5000, controls_per_case=2)
+<span class="k">let</span> case_control_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=case_control_space, target=case_control_target))
+
+<span class="c"># A measured exposure: an odds ratio of 3/2 per standard deviation of BMI.</span>
+<span class="k">let</span> survey = <span class="f">cross_sectional</span>(n=400, exposure=&quot;BMI&quot;, outcome=&quot;diabetes&quot;, exposure_scale=&quot;continuous&quot;)
+<span class="k">let</span> trend_test = <span class="f">logistic_association</span>(design=<span class="f">fixed</span>(model=survey), null=<span class="f">no_association</span>(model=survey), alpha=1/20)
+<span class="k">let</span> trend_target = <span class="f">power_target</span>(at=<span class="f">odds_per_sd</span>(odds_ratio=3/2, baseline=1/10), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> trend_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=<span class="f">total_sizes</span>(analysis=trend_test, min_n=10, max_n=10000), target=trend_target))
+
+<span class="c"># Matched pairs and person-time, at the points of lesson 30.</span>
+<span class="k">let</span> paired = <span class="f">matched_case_control</span>(pairs=220, exposure=&quot;benzodiazepine use&quot;, outcome=&quot;hip fracture&quot;)
+<span class="k">let</span> pairs_test = <span class="f">conditional_logistic</span>(design=<span class="f">fixed</span>(model=paired), null=<span class="f">no_association</span>(model=paired), alpha=1/20)
+<span class="k">let</span> pairs_target = <span class="f">power_target</span>(at=<span class="f">discordant_pairs</span>(share=1/4, odds_ratio=2), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> pairs_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=<span class="f">matched_sizes</span>(analysis=pairs_test, min_pairs=10, max_pairs=5000), target=pairs_target))
+
+<span class="k">let</span> workers = <span class="f">person_time_cohort</span>(exposure=&quot;solvent exposure&quot;, outcome=&quot;kidney cancer&quot;)
+<span class="k">let</span> rates_test = <span class="f">poisson_rate_regression</span>(design=<span class="f">fixed</span>(model=workers), null=<span class="f">no_association</span>(model=workers), alpha=1/20)
+<span class="k">let</span> rates_target = <span class="f">power_target</span>(
+    at=<span class="f">incidence_rates</span>(rate_ratio=2, exposed_time=8000, unexposed_time=24000),
+    minimum=4/5,
+    maximum_typeI=1/20,
+)
+<span class="k">let</span> events_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=<span class="f">event_counts</span>(analysis=rates_test, min_events=10, max_events=5000), target=rates_target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>logistic_association</code></dt>
+  <dd>Hsieh&#x27;s formula. A yes-or-no exposure is planned at the design&#x27;s own point:
+  <code>risks</code>, <code>outcome_prevalence</code> or <code>exposure_prevalence</code>. A
+  measured exposure is planned at <code>odds_per_sd(odds_ratio=..., baseline=...)</code>: the
+  odds ratio per standard deviation, and the outcome&#x27;s probability at the mean.</dd>
+  <dt><code>conditional_logistic</code></dt>
+  <dd>Connor&#x27;s formula for 1:1 pairs, at <code>discordant_pairs</code>.</dd>
+  <dt><code>poisson_rate_regression</code></dt>
+  <dd>Signorini&#x27;s formula, at <code>incidence_rates</code>, given the events.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [cohort_power]: meets(cohort_test)
+  exposed = 300; unexposed = 600
+  power ~ 0.5909 (normal approximation, not a bound); power target met = false
+  ...
+<span class="calc">calculated</span> [cohort_needed]: sample_size(cohort_sizes_)
+  exposed = 502; unexposed = 1004
+  ...
+<span class="calc">calculated</span> [case_control_needed]: sample_size(case_control_space)
+  cases = 126; controls = 252
+  ...
+<span class="calc">calculated</span> [trend_needed]: sample_size(&lt;expression&gt;)
+  n = 531; covariates = 0
+  ...
+<span class="calc">calculated</span> [pairs_needed]: sample_size(&lt;expression&gt;)
+  pairs = 281
+  ...
+<span class="calc">calculated</span> [events_needed]: sample_size(&lt;expression&gt;)
+  events = 96
+  ...
+Program status: calculated</code></pre></div>
+<p>These are normal approximations: 281 pairs here against 298 for McNemar&#x27;s exact test
+in lesson 30, and 126 cases against 133 for Fisher&#x27;s. The exact tests have proved power;
+the regressions add covariates and a calculation.</p>
+<p>pwrss gives the same sizes for Hsieh&#x27;s and Signorini&#x27;s formulas, and MESS the same
+power for Connor&#x27;s; 4,000 simulated studies analysed with <code>glm</code> agree within
+0.02.</p>
+<div class="note"><strong>What the covariates cost.</strong> Power is for covariates that
+are unrelated to the exposure, as the assumptions say. Covariates that explain part of the
+exposure need more participants, about 1 / (1 &#8722; R&#178;) times as many;
+<code>odds_per_sd</code> takes <code>exposure_r2</code> for this.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Cited regressions are planned at the exact tests&#x27; points, and searched with the same blocks.</li><li><code>odds_per_sd</code> plans a logistic regression on a measured exposure.</li><li>The formulas are normal approximations: calculated, never verified.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Give the cohort three unexposed participants per exposed one. How many exposed do you need now?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2644,6 +2743,7 @@ StatClaim plans it directly.</div>
       <tr><td>Plan a cluster-randomised trial</td><td><code>planning</code>, <code>tests.cluster</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>mean_difference</code> or <code>binomial_rates</code> with <code>icc</code>, with <code>cluster_counts</code> or <code>cluster_sizes</code></td><td>31</td></tr>
       <tr><td>Plan a survival trial from its times</td><td><code>planning</code>, <code>tests.survival</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>exponential_survival</code>, with <code>equal_arm_sizes</code></td><td>32</td></tr>
       <tr><td>Plan a correlation or a regression slope</td><td><code>planning</code>, <code>tests.correlation</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>correlation</code> or <code>slope</code>, with <code>total_sizes</code></td><td>33</td></tr>
+      <tr><td>Plan a logistic, conditional logistic or Poisson regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>

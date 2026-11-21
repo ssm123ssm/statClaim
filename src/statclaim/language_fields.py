@@ -51,6 +51,7 @@ from statclaim.language import (
     NullIR,
     ObservationIR,
     ObservedEventsIR,
+    OddsPerSdIR,
     OneArmCandidatesIR,
     OneArmModelIR,
     OneSampleAnalysisIR,
@@ -414,6 +415,13 @@ SCHEMAS = {
         "dropout_time": FieldSpec(Fraction, optional=True),
     },
     CorrelationIR: {"value": FieldSpec(Fraction, description="Correlation of the two variables.")},
+    OddsPerSdIR: {
+        "odds_ratio": FieldSpec(Fraction, description="Odds ratio per SD of the exposure."),
+        "baseline": FieldSpec(Fraction, description="Outcome's probability at the mean exposure."),
+        "exposure_r2": FieldSpec(
+            Fraction, optional=True, description="Share of the exposure the covariates explain."
+        ),
+    },
     SlopeIR: {
         "value": FieldSpec(Fraction, description="Change in the outcome per unit of exposure."),
         "exposure_sd": FieldSpec(Fraction, description="Standard deviation of the exposure."),
@@ -725,6 +733,12 @@ SCHEMAS = {
         ),
         "degrees_of_freedom": FieldSpec(int, optional=True),
         "covariates": FieldSpec(int, optional=True, description="Covariates adjusted for."),
+        "exposed": FieldSpec(int, optional=True),
+        "unexposed": FieldSpec(int, optional=True),
+        "cases": FieldSpec(int, optional=True),
+        "controls": FieldSpec(int, optional=True),
+        "pairs": FieldSpec(int, optional=True),
+        "events": FieldSpec(int, optional=True),
         "expected_events": FieldSpec(
             Fraction,
             optional=True,

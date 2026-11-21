@@ -201,6 +201,10 @@ Some cited tests have power too, calculated but never verified:
 |---|---|---|
 | `pearson_correlation` | `correlation(value=)` | `total_sizes(analysis, min_n, max_n)` |
 | `linear_association`, measured exposure | `slope(value=, exposure_sd=, residual_sd=, exposure_r2=)` | `total_sizes(analysis, min_n, max_n)` |
+| `logistic_association`, yes-or-no exposure | the design's point, as for `fisher_exact` | `cohort_sizes`, `case_control_sizes` or `total_sizes` |
+| `logistic_association`, measured exposure | `odds_per_sd(odds_ratio=, baseline=, exposure_r2=)` | `total_sizes(analysis, min_n, max_n)` |
+| `conditional_logistic` | `discordant_pairs(share=, odds_ratio=)` | `matched_sizes(analysis, min_pairs, max_pairs)` |
+| `poisson_rate_regression` | `incidence_rates(..., events=)` | `event_counts(analysis, min_events, max_events)` |
 
 Given the exposure, the test statistic is noncentral t with n − k − 2 degrees of
 freedom for k covariates; power averages it over a normal exposure, whose residual
@@ -209,6 +213,15 @@ assume. `exposure_r2` is the share of the exposure's variance the covariates exp
 A search of totals is by bisection, up to 100,000. R agrees to twelve decimals by
 numerical integration, and a raw-data simulation agrees within its error
 (`replication/comparison/regression_power_r.R`).
+
+The regressions use published normal approximations: Hsieh, Bloch and Larsen (1998)
+for logistic regression, Connor (1987) for matched pairs and Signorini (1991) for
+Poisson rates. For a case-control study, logistic regression uses the cases' share and
+each group's exposure, since the odds ratio is symmetric. Power is for covariates
+unrelated to the exposure. pwrss and MESS agree with each formula, and 4,000 simulated
+studies analysed with `glm` agree within 0.02
+(`replication/comparison/logistic_power_r.R`). `modified_poisson` and the survey tests
+have no formula yet.
 
 ## What is refused
 

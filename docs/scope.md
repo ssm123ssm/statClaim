@@ -85,7 +85,8 @@ What is supported:
   the literature and not proved. See [cited methods](cited-methods.md).
 - **Power for cited tests, calculated.** Approximate power and the value the
   estimate must pass, from a normal formula (the noncentral t for cluster tests,
-  a correlation and a regression slope), and a sample-size search. Status
+  a correlation and a regression slope), and a sample-size search. The cited
+  observational regressions have formulas too. Status
   `calculated`, never verified. See
   [power for cited tests](planning.md#power-for-cited-tests).
 

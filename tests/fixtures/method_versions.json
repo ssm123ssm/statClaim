@@ -75,6 +75,22 @@
     "version": 1,
     "sha256": "005d005aec52a8ca8f4bf36c91c791b35d2c7d2845eefa12b2eadde08bb944b0"
   },
+  "power:hsieh_logistic_binary": {
+    "version": 1,
+    "sha256": "d8e1e619407e2be557de46abf0c2be3eca6803643a0b2e0aae591355c9191ca9"
+  },
+  "power:hsieh_logistic_normal": {
+    "version": 1,
+    "sha256": "5d44f7e7b481c75ada2cac8bd825355d134174f34e23511858b41cda112eb1f2"
+  },
+  "power:connor_matched_pairs": {
+    "version": 1,
+    "sha256": "d6f676ab49be8b4bba9ec0523914a5a27353b3a5affd81701125a31a5f2d1e00"
+  },
+  "power:signorini_poisson_binary": {
+    "version": 1,
+    "sha256": "fb78339084956fee0ab27ba30974fbaf76de6229b06e9674f02971e6033935b0"
+  },
   "power:slope_random_normal": {
     "version": 1,
     "sha256": "5a5bbe33ee868bc34577fc778626d396868d9948fd58c19d55fee31d243a6292"

@@ -111,10 +111,13 @@ def test_meets_reports_degrees_of_freedom_and_reads_as_fields(tmp_path):
     assert {"linear_model", "normal_exposure_power", "covariates_explain_exposure"} <= set(ids)
 
 
-def test_only_the_two_tests_have_formulas():
-    assert {key for key, method in METHODS.items() if method.power} == {
-        "pearson_correlation",
-        "linear_association",
+def test_the_formulas_each_test_has():
+    assert {key: [f.point for f in m.formulas] for key, m in METHODS.items() if m.formulas} == {
+        "pearson_correlation": ["correlation"],
+        "linear_association": ["slope"],
+        "logistic_association": ["association_groups", "odds_per_sd"],
+        "conditional_logistic": ["discordant_pairs"],
+        "poisson_rate_regression": ["incidence_rates"],
     }
 
 
@@ -161,9 +164,9 @@ def test_tests_without_a_formula_and_binary_exposures_are_refused():
     assert found[0][0] == "planning_point" and "continuous exposure" in found[0][1]
     text = (
         "use models.observational\nuse sampling\nuse tests.regression\nuse planning\n"
-        'let sampled = case_control(cases=100, controls=200, exposure="e", outcome="o")\n'
-        "let fitted = logistic_association(design=fixed(model=sampled), "
-        "null=no_association(model=sampled), alpha=1/20)\n"
+        'let followed = cohort(exposed=100, unexposed=200, exposure="e", outcome="o")\n'
+        "let fitted = modified_poisson(design=fixed(model=followed), "
+        "null=no_association(model=followed), alpha=1/20)\n"
         f"let p = meets(analysis=fitted, target={RHO})\n"
     )
     found = diagnostics(text)

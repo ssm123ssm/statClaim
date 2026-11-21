@@ -645,11 +645,20 @@ def _approximate_lines(details: dict) -> list[str]:
     calculation = details["calculation"]
     approximation = calculation.get("approximation", cited_planning.APPROXIMATE)
     lines = []
-    if "covariates" in calculation and "power" in calculation:
-        # A cited observational test: power in the total, given the covariates.
+    observational = [
+        f"{key} = {calculation[key]}"
+        for key in ("exposed", "unexposed", "cases", "controls", "pairs", "events")
+        if key in calculation
+    ]
+    if "covariates" in calculation:
+        observational = [f"n = {calculation['total_sample_size']}"]
+        observational.append(f"covariates = {calculation['covariates']}")
+        if "degrees_of_freedom" in calculation:
+            observational.append(f"degrees of freedom = {calculation['degrees_of_freedom']}")
+    if observational and "power" in calculation and "n_control" not in calculation:
+        # A cited observational test: power in the study's own units.
         lines += [
-            f"  n = {calculation['total_sample_size']}; covariates = {calculation['covariates']}; "
-            f"degrees of freedom = {calculation['degrees_of_freedom']}",
+            "  " + "; ".join(observational),
             f"  power ~ {float(calculation['power']['decimal_approximation']):.4f} "
             f"({approximation}); "
             f"power target met = {str(calculation['power_target_met']).lower()}",

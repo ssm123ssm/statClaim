@@ -1,0 +1,47 @@
+# Lesson 34: power for logistic, conditional logistic and Poisson regressions.
+use models.observational
+use sampling
+use tests.regression
+use planning
+
+# A cohort that samples 300 statin users and 600 non-users, adjusted for age: logistic
+# regression is planned at the cohort's own point, as for Fisher's test.
+let followed = cohort(exposed=300, unexposed=600, exposure="statin use", outcome="dementia")
+let cohort_test = logistic_association(
+    design=fixed(model=followed),
+    null=no_association(model=followed),
+    alpha=1/20,
+    adjusted_for=["age"],
+)
+let cohort_target = power_target(at=risks(unexposed=1/10, risk_ratio=3/2), minimum=4/5, maximum_typeI=1/20)
+let cohort_power = calculate(meets(analysis=cohort_test, target=cohort_target))
+let cohort_sizes_ = cohort_sizes(analysis=cohort_test, min_exposed=10, max_exposed=5000, unexposed_per_exposed=2)
+let cohort_needed = calculate(smallest_sample_size(candidates=cohort_sizes_, target=cohort_target))
+
+# A case-control study, two controls per case, at the controls' exposure and an odds ratio.
+let sampled = case_control(cases=150, controls=300, exposure="smoking", outcome="lung cancer")
+let case_control_test = logistic_association(design=fixed(model=sampled), null=no_association(model=sampled), alpha=1/20)
+let case_control_target = power_target(at=exposure_prevalence(controls=1/5, odds_ratio=2), minimum=4/5, maximum_typeI=1/20)
+let case_control_space = case_control_sizes(analysis=case_control_test, min_cases=10, max_cases=5000, controls_per_case=2)
+let case_control_needed = calculate(smallest_sample_size(candidates=case_control_space, target=case_control_target))
+
+# A measured exposure: an odds ratio of 3/2 per standard deviation of BMI.
+let survey = cross_sectional(n=400, exposure="BMI", outcome="diabetes", exposure_scale="continuous")
+let trend_test = logistic_association(design=fixed(model=survey), null=no_association(model=survey), alpha=1/20)
+let trend_target = power_target(at=odds_per_sd(odds_ratio=3/2, baseline=1/10), minimum=4/5, maximum_typeI=1/20)
+let trend_needed = calculate(smallest_sample_size(candidates=total_sizes(analysis=trend_test, min_n=10, max_n=10000), target=trend_target))
+
+# Matched pairs and person-time, at the points of lesson 30.
+let paired = matched_case_control(pairs=220, exposure="benzodiazepine use", outcome="hip fracture")
+let pairs_test = conditional_logistic(design=fixed(model=paired), null=no_association(model=paired), alpha=1/20)
+let pairs_target = power_target(at=discordant_pairs(share=1/4, odds_ratio=2), minimum=4/5, maximum_typeI=1/20)
+let pairs_needed = calculate(smallest_sample_size(candidates=matched_sizes(analysis=pairs_test, min_pairs=10, max_pairs=5000), target=pairs_target))
+
+let workers = person_time_cohort(exposure="solvent exposure", outcome="kidney cancer")
+let rates_test = poisson_rate_regression(design=fixed(model=workers), null=no_association(model=workers), alpha=1/20)
+let rates_target = power_target(
+    at=incidence_rates(rate_ratio=2, exposed_time=8000, unexposed_time=24000),
+    minimum=4/5,
+    maximum_typeI=1/20,
+)
+let events_needed = calculate(smallest_sample_size(candidates=event_counts(analysis=rates_test, min_events=10, max_events=5000), target=rates_target))

@@ -41,6 +41,7 @@ from statclaim.language import (
     cited_formula,
     named_outcomes,
     normalize,
+    observational_formula,
 )
 from statclaim.matched import matched_assumptions
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
@@ -1213,7 +1214,7 @@ def derive_cited_association_planning(
     subject, method = claim.subject, analysis.method
     target, inner = subject.target, f"{name}.analysis"
     search = None if isinstance(subject, FeasibilityIR) else subject.candidates
-    formula, point = method.power, normalize(target.at)
+    formula, point = observational_formula(analysis, target.at), normalize(target.at)
     builder = _Builder()
     used = [
         _cited_association_steps(builder, inner, analysis),
