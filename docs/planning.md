@@ -446,7 +446,8 @@ simulated [estimate]: meets(analysis)
   may simulate at most 20 million studies.
 
 Simulation covers the t-tests, Student's and Welch's, on normal outcomes with the
-planning SD in both arms or in the scenarios below, and the t-tests on cluster summaries. Other tests get
+planning SD in both arms or in the scenarios below, the t-tests on cluster summaries,
+and the log-rank test from survival times. Other tests get
 `no_simulation_model`; exact tests are refused, since `calculate` gives their exact
 power. See lesson 28 of the tutorial.
 
@@ -497,6 +498,30 @@ tolerance (Bradley, 1978, *Br J Math Stat Psychol* 31, 144-152).
 cost does not grow with the size; skewed outcomes are drawn one participant at a time,
 up to 120 million in a run. A raw-data simulation in R agrees within its Monte Carlo
 error (`replication/comparison/t_scenarios_r.R`). See lesson 38.
+
+### Survival trials
+
+`log_rank` is simulated from `exponential_survival`, not from a number of events.
+Each participant enters uniformly over the accrual period and is followed to its end
+plus the follow-up, with exponential event times and exponential dropout. The test is
+the log-rank score test with its normal approximation. Without a delay it checks
+Schoenfeld's formula.
+
+`effect_delay` on `exponential_survival` is for `simulate` only: the hazard ratio
+applies from that time after entry, and before it both arms share the control hazard.
+Schoenfeld's formula assumes proportional hazards, so `calculate` refuses it.
+
+```stat
+let late = exponential_survival(hazard_ratio=7/10, control_median=12, accrual=12,
+    follow_up=12, effect_delay=3)
+let too_small = simulate(meets(analysis=analysis, target=power_target(at=late,
+    minimum=4/5, maximum_typeI=1/20)), seed=2026)
+```
+
+Every participant is drawn, so the same budget applies as for skewed outcomes. A
+search over hundreds of sizes may need fewer runs or a narrower range; bracket it
+with the formula. A simulation in R with `survival::survdiff` agrees within its
+Monte Carlo error (`replication/comparison/survival_simulation_r.R`). See lesson 39.
 
 ## What is checked
 

@@ -13,10 +13,11 @@ from statclaim.methods.assumptions import (
     PLANNING_SD,
     SIMULATED_CLUSTER_PROPORTIONS,
     SIMULATED_CLUSTERS,
+    SIMULATED_SURVIVAL,
     SIMULATED_TWO_MEANS,
 )
 from statclaim.methods.core import SimulationModel
-from statclaim.simulation import REFERENCES, cluster_trial, two_means_trial
+from statclaim.simulation import REFERENCES, cluster_trial, log_rank_trial, two_means_trial
 
 STUDENT_1908 = "Student (1908). The probable error of a mean. Biometrika 6(1), 1-25."
 WELCH_1947 = (
@@ -156,4 +157,58 @@ CLUSTER_PROPORTIONS = SimulationModel(
     scenario=_cluster_scenario,
     assumptions=(SIMULATED_CLUSTER_PROPORTIONS, PLANNING_ICC, MONTE_CARLO_ERROR),
     references=(STUDENT_1908, *REFERENCES),
+)
+
+
+MANTEL_1966 = (
+    "Mantel, N. (1966). Evaluation of survival data and two new rank order statistics arising "
+    "in its consideration. Cancer Chemotherapy Reports 50(3), 163-170."
+)
+
+
+def _survival_scenario(point: dict) -> str:
+    delay = point.get("effect_delay", 0.0)
+    effect = (
+        f"hazard ratio {point['value']:g} from {delay:g} after entry"
+        if delay
+        else f"hazard ratio {point['value']:g}"
+    )
+    lost = (
+        f", {point['dropout']:g} dropping out by {point['dropout_time']:g}"
+        if point.get("dropout")
+        else ""
+    )
+    return (
+        f"exponential times with control median {point['control_median']:g} and {effect}, "
+        f"accrual over {point['accrual']:g} and follow-up of {point['follow_up']:g}{lost}"
+    )
+
+
+def _log_rank(point, n_control, n_treatment, null_value, alpha, side):
+    """The two-sided log-rank test on simulated exponential survival times."""
+    if side != "both":
+        raise ValueError("The log-rank test is two-sided, of equal survival.")
+    return log_rank_trial(
+        point["value"],
+        point["control_median"],
+        point["accrual"],
+        point["follow_up"],
+        n_control,
+        n_treatment,
+        alpha,
+        dropout=point.get("dropout", 0.0),
+        dropout_time=point.get("dropout_time", 1.0),
+        delay=point.get("effect_delay", 0.0),
+    )
+
+
+LOG_RANK = SimulationModel(
+    key="log_rank_simulated",
+    title="Log-rank test on simulated exponential survival times",
+    version=1,
+    point="exponential_survival",
+    trial=_log_rank,
+    scenario=_survival_scenario,
+    assumptions=(SIMULATED_SURVIVAL, MONTE_CARLO_ERROR),
+    references=(MANTEL_1966, *REFERENCES),
 )

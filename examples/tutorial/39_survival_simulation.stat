@@ -1,0 +1,23 @@
+# Lesson 39: survival trials by simulation, with an effect that starts late.
+use models.two_arm_survival
+use sampling
+use tests.survival
+use planning
+
+# The size Schoenfeld's formula gives for the times of lesson 32: 215 per arm.
+let study = two_arm_survival(n_control=215, n_treatment=215)
+let analysis = log_rank(design=fixed(model=study), null=equal_survival(model=study), alpha=1/20)
+let times = exponential_survival(hazard_ratio=7/10, control_median=12, accrual=12, follow_up=12)
+let target = power_target(at=times, minimum=4/5, maximum_typeI=1/20)
+let formula = calculate(meets(analysis=analysis, target=target))
+let simulated = simulate(meets(analysis=analysis, target=target), seed=2026)
+
+# Many treatments take months to act: the hazard ratio applies only from 3 months after entry.
+let late = exponential_survival(hazard_ratio=7/10, control_median=12, accrual=12, follow_up=12, effect_delay=3)
+let delayed = power_target(at=late, minimum=4/5, maximum_typeI=1/20)
+let too_small = simulate(meets(analysis=analysis, target=delayed), seed=2026)
+
+# A larger trial, simulated with the same delay.
+let larger = two_arm_survival(n_control=420, n_treatment=420)
+let resized = log_rank(design=fixed(model=larger), null=equal_survival(model=larger), alpha=1/20)
+let enough = simulate(meets(analysis=resized, target=delayed), seed=2026)

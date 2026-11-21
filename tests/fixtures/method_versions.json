@@ -75,6 +75,10 @@
     "version": 2,
     "sha256": "23e58a2f0aee8fed3d2deaa110f396fc6dcacf876c140a10cc70f0b08f48853a"
   },
+  "simulation:log_rank_simulated": {
+    "version": 1,
+    "sha256": "58595dd0c1d0b94abdad6968ba76035ff67931f4ccc6c2e58fa808bf027622e0"
+  },
   "simulation:cluster_t_means_simulated": {
     "version": 1,
     "sha256": "e4fd90371462cc6b2b9b2c784e62ee43f8a50a8d11a9224f54afed243e4fd05b"
@@ -141,6 +145,6 @@
   },
   "simulation:engine": {
     "version": 1,
-    "sha256": "e85d66fadd3a58eb653debd85428e935790f5609fcf405fbe1e17b0f2c0fd387"
+    "sha256": "7cec8a4ac08fce911655416a54ce1e4e49e87dca57860ac3cb509057a0a9f9a4"
   }
 }

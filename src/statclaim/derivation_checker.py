@@ -330,6 +330,10 @@ def _point_valid(
         if "skewness" in point and abs(Fraction(point["skewness"])) > 4:
             return False
         point = {key: value for key, value in point.items() if key not in SCENARIO_KEYS}
+    if kind == "exponential_survival" and "effect_delay" in point:
+        if Fraction(point["effect_delay"]) < 0:
+            return False
+        point = {key: value for key, value in point.items() if key != "effect_delay"}
     if kind == "exponential_survival" and set(point) == POINT_KEYS[kind] | DROPOUT_KEYS:
         if not (0 <= Fraction(point["dropout"]) < 1 and Fraction(point["dropout_time"]) > 0):
             return False

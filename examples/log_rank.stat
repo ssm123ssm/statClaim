@@ -29,3 +29,17 @@ let power = calculate(meets(analysis=analysis, target=target))
 let sizes = equal_arm_sizes(analysis=analysis, min_per_arm=50, max_per_arm=1000)
 let sizing = calculate(smallest_sample_size(candidates=sizes, target=target))
 let events = sizing.calculation.expected_events
+
+# The same trial if the treatment takes three months to act: Schoenfeld's formula
+# cannot say, so the trial is simulated, drawing every patient's time.
+let late = exponential_survival(
+    hazard_ratio=7/10,
+    control_median=12,
+    accrual=24,
+    follow_up=12,
+    dropout=1/10,
+    dropout_time=12,
+    effect_delay=3,
+)
+let delayed = power_target(at=late, minimum=4/5, maximum_typeI=1/20)
+let delayed_power = simulate(meets(analysis=analysis, target=delayed), seed=2026)

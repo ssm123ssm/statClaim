@@ -72,6 +72,8 @@
   cross-checked against a raw-data simulation in R.
 - Simulated t-tests with unequal SDs or a skewed outcome, where Type I is judged on the
   simulation, cross-checked against a raw-data simulation in R.
+- Simulated log-rank tests from survival times, with an effect that starts late,
+  cross-checked against survival::survdiff in R.
 - Precision targets: sample sizes for a margin of error, absolute or relative, with an
   optional assurance, for every interval StatClaim reports, and for surveys through the
   normal interval with a design effect and a finite population correction.

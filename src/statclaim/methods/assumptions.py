@@ -325,3 +325,12 @@ SIMULATED_CLUSTER_PROPORTIONS = Assumption(
     "responses; sizes as for cluster means. The test is the unweighted t-test of the cluster "
     "proportions.",
 )
+SIMULATED_SURVIVAL = Assumption(
+    "simulated_survival",
+    "monte_carlo",
+    "The simulation draws exponential event times with the control hazard log 2 / median, "
+    "and in the treatment arm that hazard times the hazard ratio, from effect_delay after "
+    "entry on when one is given. Entry is uniform over the accrual period, dropout "
+    "exponential, and follow-up ends at the accrual period plus the follow-up. The test is "
+    "the log-rank test with its normal approximation.",
+)

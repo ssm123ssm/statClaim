@@ -1,0 +1,58 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "survival_version": "3.8.6",
+  "cases": [
+    {
+      "n_control": 150,
+      "n_treatment": 150,
+      "hazard_ratio": "7/10",
+      "control_median": "12",
+      "accrual": "12",
+      "follow_up": "12",
+      "dropout": "0",
+      "dropout_time": "1",
+      "effect_delay": "0",
+      "rate": 0.6564,
+      "runs": 10000
+    },
+    {
+      "n_control": 100,
+      "n_treatment": 200,
+      "hazard_ratio": "13/20",
+      "control_median": "10",
+      "accrual": "18",
+      "follow_up": "6",
+      "dropout": "1/10",
+      "dropout_time": "12",
+      "effect_delay": "0",
+      "rate": 0.7249,
+      "runs": 10000
+    },
+    {
+      "n_control": 215,
+      "n_treatment": 215,
+      "hazard_ratio": "7/10",
+      "control_median": "12",
+      "accrual": "12",
+      "follow_up": "12",
+      "dropout": "0",
+      "dropout_time": "1",
+      "effect_delay": "3",
+      "rate": 0.5412,
+      "runs": 10000
+    },
+    {
+      "n_control": 30,
+      "n_treatment": 30,
+      "hazard_ratio": "1",
+      "control_median": "12",
+      "accrual": "0",
+      "follow_up": "24",
+      "dropout": "0",
+      "dropout_time": "1",
+      "effect_delay": "0",
+      "rate": 0.056,
+      "runs": 10000
+    }
+  ]
+}

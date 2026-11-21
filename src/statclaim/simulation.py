@@ -18,6 +18,7 @@ import math
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
+from statistics import NormalDist
 
 ENGINE_VERSION = 1
 GENERATOR = "Mersenne Twister (Python random.random), seeded from SHA-256 of the seed and a label"
@@ -403,3 +404,67 @@ def two_means_trial(
         return welch_decision(shift, var_c, var_t)
 
     return welch_study
+
+
+def log_rank_trial(
+    hazard_ratio: float,
+    control_median: float,
+    accrual: float,
+    follow_up: float,
+    n_control: int,
+    n_treatment: int,
+    alpha: float,
+    *,
+    dropout: float = 0.0,
+    dropout_time: float = 1.0,
+    delay: float = 0.0,
+) -> Callable[[Stream], bool]:
+    """One simulated survival trial: does the two-sided log-rank test reject?
+
+    Each participant enters uniformly over the accrual period and is followed to its end
+    plus the follow-up. Event times are exponential with the control hazard log 2 / median;
+    in the treatment arm the hazard is multiplied by the hazard ratio from `delay` after
+    entry on. Dropout is exponential, with probability `dropout` by `dropout_time`. The test
+    compares the log-rank score with its variance against the normal quantile; continuous
+    times have no ties.
+    """
+    if min(n_control, n_treatment) < 1:
+        raise ValueError("The log-rank test needs a participant in each arm.")
+    control = math.log(2.0) / control_median
+    loss = -math.log1p(-dropout) / dropout_time if dropout else 0.0
+    critical = NormalDist().inv_cdf(1.0 - alpha / 2.0) ** 2
+    end = accrual + follow_up
+    before = control * delay  # cumulative hazard before the effect starts
+
+    def event_time(stream: Stream, treated: bool) -> float:
+        total = -math.log(stream.uniform())  # a unit exponential cumulative hazard
+        if not treated:
+            return total / control
+        if total <= before:
+            return total / control
+        return delay + (total - before) / (control * hazard_ratio)
+
+    def study(stream: Stream) -> bool:
+        times = []
+        for arm, n in ((0, n_control), (1, n_treatment)):
+            for _ in range(n):
+                window = end - accrual * stream.uniform()
+                time = event_time(stream, arm == 1)
+                if loss:
+                    lost = -math.log(stream.uniform()) / loss
+                    if lost < time:
+                        times.append((min(lost, window), 0, arm))
+                        continue
+                times.append((time, 1, arm) if time <= window else (window, 0, arm))
+        times.sort()
+        at_risk = [n_control, n_treatment]
+        score = variance = 0.0
+        for _, event, arm in times:
+            if event:
+                share = at_risk[1] / (at_risk[0] + at_risk[1])
+                score += arm - share
+                variance += share * (1.0 - share)
+            at_risk[arm] -= 1
+        return variance > 0.0 and score * score / variance > critical
+
+    return study

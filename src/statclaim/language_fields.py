@@ -433,6 +433,11 @@ SCHEMAS = {
             Fraction, optional=True, description="Probability of dropping out by dropout_time."
         ),
         "dropout_time": FieldSpec(Fraction, optional=True),
+        "effect_delay": FieldSpec(
+            Fraction,
+            optional=True,
+            description="For simulation: when the hazard ratio starts to apply after entry.",
+        ),
     },
     CorrelationIR: {"value": FieldSpec(Fraction, description="Correlation of the two variables.")},
     OutcomeMeansIR: {

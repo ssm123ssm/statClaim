@@ -1,0 +1,23 @@
+Rejection rates of the log-rank test (survdiff), written to tests/fixtures/survival_simulation_r.json
+
+n (150, 150), HR 7/10, median 12, accrual 12, follow-up 12, dropout 0 by 1, delay 0: 0.6564 of 10000
+n (100, 200), HR 13/20, median 10, accrual 18, follow-up 6, dropout 1/10 by 12, delay 0: 0.7249 of 10000
+n (215, 215), HR 7/10, median 12, accrual 12, follow-up 12, dropout 0 by 1, delay 3: 0.5412 of 10000
+n (30, 30), HR 1, median 12, accrual 0, follow-up 24, dropout 0 by 1, delay 0: 0.0560 of 10000
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] survival_3.8-6 jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1 Matrix_1.7-5   splines_4.6.1  grid_4.6.1     lattice_0.22-9

@@ -91,13 +91,14 @@ for _method in METHODS.values():
         if POWER_FORMULAS.setdefault(_formula.key, _formula) is not _formula:
             raise ValueError(f"Power formula {_formula.key!r} is defined twice.")
 
-# Simulation models, by key. Each serves methods at its outcome's planning point.
+# Simulation models, by key. Each serves methods at one of its outcome's planning points:
+# survival is simulated from its times, not from a number of events.
 SIMULATIONS: dict[str, SimulationModel] = {}
 for _method in METHODS.values():
     _model = _method.simulation
     if _model is None:
         continue
-    if _model.point != POINT_OF_OUTCOME.get(_method.outcome):
+    if _model.point not in POINTS_OF_OUTCOME.get(_method.outcome, ()):
         raise ValueError(f"Method {_method.key!r} has a simulation model for another outcome.")
     if SIMULATIONS.setdefault(_model.key, _model) is not _model:
         raise ValueError(f"Simulation model {_model.key!r} is defined twice.")

@@ -57,7 +57,7 @@ def _side(analysis: CitedAnalysisIR) -> str:
 def _simulated_values(point, cluster_sizes=None) -> dict[str, float]:
     """The planning point as the model reads it, with cluster sizes and any scenario."""
     values = _values(point)
-    for name in ("sd_treatment", "skewness", "cluster_size_cv"):
+    for name in ("sd_treatment", "skewness", "cluster_size_cv", "effect_delay"):
         if getattr(point, name, None) is not None:
             values[name] = float(getattr(point, name))
     if cluster_sizes is not None:
@@ -76,6 +76,8 @@ def _trial(
         values = {**values, "value": null_value}
         if "p_treatment" in values:
             values["p_treatment"] = values["p_control"]
+        if "control_median" in values:
+            values["value"] = 1.0  # equal survival: a hazard ratio of 1
     return analysis.method.simulation.trial(
         values, *sizes, null_value, float(analysis.alpha), _side(analysis)
     )
@@ -193,6 +195,8 @@ def describe(subject, settings: SimulationIR) -> dict:
         scenario += f", standard deviation {point.sd_treatment} in the treatment arm"
     if getattr(point, "skewness", None):
         scenario += f", skewness {point.skewness}"
+    if getattr(point, "effect_delay", None):
+        scenario += f", the hazard ratio applying from {point.effect_delay} after entry"
     typeI = (
         f"simulated Type I at most {target.maximum_typeI}, judged like power since the "
         "scenario leaves normal outcomes with a common SD"

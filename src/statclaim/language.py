@@ -144,7 +144,7 @@ from statclaim.simulation import (
     MIN_RUNS,
 )
 
-LANGUAGE_VERSION = "0.34.0"
+LANGUAGE_VERSION = "0.35.0"
 
 
 class PlannableIR:
@@ -1058,6 +1058,8 @@ class ExponentialSurvivalIR(PlanningPointIR):
     follow_up: Fraction
     dropout: Fraction | None = None
     dropout_time: Fraction | None = None
+    # For simulation: the treatment's hazard ratio applies only from this time after entry.
+    effect_delay: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1729,6 +1731,11 @@ def departs(point) -> bool:
     )
 
 
+def participant_draws(point) -> bool:
+    """Whether simulating at this point draws every participant, not summary statistics."""
+    return isinstance(point, ExponentialSurvivalIR) or bool(getattr(point, "skewness", None))
+
+
 SCENARIO_REFUSED = (
     "sd_treatment and skewness describe a scenario for simulating a two-sample t-test; "
     "leave them out here."
@@ -2034,6 +2041,8 @@ def normalize(value: object) -> object:
             }
             if value.dropout is not None:
                 point.update(dropout=str(value.dropout), dropout_time=str(value.dropout_time))
+            if value.effect_delay is not None:
+                point["effect_delay"] = str(value.effect_delay)
             return point
         case SingleProportionIR(value=rate):
             point = {"proportion": str(rate)}
@@ -3534,6 +3543,13 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             "use simulate(...), which draws the sizes.",
             claim.span,
         )
+    if getattr(point, "effect_delay", None):
+        fail(
+            "unsupported_claim",
+            "Schoenfeld's formula assumes the hazard ratio holds from entry on. For an effect "
+            "that starts later, use simulate(...), which draws the survival times.",
+            claim.span,
+        )
     if isinstance(point, MeanDifferenceIR) and departs(point):
         fail(
             "unsupported_claim",
@@ -3640,6 +3656,9 @@ def _exponential_survival(arguments: dict[str, LocatedValue], span: Span) -> Exp
             fail("domain", "dropout must lie in [0, 1).", dropout.span)
         if when.value <= 0:
             fail("domain", "dropout_time must be a positive time.", when.span)
+    delay = arguments.get("effect_delay")
+    if delay is not None and delay.value is not None and delay.value < 0:
+        fail("domain", "effect_delay must be a time of at least 0.", delay.span)
     return ExponentialSurvivalIR(
         ratio.value,
         median.value,
@@ -3647,6 +3666,7 @@ def _exponential_survival(arguments: dict[str, LocatedValue], span: Span) -> Exp
         follow_up.value,
         dropout.value if given else None,
         when.value if given else None,
+        None if delay is None else delay.value,
     )
 
 
@@ -5176,7 +5196,7 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
                 "use fewer runs.",
                 claim.span,
             )
-    if getattr(subject.target.at, "skewness", None):
+    if participant_draws(subject.target.at):
         # A search simulates each size for power, then confirms the one that passes with
         # power and Type I runs; a claim at the declared sizes runs power and Type I.
         if isinstance(subject, SizingIR):
@@ -5188,9 +5208,9 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         if drawn * settings.runs > MAX_SIMULATED_PARTICIPANTS:
             fail(
                 "domain",
-                "A skewed outcome is simulated one participant at a time, and this could "
-                f"draw more than {MAX_SIMULATED_PARTICIPANTS:,} participants. Narrow the "
-                "range or use fewer runs.",
+                "This scenario is simulated one participant at a time, and this could draw "
+                f"more than {MAX_SIMULATED_PARTICIPANTS:,} participants. Narrow the range or "
+                "use fewer runs.",
                 claim.span,
             )
     return claim.value
@@ -6028,6 +6048,7 @@ MODULES = {
                         ("follow_up", "number"),
                         ("dropout", "number", True),
                         ("dropout_time", "number", True),
+                        ("effect_delay", "number", True),
                     ),
                     "ExponentialSurvival",
                     _exponential_survival,
@@ -6037,7 +6058,8 @@ MODULES = {
                     "followed for follow_up after it; and optionally the probability of "
                     "dropping out by dropout_time. Times are exponential and in one unit, such "
                     "as months. The arm sizes then give the expected events, so arm sizes can "
-                    "be searched. All are planning inputs.",
+                    "be searched. simulate(...) also takes effect_delay: the hazard ratio "
+                    "applies only from that time after entry. All are planning inputs.",
                 ),
                 _constructor(
                     "risks",
