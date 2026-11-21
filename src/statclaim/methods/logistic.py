@@ -11,7 +11,7 @@ from statclaim.methods.assumptions import (
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import CitedMethod, MethodModule
-from statclaim.methods.power import TWO_PROPORTIONS
+from statclaim.methods.power import LOGISTIC_WALD
 
 COX = (
     "Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal "
@@ -39,7 +39,8 @@ _COMMON = dict(
     references=(COX, HOSMER),
     min_per_arm=2,
     min_total=4,
-    power=TWO_PROPORTIONS,
+    # Version 2 of each test's planning: exact over the binomial counts, not a formula.
+    power=LOGISTIC_WALD,
 )
 
 MODULE = MethodModule(

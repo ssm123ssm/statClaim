@@ -83,6 +83,8 @@
   more adaptive rules (unblinded re-estimation, dropping an arm) on the same footing.
 - Simulated power of families (Bonferroni, fixed sequence, graphical) of Fisher tests and
   t-tests with correlated endpoints: each endpoint, any and all, cross-checked against R.
+- Exact power of the logistic regression trial test, summed over both arms' counts for its
+  Wald test, matching glm on every table.
 - Precision targets: sample sizes for a margin of error, absolute or relative, with an
   optional assurance, for every interval StatClaim reports, and for surveys through the
   normal interval with a design effect and a finite population correction.

@@ -24,6 +24,7 @@ from statclaim.methods.assumptions import (
     PROPORTIONAL_HAZARDS,
     UNADJUSTED_PROPORTIONS,
     UNIFORM_ACCRUAL,
+    WALD_ENUMERATION,
 )
 from statclaim.methods.core import PowerFormula, PowerResult
 from statclaim.methods.t_distribution import (
@@ -35,6 +36,11 @@ from statclaim.methods.t_distribution import (
 
 _NORMAL = NormalDist()
 
+AGRESTI_2013 = "Agresti, A. (2013). Categorical Data Analysis, 3rd ed. Wiley. Sections 3.1 and 5.2."
+HAUCK_DONNER = (
+    "Hauck, W. W. and Donner, A. (1977). Wald's test as applied to hypotheses in logit "
+    "analysis. Journal of the American Statistical Association 72(360), 851-853."
+)
 CHOW = (
     "Chow, S.-C., Shao, J. and Wang, H. (2008). Sample Size Calculations in Clinical "
     "Research, 2nd ed. Chapman and Hall/CRC. Chapter 3."
@@ -124,6 +130,66 @@ def two_proportions(point, n_control, n_treatment, null_value, alpha, side) -> P
         power = _NORMAL.cdf(gap / se_point)
     sign = 1 if one_sided or shift >= 0 else -1
     return PowerResult(power, sign * z * se_null, "above" if sign > 0 else "below", se_null)
+
+
+def _binomial_window(n: int, rate: float):
+    """(k, P(K = k)) for K binomial(n, rate), within 12 standard deviations of the mean, where
+    the rest is far below a double's precision."""
+    if rate <= 0.0 or rate >= 1.0:
+        yield (0 if rate <= 0.0 else n), 1.0
+        return
+    mean, spread = n * rate, math.sqrt(n * rate * (1 - rate))
+    low, high = max(0, int(mean - 12 * spread) - 1), min(n, int(mean + 12 * spread) + 2)
+    log_rate, log_rest = math.log(rate), math.log1p(-rate)
+    base = math.lgamma(n + 1)
+    for k in range(low, high + 1):
+        weight = base - math.lgamma(k + 1) - math.lgamma(n - k + 1) + k * log_rate
+        yield k, math.exp(weight + (n - k) * log_rest)
+
+
+def wald_rejection(n_control, n_treatment, alpha, side, p_control, p_treatment) -> float:
+    """The probability that the Wald test of the log odds ratio rejects, summed over both
+    arms' binomial counts. A table with an empty cell does not reject."""
+    z = _quantile(alpha, side)
+    treated = list(_binomial_window(n_treatment, p_treatment))
+    total = 0.0
+    for x_c, w_c in _binomial_window(n_control, p_control):
+        if x_c in (0, n_control):
+            continue
+        log_c = math.log(x_c / (n_control - x_c))
+        var_c = 1 / x_c + 1 / (n_control - x_c)
+        inner = 0.0
+        for x_t, w_t in treated:
+            if x_t in (0, n_treatment):
+                continue
+            ratio = math.log(x_t / (n_treatment - x_t)) - log_c
+            wald = ratio / math.sqrt(var_c + 1 / x_t + 1 / (n_treatment - x_t))
+            if wald > z if side == "higher" else abs(wald) > z:
+                inner += w_t
+        total += w_c * inner
+    return min(total, 1.0)
+
+
+def logistic_wald(point, n_control, n_treatment, null_value, alpha, side) -> PowerResult:
+    """The Wald test of the treatment coefficient in a logistic regression with treatment
+    alone: the log odds ratio of the 2x2 table over its standard error, summed exactly over
+    both arms' binomial counts. The estimate must pass the log odds ratio at which the Wald
+    statistic reaches its critical value with the standard error the planning rates expect."""
+    if null_value != 0 or side == "lower":
+        raise ValueError("The Wald enumeration supports a zero difference, higher or both.")
+    p_c, p_t = point["p_control"], point["p_treatment"]
+    power = wald_rejection(n_control, n_treatment, alpha, side, p_c, p_t)
+    expected = (
+        1 / (n_control * p_c * (1 - p_c)) + 1 / (n_treatment * p_t * (1 - p_t))
+        if 0 < p_c < 1 and 0 < p_t < 1
+        else math.inf
+    )
+    se = math.sqrt(expected)
+    z = _quantile(alpha, side)
+    one_sided = side == "higher"
+    sign = 1 if one_sided or p_t >= p_c else -1
+    critical = math.exp(sign * z * se) if math.isfinite(se) else math.inf
+    return PowerResult(power, critical, "above" if sign > 0 else "below", se)
 
 
 def log_rank_events(point, n_control, n_treatment, null_value, alpha, side) -> PowerResult:
@@ -248,6 +314,18 @@ TWO_PROPORTIONS = PowerFormula(
     function=two_proportions,
     assumptions=(NORMAL_APPROXIMATION_POWER, UNADJUSTED_PROPORTIONS),
     references=(FLEISS, R_POWER_PROP),
+)
+WALD_EXACT = "sum over both arms' binomial counts, exact for the Wald test"
+
+LOGISTIC_WALD = PowerFormula(
+    key="logistic_wald_enumeration",
+    title="Wald test of the treatment coefficient, summed over both arms' binomial counts",
+    version=1,
+    point="binomial_rates",
+    function=logistic_wald,
+    assumptions=(WALD_ENUMERATION, UNADJUSTED_PROPORTIONS),
+    references=(AGRESTI_2013, HAUCK_DONNER),
+    approximation=WALD_EXACT,
 )
 SCHOENFELD = PowerFormula(
     key="schoenfeld_log_rank",

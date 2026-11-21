@@ -357,3 +357,11 @@ SIMULATED_ENDPOINTS = Assumption(
     "correlation: a yes-or-no outcome is a success when its latent is high, a measured outcome "
     "rises with its latent. Other forms of dependence may give other power.",
 )
+WALD_ENUMERATION = Assumption(
+    "wald_enumeration",
+    "approximation",
+    "Power is summed exactly over both arms' binomial counts for the Wald test of the "
+    "treatment coefficient, the log odds ratio over its standard error, with normal critical "
+    "values. A table with an empty cell has no finite estimate; like glm's Wald test, it is "
+    "counted as not rejecting.",
+)

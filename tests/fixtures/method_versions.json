@@ -55,9 +55,9 @@
     "version": 1,
     "sha256": "ec8a803d6e7813c8f59858c473119242054ec9b736b35cb10a8ece0b187954d9"
   },
-  "power:normal_two_proportions": {
-    "version": 2,
-    "sha256": "15a9192b2ed84573251d9334f11e6da247f1fe98759e10d7a88d8a7b2884ce9e"
+  "power:logistic_wald_enumeration": {
+    "version": 1,
+    "sha256": "aa094137bbe54015d3529fe347f04f7721d3aaf8e24961b7b5674823e8c4f8dc"
   },
   "power:cluster_t_means": {
     "version": 1,

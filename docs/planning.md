@@ -279,12 +279,18 @@ Planning points:
 | --- | --- | --- |
 | Continuous | `mean_difference(value=..., sd=...)` | Difference of two means with a known SD |
 | Cluster means or proportions | the same points with `icc=...` | Noncentral t on cluster summaries with the design effect |
-| Yes-or-no | `binomial_rates(p_control=..., p_treatment=...)` | Two proportions: pooled variance under the null, unpooled at the point |
+| Yes-or-no (logistic regression) | `binomial_rates(p_control=..., p_treatment=...)` | Exact: the Wald test of the log odds ratio, summed over both arms' binomial counts |
 | Survival | `hazard_ratio(value=..., events=...)` | Schoenfeld's formula in the number of events |
 | Survival, from times | `exponential_survival(hazard_ratio=..., control_median=..., accrual=..., follow_up=...)` | Schoenfeld's formula at the events the arm sizes expect |
 
 - `sd` is the standard deviation of one participant's outcome on the analysed
   scale. For a mixed model, give the effective SD of the contrast.
+- A logistic regression's power is exact for its Wald test: every pair of counts is
+  weighed by its binomial probability. A table with an empty cell has no finite
+  estimate and, as with `glm`, does not reject. The report adds the test's exact
+  Type I when both arms have the control rate; the level itself stays cited. `glm`
+  fitted to every table in R agrees to 1e-12
+  (`replication/comparison/logistic_wald_r.R`). See lesson 44.
 - The margin comes from the declared null. The point must lie outside it.
 - `hazard_ratio` is treatment over control. Power depends on the events, not on
   the arm sizes, and it assumes proportional hazards. The log-rank test's error

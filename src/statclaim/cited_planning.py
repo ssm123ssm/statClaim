@@ -25,6 +25,7 @@ from statclaim.language import (
 from statclaim.methods import NULL_FORMS
 from statclaim.methods.core import PowerResult
 from statclaim.methods.identify import identify, mark
+from statclaim.methods.power import LOGISTIC_WALD, wald_rejection
 from statclaim.report import planning_report
 
 APPROXIMATE = "normal approximation, not a bound"
@@ -151,6 +152,20 @@ def evaluate(
         }
     else:
         design = _cluster_record(target, sizes, cluster_sizes)
+    if formula.key == LOGISTIC_WALD.key:
+        # Exact too: the Wald test's rejection rate when both arms share the control rate.
+        null = analysis.hypothesis
+        control = float(target.at.p_control)
+        design["typeI_at_control_rate"] = _record(
+            wald_rejection(
+                n_control,
+                n_treatment,
+                float(analysis.alpha),
+                NULL_FORMS[null.predicate][1].favours or "both",
+                control,
+                control,
+            )
+        )
     if result.expected_events is not None:
         design["expected_events"] = _record(result.expected_events)
         design["event_probability_control"] = _record(result.event_probabilities[0])

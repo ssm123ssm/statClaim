@@ -926,6 +926,12 @@ SCHEMAS = {
         "effective_sample_size": FieldSpec(
             Fraction, optional=True, description="n over the survey's design effect."
         ),
+        "typeI_at_control_rate": FieldSpec(
+            Fraction,
+            optional=True,
+            description="For the logistic Wald test: its exact rejection rate when both arms "
+            "have the control rate.",
+        ),
         "exposed": FieldSpec(int, optional=True),
         "unexposed": FieldSpec(int, optional=True),
         "cases": FieldSpec(int, optional=True),

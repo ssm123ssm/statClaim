@@ -22,9 +22,10 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 FIXTURE = json.loads((ROOT / "tests/fixtures/power_r.json").read_text())
 # power.t.test uses the noncentral t; the normal value is a little higher. The pinned
-# cases have 400 or more per arm. power.prop.test uses the same normal formula, so the
-# only difference is StatClaim's rounding to six decimals.
-TOLERANCE = {"power.t.test": (0, Fraction(1, 1000)), "power.prop.test": (-5e-7, 5e-7)}
+# cases have 400 or more per arm. A logistic regression's power is exact for its Wald test
+# (replication/comparison/logistic_wald_r.R checks it against glm on every table);
+# power.prop.test approximates a different statistic, so they differ by up to 0.01 here.
+TOLERANCE = {"power.t.test": (0, Fraction(1, 1000)), "power.prop.test": (-0.01, 0.01)}
 
 
 def fraction(value) -> Fraction:
@@ -107,8 +108,11 @@ def render(rows: list[dict]) -> str:
         "",
         "Each StatClaim value is `calculate(meets(...))` on a t-test or a logistic regression, "
         "with status `calculated`. `power.t.test` uses the noncentral t distribution, so the "
-        "normal value may be higher by less than 0.001 at these sizes. `power.prop.test` uses "
-        "the same normal formula, so the values agree to StatClaim's six decimals.",
+        "normal value may be higher by less than 0.001 at these sizes. A logistic "
+        "regression's power is summed exactly over both arms' counts for its Wald test, and "
+        "matches glm on every table (`replication/comparison/logistic_wald_r.R`); "
+        "`power.prop.test` is a normal approximation to a related statistic, so the two "
+        "differ by up to 0.01 at these sizes.",
         "",
         "| R function | Case (n per arm) | R | StatClaim | Difference | Within tolerance |",
         "| --- | --- | --- | --- | --- | --- |",

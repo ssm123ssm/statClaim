@@ -1,0 +1,41 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "cases": [
+    {
+      "n_control": 30,
+      "n_treatment": 30,
+      "alpha": "1/20",
+      "side": "both",
+      "p_control": "3/10",
+      "p_treatment": "1/2",
+      "power": 0.347280671634422
+    },
+    {
+      "n_control": 30,
+      "n_treatment": 30,
+      "alpha": "1/20",
+      "side": "both",
+      "p_control": "3/10",
+      "p_treatment": "3/10",
+      "power": 0.041112771666512
+    },
+    {
+      "n_control": 60,
+      "n_treatment": 40,
+      "alpha": "1/40",
+      "side": "higher",
+      "p_control": "1/5",
+      "p_treatment": "9/20",
+      "power": 0.754147250930724
+    },
+    {
+      "n_control": 50,
+      "n_treatment": 50,
+      "alpha": "1/20",
+      "side": "both",
+      "p_control": "1/20",
+      "p_treatment": "1/5",
+      "power": 0.520571777792029
+    }
+  ]
+}

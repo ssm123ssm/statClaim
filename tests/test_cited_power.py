@@ -194,9 +194,10 @@ def test_every_method_with_a_formula_names_assumptions_and_references():
     assert {f.key for m in METHODS.values() for f in m.formulas} == set(POWER_FORMULAS)
     for formula in POWER_FORMULAS.values():
         assert formula.assumptions and formula.references
-        # Each says how power is approximated: a normal formula, or the noncentral t.
+        # Each says how power is found: a normal formula, the noncentral t, or a sum over the
+        # binomial counts.
         ids = {a.id for a in formula.assumptions}
-        assert ids & {"normal_approximation_power", "noncentral_t_power"}
+        assert ids & {"normal_approximation_power", "noncentral_t_power", "wald_enumeration"}
     assert "proportional_hazards" in [a.id for a in METHODS["log_rank"].power.assumptions]
     assert "proportional_hazards" not in [a.id for a in METHODS["log_rank"].assumptions]
 
@@ -360,7 +361,7 @@ def test_search_returns_the_first_equal_arm_size_reaching_the_target(tmp_path):
 RATES = "binomial_rates(p_control=3/10, p_treatment=1/2)"
 
 
-def test_logistic_power_matches_the_two_proportion_formula(tmp_path):
+def test_logistic_power_is_summed_exactly_for_the_wald_test(tmp_path):
     text = (
         "use models.two_arm_binomial\nuse sampling\nuse tests.logistic\nuse planning\n"
         "let study = two_arm_binomial(n_control=100, n_treatment=100)\n"
@@ -370,9 +371,11 @@ def test_logistic_power_matches_the_two_proportion_formula(tmp_path):
     )
     report = run(text, tmp_path)
     calculation = report["requests"][0]["report"]["calculation"]
-    assert calculation["power"]["decimal_approximation"] == "0.828109"
+    # Exact for the Wald test; the two-proportion normal formula gives 0.828109.
+    assert calculation["power"]["decimal_approximation"] == "0.831572"
+    assert calculation["typeI_at_control_rate"]["decimal_approximation"] < "0.0250"
     ids = [item["id"] for item in report["requests"][0]["report"]["assumptions"]]
-    assert "unadjusted_proportions" in ids
+    assert "unadjusted_proportions" in ids and "wald_enumeration" in ids
 
 
 def test_adaptive_design_leaves_the_calculation_unresolved(tmp_path):

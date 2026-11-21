@@ -710,6 +710,12 @@ def _approximate_lines(details: dict) -> list[str]:
             f"{calculation['maximum_typeI']['fraction']}; Type I target met = "
             f"{str(calculation['typeI_target_met']).lower()}",
         ]
+        if "typeI_at_control_rate" in calculation:
+            exact = float(calculation["typeI_at_control_rate"]["decimal_approximation"])
+            lines.append(
+                f"  exact Type I with both arms at the control rate ~ {exact:.4f} (the level "
+                "is cited, not this)"
+            )
     if "candidates_evaluated" in calculation:
         lines.append(f"  candidates evaluated = {calculation['candidates_evaluated']}")
     if "power_ceiling" in calculation:

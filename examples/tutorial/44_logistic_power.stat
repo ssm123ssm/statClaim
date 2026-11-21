@@ -1,0 +1,17 @@
+# Lesson 44: exact power for a logistic regression trial.
+use models.two_arm_binomial
+use sampling
+use tests.logistic
+use planning
+
+# A small trial of response, analysed by the treatment coefficient's Wald test.
+let study = two_arm_binomial(n_control=30, n_treatment=30)
+let analysis = logistic_regression(design=fixed(model=study), null=equal_proportions(model=study), alpha=1/20)
+
+# Response rates of 30% and 60%: power is summed over every possible pair of counts.
+let target = power_target(at=binomial_rates(p_control=3/10, p_treatment=3/5), minimum=4/5, maximum_typeI=1/20)
+let power = calculate(meets(analysis=analysis, target=target))
+
+# The first size per arm with 80% power, each size summed exactly.
+let sizes = equal_arm_sizes(analysis=analysis, min_per_arm=10, max_per_arm=200)
+let sizing = calculate(smallest_sample_size(candidates=sizes, target=target))

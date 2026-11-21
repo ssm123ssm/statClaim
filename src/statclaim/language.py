@@ -144,7 +144,7 @@ from statclaim.simulation import (
     MIN_RUNS,
 )
 
-LANGUAGE_VERSION = "0.39.0"
+LANGUAGE_VERSION = "0.40.0"
 
 
 class PlannableIR:

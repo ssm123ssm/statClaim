@@ -1,0 +1,23 @@
+Exact power of the logistic Wald test by glm on every table, written to tests/fixtures/logistic_wald_r.json
+
+n (30, 30), alpha 1/20 (both), rates (3/10, 1/2): 0.347280671634
+n (30, 30), alpha 1/20 (both), rates (3/10, 3/10): 0.041112771667
+n (60, 40), alpha 1/40 (higher), rates (1/5, 9/20): 0.754147250931
+n (50, 50), alpha 1/20 (both), rates (1/20, 1/5): 0.520571777792
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1
