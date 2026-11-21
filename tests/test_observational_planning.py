@@ -703,6 +703,29 @@ def test_total_points_must_fit_the_design(study, point, code, fragment):
     assert fragment in diagnostics[0].message
 
 
+def test_a_large_declared_study_can_still_be_searched(tmp_path):
+    """The declared size limits exact power at that size; a search checks its own bounds."""
+    text = (
+        'let survey = cross_sectional(n=400, exposure="night shifts", outcome="insomnia")\n'
+        "let analysis = fisher_exact(design=fixed(model=survey), "
+        "null=no_association(model=survey), alpha=1/20)\n"
+        + target(SURVEY_POINT)
+        + "let found = calculate(sample_size(candidates=total_sizes(analysis=analysis, min_n=60, "
+        "max_n=150), target=target))\n"
+        + "let paired = matched_case_control(pairs=1000)\n"
+        + "let pairs_test = mcnemar(design=fixed(model=paired), null=no_association(model=paired), "
+        "alpha=1/20)\n"
+        + "let pairs_target = power_target(at=discordant_pairs(share=1/2, odds_ratio=3), "
+        "minimum=4/5, maximum_typeI=1/20)\n"
+        + "let pairs = calculate(sample_size(candidates=matched_sizes(analysis=pairs_test, "
+        "min_pairs=55, max_pairs=80), target=pairs_target))\n"
+    )
+    report = run(text, tmp_path)
+    assert report["status"] == "calculated", report["diagnostics"]
+    assert report["requests"][0]["report"]["calculation"]["total_sample_size"] == 148
+    assert report["requests"][1]["report"]["calculation"]["pairs"] == 67
+
+
 def test_total_searches_are_sufficient_only():
     text = (
         SURVEY

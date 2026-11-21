@@ -3478,8 +3478,6 @@ def _check_count_point(analysis, target: LocatedValue, where: Span) -> None:
                 "Plan a matched study at discordant_pairs(share=..., odds_ratio=...).",
                 target.span,
             )
-        if analysis.plan.model.pairs > MAX_PLANNED_PAIRS:
-            fail("domain", f"Exact power is limited to {MAX_PLANNED_PAIRS} pairs.", where)
         ratio = point.odds_ratio
     else:
         if not isinstance(point, IncidenceRatesIR):
@@ -3522,25 +3520,12 @@ def _check_association_point(
                 "exposed_share, the probability that a participant is exposed.",
                 target.span,
             )
-        if model.n > MAX_TOTAL:
-            fail(
-                "domain",
-                f"Exact power is limited to {MAX_TOTAL} participants in all when only the "
-                "total is fixed.",
-                where,
-            )
     elif share is not None:
         fail(
             "planning_point",
             "This cohort sampled its exposed and unexposed groups in fixed numbers, so the "
             "share exposed is not random. Leave exposed_share out.",
             target.span,
-        )
-    elif max(model.groups) > MAX_GROUP:
-        fail(
-            "domain",
-            f"Exact power is limited to {MAX_GROUP} participants in each group.",
-            where,
         )
     first, second = group_probabilities(point)
     if first == second:
@@ -3652,9 +3637,28 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
         )
 
 
+def _check_planned_size(analysis: PlannableIR, where: Span) -> None:
+    """The declared study's size, for exact power at it; a search checks its own bounds."""
+    if isinstance(analysis, MatchedAnalysisIR) and analysis.plan.model.pairs > MAX_PLANNED_PAIRS:
+        fail("domain", f"Exact power is limited to {MAX_PLANNED_PAIRS} pairs.", where)
+    if not isinstance(analysis, AssociationAnalysisIR):
+        return
+    model = analysis.plan.model
+    if model.groups is None and model.n > MAX_TOTAL:
+        fail(
+            "domain",
+            f"Exact power is limited to {MAX_TOTAL} participants in all when only the total "
+            "is fixed.",
+            where,
+        )
+    if model.groups is not None and max(model.groups) > MAX_GROUP:
+        fail("domain", f"Exact power is limited to {MAX_GROUP} participants in each group.", where)
+
+
 def _meets(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     analysis = arguments["analysis"]
     _check_point(analysis.value, arguments["target"], analysis.span)
+    _check_planned_size(analysis.value, analysis.span)
     point = arguments["target"].value.at
     if isinstance(point, IncidenceRatesIR) and point.events is None:
         fail(
