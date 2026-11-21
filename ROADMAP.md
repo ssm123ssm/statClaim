@@ -108,6 +108,15 @@ and the smallest one are separate claims; composing verified parts never
 certifies a whole design by itself. Calculations, simulations and proofs stay
 distinguishable in every report. See the [planning roadmap](docs/study-planning.md).
 
+## Future integrations
+
+- **StatClaim Studio.** Use generative AI to turn a plain-language description of
+  the study design and its goal into editable StatClaim code. Flag assumptions
+  for the user to review and run the draft through the existing checker.
+- **R package.** Let R users check StatClaim protocols from an R script and
+  inspect claims, evidence grades and diagnostics as R objects. Use the same
+  checker as the command-line tool.
+
 ## Before a stable 1.0
 
 Document migration rules; test supported platforms and clean installs; have
