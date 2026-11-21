@@ -157,6 +157,14 @@ class AssociationPowerDetails(PlanningDetails):
     """Calculated exact power of Fisher's test of association, with the group sizes."""
 
 
+class MatchedPowerDetails(PlanningDetails):
+    """Calculated exact power of McNemar's test for a number of pairs."""
+
+
+class RatePowerDetails(PlanningDetails):
+    """Calculated exact power of the rate test given a number of events."""
+
+
 @dataclass(frozen=True)
 class PendingField:
     request_id: int

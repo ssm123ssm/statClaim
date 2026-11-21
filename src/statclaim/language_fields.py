@@ -23,8 +23,10 @@ from statclaim.language import (
     ClaimIR,
     CohortStudyIR,
     ComposedFamilyIR,
+    CountCandidatesIR,
     CrossSectionalStudyIR,
     DifferenceIntervalIR,
+    DiscordantPairsIR,
     EffectIntervalIR,
     ExposurePrevalenceIR,
     FamilyIR,
@@ -33,6 +35,7 @@ from statclaim.language import (
     GroupCandidatesIR,
     HazardRatioIR,
     HypothesisIR,
+    IncidenceRatesIR,
     IntervalIR,
     LocatedValue,
     MatchedAnalysisIR,
@@ -94,11 +97,13 @@ from statclaim.language_values import (
     Evidence,
     IntervalDetails,
     MarginDetails,
+    MatchedPowerDetails,
     MatchedResultDetails,
     OneSampleDetails,
     OneSampleResultDetails,
     PlanningDetails,
     PolicyDetails,
+    RatePowerDetails,
     RateResultDetails,
     SimulationDetails,
     StageResultDetails,
@@ -400,6 +405,54 @@ SCHEMAS = {
         "min_size": FieldSpec(int, description="Fewest exposed participants or cases."),
         "max_size": FieldSpec(int, description="Most exposed participants or cases."),
         "ratio": FieldSpec(int, description="Unexposed per exposed, or controls per case."),
+    },
+    DiscordantPairsIR: {
+        "share": FieldSpec(Fraction, description="Probability that a pair is discordant."),
+        "odds_ratio": FieldSpec(Fraction, description="Conditional odds ratio."),
+    },
+    IncidenceRatesIR: {
+        "rate_ratio": FieldSpec(Fraction, description="Rate ratio, exposed over unexposed."),
+        "exposed_time": FieldSpec(Fraction, description="Expected exposed person-time."),
+        "unexposed_time": FieldSpec(Fraction, description="Expected unexposed person-time."),
+        "events": FieldSpec(int, optional=True, description="Total number of events."),
+    },
+    CountCandidatesIR: {
+        "analysis": FieldSpec(PlannableIR),
+        "min_size": FieldSpec(int, description="Fewest pairs or events."),
+        "max_size": FieldSpec(int, description="Most pairs or events."),
+    },
+    MatchedPowerDetails: {
+        "pairs": FieldSpec(int, optional=True),
+        "discordant": FieldSpec(Fraction, optional=True),
+        "odds_ratio": FieldSpec(Fraction, optional=True),
+        "case_exposed_share": FieldSpec(
+            Fraction, optional=True, description="Share of discordant pairs with the case exposed."
+        ),
+        "expected_discordant_pairs": FieldSpec(Fraction, optional=True),
+        "power": FieldSpec(
+            Fraction, optional=True, description="Exact calculated power; not checked evidence."
+        ),
+        "power_target_met": FieldSpec(bool),
+        "typeI_bound": FieldSpec(Fraction, optional=True),
+        "typeI_target_met": FieldSpec(bool, optional=True),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+        "minimum_sample_size_claim": FieldSpec(str, optional=True),
+    },
+    RatePowerDetails: {
+        "events": FieldSpec(int, optional=True),
+        "rate_ratio": FieldSpec(Fraction, optional=True),
+        "exposed_time_share": FieldSpec(Fraction, optional=True),
+        "exposed_event_share": FieldSpec(
+            Fraction, optional=True, description="Share of events among the exposed at the point."
+        ),
+        "power": FieldSpec(
+            Fraction, optional=True, description="Exact calculated power, given the events."
+        ),
+        "power_target_met": FieldSpec(bool),
+        "typeI_bound": FieldSpec(Fraction, optional=True),
+        "typeI_target_met": FieldSpec(bool, optional=True),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+        "minimum_sample_size_claim": FieldSpec(str, optional=True),
     },
     AssociationPowerDetails: {
         "design": FieldSpec(str, optional=True),
@@ -717,6 +770,10 @@ def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
         return ApproximatePowerDetails
     if isinstance(analysis, AssociationAnalysisIR):
         return AssociationPowerDetails
+    if isinstance(analysis, MatchedAnalysisIR):
+        return MatchedPowerDetails
+    if isinstance(analysis, RateAnalysisIR):
+        return RatePowerDetails
     if isinstance(analysis, OneSampleAnalysisIR):
         return OneSampleDetails
     if isinstance(analysis, TwoStageAnalysisIR):

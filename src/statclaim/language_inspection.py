@@ -95,6 +95,45 @@ def _association_planning(subject, analysis: AssociationAnalysisIR, feasibility:
     return report
 
 
+def _count_planning(subject, analysis, feasibility: bool) -> dict:
+    """Exact power of McNemar's test or the rate test, described before it is calculated."""
+    from statclaim.association import NOT_CAUSAL
+    from statclaim.incidence import rate_assumptions, rate_null_words
+    from statclaim.matched import matched_assumptions
+    from statclaim.matched import null_words as matched_null_words
+    from statclaim.observational_planning import PLANNING_POINT, RATE_EVENTS
+
+    target, point, test = subject.target, subject.target.at, analysis.lower()
+    goal = f"power >= {target.minimum}"
+    if isinstance(analysis, MatchedAnalysisIR):
+        goal += (
+            f" when a pair is discordant with probability {point.share} and the conditional "
+            f"odds ratio is {point.odds_ratio}; Type I error <= {target.maximum_typeI} whenever "
+            f"{matched_null_words(test)}"
+        )
+        size = f"McNemar's exact test with {test.pairs} pairs"
+        assumptions = [*matched_assumptions(test), PLANNING_POINT]
+    else:
+        goal += (
+            f" when the rate ratio is {point.rate_ratio}, with person-time {point.exposed_time} "
+            f"exposed and {point.unexposed_time} unexposed; Type I error <= "
+            f"{target.maximum_typeI} whenever {rate_null_words(test)}"
+        )
+        size = f"The exact rate test given {point.events} events"
+        assumptions = [*rate_assumptions(test), PLANNING_POINT, RATE_EVENTS]
+    if feasibility:
+        text = f"{size} gives {goal}."
+    else:
+        candidates = subject.candidates
+        text = (
+            f"Some design with {candidates.min_size} to {candidates.max_size} {candidates.unit} "
+            f"gives {goal}. {_scope(subject)}"
+        )
+    report = planning_report("observational_planning", text, assumptions)
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
 def inspect_planning(request: RequestIR) -> dict:
     """Describe a planning claim from its declaration, without calculating."""
     subject = request.claim.subject
@@ -107,6 +146,8 @@ def inspect_planning(request: RequestIR) -> dict:
         return cited_planning.describe(subject)
     if isinstance(analysis, AssociationAnalysisIR):
         return _association_planning(subject, analysis, feasibility)
+    if isinstance(analysis, (MatchedAnalysisIR, RateAnalysisIR)):
+        return _count_planning(subject, analysis, feasibility)
     if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
         if feasibility:
             return margin_report(subject.lower(), verify=request.operation == "verify")

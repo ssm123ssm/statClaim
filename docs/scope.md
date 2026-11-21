@@ -15,7 +15,8 @@ What is supported:
   sample-size search with equal or unequal allocation. A size can be certified
   as sufficient, or as the smallest sufficient size in the declared range. The
   same holds for Fisher's test of association in a cohort that samples its
-  exposed and unexposed groups, or a case-control study.
+  exposed and unexposed groups, or a case-control study, for McNemar's test, and
+  for the rate test given its number of events.
 - **One arm.** The one-sided exact binomial test, for planning and for an
   observed count, and exact confidence intervals with coverage for every true
   rate.

@@ -13,19 +13,34 @@ import pytest
 
 from statclaim.association import AssociationTest
 from statclaim.derivation_checker import check_derivation
+from statclaim.incidence import RateTest
 from statclaim.language_compiler import compile_source
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
+from statclaim.matched import MatchedTest
 from statclaim.methods.identify import identify
 from statclaim.observational_planning import (
     AssociationPowerPlan,
+    MatchedPowerPlan,
+    RatePowerPlan,
+    binomial_region,
+    matched_plan_assumptions,
+    matched_plan_payload,
+    parse_matched_plan_payload,
     parse_plan_payload,
+    parse_rate_plan_payload,
     plan_assumptions,
     plan_claims,
     plan_payload,
     plan_theorems,
+    rate_plan_assumptions,
+    rate_plan_claims,
+    rate_plan_payload,
+    render_matched_plan_proof,
     render_plan_proof,
+    render_rate_plan_proof,
     search_groups,
+    search_pairs,
 )
 from statclaim.planning import fisher_rejection_probability
 from statclaim.verification import _profile
@@ -370,3 +385,223 @@ def test_the_lesson_and_example_compile():
         path = ROOT / name
         compilation = compile_source(Source(path.read_text(), str(path)))
         assert compilation.status == "elaborated", (name, compilation.diagnostics)
+
+
+# McNemar's test and the rate test ----------------------------------------------------------
+MATCHED = (
+    'let paired = matched_case_control(pairs=150, exposure="benzodiazepine use", '
+    'outcome="hip fracture")\n'
+    "let analysis = mcnemar(design=fixed(model=paired), null=no_association(model=paired), "
+    "alpha=1/20)\n"
+)
+RATES = (
+    'let workers = person_time_cohort(exposure="solvents", outcome="kidney cancer")\n'
+    "let analysis = rate_test(design=fixed(model=workers), null=no_association(model=workers), "
+    "alpha=1/40)\n"
+)
+RATE_POINT = "incidence_rates(rate_ratio=2, exposed_time=8000, unexposed_time=24000"
+
+
+def test_matched_and_rate_power_agree_with_r():
+    fixture = json.loads((ROOT / "tests/fixtures/observational_power_r.json").read_text())
+    for case in fixture["matched"]:
+        plan = MatchedPowerPlan(
+            MatchedTest(case["pairs"], Fraction(case["alpha"])),
+            Fraction(case["discordant"]),
+            Fraction(case["odds_ratio"]),
+            Fraction(1, 2),
+            Fraction(1, 2),
+        )
+        assert abs(float(plan.power) - case["enumeration"]) < 1e-12, case
+        assert abs(float(plan.power) - case["exact2x2"]) < 1e-6, case
+    for case in fixture["rates"]:
+        plan = RatePowerPlan(
+            RateTest(Fraction(case["alpha"])),
+            Fraction(case["exposed_time"]),
+            Fraction(case["unexposed_time"]),
+            Fraction(case["rate_ratio"]),
+            case["events"],
+            Fraction(1, 2),
+            Fraction(1, 2),
+        )
+        assert abs(float(plan.power) - case["enumeration"]) < 1e-12, case
+    assert len(fixture["matched"]) == len(fixture["rates"]) == 5
+
+
+def test_matched_and_rate_power_calculate(tmp_path):
+    text = (
+        MATCHED
+        + target("discordant_pairs(share=1/4, odds_ratio=2)")
+        + "let power = calculate(meets(analysis=analysis, target=target))\n"
+        + "let sizes = matched_sizes(analysis=analysis, min_pairs=250, max_pairs=400)\n"
+        + "let sizing = calculate(smallest_sample_size(candidates=sizes, target=target))\n"
+        + "let needed = sizing.calculation.pairs\n"
+    )
+    report = run(text, tmp_path)
+    power, sizing = (request["report"]["calculation"] for request in report["requests"])
+    assert power["case_exposed_share"]["fraction"] == "2/3"
+    assert power["expected_discordant_pairs"]["fraction"] == "75/2"
+    assert round(float(Fraction(power["power"]["fraction"])), 6) == 0.474075
+    # R gives 0.79875 at 297 pairs and 0.80013 at 298.
+    assert report["values"]["needed"] == 298
+    assert sizing["candidates_evaluated"] == 49
+    text = (
+        RATES
+        + target(RATE_POINT + ", events=60)", maximum="1/40")
+        + "let power = calculate(meets(analysis=analysis, target=target))\n"
+        + target(RATE_POINT + ")", maximum="1/40").replace("let target", "let open")
+        + "let counts = event_counts(analysis=analysis, min_events=20, max_events=200)\n"
+        + "let sizing = calculate(smallest_sample_size(candidates=counts, target=open))\n"
+        + "let needed = sizing.calculation.events\n"
+    )
+    report = run(text, tmp_path / "rates")
+    power = report["requests"][0]["report"]["calculation"]
+    assert power["exposed_time_share"]["fraction"] == "1/4"
+    assert power["exposed_event_share"]["fraction"] == "2/5"
+    assert round(float(Fraction(power["power"]["fraction"])), 6) == 0.548895
+    # R gives 0.7823 at 93 events and 0.8054 at 94.
+    assert report["values"]["needed"] == 94
+
+
+@pytest.mark.parametrize(
+    "study,declaration,code,fragment",
+    [
+        (
+            MATCHED,
+            "let t = " + "risks(unexposed=1/10, exposed=1/5)\n",
+            "planning_point",
+            "discordant",
+        ),
+        (
+            MATCHED,
+            "let t = discordant_pairs(share=1/4, odds_ratio=1)\n",
+            "alternative_in_null",
+            "=",
+        ),
+        (MATCHED, "let t = discordant_pairs(share=0, odds_ratio=2)\n", "domain", "share"),
+        (RATES, f"let t = {RATE_POINT})\n", "planning_point", "events="),
+        (RATES, f"let t = {RATE_POINT}, events=600)\n", "domain", "events"),
+        (
+            RATES,
+            "let t = incidence_rates(rate_ratio=1, exposed_time=1, unexposed_time=1, events=20)\n",
+            "alternative_in_null",
+            "rate_exposed",
+        ),
+        (
+            RATES,
+            "let t = incidence_rates(rate_ratio=2, exposed_time=0, unexposed_time=1, events=20)\n",
+            "domain",
+            "exposed_time",
+        ),
+    ],
+)
+def test_matched_and_rate_points_are_checked(study, declaration, code, fragment):
+    text = (
+        study
+        + declaration
+        + "let target = power_target(at=t, minimum=4/5, maximum_typeI=1/20)\n"
+        + "let p = calculate(meets(analysis=analysis, target=target))\n"
+    )
+    diagnostics = compiled(text).diagnostics
+    assert diagnostics[0].code == code
+    assert fragment in diagnostics[0].message
+
+
+def test_searches_over_pairs_and_events_are_checked():
+    text = (
+        RATES
+        + target(RATE_POINT + ", events=60)", maximum="1/40")
+        + "let counts = event_counts(analysis=analysis, min_events=20, max_events=200)\n"
+        + "let s = calculate(sample_size(candidates=counts, target=target))\n"
+    )
+    diagnostics = compiled(text).diagnostics
+    assert diagnostics[0].code == "planning_point" and "leave events out" in diagnostics[0].message
+    text = MATCHED + "let sizes = matched_sizes(analysis=analysis, min_pairs=10, max_pairs=500)\n"
+    diagnostics = compiled(text).diagnostics
+    assert diagnostics[0].code == "domain" and "400 pairs" in diagnostics[0].message
+    text = (
+        "let paired = matched_case_control(pairs=401)\n"
+        "let analysis = mcnemar(design=fixed(model=paired), null=no_association(model=paired), "
+        "alpha=1/20)\n"
+        + target("discordant_pairs(share=1/4, odds_ratio=2)")
+        + "let p = calculate(meets(analysis=analysis, target=target))\n"
+    )
+    assert compiled(text).diagnostics[0].code == "domain"
+    text = (
+        MATCHED
+        + target("discordant_pairs(share=1/4, odds_ratio=2)", maximum="1/40")
+        + "let checked = verify(meets(analysis=analysis, target=target))\n"
+    )
+    (diagnostic,) = compiled(text).diagnostics
+    assert diagnostic.code == "typeI_target_not_established"
+    assert "The test's theorem" in diagnostic.message
+
+
+def test_matched_and_rate_derivations_are_checked():
+    text = (
+        MATCHED
+        + target("discordant_pairs(share=1/4, odds_ratio=2)")
+        + "let claim = meets(analysis=analysis, target=target)\n"
+        + "let search = sample_size(candidates=matched_sizes(analysis=analysis, min_pairs=10, "
+        "max_pairs=300), target=target)\n"
+    )
+    compilation = compiled(text)
+    assert compilation.status == "elaborated", compilation.diagnostics
+    for name in ("claim", "search"):
+        record = next(d for d in compilation.derivations if d.name == name).to_dict()
+        assert check_derivation(record) == [], name
+        changed = copy.deepcopy(record)
+        changed["subject"]["subject"]["target"]["at"]["odds_ratio"] = "1"
+        assert check_derivation(changed) != []
+    text = (
+        RATES
+        + target(RATE_POINT + ", events=60)", maximum="1/40")
+        + "let claim = meets(analysis=analysis, target=target)\n"
+    )
+    record = next(d for d in compiled(text).derivations if d.name == "claim").to_dict()
+    assert check_derivation(record) == []
+    changed = copy.deepcopy(record)
+    changed["subject"]["subject"]["target"]["at"]["events"] = 600
+    assert check_derivation(changed) != []
+
+
+def test_matched_and_rate_payloads_and_proofs():
+    template = MatchedPowerPlan(
+        MatchedTest(30, Fraction(1, 20), "drug", "fracture"),
+        Fraction(1, 2),
+        Fraction(3),
+        Fraction(4, 5),
+        Fraction(1, 20),
+        "sample_size",
+        (30, 80),
+        True,
+    )
+    found, evaluated = search_pairs(template, 30, 80, minimal=True)
+    payload = matched_plan_payload(found)
+    assert parse_matched_plan_payload(payload) == found
+    changed = copy.deepcopy(payload)
+    changed["target"]["odds_ratio"] = "1"
+    with pytest.raises(ValueError):
+        parse_matched_plan_payload(changed)
+    profile = _profile("statclaim_matched_planning_certificate", payload)
+    assert profile["general_theorem"] == "StatClaim.Modules.BinomialPower.pairs_power_of_check"
+    proof = render_matched_plan_proof(found, "b" * 64)
+    assert proof.count("theorem smaller_") == found.test.pairs - 30 == evaluated - 1
+    assert "drug" not in proof
+    rate = RatePowerPlan(
+        RateTest(Fraction(1, 40), "solvents", "cancer"),
+        Fraction(8000),
+        Fraction(24000),
+        Fraction(2),
+        60,
+        Fraction(1, 2),
+        Fraction(1, 40),
+    )
+    payload = rate_plan_payload(rate)
+    assert parse_rate_plan_payload(payload) == rate
+    assert "Given 60 events" in rate_plan_claims(rate)[1]
+    assert all(identify(text)["id"] for text in rate_plan_assumptions(rate))
+    assert all(identify(text)["id"] for text in matched_plan_assumptions(found))
+    proof = render_rate_plan_proof(rate, "c" * 64)
+    assert "BinomialPower.RegionValid 60 1 4 1 40 8 24" in proof
+    assert binomial_region(60, Fraction(1, 4), Fraction(1, 40)) == (8, 24)

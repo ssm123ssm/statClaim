@@ -39,6 +39,7 @@ from statclaim.verification import (
     certify_interval,
     certify_margin,
     certify_matched,
+    certify_observational_plan,
     certify_planning,
     certify_policy,
     certify_randomisation,
@@ -437,9 +438,10 @@ def run_sample_size(
 def run_association_plan(
     report: dict, plan, *, verify: bool, project: Path, output, timeout: float
 ) -> dict:
-    """Exact power of Fisher's test of association; verify certifies only when every
-    component is met."""
+    """Exact power of an observational test: Fisher's test of association, McNemar's test or
+    the rate test. verify certifies only when every component is met."""
     from statclaim.association import NOT_CAUSAL
+    from statclaim.observational_planning import AssociationPowerPlan
 
     calculation = plan.evaluate()
     report["calculation"] = calculation
@@ -471,9 +473,12 @@ def run_association_plan(
             "combined planning claim. The Type I component is supported separately by the "
             "theorem. This says nothing about whether there is an association.",
         )
-    report = _certified(
-        report, certify_association_plan, plan, project=project, output=output, timeout=timeout
+    certify = (
+        certify_association_plan
+        if isinstance(plan, AssociationPowerPlan)
+        else certify_observational_plan
     )
+    report = _certified(report, certify, plan, project=project, output=output, timeout=timeout)
     report["limitations"] = [NOT_CAUSAL]
     return report
 
@@ -511,6 +516,48 @@ def run_association_search(
                 "search_exhausted",
                 "no_feasible_candidate",
                 f"No candidate with {bounds[0]} to {bounds[1]} {second} meets the power target. "
+                "Nothing is claimed about other designs or larger samples.",
+            )
+        return report
+    report = run_association_plan(
+        report, found, verify=verify, project=project, output=output, timeout=timeout
+    )
+    report["calculation"] = {**report["calculation"], **search}
+    return report
+
+
+def run_count_search(
+    report: dict,
+    plan,
+    bounds: tuple[int, int],
+    *,
+    minimal: bool,
+    verify: bool,
+    project: Path,
+    output,
+    timeout: float,
+) -> dict:
+    """Search ascending for the fewest pairs of a matched study, or events for the rate test."""
+    from statclaim.observational_planning import MatchedPowerPlan, search_events, search_pairs
+
+    matched = isinstance(plan, MatchedPowerPlan)
+    unit = "pairs" if matched else "events"
+    found, evaluated = (search_pairs if matched else search_events)(plan, *bounds, minimal)
+    search = {
+        f"min_{unit}": bounds[0],
+        f"max_{unit}": bounds[1],
+        "candidates_evaluated": evaluated,
+        "minimum_sample_size_claim": "requested" if minimal else "not_requested",
+    }
+    if found is None:
+        report["calculation"] = {**search, "power_target_met": False}
+        report["decision"] = "no_feasible_candidate"
+        if verify:
+            _unmet(
+                report,
+                "search_exhausted",
+                "no_feasible_candidate",
+                f"No candidate with {bounds[0]} to {bounds[1]} {unit} meets the power target. "
                 "Nothing is claimed about other designs or larger samples.",
             )
         return report

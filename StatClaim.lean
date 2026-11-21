@@ -27,3 +27,4 @@ public import StatClaim.Modules.Association
 public import StatClaim.Modules.Matched
 public import StatClaim.Modules.Incidence
 public import StatClaim.Modules.AssociationPower
+public import StatClaim.Modules.BinomialPower

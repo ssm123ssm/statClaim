@@ -1,4 +1,5 @@
-# Exact power of Fisher's test of no association, for studies whose design fixes two groups.
+# Exact power of the proved observational tests: Fisher's test of no association when the
+# design fixes two groups, McNemar's test for matched pairs, and the rate test given its events.
 # Power is the exact probability that the test rejects at a planning point; verify has Lean
 # recompute it. Power concerns association: it says nothing about an effect of the exposure.
 use models.observational
@@ -27,3 +28,25 @@ let risk_target = power_target(at=risks(unexposed=1/20, exposed=3/20), minimum=4
 let risk_power = calculate(meets(analysis=test, target=risk_target))
 let cohorts = cohort_sizes(analysis=test, min_exposed=50, max_exposed=200, unexposed_per_exposed=2)
 let exposed_needed = calculate(smallest_sample_size(candidates=cohorts, target=risk_target))
+
+# A 1:1 matched study, planned at the share of discordant pairs and the conditional odds ratio.
+let paired = matched_case_control(pairs=60, exposure="benzodiazepine use", outcome="hip fracture")
+let pairs_test = mcnemar(design=fixed(model=paired), null=no_association(model=paired), alpha=1/20)
+let pairs_target = power_target(
+    at=discordant_pairs(share=1/2, odds_ratio=3),
+    minimum=4/5,
+    maximum_typeI=1/20,
+)
+let pairs_power = calculate(meets(analysis=pairs_test, target=pairs_target))
+let pair_counts = matched_sizes(analysis=pairs_test, min_pairs=55, max_pairs=80)
+let fewest_pairs = verify(smallest_sample_size(candidates=pair_counts, target=pairs_target))
+
+# A person-time cohort: power given 100 events, with a quarter of the person-time exposed.
+let workers = person_time_cohort(exposure="shift work", outcome="type 2 diabetes")
+let rates = rate_test(design=fixed(model=workers), null=no_association(model=workers), alpha=1/40)
+let rates_target = power_target(
+    at=incidence_rates(rate_ratio=2, exposed_time=8000, unexposed_time=24000, events=100),
+    minimum=4/5,
+    maximum_typeI=1/40,
+)
+let rates_power = verify(meets(analysis=rates, target=rates_target))

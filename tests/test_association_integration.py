@@ -382,3 +382,96 @@ def test_the_kernel_rejects_false_power_claims(smallest, tmp_path, before, after
         ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=600
     )
     assert checked.returncode != 0
+
+
+# Exact power of McNemar's test and the rate test ---------------------------------------------
+def _issue_plan(plan, bounds, directory):
+    from statclaim.report import planning_report, run_count_search
+
+    bundle = directory / "checked"
+    report = run_count_search(
+        planning_report("observational_planning", "", []),
+        plan,
+        bounds,
+        minimal=True,
+        verify=True,
+        project=ROOT,
+        output=bundle,
+        timeout=600,
+    )
+    assert report["status"] == "verified", report.get("verification")
+    return report, bundle
+
+
+@pytest.fixture(scope="module")
+def matched_smallest(tmp_path_factory):
+    from statclaim.observational_planning import MatchedPowerPlan
+
+    template = MatchedPowerPlan(
+        MatchedTest(55, Fraction(1, 20), "drug", "fracture"),
+        Fraction(1, 2),
+        Fraction(3),
+        Fraction(4, 5),
+        Fraction(1, 20),
+        "sample_size",
+        (55, 80),
+        True,
+    )
+    return _issue_plan(template, (55, 80), tmp_path_factory.mktemp("matched_plan"))
+
+
+@pytest.fixture(scope="module")
+def rate_smallest(tmp_path_factory):
+    from statclaim.observational_planning import RatePowerPlan
+
+    template = RatePowerPlan(
+        RateTest(Fraction(1, 40), "solvents", "cancer"),
+        Fraction(8000),
+        Fraction(24000),
+        Fraction(2),
+        85,
+        Fraction(4, 5),
+        Fraction(1, 40),
+        "sample_size",
+        (85, 120),
+        True,
+    )
+    return _issue_plan(template, (85, 120), tmp_path_factory.mktemp("rate_plan"))
+
+
+@pytest.mark.parametrize(
+    "fixture,kind,theorem,size",
+    [
+        ("matched_smallest", "matched", "pairs_power_of_check", ("pairs", 67)),
+        ("rate_smallest", "rate", "power_of_check", ("events", 94)),
+    ],
+)
+def test_matched_and_rate_plans_are_proved_and_replay(request, fixture, kind, theorem, size):
+    report, bundle = request.getfixturevalue(fixture)
+    unit, expected = size
+    if expected is not None:
+        assert report["calculation"][unit] == expected
+    assert report["limitations"] == [NOT_CAUSAL]
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    assert certificate["kind"] == f"statclaim_{kind}_planning_certificate"
+    assert certificate["general_theorem"] == f"StatClaim.Modules.BinomialPower.{theorem}"
+    assert any(claim.startswith("No candidate with") for claim in certificate["claims"])
+    assert recheck_certificate(bundle, project=ROOT, timeout=600)["status"] == "verified"
+
+
+@pytest.mark.parametrize("fixture", ["matched_smallest", "rate_smallest"])
+def test_the_kernel_rejects_a_stronger_power_claim(request, tmp_path, fixture):
+    _, bundle = request.getfixturevalue(fixture)
+    source = (bundle / "Proof.lean").read_text()
+    before = "theorem checked_power :\n    (((4 : ℕ) : ℝ) / ((5 : ℕ) : ℝ))"
+    assert before in source
+    proof = tmp_path / "Stronger.lean"
+    proof.write_text(
+        source.replace(
+            before, before.replace("(4 : ℕ)", "(99 : ℕ)").replace("(5 : ℕ)", "(100 : ℕ)")
+        )
+    )
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=600
+    )
+    assert checked.returncode != 0

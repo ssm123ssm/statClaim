@@ -13,7 +13,7 @@ R_LIBS=path/to/library Rscript replication/comparison/simon_clinfun.R
 ```
 
 Run every script from the repository root. Versions used: R 4.6.1, clinfun 1.1.6,
-gsDesign 3.11.0, graphicalMCP 0.3.0, DeclareDesign 2.0.0, exact2x2 1.7.0, epiR 3.0.1.
+gsDesign 3.11.0, graphicalMCP 0.3.0, DeclareDesign 2.0.0, exact2x2 1.7.0, epiR 3.0.1, exactci 1.4.5.
 gMCP was not used: it needs Java.
 
 | Script | Output | What it compares |
@@ -23,7 +23,7 @@ gMCP was not used: it needs Java.
 | `group_sequential_gsDesign.R` | `group_sequential_gsDesign.txt` | Boundaries that use the correlation between looks against StatClaim's union-bound split of the level |
 | `power_base_r.R` | `power_base_r.txt` | Base R's `power.t.test` and `power.prop.test`; writes `tests/fixtures/power_r.json`, which `replication/power.py` compares with StatClaim |
 | `declaredesign_two_arm.R` | `declaredesign_two_arm.txt` | DeclareDesign's simulated diagnosands for a two-arm design |
-| `observational_power_r.R` | `observational_power_r.txt` | Exact power of Fisher's test of association for cohort and case-control studies: every table through `fisher.test`, `exact2x2::power2x2` and epiR's normal formulas; writes `tests/fixtures/observational_power_r.json`, which `tests/test_observational_planning.py` compares with StatClaim |
+| `observational_power_r.R` | `observational_power_r.txt` | Exact power of Fisher's test of association for cohort and case-control studies (every table through `fisher.test`, `exact2x2::power2x2` and epiR's normal formulas), McNemar's test (`binom.test`, `exact2x2::powerPaired2x2`) and the rate test (`exactci::poisson.exact`); writes `tests/fixtures/observational_power_r.json`, which `tests/test_observational_planning.py` compares with StatClaim |
 
 StatClaim's side of the same designs is `graph.stat`, `sequential.stat` and
 `two_arm_power.stat`. `statclaim_side.py` runs them, and four invalid variants of the
@@ -53,7 +53,9 @@ graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup
   power equals R's enumeration with `fisher.test` to twelve decimals, and
   `exact2x2::power2x2` with `strict = TRUE` to within its error bound of 1e-6. Its default
   doubles a one-sided test instead, which gives up to 0.075 less power with unequal
-  groups. epiR's normal formulas differ from the exact power by up to 0.09.
+  groups. epiR's normal formulas differ from the exact power by up to 0.09. McNemar's
+  test and the rate test agree with enumeration to twelve decimals, and with
+  `exact2x2::powerPaired2x2(strict = TRUE)` within 1e-6.
 - **DeclareDesign.** For 100 per arm and a difference of 0.4 standard deviations,
   2,000 simulations give power 0.81 (standard error 0.009), bias 0.002 and coverage
   0.96. StatClaim's normal approximation gives 0.807; `power.t.test` gives 0.804.

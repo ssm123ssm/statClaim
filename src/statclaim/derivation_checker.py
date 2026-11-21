@@ -104,6 +104,7 @@ GROUP_POINT_KEYS = {
     "cohort": ("risk_unexposed", "risk_exposed"),
     "case_control": ("exposure_controls", "exposure_cases"),
 }
+PAIRS_LIMIT, EVENTS_LIMIT = 400, 500  # exact power for McNemar's test and the rate test
 GROUP_SEARCH_KEYS = {
     "cohort": ("min_exposed", "max_exposed", "unexposed_per_exposed"),
     "case_control": ("min_cases", "max_cases", "controls_per_case"),
@@ -385,13 +386,75 @@ def _group_search_valid(bounds: dict, kind: str) -> bool:
     )
 
 
+def _count_point(test: str, point: dict, search, study: dict) -> tuple[bool, bool]:
+    """Whether a McNemar or rate-test point is valid, and whether it lies outside the null."""
+    if test == "mcnemar":
+        valid = (
+            set(point) == {"discordant", "odds_ratio"}
+            and 0 < Fraction(point["discordant"]) <= 1
+            and Fraction(point["odds_ratio"]) > 0
+            and (search is not None or study["pairs"] <= PAIRS_LIMIT)
+        )
+        return valid, valid and Fraction(point["odds_ratio"]) != 1
+    keys = {"rate_ratio", "exposed_time", "unexposed_time"}
+    valid = (
+        set(point) == (keys if search is not None else keys | {"events"})
+        and all(Fraction(point[key]) > 0 for key in keys)
+        and (search is not None or (_whole(point["events"], 1) and point["events"] <= EVENTS_LIMIT))
+    )
+    return valid, valid and Fraction(point["rate_ratio"]) != 1
+
+
+def _count_search_valid(bounds: dict, unit: str, limit: int) -> bool:
+    low_key, high_key = f"min_{unit}", f"max_{unit}"
+    return (
+        set(bounds) == {low_key, high_key}
+        and _whole(bounds[low_key], 1)
+        and _whole(bounds[high_key], bounds[low_key])
+        and bounds[high_key] <= limit
+    )
+
+
 def _association_planning_expected(name: str, subject: dict, search, analysis: dict):
-    """Exact power of Fisher's test of association, from the serialized claim."""
+    """Exact power of a proved observational test, from the serialized claim."""
     target, inner = subject["target"], f"{name}.analysis"
+    test = analysis["test"]
+    study, point = analysis["design"]["model"], target["at"]
+    if test != "fisher_exact":
+        if test == "mcnemar":
+            steps = _matched_expected(inner, analysis)
+            assumptions = (
+                PAIRS_SAMPLED,
+                WITHIN_PAIRS,
+                SOURCE_POPULATION,
+                PRESPECIFIED,
+                MATCHED_NULL,
+            )
+            unit, limit = "pairs", PAIRS_LIMIT
+        else:
+            steps = _rate_expected(inner, analysis)
+            assumptions = (POISSON_EVENTS, PERSON_TIME, PRESPECIFIED, RATE_NULL)
+            unit, limit = "events", EVENTS_LIMIT
+        valid, outside = _count_point(test, point, search, study)
+        search_ok = search is not None and _count_search_valid(
+            {key: value for key, value in search.items() if key != "analysis"}, unit, limit
+        )
+        return _planning_steps(
+            name,
+            inner,
+            steps,
+            assumptions,
+            point,
+            valid,
+            outside,
+            NULL_STATEMENTS[study["study"]],
+            target,
+            search,
+            search_ok,
+            analysis,
+        )
     steps, assumptions = _association_expected(inner, analysis)
-    used = [len(steps) - 1]
-    study = analysis["design"]["model"]
-    kind, point = study["study"], target["at"]
+    kind = study["study"]
     keys = GROUP_POINT_KEYS.get(kind)
     groups = (
         (study["cases"], study["controls"])
@@ -405,6 +468,46 @@ def _association_planning_expected(name: str, subject: dict, search, analysis: d
         and all(_probability(point[key]) for key in keys)
         and (search is not None or max(groups) <= PER_ARM_LIMIT)
     )
+    outside = valid and Fraction(point[keys[0]]) != Fraction(point[keys[1]])
+    search_ok = (
+        search is not None
+        and keys is not None
+        and _group_search_valid(
+            {key: value for key, value in search.items() if key != "analysis"}, kind
+        )
+    )
+    return _planning_steps(
+        name,
+        inner,
+        steps,
+        assumptions,
+        point,
+        valid,
+        outside,
+        NULL_STATEMENTS[kind],
+        target,
+        search,
+        search_ok,
+        analysis,
+    )
+
+
+def _planning_steps(
+    name,
+    inner,
+    steps,
+    assumptions,
+    point,
+    valid,
+    outside,
+    statement,
+    target,
+    search,
+    search_ok,
+    analysis,
+):
+    """The planning steps that follow an observational test's own contract steps."""
+    used = [len(steps) - 1]
     steps.append(
         (
             "planning-point",
@@ -414,8 +517,6 @@ def _association_planning_expected(name: str, subject: dict, search, analysis: d
         )
     )
     used.append(len(steps) - 1)
-    outside = valid and Fraction(point[keys[0]]) != Fraction(point[keys[1]])
-    statement = NULL_STATEMENTS[kind]
     steps.append(("alternative", {"subject": name, "point": point, "null": statement}, outside, ()))
     used.append(len(steps) - 1)
     minimum, maximum = target["minimum_power"], target["maximum_typeI"]
@@ -430,8 +531,7 @@ def _association_planning_expected(name: str, subject: dict, search, analysis: d
     used.append(len(steps) - 1)
     if search is not None:
         bounds = {key: value for key, value in search.items() if key != "analysis"}
-        holds = keys is not None and _group_search_valid(bounds, kind)
-        steps.append(("search-range", {"subject": name, "search": bounds}, holds, ()))
+        steps.append(("search-range", {"subject": name, "search": bounds}, search_ok, ()))
         used.append(len(steps) - 1)
     steps.append(("planning-contract", {"subject": name}, True, tuple(used)))
     obligations = [
@@ -456,7 +556,7 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
     analysis = subject["analysis"] if search is None else search.get("analysis")
     if analysis is not None and analysis.get("test") in METHODS:
         return _cited_planning_expected(name, subject, search, analysis)
-    if analysis is not None and analysis.get("test") == "fisher_exact":
+    if analysis is not None and analysis.get("test") in ("fisher_exact", "mcnemar", "rate_test"):
         return _association_planning_expected(name, subject, search, analysis)
     target, inner = subject["target"], f"{name}.analysis"
     steps, used = [], []

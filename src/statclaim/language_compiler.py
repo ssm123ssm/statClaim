@@ -103,7 +103,14 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
         analysis = (
             subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
         )
-        if not isinstance(analysis, (AnalysisIR, CitedAnalysisIR, AssociationAnalysisIR)):
+        plannable = (
+            AnalysisIR,
+            CitedAnalysisIR,
+            AssociationAnalysisIR,
+            MatchedAnalysisIR,
+            RateAnalysisIR,
+        )
+        if not isinstance(analysis, plannable):
             return ()
         if analysis.plan.stopping != "fixed":
             diagnostics.append(
@@ -117,7 +124,7 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 )
             )
         if (
-            isinstance(analysis, (AnalysisIR, AssociationAnalysisIR))
+            not isinstance(analysis, CitedAnalysisIR)
             and request.operation == "verify"
             and analysis.alpha > subject.target.maximum_typeI
         ):
@@ -125,7 +132,13 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 Diagnostic(
                     "typeI_target_not_established",
                     f"{name}: alpha {analysis.alpha} exceeds the requested Type I bound "
-                    f"{subject.target.maximum_typeI}. The Fisher theorem bounds error by alpha "
+                    f"{subject.target.maximum_typeI}. "
+                    + (
+                        "The Fisher theorem"
+                        if isinstance(analysis, (AnalysisIR, AssociationAnalysisIR))
+                        else "The test's theorem"
+                    )
+                    + " bounds error by alpha "
                     "only; this is not evidence that the actual error exceeds the request.",
                     _origin(program, subject.target, request.span, "maximum_typeI"),
                     "obligation",

@@ -28,6 +28,7 @@ from statclaim.design import Design
 from statclaim.family import MAX_ENDPOINTS, Endpoint, FisherFamily
 from statclaim.fisher import validate_alpha
 from statclaim.incidence import (
+    MAX_EVENTS,
     PROPORTIONS,
     ObservedEvents,
     ProportionEstimate,
@@ -89,7 +90,13 @@ from statclaim.methods.observational import (
 from statclaim.methods.observational import (
     METHODS as OBSERVATIONAL_METHODS,
 )
-from statclaim.observational_planning import MAX_GROUP, AssociationPowerPlan
+from statclaim.observational_planning import (
+    MAX_GROUP,
+    MAX_PLANNED_PAIRS,
+    AssociationPowerPlan,
+    MatchedPowerPlan,
+    RatePowerPlan,
+)
 from statclaim.observational_planning import SEARCH_KEYS as GROUP_SEARCH_KEYS
 from statclaim.planning import (
     CRITERIA,
@@ -121,7 +128,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.23.0"
+LANGUAGE_VERSION = "0.24.0"
 
 
 class PlannableIR:
@@ -701,7 +708,7 @@ class EffectIntervalIR:
 
 
 @dataclass(frozen=True)
-class MatchedAnalysisIR(LevelTestIR):
+class MatchedAnalysisIR(LevelTestIR, PlannableIR):
     """McNemar's exact test of no association within matched pairs."""
 
     plan: PlanIR
@@ -766,7 +773,7 @@ class MatchedIntervalIR:
 
 
 @dataclass(frozen=True)
-class RateAnalysisIR(LevelTestIR):
+class RateAnalysisIR(LevelTestIR, PlannableIR):
     """The conditional exact test of equal incidence rates, given the total events."""
 
     plan: PlanIR
@@ -1020,6 +1027,26 @@ class ExposurePrevalenceIR(PlanningPointIR):
     cases: Fraction
 
 
+@dataclass(frozen=True)
+class DiscordantPairsIR(PlanningPointIR):
+    """A planning point for a matched study: the probability that a pair is discordant, and
+    the conditional odds ratio."""
+
+    share: Fraction
+    odds_ratio: Fraction
+
+
+@dataclass(frozen=True)
+class IncidenceRatesIR(PlanningPointIR):
+    """A planning point for a person-time cohort: the rate ratio, the person-time in each
+    group, and the total number of events power is calculated for."""
+
+    rate_ratio: Fraction
+    exposed_time: Fraction
+    unexposed_time: Fraction
+    events: int | None = None
+
+
 def group_probabilities(point: PlanningPointIR) -> tuple[Fraction, Fraction]:
     """The planning point's probabilities in Fisher's first and second groups:
     (unexposed, exposed) for a cohort, (controls, cases) for a case-control study."""
@@ -1149,14 +1176,32 @@ class FeasibilityIR:
     analysis: PlannableIR
     target: PowerTargetIR
 
-    def lower(
-        self,
-    ) -> PowerPlan | TwoStagePlan | OneSamplePlan | MarginTest | AssociationPowerPlan:
+    def lower(self) -> object:
         target = self.target
         if isinstance(self.analysis, AssociationAnalysisIR):
             return AssociationPowerPlan(
                 self.analysis.lower(),
                 *group_probabilities(target.at),
+                target.minimum,
+                target.maximum_typeI,
+            )
+        if isinstance(self.analysis, MatchedAnalysisIR):
+            point = target.at
+            return MatchedPowerPlan(
+                self.analysis.lower(),
+                point.share,
+                point.odds_ratio,
+                target.minimum,
+                target.maximum_typeI,
+            )
+        if isinstance(self.analysis, RateAnalysisIR):
+            point = target.at
+            return RatePowerPlan(
+                self.analysis.lower(),
+                point.exposed_time,
+                point.unexposed_time,
+                point.rate_ratio,
+                point.events,
                 target.minimum,
                 target.maximum_typeI,
             )
@@ -1204,6 +1249,20 @@ class GroupCandidatesIR(CandidateSpaceIR):
     min_size: int
     max_size: int
     ratio: int = 1
+
+
+@dataclass(frozen=True)
+class CountCandidatesIR(CandidateSpaceIR):
+    """Matched studies with min_size to max_size pairs, or totals of min_size to max_size
+    events for the rate test. Each keeps the analysis's null and alpha."""
+
+    analysis: "MatchedAnalysisIR | RateAnalysisIR"
+    min_size: int
+    max_size: int
+
+    @property
+    def unit(self) -> str:
+        return "pairs" if isinstance(self.analysis, MatchedAnalysisIR) else "events"
 
 
 @dataclass(frozen=True)
@@ -1672,6 +1731,18 @@ def normalize(value: object) -> object:
             return {"risk_unexposed": str(unexposed), "risk_exposed": str(exposed)}
         case ExposurePrevalenceIR(controls=controls, cases=cases):
             return {"exposure_controls": str(controls), "exposure_cases": str(cases)}
+        case DiscordantPairsIR(share=share, odds_ratio=ratio):
+            return {"discordant": str(share), "odds_ratio": str(ratio)}
+        case IncidenceRatesIR(rate_ratio=ratio, exposed_time=exposed, unexposed_time=unexposed):
+            point = {
+                "rate_ratio": str(ratio),
+                "exposed_time": str(exposed),
+                "unexposed_time": str(unexposed),
+            }
+            return point if value.events is None else {**point, "events": value.events}
+        case CountCandidatesIR(analysis=analysis, min_size=low, max_size=high):
+            unit = value.unit
+            return {"analysis": normalize(analysis), f"min_{unit}": low, f"max_{unit}": high}
         case GroupCandidatesIR(analysis=analysis, min_size=low, max_size=high, ratio=ratio):
             low_key, high_key, ratio_key = GROUP_SEARCH_KEYS[analysis.plan.model.design]
             return {"analysis": normalize(analysis), low_key: low, high_key: high, ratio_key: ratio}
@@ -3221,6 +3292,45 @@ def _exposure_prevalence(arguments: dict[str, LocatedValue], span: Span) -> Expo
     )
 
 
+def _discordant_pairs(arguments: dict[str, LocatedValue], span: Span) -> DiscordantPairsIR:
+    share, ratio = arguments["share"], arguments["odds_ratio"]
+    if not 0 < share.value <= 1:
+        fail("domain", "share must lie in (0, 1]: some pairs must be discordant.", share.span)
+    if ratio.value <= 0:
+        fail("domain", "odds_ratio must be positive.", ratio.span)
+    return DiscordantPairsIR(share.value, ratio.value)
+
+
+def _incidence_rates(arguments: dict[str, LocatedValue], span: Span) -> IncidenceRatesIR:
+    for name in ("rate_ratio", "exposed_time", "unexposed_time"):
+        if arguments[name].value <= 0:
+            fail("domain", f"{name} must be positive.", arguments[name].span)
+    events = arguments.get("events")
+    count = None if events is None or events.value is None else events.value
+    if count is not None and not 1 <= count <= MAX_EVENTS:
+        fail("domain", f"events must be from 1 to {MAX_EVENTS}.", events.span)
+    return IncidenceRatesIR(
+        arguments["rate_ratio"].value,
+        arguments["exposed_time"].value,
+        arguments["unexposed_time"].value,
+        count,
+    )
+
+
+def _count_sizes(unit: str, limit: int) -> Callable:
+    def build(arguments: dict[str, LocatedValue], span: Span) -> CountCandidatesIR:
+        low, high = arguments[f"min_{unit}"], arguments[f"max_{unit}"]
+        if low.value < 1:
+            fail("domain", f"min_{unit} must be a positive integer.", low.span)
+        if high.value < low.value:
+            fail("domain", f"max_{unit} must be at least min_{unit}.", high.span)
+        if high.value > limit:
+            fail("domain", f"Exact power is limited to {limit} {unit}.", high.span)
+        return CountCandidatesIR(arguments["analysis"].value, low.value, high.value)
+
+    return build
+
+
 def _group_sizes(design: str) -> Callable:
     low_key, high_key, ratio_key = GROUP_SEARCH_KEYS[design]
     study = {
@@ -3270,6 +3380,37 @@ GROUP_POINTS = {
     "cohort": (RisksIR, "risks(unexposed=..., exposed=...)"),
     "case_control": (ExposurePrevalenceIR, "exposure_prevalence(controls=..., cases=...)"),
 }
+
+
+def _check_count_point(analysis, target: LocatedValue, where: Span) -> None:
+    """McNemar's test is planned at discordant_pairs, the rate test at incidence_rates."""
+    point = target.value.at
+    if isinstance(analysis, MatchedAnalysisIR):
+        if not isinstance(point, DiscordantPairsIR):
+            fail(
+                "planning_point",
+                "Plan a matched study at discordant_pairs(share=..., odds_ratio=...).",
+                target.span,
+            )
+        if analysis.plan.model.pairs > MAX_PLANNED_PAIRS:
+            fail("domain", f"Exact power is limited to {MAX_PLANNED_PAIRS} pairs.", where)
+        ratio = point.odds_ratio
+    else:
+        if not isinstance(point, IncidenceRatesIR):
+            fail(
+                "planning_point",
+                "Plan a person-time cohort at incidence_rates(rate_ratio=..., exposed_time=..., "
+                "unexposed_time=..., events=...).",
+                target.span,
+            )
+        ratio = point.rate_ratio
+    if ratio == 1:
+        fail(
+            "alternative_in_null",
+            f"The planning point satisfies the analysis's null ({analysis.hypothesis.statement}). "
+            "Power is assessed at an alternative; choose a point outside the null.",
+            target.span,
+        )
 
 
 def _check_association_point(
@@ -3370,6 +3511,9 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
     if isinstance(analysis, AssociationAnalysisIR):
         _check_association_point(analysis, target, where)
         return
+    if isinstance(analysis, (MatchedAnalysisIR, RateAnalysisIR)):
+        _check_count_point(analysis, target, where)
+        return
     if isinstance(analysis, (TwoStageAnalysisIR, OneSampleAnalysisIR)):
         if not isinstance(point, RateIR):
             fail(
@@ -3408,6 +3552,14 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
 def _meets(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     analysis = arguments["analysis"]
     _check_point(analysis.value, arguments["target"], analysis.span)
+    point = arguments["target"].value.at
+    if isinstance(point, IncidenceRatesIR) and point.events is None:
+        fail(
+            "planning_point",
+            "The rate test's power is given the total number of events. Give events=... in "
+            "incidence_rates, or search the events with event_counts.",
+            arguments["target"].span,
+        )
     return ClaimIR(
         "meets",
         FeasibilityIR(analysis.value, arguments["target"].value),
@@ -3547,6 +3699,14 @@ def _sizing(minimal: bool) -> Callable:
                 candidates.span,
             )
         _check_point(candidates.value.analysis, arguments["target"], candidates.span)
+        point = arguments["target"].value.at
+        if isinstance(point, IncidenceRatesIR) and point.events is not None:
+            fail(
+                "planning_point",
+                "event_counts searches the total number of events; leave events out of "
+                "incidence_rates.",
+                arguments["target"].span,
+            )
         if isinstance(arguments["target"].value.at, HazardRatioIR):
             fail(
                 "unsupported_claim",
@@ -4503,6 +4663,30 @@ MODULES = {
                     "input, not an established fact.",
                 ),
                 _constructor(
+                    "discordant_pairs",
+                    (("share", "number"), ("odds_ratio", "number")),
+                    "DiscordantPairs",
+                    _discordant_pairs,
+                    documentation="A planning point for a 1:1 matched study: the probability "
+                    "that a pair is discordant, with exactly one of the two exposed, and the "
+                    "conditional odds ratio. A planning input, not an established fact.",
+                ),
+                _constructor(
+                    "incidence_rates",
+                    (
+                        ("rate_ratio", "number"),
+                        ("exposed_time", "number"),
+                        ("unexposed_time", "number"),
+                        ("events", "integer", True),
+                    ),
+                    "IncidenceRates",
+                    _incidence_rates,
+                    documentation="A planning point for a person-time cohort: the rate ratio, "
+                    "exposed over unexposed, the expected person-time in each group, of which "
+                    "only the exposed share matters, and the total number of events power is "
+                    "calculated for. Leave events out to search them with event_counts.",
+                ),
+                _constructor(
                     "power_target",
                     (("at", PlanningPointIR), ("minimum", "number"), ("maximum_typeI", "level")),
                     "PowerTarget",
@@ -4574,6 +4758,30 @@ MODULES = {
                     documentation="Designs of a case-control study: n cases and "
                     "controls_per_case * n controls (1 unless given), for n within the "
                     "inclusive bounds. Each keeps the analysis's study, null and alpha.",
+                ),
+                _constructor(
+                    "matched_sizes",
+                    (
+                        ("analysis", MatchedAnalysisIR),
+                        ("min_pairs", "integer"),
+                        ("max_pairs", "integer"),
+                    ),
+                    "CountCandidates",
+                    _count_sizes("pairs", MAX_PLANNED_PAIRS),
+                    documentation="Matched studies with min_pairs to max_pairs pairs, keeping "
+                    "the analysis's null and alpha.",
+                ),
+                _constructor(
+                    "event_counts",
+                    (
+                        ("analysis", RateAnalysisIR),
+                        ("min_events", "integer"),
+                        ("max_events", "integer"),
+                    ),
+                    "CountCandidates",
+                    _count_sizes("events", MAX_EVENTS),
+                    documentation="Totals of min_events to max_events events for the rate "
+                    "test, keeping its null and alpha. The planning point gives no events.",
                 ),
                 _constructor(
                     "sample_sizes",

@@ -164,8 +164,28 @@ at most 500. Exact power agrees with R: every table through `fisher.test`, and
 `exact2x2::power2x2` with `strict = TRUE`
 (`replication/comparison/observational_power_r.R`).
 
+`mcnemar` and `rate_test` have exact power too:
+
+| Test | Planning point | Search |
+|---|---|---|
+| `mcnemar` | `discordant_pairs(share=, odds_ratio=)` | `matched_sizes(analysis, min_pairs, max_pairs)` |
+| `rate_test` | `incidence_rates(rate_ratio=, exposed_time=, unexposed_time=, events=)` | `event_counts(analysis, min_events, max_events)` |
+
+- `share` is the probability that a pair is discordant. With probabilities `p10` that only
+  the case is exposed and `p01` that only the control is, it is `p10 + p01`, and the
+  conditional odds ratio is `p10 / p01`. Power averages over the number of discordant pairs.
+- The rate test's power is given the total number of events, as the test itself is; only
+  the exposed share of person-time matters. `event_counts` searches the events, so the
+  point then leaves `events` out. Averaging over a Poisson total would need powers of e,
+  which the kernel cannot check exactly.
+
+Lean checks the bounds of each rejection region against the binomial tails
+(`StatClaim.Modules.BinomialPower`). Up to 400 pairs, where `verify` takes about 40 seconds,
+and 500 events. Both agree with R to twelve decimals (`binom.test`, `exactci::poisson.exact`
+and `exact2x2::powerPaired2x2`).
+
 A design that fixes only the total, a cross-sectional study or `cohort(n)`, has no power
-calculation yet: its number exposed is random. Nor have `mcnemar` and `rate_test`.
+calculation yet: its number exposed is random.
 
 ## What is refused
 
@@ -181,5 +201,5 @@ about an effect of the exposure: confounding is not excluded. Each report says
 so under the claim.
 
 Not yet supported: matching with several controls per case, single incidence
-rates, intervals from regression models, power for designs that fix only the total, for
-`mcnemar` and for `rate_test`, and proofs for any cited method.
+rates, intervals from regression models, power for designs that fix only the total, and proofs
+for any cited method.

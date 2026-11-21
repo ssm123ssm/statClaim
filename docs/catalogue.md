@@ -105,6 +105,9 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | Risks | Planning point for a cohort: the risk without and with exposure; an input, not a fact. | `unexposed: exact number`, `exposed: exact number` |
 | ExposurePrevalence | Planning point for a case-control study: the share of controls and of cases exposed. | `controls: exact number`, `cases: exact number` |
 | GroupCandidates | Cohort or case-control designs searched by the number exposed or of cases. | `analysis: AssociationAnalysis`, `min_size: integer`, `max_size: integer`, `ratio: integer` |
+| DiscordantPairs | Planning point for a matched study: the share of discordant pairs and the odds ratio. | `share: exact number`, `odds_ratio: exact number` |
+| IncidenceRates | Planning point for a person-time cohort: the rate ratio, person-time and events. | `rate_ratio: exact number`, `exposed_time: exact number`, `unexposed_time: exact number`, `events: Option[integer]` |
+| CountCandidates | Matched studies searched by their pairs, or the rate test by its events. | `analysis: Analysis`, `min_size: integer`, `max_size: integer` |
 | PowerTarget | Required power at a point and a Type I bound. | `at: PlanningPoint`, `minimum: exact number`, `maximum_typeI: exact number` |
 | Feasibility | One analysis assessed against one target. | `analysis: Analysis`, `target: PowerTarget` |
 | Candidates | Finite equal-arm design space for a search. | `analysis: Analysis`, `min_per_arm: integer`, `max_per_arm: integer`, `ratio: integer` |
@@ -132,6 +135,8 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | AssociationResultDetails | Exact p-value and decision of Fisher's test for an observed table. | `p_value: exact number`, `observed_table_probability: exact number`, `alpha: exact number`, `reject_null: boolean`, `test: string` |
 | EffectIntervalDetails | An effect measure's interval, estimate and the level used per group. | `measure: string`, `level: exact number`, `arm_level: exact number`, `estimate: Option[exact number]`, `lower: exact number`, `upper: Option[exact number]`, `method: string` |
 | AssociationPowerDetails | Group sizes, the planning point's measures and the exact power of Fisher's test of association; not proof evidence. | `design: Option[string]`, `exposed: Option[integer]`, `unexposed: Option[integer]`, `cases: Option[integer]`, `controls: Option[integer]`, `total_sample_size: Option[integer]`, `risk_ratio: Option[exact number]`, `risk_difference: Option[exact number]`, `odds_ratio: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
+| MatchedPowerDetails | Pairs, the planning point and the exact power of McNemar's test; not proof evidence. | `pairs: Option[integer]`, `discordant: Option[exact number]`, `odds_ratio: Option[exact number]`, `case_exposed_share: Option[exact number]`, `expected_discordant_pairs: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
+| RatePowerDetails | Events, the planning point and the exact power of the rate test; not proof evidence. | `events: Option[integer]`, `rate_ratio: Option[exact number]`, `exposed_time_share: Option[exact number]`, `exposed_event_share: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
 | SimulationDetails | Power and Type I error estimated by simulate(...), with 95% intervals, the number of runs and the seed. Estimates, not bounds and not evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_lower: Option[exact number]`, `power_upper: Option[exact number]`, `power_target_met: boolean`, `typeI: Option[exact number]`, `typeI_lower: Option[exact number]`, `typeI_upper: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `runs: Option[integer]`, `seed: Option[integer]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
@@ -472,7 +477,7 @@ Hierarchical testing in a fixed order, each test at the full level and only afte
 
 ### `planning` — Study planning
 
-Exact power at a planning point, target checks and a bounded sample-size search with equal or unequal allocation for the fixed Fisher analysis, and for Fisher's test of association in a cohort or case-control study. Targets also apply to one-sample tests and two-stage designs. A size can be certified as sufficient or as the smallest in the declared range. Cited tests get approximate power from a normal formula, by calculation only.
+Exact power at a planning point, target checks and a bounded sample-size search with equal or unequal allocation for the fixed Fisher analysis, for Fisher's test of association in a cohort or case-control study, for McNemar's test and for the rate test given its events. Targets also apply to one-sample tests and two-stage designs. A size can be certified as sufficient or as the smallest in the declared range. Cited tests get approximate power from a normal formula, by calculation only.
 
 - `binomial_rates(p_control: number, p_treatment: number) -> Rates`
   A planning point: one success probability per arm. It is an input for power, not the null and not an established fact.
@@ -484,6 +489,10 @@ Exact power at a planning point, target checks and a bounded sample-size search 
   A planning point for a cohort: the risk of the outcome without exposure, and with it, given as exposed or as risk_ratio, exposed over unexposed. A planning input, not an established fact.
 - `exposure_prevalence(controls: number, cases?: number, odds_ratio?: number) -> ExposurePrevalence`
   A planning point for a case-control study: the share of controls who were exposed, and of cases, given as cases or as odds_ratio, the odds of exposure among cases over the odds among controls. A planning input, not an established fact.
+- `discordant_pairs(share: number, odds_ratio: number) -> DiscordantPairs`
+  A planning point for a 1:1 matched study: the probability that a pair is discordant, with exactly one of the two exposed, and the conditional odds ratio. A planning input, not an established fact.
+- `incidence_rates(rate_ratio: number, exposed_time: number, unexposed_time: number, events?: integer) -> IncidenceRates`
+  A planning point for a person-time cohort: the rate ratio, exposed over unexposed, the expected person-time in each group, of which only the exposed share matters, and the total number of events power is calculated for. Leave events out to search them with event_counts.
 - `power_target(at: PlanningPoint, minimum: number, maximum_typeI: level) -> PowerTarget`
   Require power of at least minimum at one planning point, and a Type I error bound of at most maximum_typeI under the null. Power at this point is not a guarantee for other alternatives.
 - `meets(analysis: Analysis, target: PowerTarget) -> PlanningClaim`
@@ -496,6 +505,10 @@ Exact power at a planning point, target checks and a bounded sample-size search 
   Designs of a cohort that samples its exposed and unexposed groups: n exposed and unexposed_per_exposed * n unexposed (1 unless given), for n within the inclusive bounds. Each keeps the analysis's study, null and alpha.
 - `case_control_sizes(analysis: AssociationAnalysis, min_cases: integer, max_cases: integer, controls_per_case?: integer) -> GroupCandidates`
   Designs of a case-control study: n cases and controls_per_case * n controls (1 unless given), for n within the inclusive bounds. Each keeps the analysis's study, null and alpha.
+- `matched_sizes(analysis: MatchedAnalysis, min_pairs: integer, max_pairs: integer) -> CountCandidates`
+  Matched studies with min_pairs to max_pairs pairs, keeping the analysis's null and alpha.
+- `event_counts(analysis: RateAnalysis, min_events: integer, max_events: integer) -> CountCandidates`
+  Totals of min_events to max_events events for the rate test, keeping its null and alpha. The planning point gives no events.
 - `sample_sizes(analysis: OneSampleAnalysis, min_n: integer, max_n: integer) -> OneArmCandidates`
   A finite design space: sample sizes within inclusive bounds for a one-sample test, keeping its null rate and alpha.
 - `response_rate(value: number) -> Rate`

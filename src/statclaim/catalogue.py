@@ -98,8 +98,9 @@ MODULE_CLASSES = {
     "planning": (
         "Study planning",
         "Exact power at a planning point, target checks and a bounded sample-size search "
-        "with equal or unequal allocation for the fixed Fisher analysis, and for Fisher's "
-        "test of association in a cohort or case-control study. "
+        "with equal or unequal allocation for the fixed Fisher analysis, for Fisher's test "
+        "of association in a cohort or case-control study, for McNemar's test and for the "
+        "rate test given its events. "
         "Targets also apply to one-sample tests and two-stage designs. "
         "A size can be certified as sufficient or as the smallest in the declared range. "
         "Cited tests get approximate power from a normal formula, by calculation only.",
@@ -218,6 +219,18 @@ OBJECT_CLASSES = {
     "GroupCandidates": (
         "Planning objects",
         "Cohort or case-control designs searched by the number exposed or of cases.",
+    ),
+    "DiscordantPairs": (
+        "Planning objects",
+        "Planning point for a matched study: the share of discordant pairs and the odds ratio.",
+    ),
+    "IncidenceRates": (
+        "Planning objects",
+        "Planning point for a person-time cohort: the rate ratio, person-time and events.",
+    ),
+    "CountCandidates": (
+        "Planning objects",
+        "Matched studies searched by their pairs, or the rate test by its events.",
     ),
     "PowerTarget": ("Planning objects", "Required power at a point and a Type I bound."),
     "Feasibility": ("Planning objects", "One analysis assessed against one target."),
@@ -390,6 +403,14 @@ OBJECT_CLASSES = {
         "Evidence and inspection",
         "Group sizes, the planning point's measures and the exact power of Fisher's test of "
         "association; not proof evidence.",
+    ),
+    "MatchedPowerDetails": (
+        "Evidence and inspection",
+        "Pairs, the planning point and the exact power of McNemar's test; not proof evidence.",
+    ),
+    "RatePowerDetails": (
+        "Evidence and inspection",
+        "Events, the planning point and the exact power of the rate test; not proof evidence.",
     ),
     "ApproximatePowerDetails": (
         "Evidence and inspection",

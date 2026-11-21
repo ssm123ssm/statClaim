@@ -26,6 +26,7 @@ RECOGNISED = [
     (r"^Person-time is measured without error", "person_time", "sampling"),
     (r"supplied events and person-time describe", "data_match_declaration", "data"),
     (r"^In every discordant pair the case has the same", "common_conditional_odds", "sampling"),
+    (r"^Power is given the planned total number of events", "planned_events", "scope"),
     (r"supplied pairs describe the declared", "data_match_declaration", "data"),
     (r"^The confidence level was chosen before", "prespecified_analysis", "design"),
     (r"supplied table describes the declared", "data_match_declaration", "data"),

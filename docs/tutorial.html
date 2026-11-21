@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort and case-control studies</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort and case-control studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2302,6 +2302,73 @@ a message.</div>
     <div class="task"><h4>Try it</h4><p>Plan the case-control study at <code>risks(unexposed=1/5, exposed=1/3)</code> and read the message. Then set <code>controls_per_case=4</code>: how many cases are needed now?</p></div>
   </div>
 </section>
+<section class="lesson" id="pairs-and-rates-power">
+  <p class="eyebrow">Lesson 30</p>
+  <h2>Power for matched pairs and incidence rates</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>McNemar&#x27;s test (lesson 25) and the rate test (lesson 26) are both two-sided binomial tests: of the discordant pairs, and of the events among the exposed. Their power is exact too, at a planning point stated in their own terms.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/30_pairs_and_rates_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 30: exact power for matched pairs and incidence rates.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.association
+<span class="k">use</span> planning
+
+<span class="c"># A matched study: a quarter of the pairs discordant, and a conditional odds ratio of 2.</span>
+<span class="k">let</span> paired = <span class="f">matched_case_control</span>(pairs=150, exposure=&quot;benzodiazepine use&quot;, outcome=&quot;hip fracture&quot;)
+<span class="k">let</span> pairs_test = <span class="f">mcnemar</span>(design=<span class="f">fixed</span>(model=paired), null=<span class="f">no_association</span>(model=paired), alpha=1/20)
+<span class="k">let</span> pairs_target = <span class="f">power_target</span>(at=<span class="f">discordant_pairs</span>(share=1/4, odds_ratio=2), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> pairs_power = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=pairs_test, target=pairs_target))
+<span class="k">let</span> pair_counts = <span class="f">matched_sizes</span>(analysis=pairs_test, min_pairs=150, max_pairs=400)
+<span class="k">let</span> pairs_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=pair_counts, target=pairs_target))
+
+<span class="c"># A person-time cohort: a quarter of the person-time exposed, and a rate ratio of 2.</span>
+<span class="k">let</span> workers = <span class="f">person_time_cohort</span>(exposure=&quot;solvent exposure&quot;, outcome=&quot;kidney cancer&quot;)
+<span class="k">let</span> rates_test = <span class="f">rate_test</span>(design=<span class="f">fixed</span>(model=workers), null=<span class="f">no_association</span>(model=workers), alpha=1/40)
+<span class="k">let</span> expected = <span class="f">incidence_rates</span>(rate_ratio=2, exposed_time=8000, unexposed_time=24000)
+<span class="k">let</span> rates_target = <span class="f">power_target</span>(at=expected, minimum=4/5, maximum_typeI=1/40)
+
+<span class="c"># Power is given the total number of events: search for the fewest that reach 80%.</span>
+<span class="k">let</span> counts = <span class="f">event_counts</span>(analysis=rates_test, min_events=20, max_events=200)
+<span class="k">let</span> events_needed = <span class="f">verify</span>(<span class="f">smallest_sample_size</span>(candidates=counts, target=rates_target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>discordant_pairs(share=..., odds_ratio=...)</code></dt>
+  <dd>The share of pairs in which exactly one of the two was exposed, and the conditional
+  odds ratio. Only discordant pairs carry information, so power averages over how many
+  there turn out to be.</dd>
+  <dt><code>incidence_rates(rate_ratio=..., exposed_time=..., unexposed_time=..., events=...)</code></dt>
+  <dd>The rate ratio and the person-time you expect in each group; only the exposed share
+  matters. Power is given the total number of events, as the test is, so give
+  <code>events</code>, or leave it out and search with <code>event_counts</code>.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [pairs_power]: meets(pairs_test)
+  pairs = 150; expected discordant pairs ~ 37.5
+  planning point: 1/4 of pairs discordant; conditional odds ratio 2 (the case is the exposed one in 2/3 of them)
+  power ~ 0.47407...; power target met = false; Type I target met = true
+  decision = target_not_met; no formal certificate issued.
+<span class="calc">calculated</span> [pairs_needed]: sample_size(pair_counts)
+  pairs = 298; expected discordant pairs ~ 74.5
+  ...
+<span class="ok">verified</span> [events_needed]: sample_size(counts)
+  Evidence: proved in Lean; guarantee: finite-sample bound
+  The exact test of no association between solvent exposure and kidney cancer, at alpha 1/40, has Type I error at most 1/40 whenever the incidence rate of kidney cancer is the same with and without solvent exposure, for every common rate and any person-time.
+  Given 94 events, its power is at least 4/5 when the rate ratio is 2 and 1/4 of the person-time is exposed.
+  No candidate with 20 to 93 events reaches that power, so 94 events is the smallest sufficient candidate in the range 20 to 200. Nothing is claimed outside the range.
+  ...
+Program status: verified</code></pre></div>
+<p>With 150 pairs only about 37 are expected to be discordant, and power is 47%; 298 pairs
+reach 80%. The cohort needs 94 events, whatever the follow-up that produces them. R gives
+the same powers to twelve decimals with <code>binom.test</code> and
+<code>exactci::poisson.exact</code>.</p>
+<div class="note"><strong>Why condition on the events?</strong> The total number of events
+is Poisson, and averaging over it needs powers of e that Lean&#x27;s kernel cannot check
+exactly. The test itself conditions on the total, so planning a number of events is the
+honest exact statement; the assumptions say so.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>McNemar&#x27;s test is planned at <code>discordant_pairs</code>, searched with <code>matched_sizes</code>.</li><li>The rate test is planned at <code>incidence_rates</code>, given a number of events, searched with <code>event_counts</code>.</li><li>Lean checks each rejection region against the binomial tails.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Change <code>exposed_time</code> to 16000, so a third of the person-time is exposed. Do you need more events or fewer?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2329,6 +2396,7 @@ a message.</div>
       <tr><td>Control error over several endpoints</td><td><code>multiplicity.bonferroni</code></td><td><code>familywise</code></td><td>5, 13</td></tr>
       <tr><td>Choose a sample size</td><td><code>planning</code></td><td><code>meets</code>, <code>sample_size</code>, <code>smallest_sample_size</code></td><td>7</td></tr>
       <tr><td>Plan a cohort or case-control study</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>risks</code> or <code>exposure_prevalence</code>, with <code>cohort_sizes</code> or <code>case_control_sizes</code></td><td>29</td></tr>
+      <tr><td>Plan a matched study, or a cohort followed over person-time</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>discordant_pairs</code> or <code>incidence_rates</code>, with <code>matched_sizes</code> or <code>event_counts</code></td><td>30</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>

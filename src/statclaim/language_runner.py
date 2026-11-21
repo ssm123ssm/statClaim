@@ -65,6 +65,7 @@ from statclaim.report import (
     run_association_search,
     run_binomial_result,
     run_composition,
+    run_count_search,
     run_effect_interval,
     run_incidence,
     run_interval,
@@ -96,6 +97,31 @@ def _weakest_line(request: dict) -> list[str]:
         return []
     parts = ", ".join(link["parts"])
     return [f"  Weakest part: {GRADES[link['grade']].label} ({parts})"]
+
+
+def _count_template(analysis, target, bounds: tuple[int, int], minimal: bool):
+    """The first candidate of a search over pairs or events; the search builds the others."""
+    from statclaim.matched import MatchedTest
+    from statclaim.observational_planning import MatchedPowerPlan, RatePowerPlan
+
+    point, low = target.at, bounds[0]
+    common = (target.minimum, target.maximum_typeI, "sample_size", bounds, minimal)
+    if isinstance(analysis, MatchedAnalysisIR):
+        test = analysis.lower()
+        return MatchedPowerPlan(
+            MatchedTest(low, test.alpha, test.exposure, test.outcome),
+            point.share,
+            point.odds_ratio,
+            *common,
+        )
+    return RatePowerPlan(
+        analysis.lower(),
+        point.exposed_time,
+        point.unexposed_time,
+        point.rate_ratio,
+        low,
+        *common,
+    )
 
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
@@ -131,6 +157,18 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         if isinstance(analysis, CitedAnalysisIR):
             # verify(...) was refused while compiling: approximate power is a calculation.
             return cited_planning.run(report, subject)
+        if isinstance(analysis, (MatchedAnalysisIR, RateAnalysisIR)):
+            if isinstance(subject, FeasibilityIR):
+                return run_association_plan(report, subject.lower(), **options)
+            candidates = subject.candidates
+            bounds = (candidates.min_size, candidates.max_size)
+            return run_count_search(
+                report,
+                _count_template(analysis, subject.target, bounds, subject.minimal),
+                bounds,
+                minimal=subject.minimal,
+                **options,
+            )
         if isinstance(analysis, AssociationAnalysisIR):
             if isinstance(subject, FeasibilityIR):
                 return run_association_plan(report, subject.lower(), **options)
@@ -688,6 +726,21 @@ def _planning_lines(details: dict) -> list[str]:
         )
     if "cases" in calculation or "exposed" in calculation:
         lines.extend(_group_lines(calculation))
+    if "pairs" in calculation:
+        lines += [
+            f"  pairs = {calculation['pairs']}; expected discordant pairs ~ "
+            f"{float(calculation['expected_discordant_pairs']['decimal_approximation']):.4g}",
+            f"  planning point: {calculation['discordant']['fraction']} of pairs discordant; "
+            f"conditional odds ratio {calculation['odds_ratio']['fraction']} (the case is the "
+            f"exposed one in {calculation['case_exposed_share']['fraction']} of them)",
+        ]
+    if "events" in calculation:
+        lines += [
+            f"  events = {calculation['events']}",
+            f"  planning point: rate ratio {calculation['rate_ratio']['fraction']}; "
+            f"{calculation['exposed_time_share']['fraction']} of person-time exposed, so "
+            f"{calculation['exposed_event_share']['fraction']} of events among the exposed",
+        ]
     if "critical_value" in calculation:
         lines.append(
             f"  n = {calculation['n']}; reject at {calculation['critical_value']} or more "

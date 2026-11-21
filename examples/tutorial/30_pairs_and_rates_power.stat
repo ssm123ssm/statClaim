@@ -1,0 +1,23 @@
+# Lesson 30: exact power for matched pairs and incidence rates.
+use models.observational
+use sampling
+use tests.association
+use planning
+
+# A matched study: a quarter of the pairs discordant, and a conditional odds ratio of 2.
+let paired = matched_case_control(pairs=150, exposure="benzodiazepine use", outcome="hip fracture")
+let pairs_test = mcnemar(design=fixed(model=paired), null=no_association(model=paired), alpha=1/20)
+let pairs_target = power_target(at=discordant_pairs(share=1/4, odds_ratio=2), minimum=4/5, maximum_typeI=1/20)
+let pairs_power = calculate(meets(analysis=pairs_test, target=pairs_target))
+let pair_counts = matched_sizes(analysis=pairs_test, min_pairs=150, max_pairs=400)
+let pairs_needed = calculate(smallest_sample_size(candidates=pair_counts, target=pairs_target))
+
+# A person-time cohort: a quarter of the person-time exposed, and a rate ratio of 2.
+let workers = person_time_cohort(exposure="solvent exposure", outcome="kidney cancer")
+let rates_test = rate_test(design=fixed(model=workers), null=no_association(model=workers), alpha=1/40)
+let expected = incidence_rates(rate_ratio=2, exposed_time=8000, unexposed_time=24000)
+let rates_target = power_target(at=expected, minimum=4/5, maximum_typeI=1/40)
+
+# Power is given the total number of events: search for the fewest that reach 80%.
+let counts = event_counts(analysis=rates_test, min_events=20, max_events=200)
+let events_needed = verify(smallest_sample_size(candidates=counts, target=rates_target))
