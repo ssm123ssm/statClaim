@@ -136,6 +136,37 @@ Proved methods need yes-or-no variables and simple random sampling. They refuse 
 continuous variable with a type error and a complex sample with
 `complex_sample`, and a refusal names the methods that fit the study.
 
+## Power and sample size
+
+`fisher_exact` has exact power when the design fixes both groups: a cohort declared
+with `exposed` and `unexposed`, or a case-control study. Declare the planning point in
+the design's terms, then use `meets` and the sample-size claims from `planning`:
+
+| Design | Planning point | Search |
+|---|---|---|
+| Cohort | `risks(unexposed=, exposed=)` or `risks(unexposed=, risk_ratio=)` | `cohort_sizes(analysis, min_exposed, max_exposed, unexposed_per_exposed)` |
+| Case-control | `exposure_prevalence(controls=, cases=)` or `exposure_prevalence(controls=, odds_ratio=)` | `case_control_sizes(analysis, min_cases, max_cases, controls_per_case)` |
+
+```text
+let target = power_target(at=exposure_prevalence(controls=1/5, odds_ratio=2),
+    minimum=4/5, maximum_typeI=1/20)
+let power = calculate(meets(analysis=analysis, target=target))
+let sizes = case_control_sizes(analysis=analysis, min_cases=50, max_cases=200, controls_per_case=2)
+let sizing = calculate(smallest_sample_size(candidates=sizes, target=target))
+```
+
+Power is the exact probability that the test rejects when the two groups' counts are
+binomial at the point. `verify` has Lean recompute it from the formal p-value
+(`StatClaim.Modules.AssociationPower`), with the test's Type I bound; a smallest-size
+claim also proves that each smaller candidate falls short, one theorem each, so it takes
+longer. The ratio between the groups is a whole number from 1 to 10, and each group holds
+at most 500. Exact power agrees with R: every table through `fisher.test`, and
+`exact2x2::power2x2` with `strict = TRUE`
+(`replication/comparison/observational_power_r.R`).
+
+A design that fixes only the total, a cross-sectional study or `cohort(n)`, has no power
+calculation yet: its number exposed is random. Nor have `mcnemar` and `rate_test`.
+
 ## What is refused
 
 Tests and nulls of randomised arms (`fisher`, `t_test`, `randomisation_test`,
@@ -150,4 +181,5 @@ about an effect of the exposure: confounding is not excluded. Each report says
 so under the claim.
 
 Not yet supported: matching with several controls per case, single incidence
-rates, intervals from regression models, and proofs for any cited method.
+rates, intervals from regression models, power for designs that fix only the total, for
+`mcnemar` and for `rate_test`, and proofs for any cited method.

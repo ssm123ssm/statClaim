@@ -26,9 +26,11 @@ from statclaim.language import (
     CrossSectionalStudyIR,
     DifferenceIntervalIR,
     EffectIntervalIR,
+    ExposurePrevalenceIR,
     FamilyIR,
     FeasibilityIR,
     FieldIR,
+    GroupCandidatesIR,
     HazardRatioIR,
     HypothesisIR,
     IntervalIR,
@@ -63,6 +65,7 @@ from statclaim.language import (
     RateRatioIR,
     RateResultIR,
     RatesIR,
+    RisksIR,
     RuleIR,
     SequentialIR,
     SharpNullIR,
@@ -81,6 +84,7 @@ from statclaim.language import (
 from statclaim.language_syntax import Diagnostic, Span
 from statclaim.language_values import (
     ApproximatePowerDetails,
+    AssociationPowerDetails,
     AssociationResultDetails,
     CalculationDetails,
     CalculationResult,
@@ -383,6 +387,45 @@ SCHEMAS = {
         "value": FieldSpec(Fraction, description="True hazard ratio, treatment over control."),
         "events": FieldSpec(int, description="Expected total number of events."),
     },
+    RisksIR: {
+        "unexposed": FieldSpec(Fraction, description="Risk of the outcome without exposure."),
+        "exposed": FieldSpec(Fraction, description="Risk of the outcome with exposure."),
+    },
+    ExposurePrevalenceIR: {
+        "controls": FieldSpec(Fraction, description="Share of controls who were exposed."),
+        "cases": FieldSpec(Fraction, description="Share of cases who were exposed."),
+    },
+    GroupCandidatesIR: {
+        "analysis": FieldSpec(AssociationAnalysisIR),
+        "min_size": FieldSpec(int, description="Fewest exposed participants or cases."),
+        "max_size": FieldSpec(int, description="Most exposed participants or cases."),
+        "ratio": FieldSpec(int, description="Unexposed per exposed, or controls per case."),
+    },
+    AssociationPowerDetails: {
+        "design": FieldSpec(str, optional=True),
+        "exposed": FieldSpec(int, optional=True),
+        "unexposed": FieldSpec(int, optional=True),
+        "cases": FieldSpec(int, optional=True),
+        "controls": FieldSpec(int, optional=True),
+        "total_sample_size": FieldSpec(int, optional=True),
+        "risk_ratio": FieldSpec(
+            Fraction, optional=True, description="Risk ratio at the planning point (cohort)."
+        ),
+        "risk_difference": FieldSpec(
+            Fraction, optional=True, description="Risk difference at the planning point (cohort)."
+        ),
+        "odds_ratio": FieldSpec(
+            Fraction, optional=True, description="Odds ratio at the planning point, when finite."
+        ),
+        "power": FieldSpec(
+            Fraction, optional=True, description="Exact calculated power; not checked evidence."
+        ),
+        "power_target_met": FieldSpec(bool),
+        "typeI_bound": FieldSpec(Fraction, optional=True),
+        "typeI_target_met": FieldSpec(bool, optional=True),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+        "minimum_sample_size_claim": FieldSpec(str, optional=True),
+    },
     PowerTargetIR: {
         "at": FieldSpec(PlanningPointIR),
         "minimum": FieldSpec(Fraction, description="Required power at the planning point."),
@@ -672,6 +715,8 @@ def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
     )
     if isinstance(analysis, CitedAnalysisIR):
         return ApproximatePowerDetails
+    if isinstance(analysis, AssociationAnalysisIR):
+        return AssociationPowerDetails
     if isinstance(analysis, OneSampleAnalysisIR):
         return OneSampleDetails
     if isinstance(analysis, TwoStageAnalysisIR):

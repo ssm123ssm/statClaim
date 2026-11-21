@@ -110,7 +110,10 @@ run_cmd do
     ``StatClaim.Modules.Incidence.typeI,
     ``StatClaim.Modules.Incidence.coverage,
     ``StatClaim.Modules.Incidence.rate_ratio_contains,
-    ``StatClaim.Modules.Incidence.twice_min_le_iff]
+    ``StatClaim.Modules.Incidence.twice_min_le_iff,
+    ``StatClaim.Modules.AssociationPower.rejection_probability,
+    ``StatClaim.Modules.AssociationPower.power_of_check,
+    ``StatClaim.Modules.AssociationPower.power_lt_of_fails]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

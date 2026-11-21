@@ -322,3 +322,63 @@ def test_a_flipped_rate_decision_is_refused(tmp_path):
         ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=300
     )
     assert checked.returncode != 0
+
+
+# Exact power for designs with fixed groups ---------------------------------------------------
+@pytest.fixture(scope="module")
+def smallest(tmp_path_factory):
+    from statclaim.report import planning_report, run_association_search
+
+    test = AssociationTest("case_control", Fraction(1, 20), (100, 50), None, "shifts", "cancer")
+    bundle = tmp_path_factory.mktemp("planning") / "checked"
+    report = run_association_search(
+        planning_report("association_planning", "", []),
+        test,
+        (Fraction(1, 5), Fraction(3, 7), Fraction(4, 5), Fraction(1, 20)),
+        (45, 60),
+        minimal=True,
+        ratio=2,
+        verify=True,
+        project=ROOT,
+        output=bundle,
+        timeout=600,
+    )
+    assert report["status"] == "verified", report.get("verification")
+    return report, bundle
+
+
+def test_power_and_the_smallest_design_are_proved_and_replay(smallest):
+    report, bundle = smallest
+    assert report["calculation"]["cases"] == 50
+    assert report["limitations"] == [NOT_CAUSAL]
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    assert certificate["kind"] == "statclaim_association_planning_certificate"
+    assert certificate["general_theorem"] == "StatClaim.Modules.AssociationPower.power_of_check"
+    assert any("No candidate with 45 to 49 cases" in claim for claim in certificate["claims"])
+    assert recheck_certificate(bundle, project=ROOT, timeout=600)["status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    "before,after",
+    [
+        (
+            "theorem checked_power :\n    (((4 : ℕ) : ℝ) / ((5 : ℕ) : ℝ))",
+            "theorem checked_power :\n    (((81 : ℕ) : ℝ) / ((100 : ℕ) : ℝ))",
+        ),
+        (
+            "AssociationPower.FailsHinted (2 * 49) 49 1 20 1 5 3 7 4 5",
+            "AssociationPower.FailsHinted (2 * 49) 49 1 20 1 5 3 7 3 5",
+        ),
+    ],
+    ids=["stronger power", "a smaller candidate that passes"],
+)
+def test_the_kernel_rejects_false_power_claims(smallest, tmp_path, before, after):
+    _, bundle = smallest
+    source = (bundle / "Proof.lean").read_text()
+    assert before in source
+    proof = tmp_path / "False.lean"
+    proof.write_text(source.replace(before, after))
+    checked = subprocess.run(
+        ["lake", "env", "lean", str(proof)], cwd=ROOT, capture_output=True, text=True, timeout=600
+    )
+    assert checked.returncode != 0

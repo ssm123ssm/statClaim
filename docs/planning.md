@@ -75,6 +75,14 @@ For unequal allocation, replace `equal_arm_sizes` with `allocated_arm_sizes`.
 With `treatment_per_control=2`, each candidate has `n` controls and `2n`
 treated participants. See `examples/unequal_allocation.stat`.
 
+## Plan an observational study
+
+Fisher's test of association in a cohort or case-control study has exact power too.
+A cohort is planned at `risks(...)`, a case-control study at `exposure_prevalence(...)`,
+and `cohort_sizes` and `case_control_sizes` search their group sizes. See
+[observational studies](observational.md#power-and-sample-size) and
+`examples/observational_power.stat`.
+
 ## Plan a single-arm study
 
 `tests.binomial` provides the one-sided exact binomial test. Its null is every

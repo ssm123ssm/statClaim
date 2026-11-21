@@ -34,6 +34,7 @@ from statclaim.language import (
     RequestIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
+    group_probabilities,
 )
 from statclaim.language_compiler import compile_source
 from statclaim.language_inspection import (
@@ -59,7 +60,9 @@ from statclaim.methods.identify import identify
 from statclaim.reference import SCOPE_NOTE
 from statclaim.report import (
     run_association,
+    run_association_plan,
     run_association_result,
+    run_association_search,
     run_binomial_result,
     run_composition,
     run_effect_interval,
@@ -128,6 +131,19 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         if isinstance(analysis, CitedAnalysisIR):
             # verify(...) was refused while compiling: approximate power is a calculation.
             return cited_planning.run(report, subject)
+        if isinstance(analysis, AssociationAnalysisIR):
+            if isinstance(subject, FeasibilityIR):
+                return run_association_plan(report, subject.lower(), **options)
+            target, candidates = subject.target, subject.candidates
+            return run_association_search(
+                report,
+                analysis.lower(),
+                (*group_probabilities(target.at), target.minimum, target.maximum_typeI),
+                (candidates.min_size, candidates.max_size),
+                minimal=subject.minimal,
+                ratio=candidates.ratio,
+                **options,
+            )
         if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
             del options["verify"]
             verify = request.operation == "verify"
@@ -636,6 +652,30 @@ def _simulated_lines(details: dict) -> list[str]:
     return lines
 
 
+def _group_lines(calculation: dict) -> list[str]:
+    """Group sizes of an observational design, and what its planning point implies."""
+    if "cases" in calculation:
+        sizes = f"cases = {calculation['cases']}; controls = {calculation['controls']}"
+        point = (
+            f"exposed: {calculation['exposure_cases']['fraction']} of cases, "
+            f"{calculation['exposure_controls']['fraction']} of controls"
+        )
+    else:
+        sizes = f"exposed = {calculation['exposed']}; unexposed = {calculation['unexposed']}"
+        point = (
+            f"risk {calculation['risk_exposed']['fraction']} with exposure, "
+            f"{calculation['risk_unexposed']['fraction']} without"
+        )
+    measures = [
+        f"{name.replace('_', ' ')} {float(calculation[name]['decimal_approximation']):.4g}"
+        for name in ("risk_ratio", "odds_ratio")
+        if calculation.get(name) is not None
+    ]
+    if measures:
+        point += f" ({', '.join(measures)})"
+    return [f"  {sizes}; total = {calculation['total_sample_size']}", f"  planning point: {point}"]
+
+
 def _planning_lines(details: dict) -> list[str]:
     if details.get("verification_scope") == "cited_planning":
         return _approximate_lines(details)
@@ -646,6 +686,8 @@ def _planning_lines(details: dict) -> list[str]:
             f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
             f"total = {calculation['total_sample_size']}"
         )
+    if "cases" in calculation or "exposed" in calculation:
+        lines.extend(_group_lines(calculation))
     if "critical_value" in calculation:
         lines.append(
             f"  n = {calculation['n']}; reject at {calculation['critical_value']} or more "

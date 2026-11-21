@@ -26,6 +26,7 @@ from statclaim.language import (
     ComposedFamilyIR,
     FamilyIR,
     FeasibilityIR,
+    GroupCandidatesIR,
     MatchedAnalysisIR,
     OneArmCandidatesIR,
     OneSampleAnalysisIR,
@@ -268,8 +269,10 @@ RULES = {
         "{subject}: the stages, the rule and the null rate form a complete design.",
     ),
     "planning-point": Rule(
-        "The planning point has one rate per arm of the analysis.",
+        "The planning point has one rate per arm of the analysis, or for an observational "
+        "study one probability per group, of the kind its design is planned at.",
         "{subject}: the planning point belongs to the analysis's parameters.",
+        version=2,
     ),
     "alternative": Rule(
         "The planning point lies outside the analysis's null.",
@@ -648,6 +651,20 @@ def fixed_words(study: dict) -> str:
 def derive_association(name: str, analysis: AssociationAnalysisIR) -> Derivation:
     """Why Fisher's test of association fits. Its guarantee is proved, not carried."""
     builder = _Builder()
+    final = _association_steps(builder, name, analysis)
+    _sampling(builder, name, analysis)
+    return Derivation(
+        name,
+        ASSOCIATION_CONTRACT_ID,
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        association_assumptions(analysis.lower()),
+        tuple(builder.obligations),
+        normalize(analysis),
+    )
+
+
+def _association_steps(builder: _Builder, name: str, analysis: AssociationAnalysisIR) -> int:
     study = normalize(analysis.plan.model)
     used = (
         builder.apply(
@@ -677,17 +694,7 @@ def derive_association(name: str, analysis: AssociationAnalysisIR) -> Derivation
             },
         ),
     )
-    final = builder.apply("association-contract", {"subject": name}, used)
-    _sampling(builder, name, analysis)
-    return Derivation(
-        name,
-        ASSOCIATION_CONTRACT_ID,
-        builder.steps[final].conclusion,
-        tuple(builder.steps),
-        association_assumptions(analysis.lower()),
-        tuple(builder.obligations),
-        normalize(analysis),
-    )
+    return builder.apply("association-contract", {"subject": name}, used)
 
 
 def derive_matched(name: str, analysis: MatchedAnalysisIR) -> Derivation:
@@ -1181,15 +1188,66 @@ def derive_cited_planning(name: str, claim: ClaimIR, analysis: CitedAnalysisIR) 
     )
 
 
+def derive_association_planning(
+    name: str, claim: ClaimIR, analysis: AssociationAnalysisIR
+) -> Derivation:
+    """Exact power of Fisher's test of association: the test fits, and the target can be
+    assessed at a point of the kind the design is planned at."""
+    subject = claim.subject
+    search = None if isinstance(subject, FeasibilityIR) else subject.candidates
+    target, inner = subject.target, f"{name}.analysis"
+    point = normalize(target.at)
+    builder = _Builder()
+    used = [
+        _association_steps(builder, inner, analysis),
+        builder.apply(
+            "planning-point", {"subject": name, "analysis": "association", "point": point}
+        ),
+        builder.apply(
+            "alternative",
+            {"subject": name, "point": point, "null": analysis.hypothesis.statement},
+        ),
+        builder.apply(
+            "target-range",
+            {
+                "subject": name,
+                "minimum": str(target.minimum),
+                "maximum_typeI": str(target.maximum_typeI),
+            },
+        ),
+    ]
+    if search is not None:
+        bounds = {key: value for key, value in normalize(search).items() if key != "analysis"}
+        used.append(builder.apply("search-range", {"subject": name, "search": bounds}))
+    final = builder.apply("planning-contract", {"subject": name}, tuple(used))
+    builder.settle(
+        "error-budget",
+        {"subject": name, "alpha": str(analysis.alpha), "maximum_typeI": str(target.maximum_typeI)},
+        analysis.alpha <= target.maximum_typeI,
+    )
+    _sampling(builder, inner, analysis)
+    return Derivation(
+        name,
+        f"planning/{claim.kind}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        (*association_assumptions(analysis.lower()), PLANNING_POINT_ASSUMPTION),
+        tuple(builder.obligations),
+        normalize(claim),
+    )
+
+
 def derive_planning(name: str, claim: ClaimIR) -> Derivation:
     """A planning claim: its analysis fits, and the target can be assessed for it."""
     subject = claim.subject
     search = None if isinstance(subject, FeasibilityIR) else subject.candidates
     analysis = subject.analysis if search is None else None
-    if isinstance(search, (CandidatesIR, OneArmCandidatesIR)):
+    if isinstance(search, (CandidatesIR, OneArmCandidatesIR, GroupCandidatesIR)):
         analysis = search.analysis
     if isinstance(analysis, CitedAnalysisIR):
         return derive_cited_planning(name, claim, analysis)
+    if isinstance(analysis, AssociationAnalysisIR):
+        return derive_association_planning(name, claim, analysis)
     target, inner = subject.target, f"{name}.analysis"
     builder = _Builder()
     used: list[int] = []

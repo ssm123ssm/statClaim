@@ -98,7 +98,8 @@ MODULE_CLASSES = {
     "planning": (
         "Study planning",
         "Exact power at a planning point, target checks and a bounded sample-size search "
-        "with equal or unequal allocation for the fixed Fisher analysis. "
+        "with equal or unequal allocation for the fixed Fisher analysis, and for Fisher's "
+        "test of association in a cohort or case-control study. "
         "Targets also apply to one-sample tests and two-stage designs. "
         "A size can be certified as sufficient or as the smallest in the declared range. "
         "Cited tests get approximate power from a normal formula, by calculation only.",
@@ -205,6 +206,18 @@ OBJECT_CLASSES = {
     "HazardRatio": (
         "Planning objects",
         "Planning point for a survival outcome: a hazard ratio and a number of events.",
+    ),
+    "Risks": (
+        "Planning objects",
+        "Planning point for a cohort: the risk without and with exposure; an input, not a fact.",
+    ),
+    "ExposurePrevalence": (
+        "Planning objects",
+        "Planning point for a case-control study: the share of controls and of cases exposed.",
+    ),
+    "GroupCandidates": (
+        "Planning objects",
+        "Cohort or case-control designs searched by the number exposed or of cases.",
     ),
     "PowerTarget": ("Planning objects", "Required power at a point and a Type I bound."),
     "Feasibility": ("Planning objects", "One analysis assessed against one target."),
@@ -372,6 +385,11 @@ OBJECT_CLASSES = {
     "AssociationAnalysis": (
         "Observational studies",
         "Fisher's exact test of no association, with an exact alpha.",
+    ),
+    "AssociationPowerDetails": (
+        "Evidence and inspection",
+        "Group sizes, the planning point's measures and the exact power of Fisher's test of "
+        "association; not proof evidence.",
     ),
     "ApproximatePowerDetails": (
         "Evidence and inspection",

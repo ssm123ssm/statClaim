@@ -16,6 +16,7 @@ from pathlib import Path
 from statclaim import __version__
 from statclaim import incidence as incidence_module
 from statclaim import matched as matched_module
+from statclaim import observational_planning as observational_planning_module
 from statclaim.association import (
     ASSOCIATION_KIND,
     INTERVAL_THEOREMS,
@@ -390,6 +391,16 @@ def _profile(kind: str, payload: dict) -> dict:
             "interval for the incidence rate ratio of these events."
         )
         general_theorem = "StatClaim.Modules.Incidence.coverage"
+    elif kind == observational_planning_module.PLAN_KIND:
+        plan = observational_planning_module.parse_plan_payload(payload)
+        claims = observational_planning_module.plan_claims(plan)
+        assumptions = observational_planning_module.plan_assumptions(plan)
+        theorems = observational_planning_module.plan_theorems(plan)
+        scope = (
+            "The declared observational design, its Type I bound and its power at one planning "
+            "point; association only, and no observed results, other points or minimality."
+        )
+        general_theorem = observational_planning_module.GENERAL_THEOREM
     elif kind == matched_module.MATCHED_KIND:
         test = matched_module.parse_matched_payload(payload)
         claims = matched_module.matched_claims(test)
@@ -603,6 +614,10 @@ def _proof_for_payload(kind: str, payload: dict) -> str:
     if kind == incidence_module.RATE_RATIO_KIND:
         return incidence_module.render_rate_ratio_proof(
             incidence_module.parse_rate_ratio_payload(payload), input_id
+        )
+    if kind == observational_planning_module.PLAN_KIND:
+        return observational_planning_module.render_plan_proof(
+            observational_planning_module.parse_plan_payload(payload), input_id
         )
     if kind == matched_module.MATCHED_KIND:
         return matched_module.render_matched_proof(
@@ -882,6 +897,23 @@ def certify_planning(
     """Certify a fixed design's Type I bound and its power at one planning point."""
     return _certify_payload(
         planning_payload(plan), PLANNING_KIND, project=project, output=output, timeout=timeout
+    )
+
+
+def certify_association_plan(
+    plan: "observational_planning_module.AssociationPowerPlan",
+    *,
+    project: Path,
+    output: Path | None = None,
+    timeout: float = 120,
+) -> tuple[dict, Path]:
+    """Certify an observational design's Type I bound and its power at one planning point."""
+    return _certify_payload(
+        observational_planning_module.plan_payload(plan),
+        observational_planning_module.PLAN_KIND,
+        project=project,
+        output=output,
+        timeout=timeout,
     )
 
 

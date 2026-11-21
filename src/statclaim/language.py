@@ -89,6 +89,8 @@ from statclaim.methods.observational import (
 from statclaim.methods.observational import (
     METHODS as OBSERVATIONAL_METHODS,
 )
+from statclaim.observational_planning import MAX_GROUP, AssociationPowerPlan
+from statclaim.observational_planning import SEARCH_KEYS as GROUP_SEARCH_KEYS
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
@@ -119,7 +121,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.22.0"
+LANGUAGE_VERSION = "0.23.0"
 
 
 class PlannableIR:
@@ -596,9 +598,10 @@ class AssociationNullIR(NullIR):
 
 
 @dataclass(frozen=True)
-class AssociationAnalysisIR(LevelTestIR):
+class AssociationAnalysisIR(LevelTestIR, PlannableIR):
     """Fisher's exact test of no association in an observational 2x2 study. Lean proves its
-    level for every design: with the group sizes fixed, or with only the total fixed."""
+    level for every design: with the group sizes fixed, or with only the total fixed. With
+    the group sizes fixed, its exact power at a planning point is calculated and checked."""
 
     plan: PlanIR
     hypothesis: AssociationNullIR
@@ -1001,6 +1004,31 @@ class HazardRatioIR(PlanningPointIR):
 
 
 @dataclass(frozen=True)
+class RisksIR(PlanningPointIR):
+    """A planning point for a cohort: the risk of the outcome without and with exposure."""
+
+    unexposed: Fraction
+    exposed: Fraction
+
+
+@dataclass(frozen=True)
+class ExposurePrevalenceIR(PlanningPointIR):
+    """A planning point for a case-control study: the probability of having been exposed,
+    among controls and among cases."""
+
+    controls: Fraction
+    cases: Fraction
+
+
+def group_probabilities(point: PlanningPointIR) -> tuple[Fraction, Fraction]:
+    """The planning point's probabilities in Fisher's first and second groups:
+    (unexposed, exposed) for a cohort, (controls, cases) for a case-control study."""
+    if isinstance(point, RisksIR):
+        return point.unexposed, point.exposed
+    return point.controls, point.cases
+
+
+@dataclass(frozen=True)
 class PowerTargetIR:
     at: PlanningPointIR
     minimum: Fraction
@@ -1121,8 +1149,17 @@ class FeasibilityIR:
     analysis: PlannableIR
     target: PowerTargetIR
 
-    def lower(self) -> PowerPlan | TwoStagePlan | OneSamplePlan | MarginTest:
+    def lower(
+        self,
+    ) -> PowerPlan | TwoStagePlan | OneSamplePlan | MarginTest | AssociationPowerPlan:
         target = self.target
+        if isinstance(self.analysis, AssociationAnalysisIR):
+            return AssociationPowerPlan(
+                self.analysis.lower(),
+                *group_probabilities(target.at),
+                target.minimum,
+                target.maximum_typeI,
+            )
         if isinstance(self.analysis, AnalysisIR) and self.analysis.alternative == "margin":
             return self.analysis.margin_test(target)
         if isinstance(self.analysis, OneSampleAnalysisIR):
@@ -1154,6 +1191,18 @@ class CandidatesIR(CandidateSpaceIR):
     analysis: "AnalysisIR | CitedAnalysisIR"
     min_per_arm: int
     max_per_arm: int
+    ratio: int = 1
+
+
+@dataclass(frozen=True)
+class GroupCandidatesIR(CandidateSpaceIR):
+    """Designs of a cohort or case-control study for Fisher's test: from min_size to
+    max_size exposed participants or cases, with ratio unexposed participants or controls
+    for each. Each keeps the analysis's study, null and alpha."""
+
+    analysis: AssociationAnalysisIR
+    min_size: int
+    max_size: int
     ratio: int = 1
 
 
@@ -1619,6 +1668,13 @@ def normalize(value: object) -> object:
             return {"p_control": str(control), "p_treatment": str(treatment)}
         case RateIR(value=rate):
             return {"response_rate": str(rate)}
+        case RisksIR(unexposed=unexposed, exposed=exposed):
+            return {"risk_unexposed": str(unexposed), "risk_exposed": str(exposed)}
+        case ExposurePrevalenceIR(controls=controls, cases=cases):
+            return {"exposure_controls": str(controls), "exposure_cases": str(cases)}
+        case GroupCandidatesIR(analysis=analysis, min_size=low, max_size=high, ratio=ratio):
+            low_key, high_key, ratio_key = GROUP_SEARCH_KEYS[analysis.plan.model.design]
+            return {"analysis": normalize(analysis), low_key: low, high_key: high, ratio_key: ratio}
         case MeanDifferenceIR(value=difference, sd=sd):
             return {"mean_difference": str(difference), "sd": str(sd)}
         case HazardRatioIR(value=ratio, events=events):
@@ -3117,6 +3173,142 @@ def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTarget
     )
 
 
+def _reference_and_other(
+    arguments: dict[str, LocatedValue],
+    span: Span,
+    reference: str,
+    other: str,
+    measure: str,
+) -> tuple[Fraction, Fraction]:
+    """A reference group's probability, and the other group's given directly or through the
+    measure the design estimates."""
+    base = _probability(arguments[reference], reference)
+    given, ratio = arguments.get(other), arguments.get(measure)
+    given = None if given is None or given.value is None else given
+    ratio = None if ratio is None or ratio.value is None else ratio
+    if (given is None) == (ratio is None):
+        fail(
+            "planning_point",
+            f"Give {other}=... or {measure}=..., one of the two.",
+            span,
+        )
+    if given is not None:
+        return base, _probability(given, other)
+    if ratio.value <= 0:
+        fail("domain", f"{measure} must be positive.", ratio.span)
+    if measure == "risk_ratio":
+        value = base * ratio.value
+        if value > 1:
+            fail(
+                "domain",
+                f"A risk ratio of {ratio.value} with a risk of {base} without exposure gives a "
+                "risk above 1.",
+                ratio.span,
+            )
+        return base, value
+    # The odds of exposure among cases are the odds among controls times the odds ratio.
+    odds = ratio.value * base
+    return base, odds / (1 - base + odds)
+
+
+def _risks(arguments: dict[str, LocatedValue], span: Span) -> RisksIR:
+    return RisksIR(*_reference_and_other(arguments, span, "unexposed", "exposed", "risk_ratio"))
+
+
+def _exposure_prevalence(arguments: dict[str, LocatedValue], span: Span) -> ExposurePrevalenceIR:
+    return ExposurePrevalenceIR(
+        *_reference_and_other(arguments, span, "controls", "cases", "odds_ratio")
+    )
+
+
+def _group_sizes(design: str) -> Callable:
+    low_key, high_key, ratio_key = GROUP_SEARCH_KEYS[design]
+    study = {
+        "cohort": "a cohort that sampled its exposed and unexposed groups",
+        "case_control": "a case-control study",
+    }[design]
+
+    def build(arguments: dict[str, LocatedValue], span: Span) -> GroupCandidatesIR:
+        analysis, low, high = arguments["analysis"], arguments[low_key], arguments[high_key]
+        model = analysis.value.plan.model
+        if model.design != design:
+            fail(
+                "type",
+                f"{design}_sizes searches the sizes of {study}; this analysis's study is "
+                "another design.",
+                analysis.span,
+            )
+        if model.groups is None:
+            fail(
+                "unsupported_claim",
+                "This cohort fixes only its total, so how many are exposed is random; its "
+                "power is not available yet. Declare exposed and unexposed when the groups "
+                "are sampled separately.",
+                analysis.span,
+            )
+        ratio = arguments.get(ratio_key)
+        each = 1 if ratio is None or ratio.value is None else ratio.value
+        if not 1 <= each <= MAX_RATIO:
+            fail("domain", f"{ratio_key} must be from 1 to {MAX_RATIO}.", ratio.span)
+        if low.value < 1:
+            fail("domain", f"{low_key} must be a positive integer.", low.span)
+        if high.value < low.value:
+            fail("domain", f"{high_key} must be at least {low_key}.", high.span)
+        if high.value * each > MAX_GROUP:
+            fail(
+                "domain",
+                f"Exact power is limited to {MAX_GROUP} participants in each group.",
+                high.span,
+            )
+        return GroupCandidatesIR(analysis.value, low.value, high.value, each)
+
+    return build
+
+
+# The planning point each observational design is planned at.
+GROUP_POINTS = {
+    "cohort": (RisksIR, "risks(unexposed=..., exposed=...)"),
+    "case_control": (ExposurePrevalenceIR, "exposure_prevalence(controls=..., cases=...)"),
+}
+
+
+def _check_association_point(
+    analysis: AssociationAnalysisIR, target: LocatedValue, where: Span
+) -> None:
+    """Fisher's test of association is planned when its design fixes both groups."""
+    model, point = analysis.plan.model, target.value.at
+    if model.groups is None:
+        fail(
+            "unsupported_claim",
+            "Exact power is available when the design fixes both groups: a cohort declared "
+            "with exposed and unexposed, or a case-control study. This study fixes only its "
+            "total, so how many are exposed is random; its power is not available yet.",
+            where,
+        )
+    kind, signature = GROUP_POINTS[model.design]
+    if not isinstance(point, kind):
+        fail(
+            "planning_point",
+            f"Plan a {model.design.replace('_', '-')} study at {signature}.",
+            target.span,
+        )
+    if max(model.groups) > MAX_GROUP:
+        fail(
+            "domain",
+            f"Exact power is limited to {MAX_GROUP} participants in each group.",
+            where,
+        )
+    first, second = group_probabilities(point)
+    if first == second:
+        fail(
+            "alternative_in_null",
+            f"The planning point satisfies the analysis's null "
+            f"({analysis.hypothesis.statement}). Power is assessed at an alternative; choose "
+            "a point outside the null.",
+            target.span,
+        )
+
+
 # How to write the planning point each kind of power formula takes.
 POINT_SIGNATURES = {
     "mean_difference": (MeanDifferenceIR, "mean_difference(value=..., sd=...)"),
@@ -3174,6 +3366,9 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
     point = target.value.at
     if isinstance(analysis, CitedAnalysisIR):
         _check_cited_point(analysis, target, where)
+        return
+    if isinstance(analysis, AssociationAnalysisIR):
+        _check_association_point(analysis, target, where)
         return
     if isinstance(analysis, (TwoStageAnalysisIR, OneSampleAnalysisIR)):
         if not isinstance(point, RateIR):
@@ -4281,6 +4476,33 @@ MODULES = {
                     "Power depends on the events, not on the arm sizes. Both are planning inputs.",
                 ),
                 _constructor(
+                    "risks",
+                    (
+                        ("unexposed", "number"),
+                        ("exposed", "number", True),
+                        ("risk_ratio", "number", True),
+                    ),
+                    "Risks",
+                    _risks,
+                    documentation="A planning point for a cohort: the risk of the outcome "
+                    "without exposure, and with it, given as exposed or as risk_ratio, exposed "
+                    "over unexposed. A planning input, not an established fact.",
+                ),
+                _constructor(
+                    "exposure_prevalence",
+                    (
+                        ("controls", "number"),
+                        ("cases", "number", True),
+                        ("odds_ratio", "number", True),
+                    ),
+                    "ExposurePrevalence",
+                    _exposure_prevalence,
+                    documentation="A planning point for a case-control study: the share of "
+                    "controls who were exposed, and of cases, given as cases or as odds_ratio, "
+                    "the odds of exposure among cases over the odds among controls. A planning "
+                    "input, not an established fact.",
+                ),
+                _constructor(
                     "power_target",
                     (("at", PlanningPointIR), ("minimum", "number"), ("maximum_typeI", "level")),
                     "PowerTarget",
@@ -4323,6 +4545,35 @@ MODULES = {
                     documentation="A finite design space with unequal allocation: each "
                     "candidate has n controls and treatment_per_control * n treated "
                     "participants, for n within the inclusive bounds.",
+                ),
+                _constructor(
+                    "cohort_sizes",
+                    (
+                        ("analysis", AssociationAnalysisIR),
+                        ("min_exposed", "integer"),
+                        ("max_exposed", "integer"),
+                        ("unexposed_per_exposed", "integer", True),
+                    ),
+                    "GroupCandidates",
+                    _group_sizes("cohort"),
+                    documentation="Designs of a cohort that samples its exposed and unexposed "
+                    "groups: n exposed and unexposed_per_exposed * n unexposed (1 unless "
+                    "given), for n within the inclusive bounds. Each keeps the analysis's "
+                    "study, null and alpha.",
+                ),
+                _constructor(
+                    "case_control_sizes",
+                    (
+                        ("analysis", AssociationAnalysisIR),
+                        ("min_cases", "integer"),
+                        ("max_cases", "integer"),
+                        ("controls_per_case", "integer", True),
+                    ),
+                    "GroupCandidates",
+                    _group_sizes("case_control"),
+                    documentation="Designs of a case-control study: n cases and "
+                    "controls_per_case * n controls (1 unless given), for n within the "
+                    "inclusive bounds. Each keeps the analysis's study, null and alpha.",
                 ),
                 _constructor(
                     "sample_sizes",

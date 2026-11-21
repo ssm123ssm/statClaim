@@ -1,0 +1,29 @@
+# Exact power of Fisher's test of no association, for studies whose design fixes two groups.
+# Power is the exact probability that the test rejects at a planning point; verify has Lean
+# recompute it. Power concerns association: it says nothing about an effect of the exposure.
+use models.observational
+use sampling
+use tests.association
+use planning
+
+# A case-control study, planned at the share of controls exposed and the odds ratio.
+let study = case_control(cases=50, controls=100, exposure="night shift work", outcome="breast cancer")
+let analysis = fisher_exact(design=fixed(model=study), null=no_association(model=study), alpha=1/20)
+let target = power_target(
+    at=exposure_prevalence(controls=1/5, odds_ratio=3),
+    minimum=4/5,
+    maximum_typeI=1/20,
+)
+let proposed = calculate(meets(analysis=analysis, target=target))
+
+# The smallest number of cases in the range, each with two controls.
+let sizes = case_control_sizes(analysis=analysis, min_cases=40, max_cases=60, controls_per_case=2)
+let smallest = verify(smallest_sample_size(candidates=sizes, target=target))
+
+# A cohort that samples exposed and unexposed groups, planned at the risk in each.
+let followed = cohort(exposed=100, unexposed=200, exposure="solvent exposure", outcome="kidney disease")
+let test = fisher_exact(design=fixed(model=followed), null=no_association(model=followed), alpha=1/20)
+let risk_target = power_target(at=risks(unexposed=1/20, exposed=3/20), minimum=4/5, maximum_typeI=1/20)
+let risk_power = calculate(meets(analysis=test, target=risk_target))
+let cohorts = cohort_sizes(analysis=test, min_exposed=50, max_exposed=200, unexposed_per_exposed=2)
+let exposed_needed = calculate(smallest_sample_size(candidates=cohorts, target=risk_target))

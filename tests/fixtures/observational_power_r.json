@@ -1,0 +1,86 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "packages": {
+    "exact2x2": "1.7.0",
+    "epiR": "3.0.1"
+  },
+  "cases": [
+    {
+      "design": "cohort",
+      "first": 40,
+      "second": 40,
+      "p_first": "1/10",
+      "p_second": "3/10",
+      "alpha": "1/20",
+      "enumeration": 0.533989659412573,
+      "exact2x2": 0.533989620755816,
+      "epiR": 0.612238826441716
+    },
+    {
+      "design": "cohort",
+      "first": 300,
+      "second": 150,
+      "p_first": "1/10",
+      "p_second": "1/5",
+      "alpha": "1/20",
+      "enumeration": 0.79884065627971,
+      "exact2x2": 0.798840470192769,
+      "epiR": 0.7883548648385
+    },
+    {
+      "design": "cohort",
+      "first": 100,
+      "second": 50,
+      "p_first": "1/20",
+      "p_second": "1/5",
+      "alpha": "1/40",
+      "enumeration": 0.676818227787851,
+      "exact2x2": 0.676818120444691,
+      "epiR": 0.589125546338818
+    },
+    {
+      "design": "case_control",
+      "first": 240,
+      "second": 120,
+      "p_first": "1/5",
+      "p_second": "1/3",
+      "alpha": "1/20",
+      "enumeration": 0.760252349594002,
+      "exact2x2": 0.760252089818908,
+      "epiR": 0.76287789050296
+    },
+    {
+      "design": "case_control",
+      "first": 264,
+      "second": 132,
+      "p_first": "1/5",
+      "p_second": "1/3",
+      "alpha": "1/20",
+      "enumeration": 0.797610503470601,
+      "exact2x2": 0.797610143847184,
+      "epiR": 0.803033498596931
+    },
+    {
+      "design": "case_control",
+      "first": 266,
+      "second": 133,
+      "p_first": "1/5",
+      "p_second": "1/3",
+      "alpha": "1/20",
+      "enumeration": 0.800312377462454,
+      "exact2x2": 0.800312132622151,
+      "epiR": 0.806104330345859
+    },
+    {
+      "design": "case_control",
+      "first": 60,
+      "second": 60,
+      "p_first": "3/10",
+      "p_second": "3/5",
+      "alpha": "1/100",
+      "enumeration": 0.721221879079416,
+      "exact2x2": 0.721221825018497,
+      "epiR": 0.777133810031771
+    }
+  ]
+}

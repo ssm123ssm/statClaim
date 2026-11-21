@@ -27,6 +27,7 @@ from statclaim.verification import (
     DESIGN_ASSUMPTIONS,
     VerificationError,
     certify_association,
+    certify_association_plan,
     certify_association_result,
     certify_binomial_result,
     certify_composition,
@@ -428,6 +429,93 @@ def run_sample_size(
         return report
     report = run_power_plan(
         report, plan, verify=verify, project=project, output=output, timeout=timeout
+    )
+    report["calculation"] = {**report["calculation"], **search}
+    return report
+
+
+def run_association_plan(
+    report: dict, plan, *, verify: bool, project: Path, output, timeout: float
+) -> dict:
+    """Exact power of Fisher's test of association; verify certifies only when every
+    component is met."""
+    from statclaim.association import NOT_CAUSAL
+
+    calculation = plan.evaluate()
+    report["calculation"] = calculation
+    report["limitations"] = [NOT_CAUSAL]
+    met = calculation["power_target_met"] and calculation["typeI_target_met"]
+    report["decision"] = "target_met" if met else "target_not_met"
+    report["components"] = {
+        "typeI": "supported_by_theorem" if calculation["typeI_target_met"] else "not_established",
+        "power": "met" if calculation["power_target_met"] else "not_met",
+    }
+    if not verify:
+        return report
+    if not calculation["typeI_target_met"]:
+        return _unmet(
+            report,
+            "typeI_target",
+            "typeI_target_not_established",
+            f"The analysis's alpha {plan.test.alpha} exceeds the requested Type I bound "
+            f"{plan.maximum_typeI}. The theorem bounds error by alpha only; this is not "
+            "evidence that the actual error exceeds the request.",
+        )
+    if not calculation["power_target_met"]:
+        return _unmet(
+            report,
+            "power_target",
+            "power_target_not_met",
+            f"Calculated power, {_approx(calculation['power'])}, is below the required "
+            f"{plan.minimum_power} at the planning point. No evidence is issued for the "
+            "combined planning claim. The Type I component is supported separately by the "
+            "theorem. This says nothing about whether there is an association.",
+        )
+    report = _certified(
+        report, certify_association_plan, plan, project=project, output=output, timeout=timeout
+    )
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
+def run_association_search(
+    report: dict,
+    test,
+    target: tuple,
+    bounds: tuple[int, int],
+    *,
+    minimal: bool,
+    ratio: int,
+    verify: bool,
+    project: Path,
+    output,
+    timeout: float,
+) -> dict:
+    """Search ascending for the smallest group size, keeping the ratio between the groups."""
+    from statclaim.observational_planning import GROUPS, search_groups
+
+    found, evaluated = search_groups(test, *target, *bounds, minimal, ratio)
+    second = GROUPS[test.design][1]
+    search = {
+        f"min_{second}": bounds[0],
+        f"max_{second}": bounds[1],
+        "candidates_evaluated": evaluated,
+        "minimum_sample_size_claim": "requested" if minimal else "not_requested",
+    }
+    if found is None:
+        report["calculation"] = {**search, "power_target_met": False}
+        report["decision"] = "no_feasible_candidate"
+        if verify:
+            _unmet(
+                report,
+                "search_exhausted",
+                "no_feasible_candidate",
+                f"No candidate with {bounds[0]} to {bounds[1]} {second} meets the power target. "
+                "Nothing is claimed about other designs or larger samples.",
+            )
+        return report
+    report = run_association_plan(
+        report, found, verify=verify, project=project, output=output, timeout=timeout
     )
     report["calculation"] = {**report["calculation"], **search}
     return report

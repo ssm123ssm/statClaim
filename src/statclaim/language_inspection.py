@@ -35,6 +35,7 @@ from statclaim.language import (
     TwoStageCandidatesIR,
     TwoStageObservationIR,
     VerificationResultIR,
+    group_probabilities,
     normalize,
     planned_analysis,
     population_conditions,
@@ -74,6 +75,26 @@ def _scope(sizing) -> str:
     return "Minimality is not claimed."
 
 
+def _association_planning(subject, analysis: AssociationAnalysisIR, feasibility: bool) -> dict:
+    """Exact power of Fisher's test of association, described before it is calculated."""
+    from statclaim.association import NOT_CAUSAL, association_assumptions
+    from statclaim.observational_planning import PLANNING_POINT, target_words
+
+    test, target = analysis.lower(), subject.target
+    point = (*group_probabilities(target.at), target.minimum, target.maximum_typeI)
+    search = None
+    if not feasibility:
+        candidates = subject.candidates
+        search = (candidates.min_size, candidates.max_size, candidates.ratio)
+    report = planning_report(
+        "association_planning",
+        target_words(test, point, search, not feasibility and subject.minimal),
+        [*association_assumptions(test), PLANNING_POINT],
+    )
+    report["limitations"] = [NOT_CAUSAL]
+    return report
+
+
 def inspect_planning(request: RequestIR) -> dict:
     """Describe a planning claim from its declaration, without calculating."""
     subject = request.claim.subject
@@ -84,6 +105,8 @@ def inspect_planning(request: RequestIR) -> dict:
     analysis = subject.analysis if feasibility else subject.candidates.analysis
     if isinstance(analysis, CitedAnalysisIR):
         return cited_planning.describe(subject)
+    if isinstance(analysis, AssociationAnalysisIR):
+        return _association_planning(subject, analysis, feasibility)
     if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
         if feasibility:
             return margin_report(subject.lower(), verify=request.operation == "verify")

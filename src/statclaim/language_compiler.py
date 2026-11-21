@@ -103,7 +103,7 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
         analysis = (
             subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
         )
-        if not isinstance(analysis, (AnalysisIR, CitedAnalysisIR)):
+        if not isinstance(analysis, (AnalysisIR, CitedAnalysisIR, AssociationAnalysisIR)):
             return ()
         if analysis.plan.stopping != "fixed":
             diagnostics.append(
@@ -117,7 +117,7 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 )
             )
         if (
-            isinstance(analysis, AnalysisIR)
+            isinstance(analysis, (AnalysisIR, AssociationAnalysisIR))
             and request.operation == "verify"
             and analysis.alpha > subject.target.maximum_typeI
         ):
