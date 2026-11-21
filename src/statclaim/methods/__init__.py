@@ -10,8 +10,17 @@ import hashlib
 import inspect
 
 from statclaim import simulation as engine
-from statclaim.methods import assumptions, cluster, logistic, mixed_models, survival, t_tests
+from statclaim.methods import (
+    assumptions,
+    cluster,
+    logistic,
+    mixed_models,
+    survival,
+    t_distribution,
+    t_tests,
+)
 from statclaim.methods.core import (
+    NORMAL_APPROXIMATION,
     Assumption,
     CitedMethod,
     MethodModule,
@@ -123,6 +132,8 @@ def versions() -> dict:
     for key, formula in POWER_FORMULAS.items():
         users = sorted(m.key for m in METHODS.values() if m.power is formula)
         content = repr(formula) + inspect.getsource(formula.function) + repr(users)
+        if formula.approximation != NORMAL_APPROXIMATION:
+            content += f" approximation={formula.approximation!r}"
         recorded[f"power:{key}"] = {"version": formula.version, "sha256": _sha256(content)}
     for key, model in SIMULATIONS.items():
         users = sorted(m.key for m in METHODS.values() if m.simulation is model)
@@ -133,6 +144,11 @@ def versions() -> dict:
             + repr(users)
         )
         recorded[f"simulation:{key}"] = {"version": model.version, "sha256": _sha256(content)}
+    # The t distribution behind the power of tests of cluster summaries.
+    recorded["power:t_distribution"] = {
+        "version": t_distribution.VERSION,
+        "sha256": _sha256(inspect.getsource(t_distribution)),
+    }
     # The engine draws every simulated study; any change to it can change results.
     recorded["simulation:engine"] = {
         "version": engine.ENGINE_VERSION,

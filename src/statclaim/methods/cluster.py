@@ -13,6 +13,7 @@ from statclaim.methods.assumptions import (
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import CitedMethod, MethodModule
+from statclaim.methods.power import CLUSTER_MEANS, CLUSTER_PROPORTIONS
 
 TO_VERIFY = " [to verify]"
 DONNER_KLAR = (
@@ -30,7 +31,8 @@ MODULE = MethodModule(
     "cluster, a mean or a proportion of responders, with the clusters as the sample size. It "
     "needs cluster_assignment and at least four clusters per arm. The Type I guarantee is "
     "cited, exact if the cluster summaries are normal with a common variance, and not checked "
-    "by Lean. For a proved analysis, use randomisation_test.",
+    "by Lean. Power comes from the noncentral t, given the intracluster correlation. For a "
+    "proved analysis, use randomisation_test.",
     (
         CitedMethod(
             key="cluster_t_test",
@@ -53,6 +55,7 @@ MODULE = MethodModule(
             min_per_arm=4,
             min_total=8,
             unit="cluster",
+            power=CLUSTER_MEANS,
         ),
         # The same test on each cluster's proportion of responders. Its null compares the
         # mean cluster proportions, which equal the arms' response rates under the model.
@@ -75,6 +78,7 @@ MODULE = MethodModule(
             min_per_arm=4,
             min_total=8,
             unit="cluster",
+            power=CLUSTER_PROPORTIONS,
         ),
     ),
 )

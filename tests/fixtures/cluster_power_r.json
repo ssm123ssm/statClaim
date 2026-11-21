@@ -1,0 +1,184 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "packages": {
+    "CRTSize": "1.2"
+  },
+  "means": [
+    {
+      "k_c": 6,
+      "k_t": 6,
+      "m": 20,
+      "delta": "5",
+      "sd": "10",
+      "icc": "1/20",
+      "alpha": "1/20",
+      "noncentral_t": 0.705779987941484,
+      "power_t_test": 0.705779987941484
+    },
+    {
+      "k_c": 8,
+      "k_t": 8,
+      "m": 20,
+      "delta": "5",
+      "sd": "10",
+      "icc": "1/20",
+      "alpha": "1/20",
+      "noncentral_t": 0.845357476436113,
+      "power_t_test": 0.845357476436113
+    },
+    {
+      "k_c": 4,
+      "k_t": 4,
+      "m": 50,
+      "delta": "3/2",
+      "sd": "2",
+      "icc": "1/10",
+      "alpha": "1/20",
+      "noncentral_t": 0.730769742900987,
+      "power_t_test": 0.730769742900986
+    },
+    {
+      "k_c": 12,
+      "k_t": 12,
+      "m": 10,
+      "delta": "1/2",
+      "sd": "1",
+      "icc": "1/100",
+      "alpha": "1/100",
+      "noncentral_t": 0.802449996683268,
+      "power_t_test": 0.802449996683269
+    },
+    {
+      "k_c": 10,
+      "k_t": 15,
+      "m": 30,
+      "delta": "4",
+      "sd": "12",
+      "icc": "3/100",
+      "alpha": "1/20",
+      "noncentral_t": 0.879225459256566
+    },
+    {
+      "k_c": 30,
+      "k_t": 30,
+      "m": 5,
+      "delta": "1",
+      "sd": "4",
+      "icc": "0",
+      "alpha": "1/20",
+      "noncentral_t": 0.567166360975093,
+      "power_t_test": 0.567166360975093
+    }
+  ],
+  "proportions": [
+    {
+      "k_c": 6,
+      "k_t": 6,
+      "m": 20,
+      "p_c": "3/10",
+      "p_t": "1/2",
+      "icc": "1/50",
+      "alpha": "1/20",
+      "noncentral_t": 0.698437554503116,
+      "power_t_test": 0.698437554503116
+    },
+    {
+      "k_c": 10,
+      "k_t": 10,
+      "m": 50,
+      "p_c": "1/10",
+      "p_t": "1/5",
+      "icc": "1/20",
+      "alpha": "1/20",
+      "noncentral_t": 0.624778468183474,
+      "power_t_test": 0.624778468183475
+    },
+    {
+      "k_c": 8,
+      "k_t": 12,
+      "m": 25,
+      "p_c": "2/5",
+      "p_t": "3/5",
+      "icc": "1/10",
+      "alpha": "1/20",
+      "noncentral_t": 0.631076249070868
+    },
+    {
+      "k_c": 20,
+      "k_t": 20,
+      "m": 100,
+      "p_c": "1/20",
+      "p_t": "1/10",
+      "icc": "1/100",
+      "alpha": "1/100",
+      "noncentral_t": 0.934401358513473,
+      "power_t_test": 0.934401358513474
+    }
+  ],
+  "searches": [
+    {
+      "kind": "means",
+      "vary": "clusters",
+      "m": 20,
+      "delta": "5",
+      "sd": "10",
+      "icc": "1/20",
+      "alpha": "1/20",
+      "power": "4/5",
+      "clusters_per_arm": 8,
+      "power_at": 0.845357476436113,
+      "crtsize": 7.16512202229667
+    },
+    {
+      "kind": "means",
+      "vary": "clusters",
+      "m": 10,
+      "delta": "3/10",
+      "sd": "1",
+      "icc": "1/50",
+      "alpha": "1/20",
+      "power": "9/10",
+      "clusters_per_arm": 29,
+      "power_at": 0.904570206215077,
+      "crtsize": 28.572062807851
+    },
+    {
+      "kind": "proportions",
+      "vary": "clusters",
+      "m": 30,
+      "p_c": "3/10",
+      "p_t": "1/2",
+      "icc": "1/50",
+      "alpha": "1/20",
+      "power": "4/5",
+      "clusters_per_arm": 6,
+      "power_at": 0.809228857062666,
+      "crtsize": 5.77592611042366
+    },
+    {
+      "kind": "proportions",
+      "vary": "clusters",
+      "m": 50,
+      "p_c": "1/10",
+      "p_t": "3/20",
+      "icc": "1/20",
+      "alpha": "1/20",
+      "power": "4/5",
+      "clusters_per_arm": 49,
+      "power_at": 0.807403725739256,
+      "crtsize": 47.1168250452976
+    },
+    {
+      "kind": "means",
+      "vary": "size",
+      "k": 6,
+      "delta": "5",
+      "sd": "10",
+      "icc": "1/20",
+      "alpha": "1/20",
+      "power": "4/5",
+      "cluster_size": 35,
+      "power_at": 0.802011397938285
+    }
+  ]
+}

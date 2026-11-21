@@ -88,6 +88,7 @@ SUPPORTED_JOINT_LAWS = ["binomial_marginals"]
 FAMILY_LIMITS = (2, 20)
 ONE_ARM_LIMIT, PER_ARM_LIMIT, STAGE_LIMIT, SEARCH_LIMIT, RATIO_LIMIT = 1000, 500, 200, 120, 10
 CITED_ARM_LIMIT = 100_000
+CLUSTER_LIMIT, CLUSTER_SIZE_LIMIT = 1000, 10_000  # clusters per arm, participants per cluster
 UNIT_LIMIT = 10_000  # randomised units in a randomisation test
 DRAW_LIMIT = 10_000_000  # random draws for a Monte Carlo p-value
 SCHEMES = ["complete", "stratified", "blocked"]  # schemes the randomisation theorem covers
@@ -260,6 +261,28 @@ def _search_valid(search: dict, arm_limit: int = PER_ARM_LIMIT) -> bool:
     )
 
 
+def _cluster_search_valid(search: dict, fewest: int) -> bool:
+    """Clusters per arm of a fixed size, from the method's fewest; or the declared clusters
+    with a range of sizes."""
+    if "cluster_size" in search:
+        low, high = search["min_clusters_per_arm"], search["max_clusters_per_arm"]
+        return (
+            set(search) == {"cluster_size", "min_clusters_per_arm", "max_clusters_per_arm"}
+            and _whole(search["cluster_size"], 1)
+            and search["cluster_size"] <= CLUSTER_SIZE_LIMIT
+            and _whole(low, fewest)
+            and _whole(high, low)
+            and high <= CLUSTER_LIMIT
+        )
+    low, high = search["min_cluster_size"], search["max_cluster_size"]
+    return (
+        set(search) == {"min_cluster_size", "max_cluster_size"}
+        and _whole(low, 1)
+        and _whole(high, low)
+        and high <= CLUSTER_SIZE_LIMIT
+    )
+
+
 # The contract rule and assumptions for each kind of analysis, keyed by its test.
 BLOCKS = {
     "fisher": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
@@ -286,8 +309,11 @@ def _block(name: str, analysis: dict, start: int = 0) -> list[tuple]:
     return steps
 
 
-def _point_valid(point: dict, kind: str, total: int) -> bool:
-    if set(point) != POINT_KEYS[kind]:
+def _point_valid(point: dict, kind: str, total: int, clustered: bool = False) -> bool:
+    """A test of cluster summaries is planned with the intracluster correlation too."""
+    if set(point) != POINT_KEYS[kind] | ({"icc"} if clustered else set()):
+        return False
+    if clustered and not 0 <= Fraction(point["icc"]) < 1:
         return False
     if kind == "mean_difference":
         return Fraction(point["sd"]) > 0
@@ -320,8 +346,14 @@ def _cited_planning_expected(name: str, subject: dict, search, analysis: dict):
         "version": formula.version,
         "point": point,
     }
+    clustered = method.unit == "cluster"
     steps.append(
-        ("power-formula", facts, _point_valid(point, formula.point, sum(sizes.values())), ())
+        (
+            "power-formula",
+            facts,
+            _point_valid(point, formula.point, sum(sizes.values()), clustered),
+            (),
+        )
     )
     null = analysis["null"]
     margin = Fraction(null.get("value", "0"))
@@ -352,7 +384,12 @@ def _cited_planning_expected(name: str, subject: dict, search, analysis: dict):
             (
                 "search-range",
                 {"subject": name, "search": bounds},
-                _search_valid(bounds, CITED_ARM_LIMIT) and formula.point != "hazard_ratio",
+                (
+                    _cluster_search_valid(bounds, method.min_per_arm)
+                    if clustered
+                    else _search_valid(bounds, CITED_ARM_LIMIT)
+                )
+                and formula.point != "hazard_ratio",
                 (),
             )
         )

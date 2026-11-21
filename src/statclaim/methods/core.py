@@ -178,6 +178,9 @@ class PowerResult:
     standard_error: float  # on the analysed scale; for a hazard ratio, of its logarithm
 
 
+NORMAL_APPROXIMATION = "normal approximation, not a bound"
+
+
 @dataclass(frozen=True)
 class PowerFormula:
     """An approximate power formula for one kind of planning point.
@@ -185,8 +188,10 @@ class PowerFormula:
     `function(point, n_control, n_treatment, null_value, alpha, side)` returns a
     PowerResult. `point` maps the planning point's arguments to floats; `side` is "higher"
     or "lower" for a one-sided test (the direction that favours the treatment) and
-    "both" for a two-sided one. Bump `version` whenever the function, assumptions or
-    references change.
+    "both" for a two-sided one. For a test of one summary per cluster, the sizes count
+    clusters and `point` also gives "icc", "size_control" and "size_treatment", the mean
+    number of participants in a cluster of each arm. Bump `version` whenever the function,
+    assumptions or references change.
     """
 
     key: str
@@ -196,6 +201,9 @@ class PowerFormula:
     function: Callable[..., PowerResult] = field(repr=False, compare=False)
     assumptions: tuple[Assumption, ...] = ()
     references: tuple[str, ...] = ()
+    # How the result is described next to every number it gives. Part of the hash when not
+    # the default; see versions().
+    approximation: str = field(default=NORMAL_APPROXIMATION, repr=False, compare=False)
 
     def to_dict(self) -> dict:
         return {"key": self.key, "version": self.version, "title": self.title}

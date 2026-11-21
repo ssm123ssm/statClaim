@@ -641,13 +641,26 @@ def check_source(
 def _approximate_lines(details: dict) -> list[str]:
     """Approximate power of a cited test, with the formula and what it rests on."""
     calculation = details["calculation"]
+    approximation = calculation.get("approximation", cited_planning.APPROXIMATE)
     lines = []
     if "n_control" in calculation:
-        lines += [
+        lines.append(
             f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
-            f"total = {calculation['total_sample_size']}",
+            f"total = {calculation['total_sample_size']}"
+        )
+        if "clusters_control" in calculation:
+            effect = calculation.get("design_effect")
+            lines.append(
+                f"  clusters = ({calculation['clusters_control']}, "
+                f"{calculation['clusters_treatment']}) of "
+                f"({calculation['cluster_size_control']['fraction']}, "
+                f"{calculation['cluster_size_treatment']['fraction']}) participants; "
+                f"icc {calculation['icc']['fraction']}"
+                + (f"; design effect {effect['fraction']}" if effect else "")
+            )
+        lines += [
             f"  power ~ {float(calculation['power']['decimal_approximation']):.4f} "
-            f"({cited_planning.APPROXIMATE}); "
+            f"({approximation}); "
             f"power target met = {str(calculation['power_target_met']).lower()}",
             f"  rejects when the estimate is {calculation['reject_when']} "
             f"{float(calculation['critical_estimate']['decimal_approximation']):.4g}; "
@@ -658,6 +671,12 @@ def _approximate_lines(details: dict) -> list[str]:
         ]
     if "candidates_evaluated" in calculation:
         lines.append(f"  candidates evaluated = {calculation['candidates_evaluated']}")
+    if "power_ceiling" in calculation:
+        lines.append(
+            f"  power ceiling ~ {float(calculation['power_ceiling']['decimal_approximation']):.4f}"
+            " as clusters grow without bound: more participants per cluster cannot reach the "
+            "target; add clusters"
+        )
     formula = details["formula"]
     lines.append(f"  Formula: {formula['title']} ({formula['key']}, version {formula['version']})")
     lines.append("  Assumptions:")

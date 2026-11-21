@@ -98,9 +98,9 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 
 | Object | Meaning | Public fields |
 | --- | --- | --- |
-| Rates | Planning point for two arms; an input, not a fact. | `p_control: exact number`, `p_treatment: exact number` |
+| Rates | Planning point for two arms; an input, not a fact. | `p_control: exact number`, `p_treatment: exact number`, `icc: Option[exact number]` |
 | Rate | Planning point for a single response rate. | `value: exact number` |
-| MeanDifference | Planning point for a continuous outcome: a mean difference and an SD. | `value: exact number`, `sd: exact number` |
+| MeanDifference | Planning point for a continuous outcome: a mean difference and an SD. | `value: exact number`, `sd: exact number`, `icc: Option[exact number]` |
 | HazardRatio | Planning point for a survival outcome: a hazard ratio and a number of events. | `value: exact number`, `events: integer` |
 | Risks | Planning point for a cohort: the risk without and with exposure; an input, not a fact. | `unexposed: exact number`, `exposed: exact number`, `exposed_share: Option[exact number]` |
 | ExposurePrevalence | Planning point for a case-control study: the share of controls and of cases exposed. | `controls: exact number`, `cases: exact number` |
@@ -109,6 +109,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | TotalCandidates | Studies that fix only their total, searched by the total; sufficiency only. | `analysis: AssociationAnalysis`, `min_n: integer`, `max_n: integer` |
 | DiscordantPairs | Planning point for a matched study: the share of discordant pairs and the odds ratio. | `share: exact number`, `odds_ratio: exact number` |
 | IncidenceRates | Planning point for a person-time cohort: the rate ratio, person-time and events. | `rate_ratio: exact number`, `exposed_time: exact number`, `unexposed_time: exact number`, `events: Option[integer]` |
+| ClusterCandidates | Cluster-randomised trials searched by clusters per arm or by cluster size. | `analysis: Analysis`, `min_size: integer`, `max_size: integer`, `cluster_size: Option[integer]` |
 | CountCandidates | Matched studies searched by their pairs, or the rate test by its events. | `analysis: Analysis`, `min_size: integer`, `max_size: integer` |
 | PowerTarget | Required power at a point and a Type I bound. | `at: PlanningPoint`, `minimum: exact number`, `maximum_typeI: exact number` |
 | Feasibility | One analysis assessed against one target. | `analysis: Analysis`, `target: PowerTarget` |
@@ -139,7 +140,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | AssociationPowerDetails | Group sizes, the planning point's measures and the exact power of Fisher's test of association; not proof evidence. | `design: Option[string]`, `exposed: Option[integer]`, `unexposed: Option[integer]`, `cases: Option[integer]`, `controls: Option[integer]`, `total_sample_size: Option[integer]`, `risk_ratio: Option[exact number]`, `risk_difference: Option[exact number]`, `prevalence_ratio: Option[exact number]`, `prevalence_difference: Option[exact number]`, `exposed_share: Option[exact number]`, `expected_exposed: Option[exact number]`, `odds_ratio: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | MatchedPowerDetails | Pairs, the planning point and the exact power of McNemar's test; not proof evidence. | `pairs: Option[integer]`, `discordant: Option[exact number]`, `odds_ratio: Option[exact number]`, `case_exposed_share: Option[exact number]`, `expected_discordant_pairs: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
 | RatePowerDetails | Events, the planning point and the exact power of the rate test; not proof evidence. | `events: Option[integer]`, `rate_ratio: Option[exact number]`, `exposed_time_share: Option[exact number]`, `exposed_event_share: Option[exact number]`, `power: Option[exact number]`, `power_target_met: boolean`, `typeI_bound: Option[exact number]`, `typeI_target_met: Option[boolean]`, `candidates_evaluated: Option[integer]`, `minimum_sample_size_claim: Option[string]` |
-| ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
+| ApproximatePowerDetails | Approximate power and critical estimate of a cited test; not a bound. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `clusters_control: Option[integer]`, `clusters_treatment: Option[integer]`, `total_clusters: Option[integer]`, `cluster_size_control: Option[exact number]`, `cluster_size_treatment: Option[exact number]`, `icc: Option[exact number]`, `design_effect: Option[exact number]`, `degrees_of_freedom: Option[integer]`, `power: Option[exact number]`, `power_ceiling: Option[exact number]`, `power_target_met: boolean`, `critical_estimate: Option[exact number]`, `reject_when: Option[string]`, `standard_error: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `formula: Option[string]`, `candidates_evaluated: Option[integer]` |
 | SimulationDetails | Power and Type I error estimated by simulate(...), with 95% intervals, the number of runs and the seed. Estimates, not bounds and not evidence. | `n_control: Option[integer]`, `n_treatment: Option[integer]`, `total_sample_size: Option[integer]`, `power: Option[exact number]`, `power_lower: Option[exact number]`, `power_upper: Option[exact number]`, `power_target_met: boolean`, `typeI: Option[exact number]`, `typeI_lower: Option[exact number]`, `typeI_upper: Option[exact number]`, `alpha: Option[exact number]`, `typeI_target_met: Option[boolean]`, `runs: Option[integer]`, `seed: Option[integer]`, `candidates_evaluated: Option[integer]` |
 | Diagnostic | A diagnostic code, severity and message. | `code: string`, `message: string`, `severity: string` |
 
@@ -278,7 +279,7 @@ A Wald or likelihood-ratio test of the treatment coefficient in a logistic regre
 
 ### `tests.cluster` — Cited analyses
 
-The t-test on cluster-level summaries for a cluster-randomised trial: one value per cluster, a mean or a proportion of responders, with the clusters as the sample size. It needs cluster_assignment and at least four clusters per arm. The Type I guarantee is cited, exact if the cluster summaries are normal with a common variance, and not checked by Lean. For a proved analysis, use randomisation_test.
+The t-test on cluster-level summaries for a cluster-randomised trial: one value per cluster, a mean or a proportion of responders, with the clusters as the sample size. It needs cluster_assignment and at least four clusters per arm. The Type I guarantee is cited, exact if the cluster summaries are normal with a common variance, and not checked by Lean. Power comes from the noncentral t, given the intracluster correlation. For a proved analysis, use randomisation_test.
 
 - `cluster_t_test(design: StudyDesign, null: Hypothesis, alpha: level) -> CitedAnalysis`
   Two-sided t-test on cluster-level summaries. Its guarantee is cited from the literature and is not checked by Lean. Null: mean_treatment = mean_control.
@@ -479,12 +480,12 @@ Hierarchical testing in a fixed order, each test at the full level and only afte
 
 ### `planning` — Study planning
 
-Exact power at a planning point, target checks and a bounded sample-size search with equal or unequal allocation for the fixed Fisher analysis, for Fisher's test of association in every observational design, for McNemar's test and for the rate test given its events. Targets also apply to one-sample tests and two-stage designs. A size can be certified as sufficient or as the smallest in the declared range. Cited tests get approximate power from a normal formula, by calculation only.
+Exact power at a planning point, target checks and a bounded sample-size search with equal or unequal allocation for the fixed Fisher analysis, for Fisher's test of association in every observational design, for McNemar's test and for the rate test given its events. Targets also apply to one-sample tests and two-stage designs. A size can be certified as sufficient or as the smallest in the declared range. Cited tests get approximate power from a normal formula, or the noncentral t for tests of cluster summaries, by calculation only.
 
-- `binomial_rates(p_control: number, p_treatment: number) -> Rates`
-  A planning point: one success probability per arm. It is an input for power, not the null and not an established fact.
-- `mean_difference(value: number, sd: number) -> MeanDifference`
-  A planning point for a continuous outcome: the true mean difference, treatment minus control, and the standard deviation of one participant's outcome on the analysed scale. For a mixed model, sd is the effective standard deviation of the contrast. Both are planning inputs.
+- `binomial_rates(p_control: number, p_treatment: number, icc?: number) -> Rates`
+  A planning point: one success probability per arm. It is an input for power, not the null and not an established fact. A test of cluster proportions also needs icc, the intracluster correlation.
+- `mean_difference(value: number, sd: number, icc?: number) -> MeanDifference`
+  A planning point for a continuous outcome: the true mean difference, treatment minus control, and the standard deviation of one participant's outcome on the analysed scale. For a mixed model, sd is the effective standard deviation of the contrast. A test of cluster means also needs icc, the intracluster correlation: the share of the variance that lies between clusters. All are planning inputs.
 - `hazard_ratio(value: number, events: integer) -> HazardRatio`
   A planning point for a survival outcome: the true hazard ratio, treatment over control, and the expected total number of events. Power depends on the events, not on the arm sizes. Both are planning inputs.
 - `risks(unexposed: number, exposed?: number, risk_ratio?: number, exposed_share?: number) -> Risks`
@@ -505,6 +506,10 @@ Exact power at a planning point, target checks and a bounded sample-size search 
   A finite design space: equal arm sizes within inclusive bounds, keeping the analysis's sampling, null form, test and alpha.
 - `allocated_arm_sizes(analysis: Analysis, min_control: integer, max_control: integer, treatment_per_control: integer) -> Candidates`
   A finite design space with unequal allocation: each candidate has n controls and treatment_per_control * n treated participants, for n within the inclusive bounds.
+- `cluster_counts(analysis: Analysis, cluster_size: integer, min_per_arm: integer, max_per_arm: integer) -> ClusterCandidates`
+  Cluster-randomised trials for a test of cluster summaries: min_per_arm to max_per_arm clusters in each arm, each of cluster_size participants. Each keeps the analysis's null, test and alpha.
+- `cluster_sizes(analysis: Analysis, min_size: integer, max_size: integer) -> ClusterCandidates`
+  Cluster-randomised trials for a test of cluster summaries: the declared clusters per arm, with min_size to max_size participants in each cluster. Each keeps the analysis's null, test and alpha. With few clusters, no number of participants may be enough.
 - `cohort_sizes(analysis: AssociationAnalysis, min_exposed: integer, max_exposed: integer, unexposed_per_exposed?: integer) -> GroupCandidates`
   Designs of a cohort that samples its exposed and unexposed groups: n exposed and unexposed_per_exposed * n unexposed (1 unless given), for n within the inclusive bounds. Each keeps the analysis's study, null and alpha.
 - `case_control_sizes(analysis: AssociationAnalysis, min_cases: integer, max_cases: integer, controls_per_case?: integer) -> GroupCandidates`
@@ -760,8 +765,8 @@ Guarantees taken from the literature. See [cited methods](cited-methods.md).
 | `log_rank` | 1 | survival | `equal_survival` | equals alpha | `asymptotic` | 1 per arm, 2 total | `schoenfeld_log_rank` |
 | `logistic_regression` | 1 | binary | `equal_proportions` | equals alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
 | `logistic_regression_one_sided` | 1 | binary | `proportion_difference_at_most` | at most alpha | `asymptotic` | 2 per arm, 4 total | `normal_two_proportions` |
-| `cluster_t_test` | 1 | continuous | `equal_means` | equals alpha | `finite_sample` | 4 clusters per arm, 8 total | none |
-| `cluster_proportion_t_test` | 1 | binary | `equal_proportions` | equals alpha | `finite_sample` | 4 clusters per arm, 8 total | none |
+| `cluster_t_test` | 1 | continuous | `equal_means` | equals alpha | `finite_sample` | 4 clusters per arm, 8 total | `cluster_t_means` |
+| `cluster_proportion_t_test` | 1 | binary | `equal_proportions` | equals alpha | `finite_sample` | 4 clusters per arm, 8 total | `cluster_t_proportions` |
 
 **`t_test`** (Two-sided pooled-variance t-test) assumes `independent_observations`, `fixed_sample_sizes`, `single_analysis`, `normal_outcomes`, `equal_variances`. References:
 
@@ -834,6 +839,8 @@ Approximate power for cited tests, by calculation only. See [power for cited tes
 | `normal_two_means` | 2 | `mean_difference` | `normal_approximation_power`, `planning_standard_deviation` |
 | `schoenfeld_log_rank` | 2 | `hazard_ratio` | `normal_approximation_power`, `proportional_hazards`, `planning_events`, `at_risk_shares` |
 | `normal_two_proportions` | 2 | `binomial_rates` | `normal_approximation_power`, `unadjusted_proportions` |
+| `cluster_t_means` | 1 | `mean_difference` | `noncentral_t_power`, `planning_standard_deviation`, `planning_icc`, `equal_cluster_sizes` |
+| `cluster_t_proportions` | 1 | `binomial_rates` | `noncentral_t_power`, `planning_icc`, `equal_cluster_sizes` |
 
 **`normal_two_means`** (Difference of two means, normal approximation with a known standard deviation). References:
 
@@ -849,6 +856,20 @@ Approximate power for cited tests, by calculation only. See [power for cited tes
 
 - Fleiss, J. L., Levin, B. and Paik, M. C. (2003). Statistical Methods for Rates and Proportions, 3rd ed. Wiley. Chapter 4.
 - R Core Team. power.prop.test, in the stats package of R.
+
+**`cluster_t_means`** (t-test on cluster means, noncentral t with the design effect). References:
+
+- Donner, A., Birkett, N. and Buck, C. (1981). Randomization by cluster: sample size requirements and analysis. American Journal of Epidemiology 114(6), 906-914. [to verify]
+- R Core Team. power.t.test, in the stats package of R.
+- Lenth, R. V. (1989). Algorithm AS 243: cumulative distribution function of the non-central t distribution. Applied Statistics 38(1), 185-189.
+- Benton, D. and Krishnamoorthy, K. (2003). Computing discrete mixtures of continuous distributions: noncentral chisquare, noncentral t and the distribution of the square of the sample multiple correlation coefficient. Computational Statistics and Data Analysis 43(2), 249-267.
+
+**`cluster_t_proportions`** (t-test on cluster proportions, noncentral t with the design effect). References:
+
+- Donner, A., Birkett, N. and Buck, C. (1981). Randomization by cluster: sample size requirements and analysis. American Journal of Epidemiology 114(6), 906-914. [to verify]
+- R Core Team. power.t.test, in the stats package of R.
+- Lenth, R. V. (1989). Algorithm AS 243: cumulative distribution function of the non-central t distribution. Applied Statistics 38(1), 185-189.
+- Benton, D. and Krishnamoorthy, K. (2003). Computing discrete mixtures of continuous distributions: noncentral chisquare, noncentral t and the distribution of the square of the sample multiple correlation coefficient. Computational Statistics and Data Analysis 43(2), 249-267.
 
 ## Assumptions
 
@@ -893,6 +914,9 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `proportional_hazards` | distribution | The hazard ratio is constant over time. The log-rank test's error rate does not need this; its power formula does. |
 | `planning_events` | scope | The number of events is a planning input, not an established fact. Power depends on the events, not on the arm sizes. |
 | `at_risk_shares` | approximation | Each arm's share of the participants at risk stays close to its share at randomisation, as when the hazard ratio is near 1. |
+| `noncentral_t_power` | approximation | Power comes from the noncentral t distribution of the t-test on cluster summaries, with the variance of a cluster's summary at the planning values. Exact for normal cluster means of equal variance; otherwise an approximation, not a bound. |
+| `planning_icc` | scope | The intracluster correlation is a planning input, not an established fact: the share of the outcome's variance that lies between clusters. A cluster of m participants has a summary with variance (1 + (m - 1) icc) / m times that of one participant. |
+| `equal_cluster_sizes` | approximation | Every cluster in an arm has the arm's mean size. Clusters of unequal sizes give less power than this. |
 | `accounts_for_repeated_measures` | vouched | The declared test accounts for the several measurements on each participant, which may be correlated. |
 | `accounts_for_clusters` | vouched | The declared test accounts for randomisation by cluster: participants in one cluster may be correlated. |
 

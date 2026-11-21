@@ -241,8 +241,11 @@ def test_the_example_compiles_with_a_cited_and_a_proved_claim():
     path = ROOT / "examples/cluster_trial.stat"
     compilation = compile_source(Source(path.read_text(), str(path)))
     assert compilation.status == "elaborated"
+    # Then two planning calculations for the cited test.
     assert [claim["best_status"] for claim in inspect_program(compilation)] == [
         "cited",
         "verified",
+        "calculated",
+        "calculated",
     ]
-    assert [check_derivation(d.to_dict()) for d in compilation.derivations] == [[], []]
+    assert all(check_derivation(d.to_dict()) == [] for d in compilation.derivations)

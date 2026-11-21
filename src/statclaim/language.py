@@ -103,6 +103,8 @@ from statclaim.observational_planning import SEARCH_KEYS as GROUP_SEARCH_KEYS
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
+    MAX_CLUSTER_SIZE,
+    MAX_CLUSTERS,
     MAX_MARGIN_ARM,
     MAX_ONE_ARM,
     MAX_PER_ARM,
@@ -130,7 +132,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.25.0"
+LANGUAGE_VERSION = "0.26.0"
 
 
 class PlannableIR:
@@ -987,8 +989,12 @@ class ObservationIR:
 
 @dataclass(frozen=True)
 class RatesIR(PlanningPointIR):
+    """One success probability per arm and, for a test of cluster proportions, the
+    intracluster correlation."""
+
     p_control: Fraction
     p_treatment: Fraction
+    icc: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -998,10 +1004,12 @@ class RateIR(PlanningPointIR):
 
 @dataclass(frozen=True)
 class MeanDifferenceIR(PlanningPointIR):
-    """A true mean difference, treatment minus control, and one participant's SD."""
+    """A true mean difference, treatment minus control, one participant's SD and, for a test
+    of cluster means, the intracluster correlation."""
 
     value: Fraction
     sd: Fraction
+    icc: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1262,6 +1270,33 @@ class CandidatesIR(CandidateSpaceIR):
     min_per_arm: int
     max_per_arm: int
     ratio: int = 1
+
+
+@dataclass(frozen=True)
+class ClusterCandidatesIR(CandidateSpaceIR):
+    """Cluster-randomised trials for a test of cluster summaries. With cluster_size set, low
+    to high clusters per arm of that many participants each; without it, the declared
+    clusters per arm with low to high participants in each cluster. Each keeps the
+    analysis's null, test and alpha."""
+
+    analysis: "CitedAnalysisIR"
+    low: int
+    high: int
+    cluster_size: int | None = None
+
+    @property
+    def varies(self) -> str:
+        return "clusters" if self.cluster_size is not None else "cluster_size"
+
+    def designs(self):
+        """Each candidate as (clusters per arm, participants per cluster), ascending."""
+        model = self.analysis.plan.model
+        for value in range(self.low, self.high + 1):
+            if self.cluster_size is not None:
+                yield (value, value), (self.cluster_size, self.cluster_size)
+            else:
+                assignment = model.assignment
+                yield (assignment.clusters_control, assignment.clusters_treatment), (value, value)
 
 
 @dataclass(frozen=True)
@@ -1758,8 +1793,9 @@ def normalize(value: object) -> object:
                 "control_successes": control,
                 "treatment_successes": treatment,
             }
-        case RatesIR(p_control=control, p_treatment=treatment):
-            return {"p_control": str(control), "p_treatment": str(treatment)}
+        case RatesIR(p_control=control, p_treatment=treatment, icc=icc):
+            point = {"p_control": str(control), "p_treatment": str(treatment)}
+            return point if icc is None else {**point, "icc": str(icc)}
         case RateIR(value=rate):
             return {"response_rate": str(rate)}
         case RisksIR(unexposed=unexposed, exposed=exposed, exposed_share=share):
@@ -1790,8 +1826,9 @@ def normalize(value: object) -> object:
         case GroupCandidatesIR(analysis=analysis, min_size=low, max_size=high, ratio=ratio):
             low_key, high_key, ratio_key = GROUP_SEARCH_KEYS[analysis.plan.model.design]
             return {"analysis": normalize(analysis), low_key: low, high_key: high, ratio_key: ratio}
-        case MeanDifferenceIR(value=difference, sd=sd):
-            return {"mean_difference": str(difference), "sd": str(sd)}
+        case MeanDifferenceIR(value=difference, sd=sd, icc=icc):
+            point = {"mean_difference": str(difference), "sd": str(sd)}
+            return point if icc is None else {**point, "icc": str(icc)}
         case HazardRatioIR(value=ratio, events=events):
             return {"hazard_ratio": str(ratio), "events": events}
         case PowerTargetIR(at=point, minimum=minimum, maximum_typeI=maximum):
@@ -1854,6 +1891,19 @@ def normalize(value: object) -> object:
             return {"analysis": normalize(analysis), "min_n": low, "max_n": high}
         case FeasibilityIR(analysis=analysis, target=target):
             return {"analysis": normalize(analysis), "target": normalize(target)}
+        case ClusterCandidatesIR(analysis=analysis, low=low, high=high, cluster_size=size):
+            if value.varies == "clusters":
+                return {
+                    "analysis": normalize(analysis),
+                    "cluster_size": size,
+                    "min_clusters_per_arm": low,
+                    "max_clusters_per_arm": high,
+                }
+            return {
+                "analysis": normalize(analysis),
+                "min_cluster_size": low,
+                "max_cluster_size": high,
+            }
         case CandidatesIR(analysis=analysis, min_per_arm=low, max_per_arm=high, ratio=ratio):
             return {
                 "analysis": normalize(analysis),
@@ -3257,10 +3307,22 @@ def _probability(argument: LocatedValue, name: str, *, positive: bool = False) -
     return argument.value
 
 
+def _icc(arguments: dict[str, LocatedValue]) -> Fraction | None:
+    """The intracluster correlation, when given: from 0, independent participants, up to but
+    not including 1, identical participants within a cluster."""
+    icc = arguments.get("icc")
+    if icc is None or icc.value is None:
+        return None
+    if not 0 <= icc.value < 1:
+        fail("domain", "icc must lie in [0, 1).", icc.span)
+    return icc.value
+
+
 def _rates(arguments: dict[str, LocatedValue], span: Span) -> RatesIR:
     return RatesIR(
         _probability(arguments["p_control"], "p_control"),
         _probability(arguments["p_treatment"], "p_treatment"),
+        _icc(arguments),
     )
 
 
@@ -3268,7 +3330,7 @@ def _mean_difference(arguments: dict[str, LocatedValue], span: Span) -> MeanDiff
     sd = arguments["sd"]
     if sd.value <= 0:
         fail("domain", "sd must be positive.", sd.span)
-    return MeanDifferenceIR(arguments["value"].value, sd.value)
+    return MeanDifferenceIR(arguments["value"].value, sd.value, _icc(arguments))
 
 
 def _hazard_ratio(arguments: dict[str, LocatedValue], span: Span) -> HazardRatioIR:
@@ -3544,6 +3606,20 @@ POINT_SIGNATURES = {
     "binomial_rates": (RatesIR, "binomial_rates(p_control=..., p_treatment=...)"),
     "hazard_ratio": (HazardRatioIR, "hazard_ratio(value=..., events=...)"),
 }
+# A test of cluster summaries also takes the intracluster correlation.
+CLUSTER_POINT_SIGNATURES = {
+    "mean_difference": "mean_difference(value=..., sd=..., icc=...)",
+    "binomial_rates": "binomial_rates(p_control=..., p_treatment=..., icc=...)",
+}
+ICC_REFUSED = (
+    "icc is for a test of cluster summaries, such as cluster_t_test, in a cluster-randomised "
+    "trial. This analysis takes participants one by one; leave icc out."
+)
+
+
+def clustered_test(analysis: object) -> bool:
+    """Whether the analysis is a cited test of one summary per cluster."""
+    return isinstance(analysis, CitedAnalysisIR) and analysis.method.unit == "cluster"
 
 
 def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: Span) -> None:
@@ -3558,8 +3634,19 @@ def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: S
             where,
         )
     kind, signature = POINT_SIGNATURES[method.power.point]
+    if clustered_test(analysis):
+        signature = CLUSTER_POINT_SIGNATURES[method.power.point]
     if not isinstance(point, kind):
         fail("planning_point", f"Plan {method.key} at {signature}.", target.span)
+    if clustered_test(analysis) and point.icc is None:
+        fail(
+            "planning_point",
+            f"Plan {method.key} at {signature}: the intracluster correlation sets how much "
+            "each cluster's summary varies, and so the power.",
+            target.span,
+        )
+    if not clustered_test(analysis) and getattr(point, "icc", None) is not None:
+        fail("planning_point", ICC_REFUSED, target.span)
     model = analysis.plan.model
     if isinstance(point, HazardRatioIR) and point.events > model.n_control + model.n_treatment:
         fail(
@@ -3596,6 +3683,8 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
     if isinstance(analysis, CitedAnalysisIR):
         _check_cited_point(analysis, target, where)
         return
+    if getattr(point, "icc", None) is not None:
+        fail("planning_point", ICC_REFUSED, target.span)
     if isinstance(analysis, AssociationAnalysisIR):
         _check_association_point(analysis, target, where)
         return
@@ -3681,7 +3770,68 @@ def _arm_limit(analysis: TwoArmTestIR) -> int:
     return MAX_MARGIN_ARM if analysis.alternative == "margin" else MAX_PER_ARM
 
 
+def _not_clustered(analysis: LocatedValue) -> None:
+    """A test of cluster summaries is sized in clusters, not participants."""
+    if clustered_test(analysis.value):
+        fail(
+            "unsupported_claim",
+            f"{analysis.value.method.key} takes one summary per cluster, so it is sized in "
+            "clusters: search cluster_counts(...) for the number of clusters per arm, or "
+            "cluster_sizes(...) for the participants in each cluster.",
+            analysis.span,
+        )
+
+
+def _cluster_analysis(analysis: LocatedValue, search: str) -> CitedAnalysisIR:
+    if not clustered_test(analysis.value):
+        fail(
+            "unsupported_claim",
+            f"{search} searches a test of cluster summaries, such as cluster_t_test, in a "
+            "cluster-randomised trial. Use equal_arm_sizes(...) for an analysis of "
+            "participants.",
+            analysis.span,
+        )
+    return analysis.value
+
+
+def _cluster_counts(arguments: dict[str, LocatedValue], span: Span) -> ClusterCandidatesIR:
+    analysis = _cluster_analysis(arguments["analysis"], "cluster_counts")
+    size, low, high = (arguments[k] for k in ("cluster_size", "min_per_arm", "max_per_arm"))
+    if not 1 <= size.value <= MAX_CLUSTER_SIZE:
+        fail("domain", f"cluster_size must be between 1 and {MAX_CLUSTER_SIZE:,}.", size.span)
+    fewest = analysis.method.min_per_arm
+    if low.value < fewest:
+        fail(
+            "domain",
+            f"{analysis.method.key} needs at least {fewest} clusters per arm, so min_per_arm "
+            f"must be at least {fewest}.",
+            low.span,
+        )
+    if high.value < low.value:
+        fail("domain", "max_per_arm must be at least min_per_arm.", high.span)
+    if high.value > MAX_CLUSTERS:
+        fail("domain", f"max_per_arm is currently limited to {MAX_CLUSTERS:,} clusters.", high.span)
+    return ClusterCandidatesIR(analysis, low.value, high.value, size.value)
+
+
+def _cluster_sizes(arguments: dict[str, LocatedValue], span: Span) -> ClusterCandidatesIR:
+    analysis = _cluster_analysis(arguments["analysis"], "cluster_sizes")
+    low, high = arguments["min_size"], arguments["max_size"]
+    if low.value < 1:
+        fail("domain", "min_size must be a positive integer.", low.span)
+    if high.value < low.value:
+        fail("domain", "max_size must be at least min_size.", high.span)
+    if high.value > MAX_CLUSTER_SIZE:
+        fail(
+            "domain",
+            f"max_size is currently limited to {MAX_CLUSTER_SIZE:,} participants per cluster.",
+            high.span,
+        )
+    return ClusterCandidatesIR(analysis, low.value, high.value)
+
+
 def _candidates(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
+    _not_clustered(arguments["analysis"])
     low, high = arguments["min_per_arm"], arguments["max_per_arm"]
     if low.value < 1:
         fail("domain", "min_per_arm must be a positive integer.", low.span)
@@ -3763,6 +3913,7 @@ def _one_arm_candidates(arguments: dict[str, LocatedValue], span: Span) -> OneAr
 
 
 def _allocated(arguments: dict[str, LocatedValue], span: Span) -> CandidatesIR:
+    _not_clustered(arguments["analysis"])
     low, high = arguments["min_control"], arguments["max_control"]
     ratio = arguments["treatment_per_control"]
     if not 1 <= ratio.value <= MAX_RATIO:
@@ -3942,7 +4093,7 @@ def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     ):
         fail(
             "unsupported_claim",
-            "The power of a cited test is a normal approximation, with no proof or cited "
+            "The power of a cited test is an approximate calculation, with no proof or cited "
             "theorem behind it, so it cannot be verified. Use calculate(...) instead.",
             claim.span,
         )
@@ -3995,6 +4146,8 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     kind, signature = POINT_SIGNATURES[method.simulation.point]
     if not isinstance(subject.target.at, kind):
         fail("planning_point", f"Simulate {method.key} at {signature}.", claim.span)
+    if getattr(subject.target.at, "icc", None) is not None:
+        fail("planning_point", ICC_REFUSED, claim.span)
     settings = simulation_settings(arguments)
     if isinstance(subject, SizingIR):
         candidates = subject.candidates.max_per_arm - subject.candidates.min_per_arm + 1
@@ -4725,21 +4878,25 @@ MODULES = {
             (
                 _constructor(
                     "binomial_rates",
-                    (("p_control", "number"), ("p_treatment", "number")),
+                    (("p_control", "number"), ("p_treatment", "number"), ("icc", "number", True)),
                     "Rates",
                     _rates,
                     documentation="A planning point: one success probability per arm. "
-                    "It is an input for power, not the null and not an established fact.",
+                    "It is an input for power, not the null and not an established fact. "
+                    "A test of cluster proportions also needs icc, the intracluster "
+                    "correlation.",
                 ),
                 _constructor(
                     "mean_difference",
-                    (("value", "number"), ("sd", "number")),
+                    (("value", "number"), ("sd", "number"), ("icc", "number", True)),
                     "MeanDifference",
                     _mean_difference,
                     documentation="A planning point for a continuous outcome: the true mean "
                     "difference, treatment minus control, and the standard deviation of one "
                     "participant's outcome on the analysed scale. For a mixed model, sd is the "
-                    "effective standard deviation of the contrast. Both are planning inputs.",
+                    "effective standard deviation of the contrast. A test of cluster means "
+                    "also needs icc, the intracluster correlation: the share of the variance "
+                    "that lies between clusters. All are planning inputs.",
                 ),
                 _constructor(
                     "hazard_ratio",
@@ -4862,6 +5019,34 @@ MODULES = {
                     documentation="A finite design space with unequal allocation: each "
                     "candidate has n controls and treatment_per_control * n treated "
                     "participants, for n within the inclusive bounds.",
+                ),
+                _constructor(
+                    "cluster_counts",
+                    (
+                        ("analysis", TwoArmTestIR),
+                        ("cluster_size", "integer"),
+                        ("min_per_arm", "integer"),
+                        ("max_per_arm", "integer"),
+                    ),
+                    "ClusterCandidates",
+                    _cluster_counts,
+                    documentation="Cluster-randomised trials for a test of cluster summaries: "
+                    "min_per_arm to max_per_arm clusters in each arm, each of cluster_size "
+                    "participants. Each keeps the analysis's null, test and alpha.",
+                ),
+                _constructor(
+                    "cluster_sizes",
+                    (
+                        ("analysis", TwoArmTestIR),
+                        ("min_size", "integer"),
+                        ("max_size", "integer"),
+                    ),
+                    "ClusterCandidates",
+                    _cluster_sizes,
+                    documentation="Cluster-randomised trials for a test of cluster summaries: "
+                    "the declared clusters per arm, with min_size to max_size participants in "
+                    "each cluster. Each keeps the analysis's null, test and alpha. With few "
+                    "clusters, no number of participants may be enough.",
                 ),
                 _constructor(
                     "cohort_sizes",

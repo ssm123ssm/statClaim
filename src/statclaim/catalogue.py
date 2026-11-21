@@ -103,7 +103,8 @@ MODULE_CLASSES = {
         "test given its events. "
         "Targets also apply to one-sample tests and two-stage designs. "
         "A size can be certified as sufficient or as the smallest in the declared range. "
-        "Cited tests get approximate power from a normal formula, by calculation only.",
+        "Cited tests get approximate power from a normal formula, or the noncentral t for "
+        "tests of cluster summaries, by calculation only.",
     ),
     "estimation": (
         "Analyses and claims",
@@ -235,6 +236,10 @@ OBJECT_CLASSES = {
     "IncidenceRates": (
         "Planning objects",
         "Planning point for a person-time cohort: the rate ratio, person-time and events.",
+    ),
+    "ClusterCandidates": (
+        "Planning objects",
+        "Cluster-randomised trials searched by clusters per arm or by cluster size.",
     ),
     "CountCandidates": (
         "Planning objects",

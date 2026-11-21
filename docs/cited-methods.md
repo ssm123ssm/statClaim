@@ -96,6 +96,9 @@ are marked "to verify" until reviewed. `cluster_proportion_t_test` is the same
 test on each cluster's proportion of responders, for a binary outcome, with
 `equal_proportions` as its null. For a proved analysis of the same trial,
 use `randomisation_test` ([language guide](stat-language.md#randomisation-tests)).
+Both cluster tests are planned with the intracluster correlation, `icc`, on the
+planning point, and searched with `cluster_counts` or `cluster_sizes`; power comes
+from the noncentral t ([planning](planning.md#cluster-randomised-trials)).
 See `examples/cluster_trial.stat`.
 
 ## Which direction is better

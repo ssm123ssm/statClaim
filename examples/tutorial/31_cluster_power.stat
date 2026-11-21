@@ -1,0 +1,28 @@
+# Lesson 31: planning a cluster-randomised trial.
+use models.two_arm_continuous
+use sampling
+use tests.cluster
+use planning
+
+# Six clinics per arm, twenty patients in each.
+let clinics = cluster_assignment(
+    clusters_control=6,
+    clusters_treatment=6,
+    n_control=120,
+    n_treatment=120,
+)
+let practice = two_arm(assignment=clinics, outcome=continuous_outcome(better="higher"))
+let analysis = cluster_t_test(design=fixed(model=practice), null=equal_means(model=practice), alpha=1/20)
+
+# A difference of 5 points, an SD of 10 for one patient, and an intracluster correlation of
+# 1/20: patients in one clinic are a little alike.
+let expected = mean_difference(value=5, sd=10, icc=1/20)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20)
+let declared = calculate(meets(analysis=analysis, target=target))
+let effect = declared.calculation.design_effect
+
+# Two ways to more power: more clinics, or more patients in each.
+let more_clinics = cluster_counts(analysis=analysis, cluster_size=20, min_per_arm=4, max_per_arm=40)
+let by_clinics = calculate(smallest_sample_size(candidates=more_clinics, target=target))
+let bigger_clinics = cluster_sizes(analysis=analysis, min_size=2, max_size=500)
+let by_size = calculate(smallest_sample_size(candidates=bigger_clinics, target=target))

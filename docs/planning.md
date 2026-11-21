@@ -278,6 +278,7 @@ Planning points:
 | Outcome | Point | Formula |
 | --- | --- | --- |
 | Continuous | `mean_difference(value=..., sd=...)` | Difference of two means with a known SD |
+| Cluster means or proportions | the same points with `icc=...` | Noncentral t on cluster summaries with the design effect |
 | Yes-or-no | `binomial_rates(p_control=..., p_treatment=...)` | Two proportions: pooled variance under the null, unpooled at the point |
 | Survival | `hazard_ratio(value=..., events=...)` | Schoenfeld's formula in the number of events |
 
@@ -309,6 +310,37 @@ range that reaches the target. It is not offered for `hazard_ratio`.
 
 A test without a formula, such as a declared test, gets `no_power_formula`. See
 `examples/cited_power.stat`.
+
+### Cluster-randomised trials
+
+The t-test on cluster summaries is sized in clusters. Give the intracluster
+correlation on the point: `mean_difference(value=5, sd=10, icc=1/20)` for
+`cluster_t_test`, or `binomial_rates(..., icc=...)` for `cluster_proportion_t_test`.
+A cluster of m participants then has a summary with variance (1 + (m - 1) icc) / m
+times that of one participant. The declared assignment gives the clusters per arm
+and their mean size.
+
+```stat
+let target = power_target(at=mean_difference(value=5, sd=10, icc=1/20), minimum=4/5,
+    maximum_typeI=1/20)
+let power = calculate(meets(analysis=summaries, target=target))
+let clinics = cluster_counts(analysis=summaries, cluster_size=20, min_per_arm=4,
+    max_per_arm=40)
+let needed = calculate(smallest_sample_size(candidates=clinics, target=target))
+```
+
+- Power uses the noncentral t with `k_control + k_treatment - 2` degrees of
+  freedom, since clusters are few. With equal arms and cluster sizes it equals R's
+  `power.t.test` with n clusters per arm, to twelve decimals.
+- `cluster_counts` searches clusters per arm of a fixed size, from at least four.
+  `cluster_sizes(analysis=..., min_size=..., max_size=...)` keeps the declared
+  clusters and searches participants per cluster.
+- With few clusters, more participants may never be enough: a cluster mean's
+  variance falls only to sd² × icc. The search then reports `power_ceiling`.
+- Clusters of unequal sizes give less power than the formula; the result lists
+  this as an assumption.
+
+See `examples/cluster_trial.stat` and lesson 31 of the tutorial.
 
 ## Power by simulation
 

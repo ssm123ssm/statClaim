@@ -55,6 +55,14 @@
     "version": 2,
     "sha256": "15a9192b2ed84573251d9334f11e6da247f1fe98759e10d7a88d8a7b2884ce9e"
   },
+  "power:cluster_t_means": {
+    "version": 1,
+    "sha256": "a90e9b284898e442f7fb85ac706b8d412fd1709ea67be0d5d4d3522709461796"
+  },
+  "power:cluster_t_proportions": {
+    "version": 1,
+    "sha256": "4f49c397ba42cfb8f6c2dcab325b9049437a95470f0ef7d4fd713202dc72736b"
+  },
   "simulation:normal_two_means_student": {
     "version": 1,
     "sha256": "8f0f8bc71adacb7ec6c005df8f4c243970b98d245396194a8d2b4cf4a491bd7b"
@@ -62,6 +70,10 @@
   "simulation:normal_two_means_welch": {
     "version": 1,
     "sha256": "005d005aec52a8ca8f4bf36c91c791b35d2c7d2845eefa12b2eadde08bb944b0"
+  },
+  "power:t_distribution": {
+    "version": 1,
+    "sha256": "ea2a17329b2cbed9962b66037a5539b4fc398dd5df869b3fd7b13911f63b59ff"
   },
   "simulation:engine": {
     "version": 1,

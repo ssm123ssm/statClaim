@@ -1,0 +1,39 @@
+Power of the t-test on cluster summaries, written to tests/fixtures/cluster_power_r.json
+
+Cluster means
+clusters (6, 6) of 20, difference 5, sd 10, icc 1/20, alpha 1/20: noncentral t 0.705779987941, power.t.test 0.705779987941
+clusters (8, 8) of 20, difference 5, sd 10, icc 1/20, alpha 1/20: noncentral t 0.845357476436, power.t.test 0.845357476436
+clusters (4, 4) of 50, difference 3/2, sd 2, icc 1/10, alpha 1/20: noncentral t 0.730769742901, power.t.test 0.730769742901
+clusters (12, 12) of 10, difference 1/2, sd 1, icc 1/100, alpha 1/100: noncentral t 0.802449996683, power.t.test 0.802449996683
+clusters (10, 15) of 30, difference 4, sd 12, icc 3/100, alpha 1/20: noncentral t 0.879225459257
+clusters (30, 30) of 5, difference 1, sd 4, icc 0, alpha 1/20: noncentral t 0.567166360975, power.t.test 0.567166360975
+
+Cluster proportions
+clusters (6, 6) of 20, p = (3/10, 1/2), icc 1/50, alpha 1/20: noncentral t 0.698437554503, power.t.test 0.698437554503
+clusters (10, 10) of 50, p = (1/10, 1/5), icc 1/20, alpha 1/20: noncentral t 0.624778468183, power.t.test 0.624778468183
+clusters (8, 12) of 25, p = (2/5, 3/5), icc 1/10, alpha 1/20: noncentral t 0.631076249071
+clusters (20, 20) of 100, p = (1/20, 1/10), icc 1/100, alpha 1/100: noncentral t 0.934401358513, power.t.test 0.934401358513
+
+Searches
+means, clusters of 20, icc 1/20, power 4/5: 8 clusters per arm (power 0.845357); CRTSize 7.165
+means, clusters of 10, icc 1/50, power 9/10: 29 clusters per arm (power 0.904570); CRTSize 28.572
+proportions, clusters of 30, icc 1/50, power 4/5: 6 clusters per arm (power 0.809229); CRTSize 5.776
+proportions, clusters of 50, icc 1/20, power 4/5: 49 clusters per arm (power 0.807404); CRTSize 47.117
+means, 6 clusters per arm, icc 1/20, power 4/5: 35 per cluster (power 0.802011)
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0 CRTSize_1.2
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

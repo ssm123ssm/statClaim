@@ -60,6 +60,9 @@
 - Exact power and sample sizes for Fisher's test of association in every
   observational design, McNemar's test and the rate test, checked in Lean and
   cross-checked against R.
+- Power and sample sizes for cluster-randomised trials: the t-test on cluster
+  summaries planned with the intracluster correlation, by number of clusters or
+  cluster size, cross-checked against R.
 
 ## Direction
 

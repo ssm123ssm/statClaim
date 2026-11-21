@@ -1,4 +1,5 @@
-"""Approximate power formulas for cited tests. Each is a normal approximation.
+"""Approximate power formulas for cited tests: normal approximations, and the noncentral t
+for tests of cluster summaries, where clusters are few.
 
 A formula sees plain numbers: the planning point, the arm sizes, the null's value,
 alpha and the side. A one-sided test uses alpha, in the direction that favours the
@@ -12,13 +13,22 @@ from statistics import NormalDist
 
 from statclaim.methods.assumptions import (
     AT_RISK_SHARES,
+    EQUAL_CLUSTER_SIZES,
+    NONCENTRAL_T_POWER,
     NORMAL_APPROXIMATION_POWER,
     PLANNING_EVENTS,
+    PLANNING_ICC,
     PLANNING_SD,
     PROPORTIONAL_HAZARDS,
     UNADJUSTED_PROPORTIONS,
 )
 from statclaim.methods.core import PowerFormula, PowerResult
+from statclaim.methods.t_distribution import (
+    BENTON_KRISHNAMOORTHY,
+    LENTH,
+    noncentral_t_sf,
+    t_quantile,
+)
 
 _NORMAL = NormalDist()
 
@@ -43,6 +53,11 @@ SCHOENFELD_1983 = (
     "Schoenfeld, D. A. (1983). Sample-size formula for the proportional-hazards regression "
     "model. Biometrics 39(2), 499-503."
 )
+DONNER_BIRKETT_BUCK = (
+    "Donner, A., Birkett, N. and Buck, C. (1981). Randomization by cluster: sample size "
+    "requirements and analysis. American Journal of Epidemiology 114(6), 906-914. [to verify]"
+)
+R_POWER_T = "R Core Team. power.t.test, in the stats package of R."
 
 
 SIDES = ("higher", "lower", "both")
@@ -113,6 +128,55 @@ def log_rank_events(point, n_control, n_treatment, null_value, alpha, side) -> P
     )
 
 
+def cluster_means(point, n_control, n_treatment, null_value, alpha, side) -> PowerResult:
+    """The t-test on cluster means. The sizes count clusters; a mean over m participants has
+    variance sd^2 (1 + (m - 1) icc) / m. With equal clusters and arms, R's power.t.test with
+    n clusters per arm and that standard deviation."""
+    k_c, k_t = n_control, n_treatment
+    variances = [
+        point["sd"] ** 2 * (1 + (m - 1) * point["icc"]) / m
+        for m in (point["size_control"], point["size_treatment"])
+    ]
+    se = math.sqrt(variances[0] / k_c + variances[1] / k_t)
+    df = k_c + k_t - 2
+    q = t_quantile(1 - (alpha / 2 if side == "both" else alpha), df)
+    if side == "higher":
+        shift = point["value"] - null_value
+        return PowerResult(noncentral_t_sf(q, df, shift / se), null_value + q * se, "above", se)
+    if side == "lower":
+        shift = null_value - point["value"]
+        return PowerResult(noncentral_t_sf(q, df, shift / se), null_value - q * se, "below", se)
+    if side != "both":
+        raise ValueError(f"Unknown side {side!r}.")
+    shift = point["value"]
+    sign = 1 if shift >= 0 else -1
+    return PowerResult(noncentral_t_sf(q, df, abs(shift) / se), sign * q * se, _side(shift), se)
+
+
+def cluster_proportions(point, n_control, n_treatment, null_value, alpha, side) -> PowerResult:
+    """The t-test on cluster proportions, two-sided. The sizes count clusters; a proportion
+    over m participants has variance p (1 - p)(1 + (m - 1) icc) / m in its own arm. With equal
+    clusters and arms, R's power.t.test with the root mean of the two variances."""
+    if null_value != 0 or side != "both":
+        raise ValueError("The cluster proportion formula is for the two-sided test of equality.")
+    k_c, k_t = n_control, n_treatment
+    p_c, p_t = point["p_control"], point["p_treatment"]
+    variances = [
+        p * (1 - p) * (1 + (m - 1) * point["icc"]) / m
+        for p, m in ((p_c, point["size_control"]), (p_t, point["size_treatment"]))
+    ]
+    se = math.sqrt(variances[0] / k_c + variances[1] / k_t)
+    df = k_c + k_t - 2
+    q = t_quantile(1 - alpha / 2, df)
+    shift = p_t - p_c
+    sign = 1 if shift >= 0 else -1
+    # Both rates 0 or 1: every cluster's proportion equals its arm's rate.
+    power = noncentral_t_sf(q, df, abs(shift) / se) if se > 0 else 1.0
+    return PowerResult(power, sign * q * se, _side(shift), se)
+
+
+NONCENTRAL_T = "noncentral t at the planning values, not a bound"
+
 TWO_MEANS = PowerFormula(
     key="normal_two_means",
     title="Difference of two means, normal approximation with a known standard deviation",
@@ -139,4 +203,24 @@ SCHOENFELD = PowerFormula(
     function=log_rank_events,
     assumptions=(NORMAL_APPROXIMATION_POWER, PROPORTIONAL_HAZARDS, PLANNING_EVENTS, AT_RISK_SHARES),
     references=(SCHOENFELD_1981, SCHOENFELD_1983),
+)
+CLUSTER_MEANS = PowerFormula(
+    key="cluster_t_means",
+    title="t-test on cluster means, noncentral t with the design effect",
+    version=1,
+    point="mean_difference",
+    function=cluster_means,
+    assumptions=(NONCENTRAL_T_POWER, PLANNING_SD, PLANNING_ICC, EQUAL_CLUSTER_SIZES),
+    references=(DONNER_BIRKETT_BUCK, R_POWER_T, LENTH, BENTON_KRISHNAMOORTHY),
+    approximation=NONCENTRAL_T,
+)
+CLUSTER_PROPORTIONS = PowerFormula(
+    key="cluster_t_proportions",
+    title="t-test on cluster proportions, noncentral t with the design effect",
+    version=1,
+    point="binomial_rates",
+    function=cluster_proportions,
+    assumptions=(NONCENTRAL_T_POWER, PLANNING_ICC, EQUAL_CLUSTER_SIZES),
+    references=(DONNER_BIRKETT_BUCK, R_POWER_T, LENTH, BENTON_KRISHNAMOORTHY),
+    approximation=NONCENTRAL_T,
 )

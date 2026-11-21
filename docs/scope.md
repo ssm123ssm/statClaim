@@ -54,7 +54,9 @@ What is supported:
   mean or a proportion of responders, with the clusters as the sample size and at
   least four per arm. It assumes
   independent clusters, which randomising clusters does not contradict. Its
-  references await review.
+  references await review. Power comes from the noncentral t with the design
+  effect, given the intracluster correlation; searches vary the clusters per arm
+  or the participants in each.
 - **Mixed models and logistic regression, cited.** A treatment contrast from a
   mixed model for repeated measures, and the treatment coefficient of a logistic
   regression. Both list their own assumptions, such as missing at random.

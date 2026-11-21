@@ -21,6 +21,7 @@ from statclaim.language import (
     CitedAnalysisIR,
     CitedAssociationIR,
     ClaimIR,
+    ClusterCandidatesIR,
     CohortStudyIR,
     ComposedFamilyIR,
     CountCandidatesIR,
@@ -384,11 +385,20 @@ SCHEMAS = {
         "test": FieldSpec(str),
         "test_version": FieldSpec(str),
     },
-    RatesIR: {"p_control": FieldSpec(Fraction), "p_treatment": FieldSpec(Fraction)},
+    RatesIR: {
+        "p_control": FieldSpec(Fraction),
+        "p_treatment": FieldSpec(Fraction),
+        "icc": FieldSpec(
+            Fraction, optional=True, description="Intracluster correlation, for cluster tests."
+        ),
+    },
     RateIR: {"value": FieldSpec(Fraction)},
     MeanDifferenceIR: {
         "value": FieldSpec(Fraction, description="True mean difference, treatment minus control."),
         "sd": FieldSpec(Fraction, description="Standard deviation of one participant's outcome."),
+        "icc": FieldSpec(
+            Fraction, optional=True, description="Intracluster correlation, for cluster tests."
+        ),
     },
     HazardRatioIR: {
         "value": FieldSpec(Fraction, description="True hazard ratio, treatment over control."),
@@ -432,6 +442,18 @@ SCHEMAS = {
         "exposed_time": FieldSpec(Fraction, description="Expected exposed person-time."),
         "unexposed_time": FieldSpec(Fraction, description="Expected unexposed person-time."),
         "events": FieldSpec(int, optional=True, description="Total number of events."),
+    },
+    ClusterCandidatesIR: {
+        "analysis": FieldSpec(TwoArmTestIR),
+        "min_size": FieldSpec(
+            int, attribute="low", description="Fewest clusters per arm, or participants each."
+        ),
+        "max_size": FieldSpec(
+            int, attribute="high", description="Most clusters per arm, or participants each."
+        ),
+        "cluster_size": FieldSpec(
+            int, optional=True, description="Participants per cluster, when clusters vary."
+        ),
     },
     CountCandidatesIR: {
         "analysis": FieldSpec(PlannableIR),
@@ -663,10 +685,32 @@ SCHEMAS = {
         "n_control": FieldSpec(int, optional=True),
         "n_treatment": FieldSpec(int, optional=True),
         "total_sample_size": FieldSpec(int, optional=True),
+        "clusters_control": FieldSpec(int, optional=True),
+        "clusters_treatment": FieldSpec(int, optional=True),
+        "total_clusters": FieldSpec(int, optional=True),
+        "cluster_size_control": FieldSpec(
+            Fraction, optional=True, description="Mean participants per control cluster."
+        ),
+        "cluster_size_treatment": FieldSpec(
+            Fraction, optional=True, description="Mean participants per treated cluster."
+        ),
+        "icc": FieldSpec(Fraction, optional=True, description="Intracluster correlation."),
+        "design_effect": FieldSpec(
+            Fraction,
+            optional=True,
+            description="1 + (m - 1) icc for clusters of m: how much clustering inflates the "
+            "variance of a mean.",
+        ),
+        "degrees_of_freedom": FieldSpec(int, optional=True),
         "power": FieldSpec(
             Fraction,
             optional=True,
-            description="Approximate power from a normal formula, to six decimals. Not a bound.",
+            description="Approximate power from the formula, to six decimals. Not a bound.",
+        ),
+        "power_ceiling": FieldSpec(
+            Fraction,
+            optional=True,
+            description="Power as clusters grow without bound, when no cluster size is enough.",
         ),
         "power_target_met": FieldSpec(bool),
         "critical_estimate": FieldSpec(

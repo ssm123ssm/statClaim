@@ -23,6 +23,7 @@ from statclaim.language import (
     CitedAnalysisIR,
     CitedAssociationIR,
     ClaimIR,
+    ClusterCandidatesIR,
     ComposedFamilyIR,
     CountCandidatesIR,
     FamilyIR,
@@ -1259,6 +1260,7 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
     analysis = subject.analysis if search is None else None
     searches = (
         CandidatesIR,
+        ClusterCandidatesIR,
         OneArmCandidatesIR,
         GroupCandidatesIR,
         CountCandidatesIR,

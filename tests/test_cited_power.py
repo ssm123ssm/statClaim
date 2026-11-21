@@ -194,7 +194,9 @@ def test_every_method_with_a_formula_names_assumptions_and_references():
     assert {m.power.key for m in METHODS.values() if m.power} == set(POWER_FORMULAS)
     for formula in POWER_FORMULAS.values():
         assert formula.assumptions and formula.references
-        assert "normal_approximation_power" in [a.id for a in formula.assumptions]
+        # Each says how power is approximated: a normal formula, or the noncentral t.
+        ids = {a.id for a in formula.assumptions}
+        assert ids & {"normal_approximation_power", "noncentral_t_power"}
     assert "proportional_hazards" in [a.id for a in METHODS["log_rank"].power.assumptions]
     assert "proportional_hazards" not in [a.id for a in METHODS["log_rank"].assumptions]
 

@@ -268,3 +268,23 @@ AT_RISK_SHARES = Assumption(
     "Each arm's share of the participants at risk stays close to its share at "
     "randomisation, as when the hazard ratio is near 1.",
 )
+NONCENTRAL_T_POWER = Assumption(
+    "noncentral_t_power",
+    "approximation",
+    "Power comes from the noncentral t distribution of the t-test on cluster summaries, with "
+    "the variance of a cluster's summary at the planning values. Exact for normal cluster "
+    "means of equal variance; otherwise an approximation, not a bound.",
+)
+PLANNING_ICC = Assumption(
+    "planning_icc",
+    "scope",
+    "The intracluster correlation is a planning input, not an established fact: the share of "
+    "the outcome's variance that lies between clusters. A cluster of m participants has a "
+    "summary with variance (1 + (m - 1) icc) / m times that of one participant.",
+)
+EQUAL_CLUSTER_SIZES = Assumption(
+    "equal_cluster_sizes",
+    "approximation",
+    "Every cluster in an arm has the arm's mean size. Clusters of unequal sizes give less "
+    "power than this.",
+)
