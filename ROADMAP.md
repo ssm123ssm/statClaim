@@ -107,7 +107,8 @@ and for rules that combine tests. Each claim shows its
 2. Cited group-sequential boundaries that use the correlation between looks.
 3. A narrower exact interval for a difference of two proportions.
 4. Larger sample sizes and p-values for the test with a margin.
-5. Assurance and precision targets for planning.
+5. Assurance in the Bayesian sense: power averaged over a design prior. (Precision
+   targets, with the assurance that an interval meets its margin, are done.)
 6. More adaptive designs: several interim looks, efficacy stopping, allocation.
 7. A formalized Beta posterior, so posterior rules need no stated closed form.
 8. A versioned extension API for community modules.

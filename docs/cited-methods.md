@@ -198,3 +198,20 @@ issue first.
 Each entry is trusted, not proved, so it needs a published source and statistical
 review. After a reviewed change to an entry, raise its `version`. A test fails
 until you do, because evidence records the version it relied on.
+
+### When a new test is complete
+
+A new test arrives complete. Before it is merged it has:
+
+1. A constructor and contract: the method entry, its null and its assumptions.
+2. A planning point that the test's power is calculated at.
+3. Power: exact where it can be summed or proved, otherwise a cited formula, each
+   with its own version, assumptions and references.
+4. A simulation model, where simulation adds what a formula cannot: another
+   scenario, a design with looks, or an endpoint in a family.
+5. A pinned cross-check in `replication/comparison/`: an R script that writes a
+   fixture the tests read offline. Exact against exact to 1e-12, the same formula
+   to 1e-6, different approximations within a documented bound, simulations
+   within four Monte Carlo standard errors.
+6. An example in `examples/` and a lesson in the tutorial.
+7. Support in the studio: its reading, its type family and the wizard.
