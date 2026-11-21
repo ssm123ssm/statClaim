@@ -1,0 +1,21 @@
+# Lesson 41: what an interim look does to power and to the expected size.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use designs.group_sequential
+use planning
+
+# The trial of lesson 14: a look at 50 per arm spending 1/200, the end at 100 spending 9/200.
+let halfway = two_arm_continuous(n_control=50, n_treatment=50)
+let complete = two_arm_continuous(n_control=100, n_treatment=100)
+let interim = t_test(design=fixed(model=halfway), null=equal_means(model=halfway), alpha=1/200)
+let final = t_test(design=fixed(model=complete), null=equal_means(model=complete), alpha=9/200)
+let trial = alpha_spending(looks=[interim, final], alpha=1/20)
+
+# A difference of 5 points with an SD of 10: simulate the trial look by look.
+let target = power_target(at=mean_difference(value=5, sd=10), minimum=4/5, maximum_typeI=1/20)
+let looked = simulate(meets(analysis=trial, target=target), seed=2026)
+
+# The same 100 per arm with a single analysis at the end, for comparison.
+let single = t_test(design=fixed(model=complete), null=equal_means(model=complete), alpha=1/20)
+let once = simulate(meets(analysis=single, target=target), seed=2026)

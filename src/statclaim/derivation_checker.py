@@ -746,6 +746,68 @@ def _cited_association_planning_expected(name: str, subject: dict, search, analy
     return steps, obligations, assumptions
 
 
+def _sequential_planning_expected(name: str, subject: dict, search, design: dict):
+    """Simulated power of a design with looks: its looks form one sequential test, re-derived
+    as for typeI(...), and their test has a simulation model for looks at this point."""
+    if search is not None:
+        raise ValueError("a design with looks is simulated as declared, not searched")
+    inner = f"{name}.analysis"
+    block = _combination(inner, design, 0, nested=True)
+    steps = list(block["steps"])
+    used = [len(steps) - 1]
+    final = design["analyses"][-1]["analysis"]
+    method = _method(final)
+    if method is None or method.simulation is None or method.simulation.looks is None:
+        raise ValueError("the looks' test has no simulation model for looks")
+    model = method.simulation
+    target, point = subject["target"], subject["target"]["at"]
+    sizes = _sizes(final["design"]["model"])
+    facts = {
+        "subject": name,
+        "method": method.key,
+        "model": model.key,
+        "version": model.version,
+        "point": point,
+    }
+    valid = _point_valid(point, model.point, sum(sizes.values()), False, True)
+    steps.append(("simulation-model", facts, valid, ()))
+    null = final["null"]
+    margin = Fraction(null.get("value", "0"))
+    effect = Fraction(point.get("mean_difference", "0"))
+    outside = {"higher": effect > margin, "lower": effect < margin, None: effect != 0}[
+        _favours(null)
+    ]
+    statement = _null_statement(null)
+    steps.append(("alternative", {"subject": name, "point": point, "null": statement}, outside, ()))
+    minimum, maximum = target["minimum_power"], target["maximum_typeI"]
+    steps.append(
+        (
+            "target-range",
+            {"subject": name, "minimum": minimum, "maximum_typeI": maximum},
+            0 < Fraction(minimum) <= 1 and _probability(maximum),
+            (),
+        )
+    )
+    used += [len(steps) - 3, len(steps) - 2, len(steps) - 1]
+    steps.append(("sequential-planning-contract", {"subject": name}, True, tuple(used)))
+    obligations = [
+        *block["obligations"],
+        (
+            "cited-error-budget",
+            {"subject": name, "alpha": design["alpha"], "maximum_typeI": maximum},
+            Fraction(design["alpha"]) <= Fraction(maximum),
+        ),
+    ]
+    assumptions = (
+        *block["own"],
+        *block["nested"],
+        *block["cited"],
+        *(item.text for item in model.assumptions),
+        PLANNING_POINT_ASSUMPTION,
+    )
+    return steps, obligations, assumptions
+
+
 def _cited_planning_expected(name: str, subject: dict, search, analysis: dict):
     """Approximate power for a cited test. The registry's formula is data, like its methods."""
     method = METHODS[analysis["test"]]
@@ -1051,6 +1113,8 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
     if "interval" in (subject.get("analysis") or search or {}):
         return _precision_expected(name, subject, search)
     analysis = subject["analysis"] if search is None else search.get("analysis")
+    if analysis is not None and analysis.get("method") == "alpha_spending":
+        return _sequential_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("test") in METHODS:
         return _cited_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("test") in OBSERVATIONAL_METHODS:

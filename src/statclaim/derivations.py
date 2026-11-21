@@ -38,6 +38,7 @@ from statclaim.language import (
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RatesIR,
+    SequentialIR,
     TotalCandidatesIR,
     TwoStageAnalysisIR,
     cited_formula,
@@ -326,6 +327,16 @@ RULES = {
         "takes, with valid values.",
         "{subject}: {method} has the power formula {formula} (version {version}) for this "
         "planning point.",
+    ),
+    "simulation-model": Rule(
+        "The looks' test has a simulation model for designs with looks, and the planning "
+        "point is the kind it takes, with valid values.",
+        "{subject}: {method} has the simulation model {model} (version {version}) for this "
+        "planning point.",
+    ),
+    "sequential-planning-contract": Rule(
+        "The sequential-contract, simulation-model, alternative and target-range rules hold.",
+        "{subject}: power can be simulated for this design with looks.",
     ),
     "cited-planning-contract": Rule(
         "The cited-contract, power-formula, alternative, target-range and, for a search, "
@@ -1232,6 +1243,62 @@ def derive_cited_planning(name: str, claim: ClaimIR, analysis: CitedAnalysisIR) 
     )
 
 
+def derive_sequential_planning(name: str, claim: ClaimIR, design: SequentialIR) -> Derivation:
+    """Simulated power of a design with looks: the looks form one sequential test, and their
+    test has a simulation model for looks at this planning point."""
+    target, inner = claim.subject.target, f"{name}.analysis"
+    method = design.final.method
+    model, point = method.simulation, normalize(target.at)
+    builder = _Builder()
+    pending: list = []
+    used = [
+        _composed_steps(builder, inner, design, pending),
+        builder.apply(
+            "simulation-model",
+            {
+                "subject": name,
+                "method": method.key,
+                "model": model.key,
+                "version": model.version,
+                "point": point,
+            },
+        ),
+        builder.apply(
+            "alternative",
+            {"subject": name, "point": point, "null": design.final.hypothesis.statement},
+        ),
+        builder.apply(
+            "target-range",
+            {
+                "subject": name,
+                "minimum": str(target.minimum),
+                "maximum_typeI": str(target.maximum_typeI),
+            },
+        ),
+    ]
+    final = builder.apply("sequential-planning-contract", {"subject": name}, tuple(used))
+    for rule, facts, holds in pending:
+        builder.settle(rule, facts, holds)
+    builder.settle(
+        "cited-error-budget",
+        {"subject": name, "alpha": str(design.alpha), "maximum_typeI": str(target.maximum_typeI)},
+        design.alpha <= target.maximum_typeI,
+    )
+    return Derivation(
+        name,
+        f"planning/{claim.kind}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        (
+            *composed_assumptions(design),
+            *(item.text for item in model.assumptions),
+            PLANNING_POINT_ASSUMPTION,
+        ),
+        tuple(builder.obligations),
+        normalize(claim),
+    )
+
+
 def derive_cited_association_planning(
     name: str, claim: ClaimIR, analysis: CitedAssociationIR
 ) -> Derivation:
@@ -1412,6 +1479,8 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
     )
     if isinstance(search, searches):
         analysis = search.analysis
+    if isinstance(analysis, SequentialIR):
+        return derive_sequential_planning(name, claim, analysis)
     if isinstance(analysis, CitedAnalysisIR):
         return derive_cited_planning(name, claim, analysis)
     if isinstance(analysis, CitedAssociationIR):

@@ -744,6 +744,25 @@ def _simulated_lines(details: dict) -> list[str]:
             f"{calculation['covariates']}; degrees of freedom = "
             f"{calculation['degrees_of_freedom']}"
         )
+        if "looks" in calculation:
+            looks = calculation["looks"]
+            lines.append(
+                "  looks: "
+                + ", ".join(
+                    f"({look['n_control']}, {look['n_treatment']}) at {look['alpha']['fraction']}"
+                    for look in looks
+                )
+                + "; stopping ~ "
+                + ", ".join(show(look["stop"]) for look in looks)
+                + " (under the null "
+                + ", ".join(show(look["stop_null"]) for look in looks)
+                + ")"
+            )
+            expected = calculation["expected_sample_size"]["decimal_approximation"]
+            null = calculation["expected_sample_size_null"]["decimal_approximation"]
+            lines.append(
+                f"  expected total ~ {float(expected):.1f} (under the null ~ {float(null):.1f})"
+            )
         if "clusters_control" in calculation:
             varied = calculation.get("cluster_size_cv")
             lines.append(

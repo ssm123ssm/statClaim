@@ -846,6 +846,15 @@ SCHEMAS = {
             Fraction, optional=True, description="Coefficient of variation of cluster sizes."
         ),
         "degrees_of_freedom": FieldSpec(int, optional=True),
+        "expected_sample_size": FieldSpec(
+            Fraction,
+            optional=True,
+            description="For a design with looks: the mean total at which the simulated trials "
+            "stopped, at the planning point.",
+        ),
+        "expected_sample_size_null": FieldSpec(
+            Fraction, optional=True, description="The same, under the null."
+        ),
         "typeI_judged": FieldSpec(
             bool,
             optional=True,

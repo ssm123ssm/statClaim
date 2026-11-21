@@ -144,7 +144,7 @@ from statclaim.simulation import (
     MIN_RUNS,
 )
 
-LANGUAGE_VERSION = "0.36.0"
+LANGUAGE_VERSION = "0.37.0"
 
 
 class PlannableIR:
@@ -915,10 +915,16 @@ class ComposedFamilyIR(FamilyLikeIR):
 
 
 @dataclass(frozen=True)
-class SequentialIR(ComposedFamilyIR, LevelTestIR):
-    """One question tested at several looks, with the error level split across them."""
+class SequentialIR(ComposedFamilyIR, LevelTestIR, PlannableIR):
+    """One question tested at several looks, with the error level split across them. Its
+    power can be simulated when its test has a simulation model for looks."""
 
     mode: str = "sequential"
+
+    @property
+    def final(self):
+        """The last look: the whole study."""
+        return self.analyses[-1][1]
 
 
 def _component(name: str, analysis: LevelTestIR) -> Component:
@@ -3564,6 +3570,15 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         )
     target = getattr(claim.value.subject, "target", None)
     point = getattr(target, "at", None)
+    if claim.value.kind in ("meets", "sample_size") and isinstance(
+        planned_analysis(claim.value.subject), SequentialIR
+    ):
+        fail(
+            "unsupported_claim",
+            "A design with looks has no power formula. Use simulate(...), which runs the trial "
+            "look by look.",
+            claim.span,
+        )
     if getattr(point, "cluster_size_cv", None):
         fail(
             "unsupported_claim",
@@ -4330,6 +4345,10 @@ def _check_cited_association_point(
 def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> None:
     """The planning point must belong to the analysis's parameter space, outside its null."""
     point = target.value.at
+    if isinstance(analysis, SequentialIR):
+        _check_sequential(analysis, where)
+        _check_cited_point(analysis.final, target, where)
+        return
     if isinstance(analysis, CitedAnalysisIR):
         _check_cited_point(analysis, target, where)
         return
@@ -4392,6 +4411,20 @@ def _residual_df(analysis: CitedAssociationIR, n: int) -> int:
     """Degrees of freedom left for a regression's error: n less the slope, the intercept and
     the covariates."""
     return n - len(analysis.covariates) - 2
+
+
+def _check_sequential(analysis: SequentialIR, where: Span) -> None:
+    """A design with looks is planned by simulation, for tests with a model for looks."""
+    look = analysis.final
+    model = getattr(getattr(look, "method", None), "simulation", None)
+    if not isinstance(look, CitedAnalysisIR) or model is None or model.looks is None:
+        key = getattr(getattr(look, "method", None), "key", None) or _test_key(look)
+        fail(
+            "unsupported_claim",
+            f"The power of a design with looks is simulated for the t-tests; {key} looks are "
+            "not simulated yet.",
+            where,
+        )
 
 
 def _check_planned_size(analysis: PlannableIR, where: Span, point=None) -> None:
@@ -5138,7 +5171,7 @@ def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             claim.span,
         )
     if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject), (CitedAnalysisIR, CitedAssociationIR)
+        planned_analysis(claim.value.subject), (CitedAnalysisIR, CitedAssociationIR, SequentialIR)
     ):
         fail(
             "unsupported_claim",
@@ -5185,6 +5218,8 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         )
     if isinstance(analysis, CitedAssociationIR):
         return _association_simulation(analysis, subject, arguments, claim)
+    if isinstance(analysis, SequentialIR):
+        return _sequential_simulation(analysis, subject, arguments, claim)
     if not isinstance(analysis, CitedAnalysisIR):
         fail(
             "unsupported_claim",
@@ -5253,6 +5288,28 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
                 "This scenario is simulated one participant at a time, and this could draw "
                 f"more than {MAX_SIMULATED_PARTICIPANTS:,} participants. Narrow the range or "
                 "use fewer runs.",
+                claim.span,
+            )
+    return claim.value
+
+
+def _sequential_simulation(analysis, subject, arguments, claim) -> ClaimIR:
+    """A design with looks is simulated as declared, look by look."""
+    if isinstance(subject, SizingIR):
+        fail(
+            "unsupported_claim",
+            "A design with looks is simulated as declared; searching its sizes is not "
+            "supported yet. Declare the looks and simulate meets(...).",
+            claim.span,
+        )
+    settings = simulation_settings(arguments)
+    if participant_draws(subject.target.at):
+        model = analysis.final.plan.model
+        if 2 * (model.n_control + model.n_treatment) * settings.runs > MAX_SIMULATED_PARTICIPANTS:
+            fail(
+                "domain",
+                "This scenario is simulated one participant at a time, and this could draw more "
+                f"than {MAX_SIMULATED_PARTICIPANTS:,} participants. Use fewer runs.",
                 claim.span,
             )
     return claim.value

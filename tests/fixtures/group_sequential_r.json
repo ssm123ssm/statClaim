@@ -1,0 +1,76 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "cases": [
+    {
+      "test": "student",
+      "side": "both",
+      "difference": "4",
+      "sd": "10",
+      "skewness": "0",
+      "looks": [
+        {
+          "n_control": 50,
+          "n_treatment": 50,
+          "alpha": "1/200"
+        },
+        {
+          "n_control": 100,
+          "n_treatment": 100,
+          "alpha": "9/200"
+        }
+      ],
+      "stopped": [0.1962, 0.59455],
+      "stopped_null": [0.0046, 0.04275],
+      "runs": 20000
+    },
+    {
+      "test": "welch",
+      "side": "higher",
+      "difference": "5",
+      "sd": "12",
+      "skewness": "0",
+      "looks": [
+        {
+          "n_control": 30,
+          "n_treatment": 30,
+          "alpha": "1/1000"
+        },
+        {
+          "n_control": 60,
+          "n_treatment": 60,
+          "alpha": "1/100"
+        },
+        {
+          "n_control": 90,
+          "n_treatment": 90,
+          "alpha": "39/1000"
+        }
+      ],
+      "stopped": [0.06055, 0.41815, 0.3751],
+      "stopped_null": [0.00105, 0.00925, 0.03125],
+      "runs": 20000
+    },
+    {
+      "test": "student",
+      "side": "both",
+      "difference": "4",
+      "sd": "10",
+      "skewness": "2",
+      "looks": [
+        {
+          "n_control": 40,
+          "n_treatment": 80,
+          "alpha": "1/100"
+        },
+        {
+          "n_control": 80,
+          "n_treatment": 160,
+          "alpha": "1/25"
+        }
+      ],
+      "stopped": [0.31865, 0.497],
+      "stopped_null": [0.00885, 0.03405],
+      "runs": 20000
+    }
+  ]
+}

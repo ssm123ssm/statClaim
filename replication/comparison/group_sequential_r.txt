@@ -1,0 +1,28 @@
+Stopping at each look, written to tests/fixtures/group_sequential_r.json
+
+student (both), difference 4, sd 10, skewness 0, looks (50, 50) at 1/200, (100, 100) at 9/200
+  stopped at each look: 0.1962, 0.5946; power 0.7908
+  under the null: 0.0046, 0.0428; Type I 0.0474
+welch (higher), difference 5, sd 12, skewness 0, looks (30, 30) at 1/1000, (60, 60) at 1/100, (90, 90) at 39/1000
+  stopped at each look: 0.0605, 0.4182, 0.3751; power 0.8538
+  under the null: 0.0010, 0.0092, 0.0312; Type I 0.0416
+student (both), difference 4, sd 10, skewness 2, looks (40, 80) at 1/100, (80, 160) at 1/25
+  stopped at each look: 0.3186, 0.4970; power 0.8156
+  under the null: 0.0089, 0.0340; Type I 0.0429
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

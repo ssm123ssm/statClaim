@@ -231,6 +231,10 @@ class SimulationModel:
     scenario: Callable[[dict], str] = field(repr=False, compare=False)
     assumptions: tuple[Assumption, ...] = ()
     references: tuple[str, ...] = ()
+    # For a design with interim looks: looks(point, looks, null_value, side) gives one study
+    # and returns the index of the look that rejected, or None. looks lists each look's
+    # cumulative (n_control, n_treatment, level).
+    looks: Callable[..., Callable] | None = field(default=None, repr=False, compare=False)
 
     def to_dict(self) -> dict:
         return {"key": self.key, "version": self.version, "title": self.title}

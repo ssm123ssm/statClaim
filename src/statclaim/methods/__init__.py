@@ -150,6 +150,7 @@ def versions() -> dict:
             repr(model)
             + inspect.getsource(model.trial)
             + inspect.getsource(model.scenario)
+            + (inspect.getsource(model.looks) if model.looks else "")
             + repr(users)
         )
         recorded[f"simulation:{key}"] = {"version": model.version, "sha256": _sha256(content)}

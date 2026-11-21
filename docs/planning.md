@@ -447,8 +447,8 @@ simulated [estimate]: meets(analysis)
 
 Simulation covers the t-tests, Student's and Welch's, on normal outcomes with the
 planning SD in both arms or in the scenarios below, the t-tests on cluster summaries,
-the log-rank test from survival times, and the tests of a correlation or a slope with
-skewed data. Other tests get
+the log-rank test from survival times, the tests of a correlation or a slope with
+skewed data, and t-tests repeated at interim looks. Other tests get
 `no_simulation_model`; exact tests are refused, since `calculate` gives their exact
 power. See lesson 28 of the tutorial.
 
@@ -542,6 +542,37 @@ As for the t-tests, Type I is judged on the simulation. Searches take `total_siz
 Covariates are not simulated yet, and Spearman's exact permutation test is not
 simulated. A raw-data simulation in R with `cor.test` and `lm` agrees within its Monte
 Carlo error (`replication/comparison/correlation_simulation_r.R`). See lesson 40.
+
+### Interim looks
+
+A design with looks, `alpha_spending(looks=[...], alpha=...)`, has no power formula.
+`simulate(meets(analysis=trial, target=...))` runs it look by look: each simulated
+trial enrols up to each look's cumulative arm sizes, tests with that look's level,
+and stops at the first rejection.
+
+```stat
+let trial = alpha_spending(looks=[interim, final], alpha=1/20)
+let looked = simulate(meets(analysis=trial, target=target), seed=2026)
+```
+
+```text
+  looks: (50, 50) at 1/200, (100, 100) at 9/200; stopping ~ 0.3619, 0.5708 (under the null 0.0051, 0.0426)
+  expected total ~ 163.8 (under the null ~ 199.5)
+  power ~ 0.9327 (95% interval 0.9276 to 0.9375); power target met = true
+```
+
+- `power` is the chance of rejecting at any look. `looks` gives how often each look
+  stopped the trial, at the planning point and under the null.
+- `expected_sample_size` is the mean total at which trials stopped;
+  `expected_sample_size_null` is the same under the null.
+- Lean proves the design's Type I bound (lesson 14), so the simulated Type I is
+  reported, not judged. It shows how conservative the split is.
+- The looks may be Student's or Welch's t-tests, at normal outcomes or the scenarios
+  above. Exact and other tests are not simulated at looks yet, and the looks are
+  simulated as declared, not searched. `calculate` and `verify` refuse the claim.
+
+A raw-data simulation in R that applies `t.test` at each look agrees within its Monte
+Carlo error (`replication/comparison/group_sequential_r.R`). See lesson 41.
 
 ## What is checked
 

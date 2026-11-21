@@ -514,3 +514,110 @@ def correlation_trial(
         return abs(cxy) > passes * math.sqrt(cxx * cyy)
 
     return study
+
+
+@dataclass(frozen=True)
+class LookEstimate:
+    """How often a design with looks stopped at each look, in `runs` simulated studies."""
+
+    stopped: tuple[int, ...]  # rejections at each look
+    runs: int
+
+    @property
+    def overall(self) -> Estimate:
+        rejected = sum(self.stopped)
+        return Estimate(rejected, self.runs, *clopper_pearson(rejected, self.runs))
+
+
+def estimate_looks(trial: Callable[[Stream], int | None], looks: int, runs: int, stream: Stream):
+    """Tally the look at which each simulated study rejected; None means it never did."""
+    stopped = [0] * looks
+    for _ in range(runs):
+        look = trial(stream)
+        if look is not None:
+            stopped[look] += 1
+    return LookEstimate(tuple(stopped), runs)
+
+
+def sequential_two_means_trial(
+    difference: float,
+    sd: float,
+    looks: list[tuple[int, int, float]],
+    null_value: float,
+    side: str,
+    welch: bool,
+    *,
+    sd_treatment: float | None = None,
+    skewness: float = 0.0,
+) -> Callable[[Stream], int | None]:
+    """One simulated study with interim looks: the look at which the t-test first rejects.
+
+    `looks` lists each look's cumulative arm sizes and the level spent there. Each stage adds
+    the participants that reach the next look's sizes. Normal outcomes are drawn as each
+    stage's mean and sum of squares, combined exactly with what came before; skewed outcomes
+    one participant at a time. Outcomes are as for two_means_trial.
+    """
+    if side not in SIDES:
+        raise ValueError(f"Unknown side {side!r}.")
+    sd_t = sd if sd_treatment is None else sd_treatment
+    spreads, means = (sd, sd_t), (0.0, difference)
+    shape = 4.0 / (skewness * skewness) if skewness else 0.0
+    sign = 1.0 if skewness >= 0 else -1.0
+    decisions = []
+    for n_c, n_t, level in looks:
+        tail = level / 2.0 if side == "both" else level
+        df = n_c + n_t - 2
+        decisions.append((tail, t_quantile(1.0 - tail, df) if not welch else None))
+
+    def stage(stream: Stream, arm: int, m: int) -> tuple[float, float]:
+        """The mean and sum of squares of m new participants in one arm."""
+        if skewness:
+            draws = [stream.gamma(shape) for _ in range(m)]
+            mean = sum(draws) / m
+            ss = sum((x - mean) ** 2 for x in draws)
+            scale = spreads[arm] * sign / math.sqrt(shape)
+            return means[arm] + scale * (mean - shape), scale * scale * ss
+        mean = means[arm] + spreads[arm] / math.sqrt(m) * stream.normal()
+        ss = spreads[arm] ** 2 * stream.chi_square(m - 1) if m > 1 else 0.0
+        return mean, ss
+
+    def rejects(t: float, df: float, tail: float, critical: float | None) -> bool:
+        if side == "higher" and t <= 0 or side == "lower" and t >= 0:
+            return False
+        if critical is not None:
+            return abs(t) > critical
+        return t_tail(t, df) <= tail
+
+    def study(stream: Stream) -> int | None:
+        counts, centres, squares = [0, 0], [0.0, 0.0], [0.0, 0.0]
+        for index, (n_c, n_t, _) in enumerate(looks):
+            for arm, target in enumerate((n_c, n_t)):
+                m = target - counts[arm]
+                if m <= 0:
+                    continue
+                mean, ss = stage(stream, arm, m)
+                n = counts[arm]
+                total = n + m
+                squares[arm] += ss + n * m / total * (centres[arm] - mean) ** 2
+                centres[arm] = (n * centres[arm] + m * mean) / total
+                counts[arm] = total
+            shift = centres[1] - centres[0] - null_value
+            tail, critical = decisions[index]
+            if welch:
+                var_c = squares[0] / (n_c - 1) / n_c
+                var_t = squares[1] / (n_t - 1) / n_t
+                if var_c + var_t <= 0.0:
+                    continue
+                t = shift / math.sqrt(var_c + var_t)
+                df = (var_c + var_t) ** 2 / (var_c**2 / (n_c - 1) + var_t**2 / (n_t - 1))
+            else:
+                df = n_c + n_t - 2
+                pooled = (squares[0] + squares[1]) / df * (1.0 / n_c + 1.0 / n_t)
+                if pooled <= 0.0:
+                    continue
+                t = shift / math.sqrt(pooled)
+            if rejects(t, df, tail, critical):
+                return index
+        return None
+
+    return study

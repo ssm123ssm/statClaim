@@ -23,6 +23,7 @@ from statclaim.simulation import (
     cluster_trial,
     correlation_trial,
     log_rank_trial,
+    sequential_two_means_trial,
     two_means_trial,
 )
 
@@ -60,6 +61,29 @@ def _two_means(point, n_control, n_treatment, null_value, alpha, side, welch):
     )
 
 
+def _two_means_looks(point, looks, null_value, side, welch):
+    return sequential_two_means_trial(
+        point["value"],
+        point["sd"],
+        looks,
+        null_value,
+        side,
+        welch,
+        sd_treatment=point.get("sd_treatment"),
+        skewness=point.get("skewness", 0.0),
+    )
+
+
+def _student_looks(point, looks, null_value, side):
+    """Student's t-test at each look, stopping at the first rejection."""
+    return _two_means_looks(point, looks, null_value, side, welch=False)
+
+
+def _welch_looks(point, looks, null_value, side):
+    """Welch's t-test at each look, stopping at the first rejection."""
+    return _two_means_looks(point, looks, null_value, side, welch=True)
+
+
 def _student(point, n_control, n_treatment, null_value, alpha, side):
     """Student's pooled t-test on simulated outcomes of the declared scenario."""
     return _two_means(point, n_control, n_treatment, null_value, alpha, side, welch=False)
@@ -70,26 +94,28 @@ def _welch(point, n_control, n_treatment, null_value, alpha, side):
     return _two_means(point, n_control, n_treatment, null_value, alpha, side, welch=True)
 
 
-# Version 2: also simulates unequal SDs and skewed outcomes.
+# Version 2: also simulates unequal SDs and skewed outcomes. Version 3: designs with looks.
 STUDENT = SimulationModel(
     key="normal_two_means_student",
     title="Student's t-test on simulated outcomes",
-    version=2,
+    version=3,
     point="mean_difference",
     trial=_student,
     scenario=_two_means_scenario,
     assumptions=(SIMULATED_TWO_MEANS, PLANNING_SD, MONTE_CARLO_ERROR),
     references=(STUDENT_1908, *REFERENCES),
+    looks=_student_looks,
 )
 WELCH = SimulationModel(
     key="normal_two_means_welch",
     title="Welch's t-test on simulated outcomes",
-    version=2,
+    version=3,
     point="mean_difference",
     trial=_welch,
     scenario=_two_means_scenario,
     assumptions=(SIMULATED_TWO_MEANS, PLANNING_SD, MONTE_CARLO_ERROR),
     references=(WELCH_1947, *REFERENCES),
+    looks=_welch_looks,
 )
 
 

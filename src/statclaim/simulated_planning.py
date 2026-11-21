@@ -8,7 +8,9 @@ Every test is simulated through one shape, a Design: how one of its studies is d
 the planning point or at the null, and how its sizes are reported. A two-arm test's
 sizes are its arms; a test of cluster summaries has clusters per arm, and each arm's mean
 cluster size and the variation of sizes go to the model; a test of an observational
-study has a total and covariates.
+study has a total and covariates. A design with interim looks draws each study stage by
+stage and stops at the first look that rejects; its report adds how often each look
+stopped the trial and the expected sample size, at the planning point and at the null.
 
 A size passes when the whole 95% interval for its power is at or above the target. A
 sample-size search goes up from the smallest size and simulates every size it passes, so
@@ -42,6 +44,7 @@ from statclaim.language import (
     ClusterCandidatesIR,
     FeasibilityIR,
     PowerTargetIR,
+    SequentialIR,
     SimulationIR,
     clustered_test,
     departs,
@@ -71,10 +74,18 @@ class Design:
     record: dict
     curve: dict
     scenario: str
+    # For a design with looks: each look's cumulative arm sizes and level. Its trial then
+    # returns the index of the look that rejected, or None.
+    looks: tuple | None = None
 
 
 def _observational(analysis) -> bool:
     return isinstance(analysis, CitedAssociationIR)
+
+
+def _method(analysis):
+    """The cited method simulated: the test's, or for a design with looks, the looks' test."""
+    return analysis.final.method if isinstance(analysis, SequentialIR) else analysis.method
 
 
 def _point_values(analysis, point, cluster_sizes=None) -> dict[str, float]:
@@ -157,8 +168,64 @@ def _total(analysis, target: PowerTargetIR, n: int) -> Design:
     return Design((n,), trial, record, {"total_sample_size": n}, model.scenario(values))
 
 
+def _sequential(design: SequentialIR, target: PowerTargetIR) -> Design:
+    """A design with looks: each study is drawn stage by stage to each look's sizes."""
+    final = design.final
+    model, point = final.method.simulation, target.at
+    values = _point_values(final, point)
+    looks = tuple(
+        (look.plan.model.n_control, look.plan.model.n_treatment, look.alpha)
+        for _, look in design.analyses
+    )
+    drawn_looks = [(n_c, n_t, float(level)) for n_c, n_t, level in looks]
+    null_value = float(final.hypothesis.value)
+    side = NULL_FORMS[final.hypothesis.predicate][1].favours or "both"
+
+    def trial(at_null: bool):
+        drawn = _at_null(final, values) if at_null else values
+        return model.looks(drawn, drawn_looks, null_value, side)
+
+    n_control, n_treatment = looks[-1][:2]
+    record = {
+        "n_control": n_control,
+        "n_treatment": n_treatment,
+        "total_sample_size": n_control + n_treatment,
+    }
+    labels = tuple(size for n_c, n_t, _ in looks for size in (n_c, n_t))
+    return Design(labels, trial, record, {}, model.scenario(values), looks)
+
+
+def _look_record(looks: tuple, power: engine.LookEstimate, error: engine.LookEstimate) -> dict:
+    """How often each look stopped the trial, and the expected total, at both points."""
+
+    def expected(found: engine.LookEstimate) -> dict:
+        totals = [n_c + n_t for n_c, n_t, _ in looks]
+        stopped = sum(count * total for count, total in zip(found.stopped, totals, strict=True))
+        carried = (found.runs - sum(found.stopped)) * totals[-1]
+        return fraction_record(Fraction(stopped + carried, found.runs))
+
+    return {
+        "looks": [
+            {
+                "n_control": n_c,
+                "n_treatment": n_t,
+                "alpha": fraction_record(level),
+                "stop": fraction_record(Fraction(stop, power.runs)),
+                "stop_null": fraction_record(Fraction(stop_null, error.runs)),
+            }
+            for (n_c, n_t, level), stop, stop_null in zip(
+                looks, power.stopped, error.stopped, strict=True
+            )
+        ],
+        "expected_sample_size": expected(power),
+        "expected_sample_size_null": expected(error),
+    }
+
+
 def _declared(analysis, target: PowerTargetIR) -> Design:
     """The study as declared."""
+    if isinstance(analysis, SequentialIR):
+        return _sequential(analysis, target)
     if _observational(analysis):
         return _total(analysis, target, analysis.plan.model.total)
     if clustered_test(analysis):
@@ -207,13 +274,19 @@ def evaluate(
     analysis, target: PowerTargetIR, design: Design, settings: SimulationIR, stream: str
 ) -> dict:
     """Power at the planning point and Type I error at the null's boundary, by simulation."""
-    power = engine.estimate(
-        design.trial(False), settings.runs, engine.Stream(settings.seed, stream, *design.labels)
-    )
-    error = engine.estimate(
-        design.trial(True), settings.runs, engine.Stream(settings.seed, "typeI", *design.labels)
-    )
-    model = analysis.method.simulation
+    power_stream = engine.Stream(settings.seed, stream, *design.labels)
+    error_stream = engine.Stream(settings.seed, "typeI", *design.labels)
+    record = design.record
+    if design.looks is None:
+        power = engine.estimate(design.trial(False), settings.runs, power_stream)
+        error = engine.estimate(design.trial(True), settings.runs, error_stream)
+    else:
+        count = len(design.looks)
+        by_look = engine.estimate_looks(design.trial(False), count, settings.runs, power_stream)
+        null_looks = engine.estimate_looks(design.trial(True), count, settings.runs, error_stream)
+        power, error = by_look.overall, null_looks.overall
+        record = {**record, **_look_record(design.looks, by_look, null_looks)}
+    model = _method(analysis).simulation
     judged = departs(target.at)
     if judged:
         typeI_met = error.upper <= float(target.maximum_typeI)
@@ -225,7 +298,7 @@ def evaluate(
         typeI_met, typeI_settled = analysis.alpha <= target.maximum_typeI, True
     met = _passes(power, target.minimum)
     return {
-        **design.record,
+        **record,
         "power": _rate(power),
         "power_lower": _bound(power.lower, "down"),
         "power_upper": _bound(power.upper, "up"),
@@ -257,8 +330,9 @@ def evaluate(
 
 def assumptions(analysis) -> list[dict]:
     """The test's own assumptions, then the simulation's, then the planning point's."""
-    model = analysis.method.simulation
-    items = [mark(item) for item in (*analysis.assumptions, *model.assumptions)]
+    test = analysis.final if isinstance(analysis, SequentialIR) else analysis
+    model = _method(analysis).simulation
+    items = [mark(item) for item in (*test.assumptions, *model.assumptions)]
     return [*items, identify(PLANNING_POINT)]
 
 
@@ -278,11 +352,12 @@ def _scenario_words(point, observational: bool) -> str:
 def _goal(analysis, target: PowerTargetIR) -> str:
     point, observational = target.at, _observational(analysis)
     words = association_planning.describe_point(point) if observational else describe_point(point)
+    level = "the design's level" if isinstance(analysis, SequentialIR) else "the test's level"
     typeI = (
         f"simulated Type I at most {target.maximum_typeI}, judged like power since the "
         "scenario leaves the test's theory"
         if departs(point)
-        else f"the test's level {analysis.alpha} at most {target.maximum_typeI}"
+        else f"{level} {analysis.alpha} at most {target.maximum_typeI}"
     )
     return (
         f"power at least {target.minimum} at {words}{_scenario_words(point, observational)}, "
@@ -292,8 +367,17 @@ def _goal(analysis, target: PowerTargetIR) -> str:
 
 def _statement(subject, analysis, target: PowerTargetIR, runs: str) -> str:
     """What will be simulated: the declared study, or a search and its range."""
-    title, goal = analysis.method.title, _goal(analysis, target)
+    title, goal = _method(analysis).title, _goal(analysis, target)
     if isinstance(subject, FeasibilityIR):
+        if isinstance(analysis, SequentialIR):
+            looks = ", ".join(
+                f"({look.plan.model.n_control}, {look.plan.model.n_treatment}) at {look.alpha}"
+                for _, look in analysis.analyses
+            )
+            return (
+                f"{title} at {len(analysis.analyses)} looks, with cumulative arm sizes and "
+                f"levels {looks}, stopping at the first rejection: {goal}, estimated from {runs}."
+            )
         if _observational(analysis):
             sizes = f"with {analysis.plan.model.total} participants"
         elif clustered_test(analysis):
@@ -328,19 +412,24 @@ def _statement(subject, analysis, target: PowerTargetIR, runs: str) -> str:
     )
 
 
-def describe(subject, settings: SimulationIR) -> dict:
-    """The simulated planning claim before running: what will be estimated and how."""
+def describe(subject, settings: SimulationIR | None) -> dict:
+    """The simulated planning claim before running: what will be estimated and how. Without
+    settings, the claim itself, which only simulate(...) can estimate."""
     analysis, target = planned_analysis(subject), subject.target
-    method, model = analysis.method, analysis.method.simulation
-    runs = f"{settings.runs:,} simulated studies from seed {settings.seed}"
+    method = _method(analysis)
+    model = method.simulation
+    runs = (
+        "simulate(...)"
+        if settings is None
+        else f"{settings.runs:,} simulated studies from seed {settings.seed}"
+    )
     text = f"{_statement(subject, analysis, target, runs)} Power is a {ESTIMATE}."
     listed = assumptions(analysis)
     report = planning_report("simulated_planning", text, [item["text"] for item in listed])
     report["method"] = method.to_dict()
     report["simulation"] = {
         **model.to_dict(),
-        "runs": settings.runs,
-        "seed": settings.seed,
+        **({} if settings is None else {"runs": settings.runs, "seed": settings.seed}),
         "engine_version": engine.ENGINE_VERSION,
         "generator": engine.GENERATOR,
         "interval": INTERVAL,

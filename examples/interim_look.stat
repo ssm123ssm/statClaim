@@ -14,3 +14,9 @@ let final = t_test(design=fixed(model=complete), null=equal_means(model=complete
 # Spend 0.005 at the interim look and 0.045 at the end: 0.05 overall.
 let trial = alpha_spending(looks=[interim, final], alpha=1/20)
 let overall = verify(typeI(trial))
+
+# Power, the chance of stopping at each look and the expected size are simulated:
+# estimates, beside the proved bound.
+use planning
+let target = power_target(at=mean_difference(value=5, sd=10), minimum=4/5, maximum_typeI=1/20)
+let simulated = simulate(meets(analysis=trial, target=target), seed=2026)
