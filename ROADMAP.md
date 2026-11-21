@@ -69,7 +69,8 @@
 - Power and sample sizes for Pearson's correlation and the slope of a linear
   regression with covariates, exact under normality and cross-checked against R.
 - Power and sample sizes for logistic, conditional logistic and Poisson regressions
-  of observational studies, from Hsieh's, Connor's and Signorini's formulas.
+  of observational studies, from Hsieh's, Connor's and Signorini's formulas, and for
+  survey tests through the design effect.
 
 ## Direction
 

@@ -99,6 +99,18 @@
     "version": 1,
     "sha256": "7c99200b4eee21dcd450476f562799c124d09aa5573caf6f225661797c2b120e"
   },
+  "power:survey_two_groups": {
+    "version": 1,
+    "sha256": "f349196d47a79b26f3ef7fc554b0d6dce767db8ae3189e674154dfc2b3b9312b"
+  },
+  "power:survey_logistic_normal": {
+    "version": 1,
+    "sha256": "caf005a9bb6d2519e6a797ccd31a64582dab7ebc77b428a334372427e18fb970"
+  },
+  "power:survey_slope_normal": {
+    "version": 1,
+    "sha256": "ee545df9c19e3088701314b35a927dd0efb988199f7af3efbe59fa6802a28876"
+  },
   "power:t_distribution": {
     "version": 2,
     "sha256": "dab1da4c7147d7f09aebd1185dac7588df8019083dda5077b91b5409ebf338d8"

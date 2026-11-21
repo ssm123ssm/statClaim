@@ -15,6 +15,9 @@ from statclaim.methods.association_power import (
     LOGISTIC_TREND,
     MATCHED_PAIRS,
     POISSON_RATES,
+    SURVEY_GROUPS,
+    SURVEY_SLOPE,
+    SURVEY_TREND,
 )
 from statclaim.methods.association_power import SLOPE as SLOPE_POWER
 from statclaim.methods.core import Assumption, Guarantee, PowerFormula
@@ -357,6 +360,8 @@ SURVEY = (
         references=(BINDER, LUMLEY),
         min_clusters=20,
         limit="the number of sampled clusters grows",
+        power=SURVEY_GROUPS,
+        more_power=(SURVEY_TREND,),
     ),
     ObservationalMethod(
         key="survey_linear",
@@ -374,6 +379,7 @@ SURVEY = (
         references=(BINDER, LUMLEY),
         min_clusters=20,
         limit="the number of sampled clusters grows",
+        power=SURVEY_SLOPE,
     ),
     ObservationalMethod(
         key="rao_scott_test",
@@ -392,6 +398,7 @@ SURVEY = (
         covariates=False,
         min_clusters=20,
         limit="the number of sampled clusters grows",
+        power=SURVEY_GROUPS,
     ),
 )
 MODULE_SUMMARIES = {

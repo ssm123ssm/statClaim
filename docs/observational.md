@@ -205,6 +205,8 @@ Some cited tests have power too, calculated but never verified:
 | `logistic_association`, measured exposure | `odds_per_sd(odds_ratio=, baseline=, exposure_r2=)` | `total_sizes(analysis, min_n, max_n)` |
 | `conditional_logistic` | `discordant_pairs(share=, odds_ratio=)` | `matched_sizes(analysis, min_pairs, max_pairs)` |
 | `poisson_rate_regression` | `incidence_rates(..., events=)` | `event_counts(analysis, min_events, max_events)` |
+| `rao_scott_test`, `survey_logistic` | `outcome_prevalence(..., design_effect=)`, or `odds_per_sd(..., design_effect=)` | `total_sizes(analysis, min_n, max_n)` |
+| `survey_linear`, measured exposure | `slope(..., design_effect=)` | `total_sizes(analysis, min_n, max_n)` |
 
 Given the exposure, the test statistic is noncentral t with n − k − 2 degrees of
 freedom for k covariates; power averages it over a normal exposure, whose residual
@@ -220,8 +222,13 @@ Poisson rates. For a case-control study, logistic regression uses the cases' sha
 each group's exposure, since the odds ratio is symmetric. Power is for covariates
 unrelated to the exposure. pwrss and MESS agree with each formula, and 4,000 simulated
 studies analysed with `glm` agree within 0.02
-(`replication/comparison/logistic_power_r.R`). `modified_poisson` and the survey tests
-have no formula yet.
+(`replication/comparison/logistic_power_r.R`). `modified_poisson` has no formula yet.
+
+A survey test of a complex sample needs `design_effect` on its point: the variance of the
+exposure's estimate over that of a simple random sample of the same size. Power is then
+the simple-sample formula at n / deff (Kish), and the result reports
+`effective_sample_size`. Tests that assume a simple random sample refuse it
+(`replication/comparison/survey_power_r.R`).
 
 ## What is refused
 

@@ -34,8 +34,13 @@ PLANNING_POINT = "The planning point is an input for planning, not an establishe
 
 
 def _r2(point) -> dict:
+    """The covariates' share of the exposure, and a survey's design effect, when given."""
     share = getattr(point, "exposure_r2", None)
-    return {} if share is None else {"exposure_r2": float(share)}
+    effect = getattr(point, "design_effect", None)
+    return {
+        **({} if share is None else {"exposure_r2": float(share)}),
+        **({} if effect is None else {"design_effect": float(effect)}),
+    }
 
 
 def inputs(analysis: CitedAssociationIR, point, size) -> tuple[dict, float]:
@@ -67,7 +72,7 @@ def inputs(analysis: CitedAssociationIR, point, size) -> tuple[dict, float]:
     if isinstance(size, tuple):
         reference, other = size
         return {**values, "share_other": other / (reference + other)}, reference + other
-    return {**values, "share_other": float(point.exposed_share)}, size
+    return {**values, "share_other": float(point.exposed_share), **_r2(point)}, size
 
 
 def power_at(analysis: CitedAssociationIR, point, size):
@@ -124,8 +129,12 @@ def _sizes(analysis: CitedAssociationIR, point, size) -> dict:
         )
         return {names[0]: reference, names[1]: other, "total_sample_size": reference + other}
     record = {"total_sample_size": size, "covariates": len(analysis.covariates)}
-    if isinstance(point, (CorrelationIR, SlopeIR)):
+    if isinstance(point, (CorrelationIR, SlopeIR)) and analysis.method.module != "tests.survey":
         record["degrees_of_freedom"] = size - len(analysis.covariates) - 2
+    effect = getattr(point, "design_effect", None)
+    if effect is not None:
+        record["design_effect"] = fraction_record(effect)
+        record["effective_sample_size"] = _record(size / float(effect))
     return record
 
 

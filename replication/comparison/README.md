@@ -27,6 +27,7 @@ gMCP was not used: it needs Java.
 | `survival_power_r.R` | `survival_power_r.txt` | Log-rank power from exponential survival times: expected events (`gsDesign::eEvents` and numerical integration), Schoenfeld's power, and sample sizes from `rpact::getSampleSizeSurvival` and `gsDesign::nSurv`; writes `tests/fixtures/survival_power_r.json`, which `tests/test_survival_power.py` compares with StatClaim |
 | `regression_power_r.R` | `regression_power_r.txt` | Power of the t-tests of a correlation and a regression slope with a normal exposure (numerical integration, raw-data simulation, and `pwr.r.test` and `pwr.f2.test` for context); writes `tests/fixtures/regression_power_r.json`, which `tests/test_regression_power.py` compares with StatClaim |
 | `logistic_power_r.R` | `logistic_power_r.txt` | Hsieh's formulas for logistic regression and Signorini's for Poisson rates (`pwrss`), Connor's for matched pairs (`MESS::power_mcnemar_test`), and `glm` on simulated studies; writes `tests/fixtures/logistic_power_r.json`, which `tests/test_logistic_power.py` compares with StatClaim |
+| `survey_power_r.R` | `survey_power_r.txt` | Survey tests through the design effect: `pwrss`'s Hsieh sizes for a simple random sample, times the design effect, and the Wald test of a slope; writes `tests/fixtures/survey_power_r.json`, which `tests/test_survey_power.py` compares with StatClaim |
 | `observational_power_r.R` | `observational_power_r.txt` | Exact power of Fisher's test of association for cohort and case-control studies (every table through `fisher.test`, `exact2x2::power2x2` and epiR's normal formulas), McNemar's test (`binom.test`, `exact2x2::powerPaired2x2`) and the rate test (`exactci::poisson.exact`); writes `tests/fixtures/observational_power_r.json`, which `tests/test_observational_planning.py` compares with StatClaim |
 
 StatClaim's side of the same designs is `graph.stat`, `sequential.stat` and
@@ -79,6 +80,8 @@ graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup
   sizes pwrss gives for Hsieh's formulas, equals Signorini's formula to nine decimals
   (pwrss adds the other tail, below 1e-6) and MESS's Connor formula to ten. At
   Hsieh's size, 4,000 simulated studies analysed with `glm` give 0.802 against 0.80.
+- **Surveys.** A survey's power reaches the target at the design effect times pwrss's
+  simple-random size, to nine decimals; the slope's Wald power agrees to twelve.
 - **DeclareDesign.** For 100 per arm and a difference of 0.4 standard deviations,
   2,000 simulations give power 0.81 (standard error 0.009), bias 0.002 and coverage
   0.96. StatClaim's normal approximation gives 0.807; `power.t.test` gives 0.804.

@@ -1,0 +1,17 @@
+# Lesson 35: power for a complex survey, through the design effect.
+use models.observational
+use sampling
+use tests.survey
+use planning
+
+# The national survey of lesson 27: 12,000 people in 400 sampled households.
+let national = cross_sectional(n=12000, exposure="smoking", outcome="asthma", survey="cluster", clusters=400)
+let table = rao_scott_test(design=fixed(model=national), null=no_association(model=national), alpha=1/20)
+
+# Asthma in 1 in 10 non-smokers and 6 in 50 smokers, a fifth of people smoking, and a design
+# effect of 2: the clustered sample is worth half as many independent people.
+let expected = outcome_prevalence(unexposed=1/10, prevalence_ratio=6/5, exposed_share=1/5, design_effect=2)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20)
+let declared = calculate(meets(analysis=table, target=target))
+let needed = calculate(smallest_sample_size(candidates=total_sizes(analysis=table, min_n=100, max_n=100000), target=target))
+let effective = needed.calculation.effective_sample_size

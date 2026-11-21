@@ -655,6 +655,12 @@ def _approximate_lines(details: dict) -> list[str]:
         observational.append(f"covariates = {calculation['covariates']}")
         if "degrees_of_freedom" in calculation:
             observational.append(f"degrees of freedom = {calculation['degrees_of_freedom']}")
+        if "design_effect" in calculation:
+            effective = float(calculation["effective_sample_size"]["decimal_approximation"])
+            observational.append(
+                f"design effect {calculation['design_effect']['fraction']}, so effectively "
+                f"{effective:.1f}"
+            )
     if observational and "power" in calculation and "n_control" not in calculation:
         # A cited observational test: power in the study's own units.
         lines += [

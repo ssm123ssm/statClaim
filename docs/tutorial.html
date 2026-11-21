@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Thirty-four short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Thirty-five short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -2712,6 +2712,59 @@ exposure need more participants, about 1 / (1 &#8722; R&#178;) times as many;
     <div class="task"><h4>Try it</h4><p>Give the cohort three unexposed participants per exposed one. How many exposed do you need now?</p></div>
   </div>
 </section>
+<section class="lesson" id="survey-power">
+  <p class="eyebrow">Lesson 35</p>
+  <h2>Power for a complex survey</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>A survey that samples households, strata or with weights is not a simple random sample, so it carries less, or sometimes more, information per person. The design effect says how much, and the survey tests of lesson 27 are planned with it.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/35_survey_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 35: power for a complex survey, through the design effect.</span>
+<span class="k">use</span> models.observational
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.survey
+<span class="k">use</span> planning
+
+<span class="c"># The national survey of lesson 27: 12,000 people in 400 sampled households.</span>
+<span class="k">let</span> national = <span class="f">cross_sectional</span>(n=12000, exposure=&quot;smoking&quot;, outcome=&quot;asthma&quot;, survey=&quot;cluster&quot;, clusters=400)
+<span class="k">let</span> table = <span class="f">rao_scott_test</span>(design=<span class="f">fixed</span>(model=national), null=<span class="f">no_association</span>(model=national), alpha=1/20)
+
+<span class="c"># Asthma in 1 in 10 non-smokers and 6 in 50 smokers, a fifth of people smoking, and a design</span>
+<span class="c"># effect of 2: the clustered sample is worth half as many independent people.</span>
+<span class="k">let</span> expected = <span class="f">outcome_prevalence</span>(unexposed=1/10, prevalence_ratio=6/5, exposed_share=1/5, design_effect=2)
+<span class="k">let</span> target = <span class="f">power_target</span>(at=expected, minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> declared = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=table, target=target))
+<span class="k">let</span> needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=<span class="f">total_sizes</span>(analysis=table, min_n=100, max_n=100000), target=target))
+<span class="k">let</span> effective = needed.calculation.effective_sample_size</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>design_effect=...</code></dt>
+  <dd>The variance of the estimate in this survey over its variance in a simple random sample
+  of the same size. A clustered sample is usually above 1; a stratified one can be below.
+  It is a planning input, often taken from an earlier round of the survey.</dd>
+  <dt><code>calculation.effective_sample_size</code></dt>
+  <dd>n over the design effect: the simple random sample with the same power.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [declared]: meets(table)
+  n = 12000; covariates = 0; design effect 2, so effectively 6000.0
+  power ~ 0.5266 (normal approximation, not a bound); power target met = false
+  ...
+<span class="calc">calculated</span> [needed]: sample_size(&lt;expression&gt;)
+  n = 23530; covariates = 0; design effect 2, so effectively 11765.0
+  power ~ 0.8000 (normal approximation, not a bound); power target met = true
+  ...
+Program status: calculated</code></pre></div>
+<p>Twelve thousand people are worth six thousand here, and give 53% power. The survey
+needs 23,530, twice what a simple random sample would. <code>design_effect</code> is taken by
+<code>outcome_prevalence</code>, <code>odds_per_sd</code> and <code>slope</code>, for
+<code>rao_scott_test</code>, <code>survey_logistic</code> and <code>survey_linear</code>; the
+simple-sample tests refuse it.</p>
+<div class="note"><strong>Clusters still count.</strong> The design effect sums up the
+survey for power, but the guarantee of a design-based test still needs enough sampled
+clusters: at least 20, as lesson 27 checked.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li>Survey tests are planned with <code>design_effect</code> on the planning point.</li><li>Power is that of a simple random sample of n over the design effect.</li><li><code>effective_sample_size</code> reports that size.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>A stratified design might have a design effect of 4/5. How many people would the survey need then?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -2744,6 +2797,7 @@ exposure need more participants, about 1 / (1 &#8722; R&#178;) times as many;
       <tr><td>Plan a survival trial from its times</td><td><code>planning</code>, <code>tests.survival</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>exponential_survival</code>, with <code>equal_arm_sizes</code></td><td>32</td></tr>
       <tr><td>Plan a correlation or a regression slope</td><td><code>planning</code>, <code>tests.correlation</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>correlation</code> or <code>slope</code>, with <code>total_sizes</code></td><td>33</td></tr>
       <tr><td>Plan a logistic, conditional logistic or Poisson regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
+      <tr><td>Plan a complex survey</td><td><code>planning</code>, <code>tests.survey</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>design_effect</code> on the point, with <code>total_sizes</code></td><td>35</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>
       <tr><td>Test or estimate one proportion</td><td><code>tests.binomial</code></td><td><code>binomial_result</code>, <code>confidence_interval</code></td><td>9</td></tr>

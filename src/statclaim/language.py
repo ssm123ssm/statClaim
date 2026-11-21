@@ -133,7 +133,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.29.0"
+LANGUAGE_VERSION = "0.30.0"
 
 
 class PlannableIR:
@@ -1053,6 +1053,7 @@ class OddsPerSdIR(PlanningPointIR):
     odds_ratio: Fraction
     baseline: Fraction
     exposure_r2: Fraction | None = None
+    design_effect: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1065,6 +1066,7 @@ class SlopeIR(PlanningPointIR):
     exposure_sd: Fraction
     residual_sd: Fraction
     exposure_r2: Fraction | None = None
+    design_effect: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1085,6 +1087,8 @@ class OutcomePrevalenceIR(PlanningPointIR):
     unexposed: Fraction
     exposed: Fraction
     exposed_share: Fraction
+    # For a survey test of a complex sample: the design effect, a planning input.
+    design_effect: Fraction | None = None
 
 
 @dataclass(frozen=True)
@@ -1616,6 +1620,12 @@ def _study_extras(study: "ObservationalStudyIR") -> dict:
     return extras
 
 
+def _with_design_effect(point: dict, value) -> dict:
+    """A survey's design effect is written only when the point gives one."""
+    effect = getattr(value, "design_effect", None)
+    return point if effect is None else {**point, "design_effect": str(effect)}
+
+
 def normalize(value: object) -> object:
     """Serialize semantic objects, without implying a proof or executing a backend."""
     match value:
@@ -1849,11 +1859,12 @@ def normalize(value: object) -> object:
             point = {"risk_unexposed": str(unexposed), "risk_exposed": str(exposed)}
             return point if share is None else {**point, "exposed_share": str(share)}
         case OutcomePrevalenceIR(unexposed=unexposed, exposed=exposed, exposed_share=share):
-            return {
+            point = {
                 "prevalence_unexposed": str(unexposed),
                 "prevalence_exposed": str(exposed),
                 "exposed_share": str(share),
             }
+            return _with_design_effect(point, value)
         case TotalCandidatesIR(analysis=analysis, min_n=low, max_n=high):
             return {"analysis": normalize(analysis), "min_n": low, "max_n": high}
         case ExposurePrevalenceIR(controls=controls, cases=cases):
@@ -1882,7 +1893,8 @@ def normalize(value: object) -> object:
             return {"correlation": str(rho)}
         case OddsPerSdIR(odds_ratio=ratio, baseline=baseline, exposure_r2=share):
             point = {"odds_ratio_per_sd": str(ratio), "baseline": str(baseline)}
-            return point if share is None else {**point, "exposure_r2": str(share)}
+            point = point if share is None else {**point, "exposure_r2": str(share)}
+            return _with_design_effect(point, value)
         case SlopeIR(value=slope, exposure_sd=exposure, residual_sd=residual):
             point = {
                 "slope": str(slope),
@@ -1891,7 +1903,7 @@ def normalize(value: object) -> object:
             }
             if value.exposure_r2 is not None:
                 point["exposure_r2"] = str(value.exposure_r2)
-            return point
+            return _with_design_effect(point, value)
         case ExponentialSurvivalIR(hazard_ratio=ratio, control_median=median):
             point = {
                 "hazard_ratio": str(ratio),
@@ -3467,7 +3479,7 @@ def _odds_per_sd(arguments: dict[str, LocatedValue], span: Span) -> OddsPerSdIR:
     share = None if explained is None or explained.value is None else explained.value
     if share is not None and not 0 <= share < 1:
         fail("domain", "exposure_r2 must lie in [0, 1).", explained.span)
-    return OddsPerSdIR(ratio.value, baseline, share)
+    return OddsPerSdIR(ratio.value, baseline, share, _design_effect(arguments))
 
 
 def _slope(arguments: dict[str, LocatedValue], span: Span) -> SlopeIR:
@@ -3483,6 +3495,7 @@ def _slope(arguments: dict[str, LocatedValue], span: Span) -> SlopeIR:
         arguments["exposure_sd"].value,
         arguments["residual_sd"].value,
         share,
+        _design_effect(arguments),
     )
 
 
@@ -3549,10 +3562,22 @@ def _risks(arguments: dict[str, LocatedValue], span: Span) -> RisksIR:
     )
 
 
+def _design_effect(arguments: dict[str, LocatedValue]) -> Fraction | None:
+    """A survey's design effect, when given: positive, and below 1 for a design, such as a
+    stratified one, that is more precise than simple random sampling."""
+    effect = arguments.get("design_effect")
+    if effect is None or effect.value is None:
+        return None
+    if effect.value <= 0:
+        fail("domain", "design_effect must be positive.", effect.span)
+    return effect.value
+
+
 def _outcome_prevalence(arguments: dict[str, LocatedValue], span: Span) -> OutcomePrevalenceIR:
     return OutcomePrevalenceIR(
         *_reference_and_other(arguments, span, "unexposed", "exposed", "prevalence_ratio"),
         _exposed_share(arguments),
+        _design_effect(arguments),
     )
 
 
@@ -3920,6 +3945,12 @@ OBSERVATIONAL_POINTS = {
 }
 
 
+DESIGN_EFFECT_REFUSED = (
+    "design_effect is for a survey test of a complex sample, such as survey_logistic. This "
+    "analysis assumes a simple random sample; leave design_effect out."
+)
+
+
 def observational_formula(analysis: CitedAssociationIR, point: PlanningPointIR):
     """The cited observational test's power formula at this point and exposure scale."""
     scale = analysis.plan.model.exposure_scale
@@ -3958,6 +3989,19 @@ def _check_cited_association_point(
     if formula is None:
         signatures = " or ".join(OBSERVATIONAL_POINTS[f.point][2] for f in fitting)
         fail("planning_point", f"Plan {method.key} at {signatures}.", target.span)
+    model = analysis.plan.model
+    if (
+        method.module == "tests.survey"
+        and model.survey != "simple_random"
+        and getattr(point, "design_effect", None) is None
+    ):
+        fail(
+            "planning_point",
+            f"This survey samples by {model.survey} design, so its power depends on the design "
+            "effect: give design_effect=..., the variance of the exposure's estimate over that "
+            "of a simple random sample of the same size.",
+            target.span,
+        )
     if formula.point == "association_groups":
         _check_association_point(analysis, target, where)
         return
@@ -3985,6 +4029,9 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
         return
     if getattr(point, "icc", None) is not None:
         fail("planning_point", ICC_REFUSED, target.span)
+    survey = isinstance(analysis, CitedAssociationIR) and analysis.method.module == "tests.survey"
+    if getattr(point, "design_effect", None) is not None and not survey:
+        fail("planning_point", DESIGN_EFFECT_REFUSED, target.span)
     if isinstance(analysis, CitedAssociationIR):
         _check_cited_association_point(analysis, target, where)
         return
@@ -5253,14 +5300,16 @@ MODULES = {
                         ("odds_ratio", "number"),
                         ("baseline", "number"),
                         ("exposure_r2", "number", True),
+                        ("design_effect", "number", True),
                     ),
                     "OddsPerSd",
                     _odds_per_sd,
                     documentation="A planning point for logistic_association with a measured "
                     "exposure: the odds ratio per standard deviation of the exposure, the "
                     "outcome's probability at the exposure's mean, and optionally exposure_r2, "
-                    "the share of the exposure's variance the covariates explain. Planning "
-                    "inputs, not established facts.",
+                    "the share of the exposure's variance the covariates explain. A survey test "
+                    "of a complex sample also takes design_effect. Planning inputs, not "
+                    "established facts.",
                 ),
                 _constructor(
                     "slope",
@@ -5269,6 +5318,7 @@ MODULES = {
                         ("exposure_sd", "number"),
                         ("residual_sd", "number"),
                         ("exposure_r2", "number", True),
+                        ("design_effect", "number", True),
                     ),
                     "Slope",
                     _slope,
@@ -5276,7 +5326,8 @@ MODULES = {
                     "exposure: the change in the outcome's mean per unit of exposure, the "
                     "exposure's standard deviation, the outcome's standard deviation about the "
                     "regression, and optionally exposure_r2, the share of the exposure's "
-                    "variance the covariates explain. All are planning inputs.",
+                    "variance the covariates explain. A survey test of a complex sample also "
+                    "takes design_effect. All are planning inputs.",
                 ),
                 _constructor(
                     "exponential_survival",
@@ -5321,13 +5372,15 @@ MODULES = {
                         ("exposed", "number", True),
                         ("prevalence_ratio", "number", True),
                         ("exposed_share", "number"),
+                        ("design_effect", "number", True),
                     ),
                     "OutcomePrevalence",
                     _outcome_prevalence,
                     documentation="A planning point for a cross-sectional study: the prevalence "
                     "of the outcome without exposure, and with it, given as exposed or as "
                     "prevalence_ratio, and exposed_share, the probability that a participant is "
-                    "exposed. A planning input, not an established fact.",
+                    "exposed. A survey test of a complex sample also takes design_effect. A "
+                    "planning input, not an established fact.",
                 ),
                 _constructor(
                     "exposure_prevalence",

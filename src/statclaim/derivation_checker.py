@@ -479,8 +479,16 @@ def _cited_association_planning_expected(name: str, subject: dict, search, analy
         "version": formula.version,
         "point": point,
     }
-    valid, effect = _association_point_valid(point, kind, study, search)
-    if kind in ("correlation", "slope") and search is None:
+    # A survey test of a complex sample takes the design effect; no other test does.
+    survey = method.module == "tests.survey"
+    effect_given = "design_effect" in point
+    design_ok = (not effect_given or (survey and Fraction(point["design_effect"]) > 0)) and (
+        effect_given or not survey or study.get("survey", "simple_random") == "simple_random"
+    )
+    bare = {key: value for key, value in point.items() if key != "design_effect"}
+    valid, effect = _association_point_valid(bare, kind, study, search)
+    valid = valid and design_ok
+    if kind in ("correlation", "slope") and search is None and not survey:
         valid = valid and study.get("n", 0) - covariates - 2 >= 1
     steps.append(("power-formula", facts, valid, ()))
     statement = steps[1][1]["statement"]

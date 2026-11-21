@@ -84,6 +84,15 @@ CONNOR = (
     "paired-sample design. Biometrics 43(1), 207-211."
 )
 R_PWRSS = "Bulus, M. pwrss: power.z.logistic and power.z.poisreg, an R package."
+DESIGN_EFFECT_POWER = Assumption(
+    "design_effect_power",
+    "approximation",
+    "Power is that of a simple random sample of n / deff participants, where deff, the "
+    "survey's design effect for the exposure's coefficient, is a planning input. A "
+    "design-based test with few clusters, or weights that vary a lot, has less power than this.",
+)
+KISH = "Kish, L. (1965). Survey Sampling. Wiley. Section 8.2."
+LUMLEY_POWER = "Lumley, T. (2010). Complex Surveys: A Guide to Analysis Using R. Wiley."
 R_MESS = "Ekstrom, C. T. MESS: power_mcnemar_test, an R package."
 
 
@@ -255,5 +264,88 @@ MATCHED_PAIRS = PowerFormula(
     function=matched_pairs_power,
     assumptions=(WALD_POWER, COVARIATES_UNRELATED),
     references=(CONNOR, R_MESS),
+    approximation=NORMAL,
+)
+
+
+def survey_groups_power(point, n, covariates, alpha) -> PowerResult:
+    """A 2x2 survey table, or a survey logistic regression on a binary exposure: Hsieh's
+    formula for two groups at the effective sample size n / deff."""
+    p0, p1, share = point["p_reference"], point["p_other"], point["share_other"]
+    effective = n / point.get("design_effect", 1.0)
+    pooled = (1 - share) * p0 + share * p1
+    z = _upper(alpha)
+    scale = math.sqrt(effective * (1 - share))
+    null_sd = math.sqrt(pooled * (1 - pooled) / share)
+    spread = math.sqrt(p0 * (1 - p0) + p1 * (1 - p1) * (1 - share) / share)
+    gap = p1 - p0
+    power = _NORMAL.cdf((abs(gap) * scale - z * null_sd) / spread)
+    sign = 1 if gap >= 0 else -1
+    direction = "above" if sign > 0 else "below"
+    return PowerResult(power, sign * z * null_sd / scale, direction, null_sd / scale)
+
+
+def survey_trend_power(point, n, covariates, alpha) -> PowerResult:
+    """A survey logistic regression on a normal exposure: Hsieh's formula at n / deff."""
+    p = point["baseline"]
+    effective = n / point.get("design_effect", 1.0)
+    log_ratio = math.log(point["value"])
+    se = 1 / math.sqrt(effective * (1 - point.get("exposure_r2", 0.0)) * p * (1 - p))
+    z = _upper(alpha)
+    sign = 1 if log_ratio >= 0 else -1
+    power = _NORMAL.cdf(abs(log_ratio) / se - z)
+    return PowerResult(power, math.exp(sign * z * se), "above" if sign > 0 else "below", se)
+
+
+def survey_slope_power(point, n, covariates, alpha) -> PowerResult:
+    """A survey linear regression on a measured exposure: the design-based Wald test of the
+    slope, normal, with the slope's variance residual_sd^2 deff / (n sd(x | z)^2)."""
+    effective = n / point.get("design_effect", 1.0)
+    spread = point["exposure_sd"] * math.sqrt(1 - point.get("exposure_r2", 0.0))
+    se = point["residual_sd"] / (spread * math.sqrt(effective))
+    z = _upper(alpha)
+    sign = 1 if point["value"] >= 0 else -1
+    power = _NORMAL.cdf(abs(point["value"]) / se - z)
+    return PowerResult(power, sign * z * se, "above" if sign > 0 else "below", se)
+
+
+SURVEY_GROUPS = PowerFormula(
+    key="survey_two_groups",
+    title="Survey test of a binary exposure, two proportions at the effective sample size",
+    version=1,
+    point="association_groups",
+    function=survey_groups_power,
+    assumptions=(WALD_POWER, DESIGN_EFFECT_POWER, COVARIATES_UNRELATED),
+    references=(HSIEH, KISH, LUMLEY_POWER),
+    approximation=NORMAL,
+)
+SURVEY_TREND = PowerFormula(
+    key="survey_logistic_normal",
+    title="Survey logistic regression on a normal exposure, Hsieh's formula at n / deff",
+    version=1,
+    point="odds_per_sd",
+    function=survey_trend_power,
+    assumptions=(
+        WALD_POWER,
+        DESIGN_EFFECT_POWER,
+        PLANNING_ASSOCIATION,
+        COVARIATES_EXPLAIN_EXPOSURE,
+    ),
+    references=(HSIEH, KISH, LUMLEY_POWER),
+    approximation=NORMAL,
+)
+SURVEY_SLOPE = PowerFormula(
+    key="survey_slope_normal",
+    title="Survey linear regression on a measured exposure, Wald test at n / deff",
+    version=1,
+    point="slope",
+    function=survey_slope_power,
+    assumptions=(
+        WALD_POWER,
+        DESIGN_EFFECT_POWER,
+        PLANNING_ASSOCIATION,
+        COVARIATES_EXPLAIN_EXPOSURE,
+    ),
+    references=(KISH, LUMLEY_POWER),
     approximation=NORMAL,
 )

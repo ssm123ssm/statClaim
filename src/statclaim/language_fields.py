@@ -421,6 +421,9 @@ SCHEMAS = {
         "exposure_r2": FieldSpec(
             Fraction, optional=True, description="Share of the exposure the covariates explain."
         ),
+        "design_effect": FieldSpec(
+            Fraction, optional=True, description="A survey's design effect, a planning input."
+        ),
     },
     SlopeIR: {
         "value": FieldSpec(Fraction, description="Change in the outcome per unit of exposure."),
@@ -428,6 +431,9 @@ SCHEMAS = {
         "residual_sd": FieldSpec(Fraction, description="Outcome's SD about the regression."),
         "exposure_r2": FieldSpec(
             Fraction, optional=True, description="Share of the exposure the covariates explain."
+        ),
+        "design_effect": FieldSpec(
+            Fraction, optional=True, description="A survey's design effect, a planning input."
         ),
     },
     HazardRatioIR: {
@@ -446,6 +452,9 @@ SCHEMAS = {
         "exposed": FieldSpec(Fraction, description="Prevalence with exposure."),
         "exposed_share": FieldSpec(
             Fraction, description="Probability that a participant is exposed."
+        ),
+        "design_effect": FieldSpec(
+            Fraction, optional=True, description="A survey's design effect, a planning input."
         ),
     },
     TotalCandidatesIR: {
@@ -733,6 +742,9 @@ SCHEMAS = {
         ),
         "degrees_of_freedom": FieldSpec(int, optional=True),
         "covariates": FieldSpec(int, optional=True, description="Covariates adjusted for."),
+        "effective_sample_size": FieldSpec(
+            Fraction, optional=True, description="n over the survey's design effect."
+        ),
         "exposed": FieldSpec(int, optional=True),
         "unexposed": FieldSpec(int, optional=True),
         "cases": FieldSpec(int, optional=True),

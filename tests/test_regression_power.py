@@ -118,6 +118,9 @@ def test_the_formulas_each_test_has():
         "logistic_association": ["association_groups", "odds_per_sd"],
         "conditional_logistic": ["discordant_pairs"],
         "poisson_rate_regression": ["incidence_rates"],
+        "survey_logistic": ["association_groups", "odds_per_sd"],
+        "survey_linear": ["slope"],
+        "rao_scott_test": ["association_groups"],
     }
 
 
