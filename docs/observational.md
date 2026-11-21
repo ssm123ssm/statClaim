@@ -199,14 +199,16 @@ Some cited tests have power too, calculated but never verified:
 
 | Test | Planning point | Search |
 |---|---|---|
-| `pearson_correlation` | `correlation(value=)` | `total_sizes(analysis, min_n, max_n)` |
+| `pearson_correlation`, `spearman_correlation` | `correlation(value=)` | `total_sizes(analysis, min_n, max_n)` |
 | `linear_association`, measured exposure | `slope(value=, exposure_sd=, residual_sd=, exposure_r2=)` | `total_sizes(analysis, min_n, max_n)` |
+| `linear_association`, yes-or-no exposure | `outcome_means(unexposed=, exposed=, sd=, exposed_share=)` | `cohort_sizes` or `total_sizes` |
+| `modified_poisson` | the design's point, as for `fisher_exact` | `cohort_sizes` or `total_sizes` |
 | `logistic_association`, yes-or-no exposure | the design's point, as for `fisher_exact` | `cohort_sizes`, `case_control_sizes` or `total_sizes` |
 | `logistic_association`, measured exposure | `odds_per_sd(odds_ratio=, baseline=, exposure_r2=)` | `total_sizes(analysis, min_n, max_n)` |
 | `conditional_logistic` | `discordant_pairs(share=, odds_ratio=)` | `matched_sizes(analysis, min_pairs, max_pairs)` |
 | `poisson_rate_regression` | `incidence_rates(..., events=)` | `event_counts(analysis, min_events, max_events)` |
 | `rao_scott_test`, `survey_logistic` | `outcome_prevalence(..., design_effect=)`, or `odds_per_sd(..., design_effect=)` | `total_sizes(analysis, min_n, max_n)` |
-| `survey_linear`, measured exposure | `slope(..., design_effect=)` | `total_sizes(analysis, min_n, max_n)` |
+| `survey_linear` | `slope(..., design_effect=)`, or `outcome_means(..., design_effect=)` | `total_sizes(analysis, min_n, max_n)` |
 
 Given the exposure, the test statistic is noncentral t with n − k − 2 degrees of
 freedom for k covariates; power averages it over a normal exposure, whose residual
@@ -216,13 +218,20 @@ A search of totals is by bisection, up to 100,000. R agrees to twelve decimals b
 numerical integration, and a raw-data simulation agrees within its error
 (`replication/comparison/regression_power_r.R`).
 
+For a yes-or-no exposure, the slope is the difference between the groups' means, and the
+test is the noncentral t of two groups; when only the total is fixed, power averages over
+the binomial number exposed. Spearman's test is planned at its rank correlation, with
+Fisher's z and Bonett and Wright's variance (2000); it is up to 0.02 conservative against
+simulations of the exact test.
+
 The regressions use published normal approximations: Hsieh, Bloch and Larsen (1998)
 for logistic regression, Connor (1987) for matched pairs and Signorini (1991) for
 Poisson rates. For a case-control study, logistic regression uses the cases' share and
 each group's exposure, since the odds ratio is symmetric. Power is for covariates
 unrelated to the exposure. pwrss and MESS agree with each formula, and 4,000 simulated
 studies analysed with `glm` agree within 0.02
-(`replication/comparison/logistic_power_r.R`). `modified_poisson` has no formula yet.
+(`replication/comparison/logistic_power_r.R`). `modified_poisson` uses the Wald test of the
+log risk or prevalence ratio; `glm` with a robust variance agrees within 0.02.
 
 A survey test of a complex sample needs `design_effect` on its point: the variance of the
 exposure's estimate over that of a simple random sample of the same size. Power is then

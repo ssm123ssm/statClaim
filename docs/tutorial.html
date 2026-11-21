@@ -2569,7 +2569,20 @@ events than planned.</div>
 <span class="k">let</span> slope_target = <span class="f">power_target</span>(at=expected, minimum=9/10, maximum_typeI=1/20)
 <span class="k">let</span> slope_power = <span class="f">calculate</span>(<span class="f">meets</span>(analysis=fitted, target=slope_target))
 <span class="k">let</span> slope_sizes = <span class="f">total_sizes</span>(analysis=fitted, min_n=10, max_n=5000)
-<span class="k">let</span> slope_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=slope_sizes, target=slope_target))</code></pre></div></figure>
+<span class="k">let</span> slope_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=slope_sizes, target=slope_target))
+
+<span class="c"># Spearman&#x27;s rank correlation, at a rank correlation of 3/10.</span>
+<span class="k">let</span> ranks = <span class="f">spearman_correlation</span>(design=<span class="f">fixed</span>(model=clinic), null=<span class="f">no_association</span>(model=clinic), alpha=1/20)
+<span class="k">let</span> ranks_target = <span class="f">power_target</span>(at=<span class="f">correlation</span>(value=3/10), minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> ranks_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=<span class="f">total_sizes</span>(analysis=ranks, min_n=4, max_n=5000), target=ranks_target))
+
+<span class="c"># A yes-or-no exposure: pressure in smokers and non-smokers, a third of whom smoke.</span>
+<span class="k">let</span> smokers = <span class="f">cross_sectional</span>(n=300, exposure=&quot;smoking&quot;, outcome=&quot;systolic pressure&quot;, outcome_scale=&quot;continuous&quot;)
+<span class="k">let</span> by_smoking = <span class="f">linear_association</span>(design=<span class="f">fixed</span>(model=smokers), null=<span class="f">no_association</span>(model=smokers), alpha=1/20)
+<span class="k">let</span> means = <span class="f">outcome_means</span>(unexposed=120, exposed=125, sd=15, exposed_share=1/3)
+<span class="k">let</span> means_target = <span class="f">power_target</span>(at=means, minimum=4/5, maximum_typeI=1/20)
+<span class="k">let</span> means_sizes = <span class="f">total_sizes</span>(analysis=by_smoking, min_n=10, max_n=5000)
+<span class="k">let</span> means_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=means_sizes, target=means_target))</code></pre></div></figure>
 <dl class="lines">
   <dt><code>correlation(value=...)</code></dt>
   <dd>The correlation you expect, for <code>pearson_correlation</code>.</dd>
@@ -2581,6 +2594,10 @@ events than planned.</div>
   <dt><code>total_sizes(analysis=..., min_n=..., max_n=...)</code></dt>
   <dd>The totals from lesson 29, now for a cited test. The first total that is enough is
   found by bisection, since power rises with n.</dd>
+  <dt><code>outcome_means(unexposed=..., exposed=..., sd=..., exposed_share=...)</code></dt>
+  <dd>For a yes-or-no exposure the slope is a difference of two means. Give the outcome&#x27;s
+  mean in each group and its spread; a study that fixes only its total also gives the share
+  exposed.</dd>
 </dl>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [rho_power]: meets(rho)
   n = 250; covariates = 0; degrees of freedom = 248
@@ -2596,6 +2613,14 @@ events than planned.</div>
 <span class="calc">calculated</span> [slope_needed]: sample_size(slope_sizes)
   n = 665; covariates = 2; degrees of freedom = 661
   ...
+<span class="calc">calculated</span> [ranks_needed]: sample_size(&lt;expression&gt;)
+  n = 87; covariates = 0
+  power ~ 0.8045 (normal approximation, not a bound); power target met = true
+  ...
+<span class="calc">calculated</span> [means_needed]: sample_size(means_sizes)
+  n = 322; covariates = 0; degrees of freedom = 320
+  power ~ 0.8009 (noncentral t at the planning values, not a bound); power target met = true
+  ...
 Program status: calculated</code></pre></div>
 <p>A correlation of 1/5 needs 193 participants for 80% power. The slope needs 665 for 90%:
 age and sex take two degrees of freedom and a tenth of BMI&#x27;s spread.</p>
@@ -2604,12 +2629,13 @@ normal exposure. So it is exact when exposure and outcome are normal, as the tes
 R agrees to twelve decimals by numerical integration, and a simulation of raw data agrees
 within its error. <code>pwr</code>&#x27;s formulas are close: Fisher&#x27;s z for the correlation,
 and a fixed exposure for the slope, which promises a little more power.</p>
-<div class="note"><strong>A yes-or-no exposure.</strong> The slope formula needs a measured
-exposure. For a binary one, the slope is a difference of two means; plan it as such until
-StatClaim plans it directly.</div>
+<p>Spearman&#x27;s test is planned at <code>correlation</code> too, read as the rank
+correlation; its power uses Fisher&#x27;s z with Bonett and Wright&#x27;s variance, a little
+conservative for the exact test. Smoking against pressure needs 322 people, averaging over
+how many of them turn out to smoke.</p>
 
   <div class="wrap-up">
-    <div><h4>What you learned</h4><ul><li><code>correlation</code> and <code>slope</code> are planning points for cited observational tests.</li><li><code>total_sizes</code> searches their totals.</li><li>Covariates cost degrees of freedom, and the share of the exposure they explain.</li></ul></div>
+    <div><h4>What you learned</h4><ul><li><code>correlation</code>, <code>slope</code> and <code>outcome_means</code> are planning points for cited observational tests.</li><li><code>total_sizes</code> searches their totals.</li><li>Covariates cost degrees of freedom, and the share of the exposure they explain.</li></ul></div>
     <div class="task"><h4>Try it</h4><p>Leave out <code>exposure_r2</code>. How many participants does the slope need now?</p></div>
   </div>
 </section>
@@ -2664,7 +2690,17 @@ StatClaim plans it directly.</div>
     minimum=4/5,
     maximum_typeI=1/20,
 )
-<span class="k">let</span> events_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=<span class="f">event_counts</span>(analysis=rates_test, min_events=10, max_events=5000), target=rates_target))</code></pre></div></figure>
+<span class="k">let</span> events_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=<span class="f">event_counts</span>(analysis=rates_test, min_events=10, max_events=5000), target=rates_target))
+
+<span class="c"># The cohort&#x27;s risk ratio itself, by modified Poisson regression, at the same point.</span>
+<span class="k">let</span> risk_test = <span class="f">modified_poisson</span>(
+    design=<span class="f">fixed</span>(model=followed),
+    null=<span class="f">no_association</span>(model=followed),
+    alpha=1/20,
+    adjusted_for=[&quot;age&quot;],
+)
+<span class="k">let</span> risk_sizes = <span class="f">cohort_sizes</span>(analysis=risk_test, min_exposed=10, max_exposed=5000, unexposed_per_exposed=2)
+<span class="k">let</span> risk_needed = <span class="f">calculate</span>(<span class="f">smallest_sample_size</span>(candidates=risk_sizes, target=cohort_target))</code></pre></div></figure>
 <dl class="lines">
   <dt><code>logistic_association</code></dt>
   <dd>Hsieh&#x27;s formula. A yes-or-no exposure is planned at the design&#x27;s own point:
@@ -2675,6 +2711,8 @@ StatClaim plans it directly.</div>
   <dd>Connor&#x27;s formula for 1:1 pairs, at <code>discordant_pairs</code>.</dd>
   <dt><code>poisson_rate_regression</code></dt>
   <dd>Signorini&#x27;s formula, at <code>incidence_rates</code>, given the events.</dd>
+  <dt><code>modified_poisson</code></dt>
+  <dd>The Wald test of the log risk or prevalence ratio, at the design&#x27;s own point.</dd>
 </dl>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [cohort_power]: meets(cohort_test)
   exposed = 300; unexposed = 600
@@ -2694,6 +2732,9 @@ StatClaim plans it directly.</div>
   ...
 <span class="calc">calculated</span> [events_needed]: sample_size(&lt;expression&gt;)
   events = 96
+  ...
+<span class="calc">calculated</span> [risk_needed]: sample_size(risk_sizes)
+  exposed = 525; unexposed = 1050
   ...
 Program status: calculated</code></pre></div>
 <p>These are normal approximations: 281 pairs here against 298 for McNemar&#x27;s exact test
@@ -2795,8 +2836,8 @@ clusters: at least 20, as lesson 27 checked.</div>
       <tr><td>Plan a matched study, or a cohort followed over person-time</td><td><code>planning</code>, <code>tests.association</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>discordant_pairs</code> or <code>incidence_rates</code>, with <code>matched_sizes</code> or <code>event_counts</code></td><td>30</td></tr>
       <tr><td>Plan a cluster-randomised trial</td><td><code>planning</code>, <code>tests.cluster</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>mean_difference</code> or <code>binomial_rates</code> with <code>icc</code>, with <code>cluster_counts</code> or <code>cluster_sizes</code></td><td>31</td></tr>
       <tr><td>Plan a survival trial from its times</td><td><code>planning</code>, <code>tests.survival</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>exponential_survival</code>, with <code>equal_arm_sizes</code></td><td>32</td></tr>
-      <tr><td>Plan a correlation or a regression slope</td><td><code>planning</code>, <code>tests.correlation</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>correlation</code> or <code>slope</code>, with <code>total_sizes</code></td><td>33</td></tr>
-      <tr><td>Plan a logistic, conditional logistic or Poisson regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
+      <tr><td>Plan a correlation or a linear regression</td><td><code>planning</code>, <code>tests.correlation</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at <code>correlation</code>, <code>slope</code> or <code>outcome_means</code>, with <code>total_sizes</code> or <code>cohort_sizes</code></td><td>33</td></tr>
+      <tr><td>Plan a logistic, modified Poisson, conditional logistic or Poisson rate regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
       <tr><td>Plan a complex survey</td><td><code>planning</code>, <code>tests.survey</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>design_effect</code> on the point, with <code>total_sizes</code></td><td>35</td></tr>
       <tr><td>Estimate the power of a t-test by simulation</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>simulate</code>, at <code>mean_difference</code></td><td>28</td></tr>
       <tr><td>Approximate the power of a cited test</td><td><code>planning</code></td><td><code>meets</code> with <code>calculate</code>, at <code>mean_difference</code>, <code>binomial_rates</code> or <code>hazard_ratio</code></td><td>18</td></tr>

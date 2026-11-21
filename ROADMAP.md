@@ -68,9 +68,9 @@
   gsDesign.
 - Power and sample sizes for Pearson's correlation and the slope of a linear
   regression with covariates, exact under normality and cross-checked against R.
-- Power and sample sizes for logistic, conditional logistic and Poisson regressions
-  of observational studies, from Hsieh's, Connor's and Signorini's formulas, and for
-  survey tests through the design effect.
+- Power and sample sizes for every cited observational test: logistic, modified
+  Poisson, conditional logistic and Poisson regressions, Spearman's correlation, linear
+  regression on a yes-or-no exposure, and the survey tests through the design effect.
 
 ## Direction
 

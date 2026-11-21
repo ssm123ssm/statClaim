@@ -133,7 +133,7 @@ from statclaim.randomisation import (
 )
 from statclaim.simulation import DEFAULT_RUNS, MAX_RUNS, MAX_SIMULATED_STUDIES, MIN_RUNS
 
-LANGUAGE_VERSION = "0.30.0"
+LANGUAGE_VERSION = "0.31.0"
 
 
 class PlannableIR:
@@ -1045,6 +1045,19 @@ class CorrelationIR(PlanningPointIR):
 
 
 @dataclass(frozen=True)
+class OutcomeMeansIR(PlanningPointIR):
+    """A planning point for a measured outcome by a yes-or-no exposure: the outcome's mean
+    without and with the exposure, its standard deviation about them, the share exposed when
+    only the total is fixed, and a survey's design effect."""
+
+    unexposed: Fraction
+    exposed: Fraction
+    sd: Fraction
+    exposed_share: Fraction | None = None
+    design_effect: Fraction | None = None
+
+
+@dataclass(frozen=True)
 class OddsPerSdIR(PlanningPointIR):
     """A planning point for logistic regression on a measured exposure: the odds ratio per
     standard deviation of the exposure, the outcome's probability at the exposure's mean, and
@@ -1891,6 +1904,10 @@ def normalize(value: object) -> object:
             return {"hazard_ratio": str(ratio), "events": events}
         case CorrelationIR(value=rho):
             return {"correlation": str(rho)}
+        case OutcomeMeansIR(unexposed=unexposed, exposed=exposed, sd=sd, exposed_share=share):
+            point = {"mean_unexposed": str(unexposed), "mean_exposed": str(exposed), "sd": str(sd)}
+            point = point if share is None else {**point, "exposed_share": str(share)}
+            return _with_design_effect(point, value)
         case OddsPerSdIR(odds_ratio=ratio, baseline=baseline, exposure_r2=share):
             point = {"odds_ratio_per_sd": str(ratio), "baseline": str(baseline)}
             point = point if share is None else {**point, "exposure_r2": str(share)}
@@ -3468,6 +3485,23 @@ def _correlation(arguments: dict[str, LocatedValue], span: Span) -> CorrelationI
     return CorrelationIR(rho.value)
 
 
+def _outcome_means(arguments: dict[str, LocatedValue], span: Span) -> OutcomeMeansIR:
+    sd = arguments["sd"]
+    if sd.value <= 0:
+        fail("domain", "sd must be positive.", sd.span)
+    share = arguments.get("exposed_share")
+    exposed_share = None if share is None or share.value is None else share.value
+    if exposed_share is not None and not 0 < exposed_share < 1:
+        fail("domain", "exposed_share must lie strictly between 0 and 1.", share.span)
+    return OutcomeMeansIR(
+        arguments["unexposed"].value,
+        arguments["exposed"].value,
+        sd.value,
+        exposed_share,
+        _design_effect(arguments),
+    )
+
+
 def _odds_per_sd(arguments: dict[str, LocatedValue], span: Span) -> OddsPerSdIR:
     ratio = arguments["odds_ratio"]
     if ratio.value <= 0:
@@ -3930,6 +3964,11 @@ OBSERVATIONAL_POINTS = {
         "the design's own point: risks(...), outcome_prevalence(...) or exposure_prevalence(...)",
     ),
     "odds_per_sd": ((OddsPerSdIR,), "continuous", "odds_per_sd(odds_ratio=..., baseline=...)"),
+    "outcome_means": (
+        (OutcomeMeansIR,),
+        "binary",
+        "outcome_means(unexposed=..., exposed=..., sd=...)",
+    ),
     "correlation": ((CorrelationIR,), "continuous", "correlation(value=...)"),
     "slope": ((SlopeIR,), "continuous", "slope(value=..., exposure_sd=..., residual_sd=...)"),
     "discordant_pairs": (
@@ -4004,8 +4043,32 @@ def _check_cited_association_point(
         )
     if formula.point == "association_groups":
         _check_association_point(analysis, target, where)
+        if method.key == "modified_poisson" and 0 in group_probabilities(point):
+            fail(
+                "domain",
+                "A risk or prevalence ratio needs the outcome in both groups: give "
+                "probabilities above 0.",
+                target.span,
+            )
         return
+    if formula.point == "outcome_means":
+        share = point.exposed_share
+        if model.groups is None and share is None:
+            fail(
+                "planning_point",
+                "This study fixes only its total, so how many are exposed is random. Give "
+                "exposed_share, the probability that a participant is exposed.",
+                target.span,
+            )
+        if model.groups is not None and share is not None:
+            fail(
+                "planning_point",
+                "This cohort sampled its exposed and unexposed groups in fixed numbers, so the "
+                "share exposed is not random. Leave exposed_share out.",
+                target.span,
+            )
     effect = {
+        "outcome_means": lambda: point.exposed - point.unexposed,
         "odds_per_sd": lambda: point.odds_ratio - 1,
         "correlation": lambda: point.value,
         "slope": lambda: point.value,
@@ -4086,7 +4149,9 @@ def _check_planned_size(analysis: PlannableIR, where: Span, point=None) -> None:
     """The declared study's size, for exact power at it; a search checks its own bounds."""
     if (
         isinstance(analysis, CitedAssociationIR)
-        and observational_formula(analysis, point).point in ("correlation", "slope")
+        and analysis.method.module != "tests.survey"
+        and observational_formula(analysis, point).point
+        in ("correlation", "slope", "outcome_means")
         and _residual_df(analysis, analysis.plan.model.total) < 1
     ):
         fail(
@@ -5293,6 +5358,23 @@ MODULES = {
                     documentation="A planning point for two continuous variables: their "
                     "correlation, strictly between -1 and 1. For pearson_correlation. A "
                     "planning input, not an established fact.",
+                ),
+                _constructor(
+                    "outcome_means",
+                    (
+                        ("unexposed", "number"),
+                        ("exposed", "number"),
+                        ("sd", "number"),
+                        ("exposed_share", "number", True),
+                        ("design_effect", "number", True),
+                    ),
+                    "OutcomeMeans",
+                    _outcome_means,
+                    documentation="A planning point for a measured outcome by a yes-or-no "
+                    "exposure, for linear_association or survey_linear: the outcome's mean "
+                    "without and with the exposure, and its standard deviation about them. A "
+                    "study that fixes only its total also needs exposed_share; a survey of a "
+                    "complex sample, design_effect. Planning inputs, not established facts.",
                 ),
                 _constructor(
                     "odds_per_sd",

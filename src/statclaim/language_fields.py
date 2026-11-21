@@ -57,6 +57,7 @@ from statclaim.language import (
     OneSampleAnalysisIR,
     OneSampleObservationIR,
     OutcomeIR,
+    OutcomeMeansIR,
     OutcomeModelIR,
     OutcomeNullIR,
     OutcomePrevalenceIR,
@@ -415,6 +416,17 @@ SCHEMAS = {
         "dropout_time": FieldSpec(Fraction, optional=True),
     },
     CorrelationIR: {"value": FieldSpec(Fraction, description="Correlation of the two variables.")},
+    OutcomeMeansIR: {
+        "unexposed": FieldSpec(Fraction, description="Outcome's mean without the exposure."),
+        "exposed": FieldSpec(Fraction, description="Outcome's mean with the exposure."),
+        "sd": FieldSpec(Fraction, description="Outcome's standard deviation about the means."),
+        "exposed_share": FieldSpec(
+            Fraction, optional=True, description="Probability that a participant is exposed."
+        ),
+        "design_effect": FieldSpec(
+            Fraction, optional=True, description="A survey's design effect, a planning input."
+        ),
+    },
     OddsPerSdIR: {
         "odds_ratio": FieldSpec(Fraction, description="Odds ratio per SD of the exposure."),
         "baseline": FieldSpec(Fraction, description="Outcome's probability at the mean exposure."),

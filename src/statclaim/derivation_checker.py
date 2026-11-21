@@ -347,6 +347,7 @@ ASSOCIATION_POINT_KEYS = {
     "correlation": ({"correlation"}, set(), "continuous"),
     "slope": ({"slope", "exposure_sd", "residual_sd"}, {"exposure_r2"}, "continuous"),
     "odds_per_sd": ({"odds_ratio_per_sd", "baseline"}, {"exposure_r2"}, "continuous"),
+    "outcome_means": ({"mean_unexposed", "mean_exposed", "sd"}, {"exposed_share"}, "binary"),
     "discordant_pairs": ({"discordant", "odds_ratio"}, set(), "binary"),
     "incidence_rates": ({"rate_ratio", "exposed_time", "unexposed_time"}, {"events"}, "binary"),
     "association_groups": (None, None, "binary"),  # the design's own point; see below
@@ -384,6 +385,14 @@ def _association_point_valid(point: dict, kind: str, study: dict, search) -> tup
             and 0 <= Fraction(point.get("exposure_r2", "0")) < 1
         )
         return valid, Fraction(point["slope"])
+    if kind == "outcome_means":
+        share = point.get("exposed_share")
+        valid = (
+            Fraction(point["sd"]) > 0
+            and ((share is not None) == ("n" in study))
+            and (share is None or 0 < Fraction(share) < 1)
+        )
+        return valid, Fraction(point["mean_exposed"]) - Fraction(point["mean_unexposed"])
     if kind == "odds_per_sd":
         ratio = Fraction(point["odds_ratio_per_sd"])
         valid = (
@@ -418,7 +427,7 @@ def _point_kind(point: dict) -> str:
 def _cited_association_search_valid(bounds: dict, kind: str, study: dict, covariates: int) -> bool:
     if "min_n" in bounds:
         low, high = bounds["min_n"], bounds["max_n"]
-        fewest = covariates + 3 if kind in ("correlation", "slope") else 1
+        fewest = covariates + 3
         return (
             set(bounds) == {"min_n", "max_n"}
             and "n" in study
@@ -488,8 +497,12 @@ def _cited_association_planning_expected(name: str, subject: dict, search, analy
     bare = {key: value for key, value in point.items() if key != "design_effect"}
     valid, effect = _association_point_valid(bare, kind, study, search)
     valid = valid and design_ok
-    if kind in ("correlation", "slope") and search is None and not survey:
-        valid = valid and study.get("n", 0) - covariates - 2 >= 1
+    if kind in ("correlation", "slope", "outcome_means") and search is None and not survey:
+        total = study.get("n") or study.get("exposed", 0) + study.get("unexposed", 0)
+        valid = valid and total - covariates - 2 >= 1
+    if method.key == "modified_poisson" and kind == "association_groups":
+        keys = GROUP_POINT_KEYS.get(study["study"], ())
+        valid = valid and all(Fraction(point[key]) > 0 for key in keys if key in point)
     steps.append(("power-formula", facts, valid, ()))
     statement = steps[1][1]["statement"]
     steps.append(

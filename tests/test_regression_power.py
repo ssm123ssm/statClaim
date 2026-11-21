@@ -12,7 +12,13 @@ from statclaim.derivation_checker import check_derivation
 from statclaim.language_compiler import compile_source
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
-from statclaim.methods.association_power import correlation_power, slope_power
+from statclaim.methods.association_power import (
+    correlation_power,
+    exposure_means_power,
+    slope_power,
+    spearman_power,
+    survey_means_power,
+)
 from statclaim.methods.observational import METHODS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -114,12 +120,14 @@ def test_meets_reports_degrees_of_freedom_and_reads_as_fields(tmp_path):
 def test_the_formulas_each_test_has():
     assert {key: [f.point for f in m.formulas] for key, m in METHODS.items() if m.formulas} == {
         "pearson_correlation": ["correlation"],
-        "linear_association": ["slope"],
+        "linear_association": ["slope", "outcome_means"],
+        "modified_poisson": ["association_groups"],
+        "spearman_correlation": ["correlation"],
         "logistic_association": ["association_groups", "odds_per_sd"],
         "conditional_logistic": ["discordant_pairs"],
         "poisson_rate_regression": ["incidence_rates"],
         "survey_logistic": ["association_groups", "odds_per_sd"],
-        "survey_linear": ["slope"],
+        "survey_linear": ["slope", "outcome_means"],
         "rao_scott_test": ["association_groups"],
     }
 
@@ -154,7 +162,8 @@ def test_refusals_explain_observational_planning(line, code, words):
     assert found and found[0][0] == code and words in found[0][1], found
 
 
-def test_tests_without_a_formula_and_binary_exposures_are_refused():
+def test_points_and_exposure_scales_must_fit_a_formula():
+    # A yes-or-no exposure is planned at the two groups' means, not at a slope.
     text = (
         "use models.observational\nuse sampling\nuse tests.regression\nuse planning\n"
         'let cohort_ = cross_sectional(n=300, exposure="smoking", outcome="pressure", '
@@ -164,16 +173,18 @@ def test_tests_without_a_formula_and_binary_exposures_are_refused():
         f"let p = meets(analysis=fitted, target={SLOPE})\n"
     )
     found = diagnostics(text)
-    assert found[0][0] == "planning_point" and "continuous exposure" in found[0][1]
+    assert found[0][0] == "planning_point" and "outcome_means(" in found[0][1]
+    # Conditional logistic regression has a formula for a yes-or-no exposure only.
     text = (
         "use models.observational\nuse sampling\nuse tests.regression\nuse planning\n"
-        'let followed = cohort(exposed=100, unexposed=200, exposure="e", outcome="o")\n'
-        "let fitted = modified_poisson(design=fixed(model=followed), "
-        "null=no_association(model=followed), alpha=1/20)\n"
+        'let paired = matched_case_control(pairs=200, exposure="dose", outcome="o", '
+        'exposure_scale="continuous")\n'
+        "let fitted = conditional_logistic(design=fixed(model=paired), "
+        "null=no_association(model=paired), alpha=1/20)\n"
         f"let p = meets(analysis=fitted, target={RHO})\n"
     )
     found = diagnostics(text)
-    assert found[0][0] == "no_power_formula" and "pearson_correlation" in found[0][1]
+    assert found[0][0] == "planning_point" and "binary exposure" in found[0][1]
 
 
 def _derivation(text, name):
@@ -208,3 +219,63 @@ def test_the_example_and_lesson_plan_measured_variables():
         program = compile_source(Source((ROOT / path).read_text()))
         assert not program.diagnostics, path
         assert all(check_derivation(d.to_dict()) == [] for d in program.derivations), path
+
+
+@pytest.mark.parametrize("case", FIXTURE["spearman"], ids=lambda c: f"{c['rho']}-{c['n']}")
+def test_spearman_agrees_with_r_and_is_close_to_the_exact_test(case):
+    power = spearman_power({"value": _f(case["rho"])}, case["n"], 0, 0.05).power
+    assert power == pytest.approx(case["formula"], abs=1e-12)
+    # Fisher's z is a little conservative for the exact permutation test.
+    assert -0.03 < case["simulation"] - power < 0.03
+
+
+@pytest.mark.parametrize("case", FIXTURE["means"], ids=lambda c: f"{c['difference']}-{c['k']}")
+def test_two_means_agree_with_r(case):
+    point = {"value": _f(case["difference"]), "sd": _f(case["sd"])}
+    if "exposed" in case:
+        point["n_exposed"] = case["exposed"]
+        n = case["exposed"] + case["unexposed"]
+    else:
+        point["exposed_share"] = _f(case["share"])
+        n = case["n"]
+    power = exposure_means_power(point, n, case["k"], _f(case["alpha"])).power
+    assert power == pytest.approx(case["power"], abs=1e-10)
+    if isinstance(case.get("pwr"), float):  # pwr.t2n.test adds the other tail
+        assert 0 <= case["pwr"] - power < 1e-5
+
+
+def test_survey_means_agree_with_r():
+    (case,) = FIXTURE["survey_means"]
+    point = {
+        "value": _f(case["difference"]),
+        "sd": _f(case["sd"]),
+        "exposed_share": _f(case["share"]),
+        "design_effect": _f(case["deff"]),
+    }
+    assert survey_means_power(point, case["n"], 0, 0.05).power == pytest.approx(
+        case["power"], abs=1e-12
+    )
+
+
+def test_a_yes_or_no_exposure_is_planned_at_two_means(tmp_path):
+    text = (
+        "use models.observational\nuse sampling\nuse tests.regression\nuse planning\n"
+        'let clinic = cross_sectional(n=250, exposure="smoking", outcome="pressure", '
+        'outcome_scale="continuous")\n'
+        "let fitted = linear_association(design=fixed(model=clinic), "
+        'null=no_association(model=clinic), alpha=1/20, adjusted_for=["age", "sex"])\n'
+        "let means = outcome_means(unexposed=120, exposed=125, sd=15, exposed_share=1/3)\n"
+        "let goal = power_target(at=means, minimum=4/5, maximum_typeI=1/20)\n"
+        "let power = calculate(meets(analysis=fitted, target=goal))\n"
+        "let search = smallest_sample_size(candidates=total_sizes(analysis=fitted, min_n=10, "
+        "max_n=5000), target=goal)\n"
+        "let sizing = calculate(search)\n"
+    )
+    report = run(text, tmp_path)
+    power, sizing = (request["report"]["calculation"] for request in report["requests"])
+    assert power["degrees_of_freedom"] == 246  # two covariates
+    assert sizing["total_sample_size"] > 250
+    derivation = next(d for d in compile_source(Source(text)).derivations if d.name == "search")
+    assert check_derivation(derivation.to_dict()) == []
+    found = diagnostics(text.replace(", exposed_share=1/3", ""))
+    assert found[0][0] == "planning_point" and "exposed_share" in found[0][1]

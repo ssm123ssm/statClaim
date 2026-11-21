@@ -18,6 +18,7 @@ from statclaim.methods.association_power import (
     logistic_trend_power,
     matched_pairs_power,
     poisson_rates_power,
+    risk_ratio_power,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -86,6 +87,20 @@ def test_connor_agrees_with_mess(case):
     assert power == pytest.approx(case["mess"], abs=1e-10)
 
 
+@pytest.mark.parametrize("case", FIXTURE["risk_ratios"], ids=lambda c: c["p_other"])
+def test_the_log_risk_ratio_agrees_with_r(case):
+    n = case["unexposed"] + case["exposed"]
+    point = {
+        "p_reference": _f(case["p_reference"]),
+        "p_other": _f(case["p_other"]),
+        "share_other": case["exposed"] / n,
+    }
+    power = risk_ratio_power(point, n, 0, _f(case["alpha"])).power
+    assert power == pytest.approx(case["formula"], abs=1e-12)
+    if "simulation" in case:  # glm with a robust variance, 4,000 studies
+        assert abs(power - case["simulation"]) < 0.02
+
+
 @pytest.mark.parametrize("case", FIXTURE["simulations"], ids=lambda c: str(c["n"]))
 def test_hsieh_is_close_to_the_simulated_wald_test(case):
     point = {
@@ -104,6 +119,7 @@ EXPECTED = {
     "trend_needed": ("total_sample_size", 531, None),
     "pairs_needed": ("pairs", 281, None),
     "events_needed": ("events", 96, None),
+    "risk_needed": ("exposed", 525, None),
 }
 
 

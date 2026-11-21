@@ -103,6 +103,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | MeanDifference | Planning point for a continuous outcome: a mean difference and an SD. | `value: exact number`, `sd: exact number`, `icc: Option[exact number]` |
 | HazardRatio | Planning point for a survival outcome: a hazard ratio and a number of events. | `value: exact number`, `events: integer` |
 | Correlation | Planning point for two continuous variables. | `value: exact number` |
+| OutcomeMeans | Planning point for a measured outcome by a yes-or-no exposure: two means and an SD. | `unexposed: exact number`, `exposed: exact number`, `sd: exact number`, `exposed_share: Option[exact number]`, `design_effect: Option[exact number]` |
 | OddsPerSd | Planning point for logistic regression on a measured exposure: odds ratio per SD. | `odds_ratio: exact number`, `baseline: exact number`, `exposure_r2: Option[exact number]`, `design_effect: Option[exact number]` |
 | Slope | Planning point for a linear regression: a slope and two standard deviations. | `value: exact number`, `exposure_sd: exact number`, `residual_sd: exact number`, `exposure_r2: Option[exact number]`, `design_effect: Option[exact number]` |
 | ExponentialSurvival | Planning point for a survival outcome given by times: hazard ratio, median, accrual. | `hazard_ratio: exact number`, `control_median: exact number`, `accrual: exact number`, `follow_up: exact number`, `dropout: Option[exact number]`, `dropout_time: Option[exact number]` |
@@ -494,6 +495,8 @@ Exact power at a planning point, target checks and a bounded sample-size search 
   A planning point for a survival outcome: the true hazard ratio, treatment over control, and the expected total number of events. Power depends on the events, not on the arm sizes. Both are planning inputs.
 - `correlation(value: number) -> Correlation`
   A planning point for two continuous variables: their correlation, strictly between -1 and 1. For pearson_correlation. A planning input, not an established fact.
+- `outcome_means(unexposed: number, exposed: number, sd: number, exposed_share?: number, design_effect?: number) -> OutcomeMeans`
+  A planning point for a measured outcome by a yes-or-no exposure, for linear_association or survey_linear: the outcome's mean without and with the exposure, and its standard deviation about them. A study that fixes only its total also needs exposed_share; a survey of a complex sample, design_effect. Planning inputs, not established facts.
 - `odds_per_sd(odds_ratio: number, baseline: number, exposure_r2?: number, design_effect?: number) -> OddsPerSd`
   A planning point for logistic_association with a measured exposure: the odds ratio per standard deviation of the exposure, the outcome's probability at the exposure's mean, and optionally exposure_r2, the share of the exposure's variance the covariates explain. A survey test of a complex sample also takes design_effect. Planning inputs, not established facts.
 - `slope(value: number, exposure_sd: number, residual_sd: number, exposure_r2?: number, design_effect?: number) -> Slope`

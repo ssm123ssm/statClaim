@@ -11,7 +11,7 @@ import math
 from statistics import NormalDist
 
 from statclaim.methods.core import Assumption, PowerFormula, PowerResult
-from statclaim.methods.t_distribution import random_design_power, t_quantile
+from statclaim.methods.t_distribution import noncentral_t_sf, random_design_power, t_quantile
 
 _NORMAL = NormalDist()
 
@@ -44,6 +44,7 @@ GATSONIS_SAMPSON = (
     "Gatsonis, C. and Sampson, A. R. (1989). Multiple correlation: exact power and sample "
     "size calculations. Psychological Bulletin 106(3), 516-524. [to verify]"
 )
+SEBER_POWER = "Seber, G. A. F. and Lee, A. J. (2003). Linear Regression Analysis, 2nd ed. Wiley."
 COHEN = (
     "Cohen, J. (1988). Statistical Power Analysis for the Behavioral Sciences, 2nd ed. "
     "Lawrence Erlbaum. Chapters 3 and 9."
@@ -94,6 +95,42 @@ DESIGN_EFFECT_POWER = Assumption(
 KISH = "Kish, L. (1965). Survey Sampling. Wiley. Section 8.2."
 LUMLEY_POWER = "Lumley, T. (2010). Complex Surveys: A Guide to Analysis Using R. Wiley."
 R_MESS = "Ekstrom, C. T. MESS: power_mcnemar_test, an R package."
+
+
+ZOU = (
+    "Zou, G. (2004). A modified Poisson regression approach to prospective studies with "
+    "binary data. American Journal of Epidemiology 159(7), 702-706."
+)
+LACHIN = (
+    "Lachin, J. M. (2011). Biostatistical Methods: The Assessment of Relative Risks, 2nd ed. "
+    "Wiley. Chapter 2. [to verify]"
+)
+BONETT_WRIGHT = (
+    "Bonett, D. G. and Wright, T. A. (2000). Sample size requirements for estimating Pearson, "
+    "Kendall and Spearman correlations. Psychometrika 65(1), 23-28."
+)
+RANK_POWER = Assumption(
+    "rank_correlation_power",
+    "approximation",
+    "Power comes from Fisher's z of the rank correlation, with variance (1 + rho^2 / 2) / "
+    "(n - 3) at the planning value (Bonett and Wright), for the exact permutation test. "
+    "The planning value is Spearman's correlation in the population. An approximation, not "
+    "a bound.",
+)
+EXPOSURE_GROUPS_POWER = Assumption(
+    "exposure_groups_power",
+    "approximation",
+    "Power is that of the t-test of the exposure's coefficient: noncentral t with the two "
+    "groups' sizes, averaged over how many are exposed when only the total is fixed. Exact "
+    "for normal errors of one variance with no covariates; covariates are taken to be "
+    "unrelated to the exposure.",
+)
+PLANNING_MEANS = Assumption(
+    "planning_means",
+    "scope",
+    "The outcome's means with and without the exposure, and its standard deviation about "
+    "them, are planning inputs, not established facts.",
+)
 
 
 def _upper(alpha: float) -> float:
@@ -346,6 +383,137 @@ SURVEY_SLOPE = PowerFormula(
         PLANNING_ASSOCIATION,
         COVARIATES_EXPLAIN_EXPOSURE,
     ),
+    references=(KISH, LUMLEY_POWER),
+    approximation=NORMAL,
+)
+
+
+def risk_ratio_power(point, n, covariates, alpha) -> PowerResult:
+    """The Wald test of the log risk or prevalence ratio, as modified Poisson regression
+    estimates it, with n participants of whom a share B are exposed. The log ratio has
+    variance (1 - p1) / (n B p1) + (1 - p0) / (n (1 - B) p0), and under the null, with the
+    pooled probability p, (1 - p) / p (1 / (n B) + 1 / (n (1 - B)))."""
+    p0, p1, share = point["p_reference"], point["p_other"], point["share_other"]
+    exposed, unexposed = n * share, n * (1 - share)
+    pooled = share * p1 + (1 - share) * p0
+    variance = (1 - p1) / (exposed * p1) + (1 - p0) / (unexposed * p0)
+    null_variance = (1 - pooled) / pooled * (1 / exposed + 1 / unexposed)
+    z = _upper(alpha)
+    log_ratio = math.log(p1 / p0)
+    power = _NORMAL.cdf((abs(log_ratio) - z * math.sqrt(null_variance)) / math.sqrt(variance))
+    se = math.sqrt(null_variance)
+    sign = 1 if log_ratio >= 0 else -1
+    return PowerResult(power, math.exp(sign * z * se), "above" if sign > 0 else "below", se)
+
+
+def spearman_power(point, n, covariates, alpha) -> PowerResult:
+    """Spearman's rank correlation by Fisher's z, with Bonett and Wright's variance
+    (1 + rho^2 / 2) / (n - 3) at the planning value and 1 / (n - 3) under independence."""
+    rho = point["value"]
+    z_rho = math.atanh(rho)
+    null_se = 1 / math.sqrt(n - 3)
+    se = math.sqrt((1 + rho * rho / 2) / (n - 3))
+    z = _upper(alpha)
+    power = _NORMAL.cdf((abs(z_rho) - z * null_se) / se)
+    sign = 1 if rho >= 0 else -1
+    critical = math.tanh(sign * z * null_se)
+    return PowerResult(power, critical, "above" if sign > 0 else "below", null_se)
+
+
+def _binomial_weights(n: int, share: float):
+    """(k, P(K = k)) for K binomial(n, share), where the weight is not negligible."""
+    mean, spread = n * share, math.sqrt(n * share * (1 - share))
+    low, high = max(0, int(mean - 12 * spread) - 1), min(n, int(mean + 12 * spread) + 2)
+    log_share, log_rest = math.log(share), math.log1p(-share)
+    for k in range(low, high + 1):
+        log_weight = (
+            math.lgamma(n + 1)
+            - math.lgamma(k + 1)
+            - math.lgamma(n - k + 1)
+            + k * log_share
+            + (n - k) * log_rest
+        )
+        yield k, math.exp(log_weight)
+
+
+def exposure_means_power(point, n, covariates, alpha) -> PowerResult:
+    """The t-test of a binary exposure's coefficient in a linear regression with k
+    covariates: noncentral t with n - k - 2 degrees of freedom and noncentrality
+    difference / (sd sqrt(1 / n1 + 1 / n0)). With the groups fixed, point gives n_exposed;
+    otherwise the number exposed is binomial with the exposed share, and power averages over
+    it, a study with nobody in a group being unable to reject."""
+    difference, sd = point["value"], point["sd"]
+    df = n - covariates - 2
+    critical = t_quantile(1 - alpha / 2, df)
+
+    def given(exposed: float) -> float:
+        if exposed < 1 or n - exposed < 1:
+            return 0.0
+        return noncentral_t_sf(
+            critical, df, abs(difference) / (sd * math.sqrt(1 / exposed + 1 / (n - exposed)))
+        )
+
+    if "n_exposed" in point:
+        exposed = point["n_exposed"]
+        power = given(exposed)
+    else:
+        exposed = n * point["exposed_share"]
+        power = sum(weight * given(k) for k, weight in _binomial_weights(n, point["exposed_share"]))
+    se = sd * math.sqrt(1 / exposed + 1 / (n - exposed))
+    sign = 1 if difference >= 0 else -1
+    return PowerResult(min(1.0, power), sign * critical * se, "above" if sign > 0 else "below", se)
+
+
+def survey_means_power(point, n, covariates, alpha) -> PowerResult:
+    """A survey linear regression on a binary exposure: the design-based Wald test of the
+    difference in means, normal, with variance sd^2 deff / (n q (1 - q)) for a share q
+    exposed."""
+    share = point["exposed_share"]
+    effective = n / point.get("design_effect", 1.0)
+    se = point["sd"] / math.sqrt(effective * share * (1 - share))
+    z = _upper(alpha)
+    sign = 1 if point["value"] >= 0 else -1
+    power = _NORMAL.cdf(abs(point["value"]) / se - z)
+    return PowerResult(power, sign * z * se, "above" if sign > 0 else "below", se)
+
+
+RISK_RATIO = PowerFormula(
+    key="log_risk_ratio_wald",
+    title="Modified Poisson regression on a binary exposure, Wald test of the log ratio",
+    version=1,
+    point="association_groups",
+    function=risk_ratio_power,
+    assumptions=(WALD_POWER, COVARIATES_UNRELATED),
+    references=(ZOU, LACHIN),
+    approximation=NORMAL,
+)
+SPEARMAN = PowerFormula(
+    key="spearman_fisher_z",
+    title="Spearman's rank correlation, Fisher's z with Bonett and Wright's variance",
+    version=1,
+    point="correlation",
+    function=spearman_power,
+    assumptions=(RANK_POWER, PLANNING_ASSOCIATION),
+    references=(BONETT_WRIGHT,),
+    approximation=NORMAL,
+)
+EXPOSURE_MEANS = PowerFormula(
+    key="exposure_means_t",
+    title="Linear regression on a binary exposure, noncentral t in the two groups",
+    version=1,
+    point="outcome_means",
+    function=exposure_means_power,
+    assumptions=(EXPOSURE_GROUPS_POWER, PLANNING_MEANS),
+    references=(SEBER_POWER, COHEN),
+    approximation="noncentral t at the planning values, not a bound",
+)
+SURVEY_MEANS = PowerFormula(
+    key="survey_means_normal",
+    title="Survey linear regression on a binary exposure, Wald test at n / deff",
+    version=1,
+    point="outcome_means",
+    function=survey_means_power,
+    assumptions=(WALD_POWER, DESIGN_EFFECT_POWER, PLANNING_MEANS, COVARIATES_UNRELATED),
     references=(KISH, LUMLEY_POWER),
     approximation=NORMAL,
 )

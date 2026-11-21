@@ -91,13 +91,25 @@
     "version": 1,
     "sha256": "fb78339084956fee0ab27ba30974fbaf76de6229b06e9674f02971e6033935b0"
   },
+  "power:log_risk_ratio_wald": {
+    "version": 1,
+    "sha256": "e5e907c95277e3ce01c1c899fd774e8c020c49c06dc54740b2da5fcd45d82519"
+  },
   "power:slope_random_normal": {
     "version": 1,
     "sha256": "5a5bbe33ee868bc34577fc778626d396868d9948fd58c19d55fee31d243a6292"
   },
+  "power:exposure_means_t": {
+    "version": 1,
+    "sha256": "ce3da3441935cfe09a10a7d1364a85965fe63c5fada5da7d0bd554a65cc28c38"
+  },
   "power:pearson_random_normal": {
     "version": 1,
     "sha256": "7c99200b4eee21dcd450476f562799c124d09aa5573caf6f225661797c2b120e"
+  },
+  "power:spearman_fisher_z": {
+    "version": 1,
+    "sha256": "b8da8eee13146b55b0691f17d0b9806c610b5b7718dec56a684362e8f8cb965f"
   },
   "power:survey_two_groups": {
     "version": 1,
@@ -110,6 +122,10 @@
   "power:survey_slope_normal": {
     "version": 1,
     "sha256": "ee545df9c19e3088701314b35a927dd0efb988199f7af3efbe59fa6802a28876"
+  },
+  "power:survey_means_normal": {
+    "version": 1,
+    "sha256": "746558697cb0c3b6e1d642c37e1772972a258dc8ec867f09a4200b5af868775e"
   },
   "power:t_distribution": {
     "version": 2,

@@ -210,6 +210,10 @@ OBJECT_CLASSES = {
         "Planning point for a survival outcome: a hazard ratio and a number of events.",
     ),
     "Correlation": ("Planning objects", "Planning point for two continuous variables."),
+    "OutcomeMeans": (
+        "Planning objects",
+        "Planning point for a measured outcome by a yes-or-no exposure: two means and an SD.",
+    ),
     "OddsPerSd": (
         "Planning objects",
         "Planning point for logistic regression on a measured exposure: odds ratio per SD.",

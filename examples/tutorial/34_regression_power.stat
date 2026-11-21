@@ -45,3 +45,13 @@ let rates_target = power_target(
     maximum_typeI=1/20,
 )
 let events_needed = calculate(smallest_sample_size(candidates=event_counts(analysis=rates_test, min_events=10, max_events=5000), target=rates_target))
+
+# The cohort's risk ratio itself, by modified Poisson regression, at the same point.
+let risk_test = modified_poisson(
+    design=fixed(model=followed),
+    null=no_association(model=followed),
+    alpha=1/20,
+    adjusted_for=["age"],
+)
+let risk_sizes = cohort_sizes(analysis=risk_test, min_exposed=10, max_exposed=5000, unexposed_per_exposed=2)
+let risk_needed = calculate(smallest_sample_size(candidates=risk_sizes, target=cohort_target))

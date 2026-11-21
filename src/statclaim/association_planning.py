@@ -19,6 +19,7 @@ from statclaim.language import (
     IncidenceRatesIR,
     MatchedStudyIR,
     OddsPerSdIR,
+    OutcomeMeansIR,
     PersonTimeStudyIR,
     PowerTargetIR,
     SlopeIR,
@@ -31,6 +32,7 @@ from statclaim.observational_planning import SEARCH_KEYS
 from statclaim.report import planning_report
 
 PLANNING_POINT = "The planning point is an input for planning, not an established fact."
+T_TESTS = ("pearson_random_normal", "slope_random_normal", "exposure_means_t")
 
 
 def _r2(point) -> dict:
@@ -62,6 +64,16 @@ def inputs(analysis: CitedAssociationIR, point, size) -> tuple[dict, float]:
             "baseline": float(point.baseline),
             **_r2(point),
         }, size
+    if isinstance(point, OutcomeMeansIR):
+        values = {
+            "value": float(point.exposed - point.unexposed),
+            "sd": float(point.sd),
+            **_r2(point),
+        }
+        if isinstance(size, tuple):
+            unexposed, exposed = size
+            return {**values, "n_exposed": exposed}, unexposed + exposed
+        return {**values, "exposed_share": float(point.exposed_share)}, size
     if isinstance(point, DiscordantPairsIR):
         return {"share": float(point.share), "odds_ratio": float(point.odds_ratio)}, size
     if isinstance(point, IncidenceRatesIR):
@@ -99,6 +111,11 @@ def describe_point(point) -> str:
             f"a slope of {point.value} per unit of exposure, with exposure SD "
             f"{point.exposure_sd} and residual SD {point.residual_sd}{explained}"
         )
+    if isinstance(point, OutcomeMeansIR):
+        return (
+            f"outcome means {point.unexposed} without and {point.exposed} with the exposure, "
+            f"with standard deviation {point.sd}"
+        )
     if isinstance(point, DiscordantPairsIR):
         return (
             f"{point.share} of pairs discordant and a conditional odds ratio of {point.odds_ratio}"
@@ -122,14 +139,19 @@ def _sizes(analysis: CitedAssociationIR, point, size) -> dict:
         return {"pairs": size}
     if isinstance(model, PersonTimeStudyIR):
         return {"events": size}
+    # Only the t-tests of a correlation, a slope or two means have degrees of freedom.
+    regression = observational_formula(analysis, point).key in T_TESTS
     if isinstance(size, tuple):
         reference, other = size
         names = (
             ("controls", "cases") if model.design == "case_control" else ("unexposed", "exposed")
         )
-        return {names[0]: reference, names[1]: other, "total_sample_size": reference + other}
+        record = {names[0]: reference, names[1]: other, "total_sample_size": reference + other}
+        if regression:
+            record["degrees_of_freedom"] = reference + other - len(analysis.covariates) - 2
+        return record
     record = {"total_sample_size": size, "covariates": len(analysis.covariates)}
-    if isinstance(point, (CorrelationIR, SlopeIR)) and analysis.method.module != "tests.survey":
+    if regression:
         record["degrees_of_freedom"] = size - len(analysis.covariates) - 2
     effect = getattr(point, "design_effect", None)
     if effect is not None:

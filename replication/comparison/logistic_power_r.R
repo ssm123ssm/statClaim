@@ -2,7 +2,7 @@
 # regression (Hsieh), Poisson regression of rates (Signorini) and conditional logistic
 # regression of matched pairs (Connor). Run from the repository root:
 #   R_LIBS=path/to/library Rscript replication/comparison/logistic_power_r.R
-# Needs pwrss, MESS and jsonlite. It regenerates tests/fixtures/logistic_power_r.json, which
+# Needs pwrss, MESS, sandwich and jsonlite. It regenerates tests/fixtures/logistic_power_r.json, which
 # tests/test_logistic_power.py compares with StatClaim offline, and writes
 # logistic_power_r.txt beside this file with the values and the R session.
 #
@@ -13,9 +13,14 @@
 #   MESS        power_mcnemar_test(method = "normal"), Connor's formula
 #   simulation  raw data and glm's Wald test, 4,000 studies per case with a fixed seed, to
 #               show how close the formulas are to the test itself
+# Modified Poisson regression, the Wald test of the log risk ratio:
+#   formula     with variance (1 - p1) / n1 p1 + (1 - p0) / n0 p0, and under the null the
+#               pooled probability's
+#   simulation  glm(family = poisson) with sandwich's robust variance (HC0), 4,000 studies
 suppressMessages({
   library(pwrss)
   library(MESS)
+  library(sandwich)
   library(jsonlite)
 })
 
@@ -107,10 +112,44 @@ simulation_rows <- lapply(simulations, function(case) {
                                             value(case$p_other), value(case$share_other))))
 })
 
+risk_ratio <- function(n0, n1, p0, p1, alpha) {
+  pooled <- (n1 * p1 + n0 * p0) / (n0 + n1)
+  variance <- (1 - p1) / (n1 * p1) + (1 - p0) / (n0 * p0)
+  null_variance <- (1 - pooled) / pooled * (1 / n1 + 1 / n0)
+  pnorm((abs(log(p1 / p0)) - qnorm(1 - alpha / 2) * sqrt(null_variance)) / sqrt(variance))
+}
+simulate_ratio <- function(n0, n1, p0, p1, runs = 4000) {
+  set.seed(2026)
+  x <- rep(c(0, 1), c(n0, n1))
+  hits <- 0
+  for (run in seq_len(runs)) {
+    y <- rbinom(n0 + n1, 1, ifelse(x == 1, p1, p0))
+    fit <- glm(y ~ x, family = poisson)
+    z <- coef(fit)[2] / sqrt(vcovHC(fit, type = "HC0")[2, 2])
+    hits <- hits + (abs(z) > qnorm(0.975))
+  }
+  hits / runs
+}
+ratios <- list(
+  list(unexposed = 1050, exposed = 525, p_reference = "1/10", p_other = "3/20", alpha = "1/20"),
+  list(unexposed = 400, exposed = 400, p_reference = "1/5", p_other = "3/10", alpha = "1/20"),
+  list(unexposed = 900, exposed = 300, p_reference = "1/4", p_other = "1/5", alpha = "1/100")
+)
+ratio_rows <- lapply(ratios, function(case) {
+  p0 <- value(case$p_reference)
+  p1 <- value(case$p_other)
+  row <- c(case, list(formula = risk_ratio(case$unexposed, case$exposed, p0, p1,
+                                           value(case$alpha))))
+  if (case$alpha == "1/20") row$simulation <- simulate_ratio(case$unexposed, case$exposed, p0, p1)
+  row
+})
+
 fixture <- list(
   r_version = R.version.string,
   packages = list(pwrss = as.character(packageVersion("pwrss")),
-                  MESS = as.character(packageVersion("MESS"))),
+                  MESS = as.character(packageVersion("MESS")),
+                  sandwich = as.character(packageVersion("sandwich"))),
+  risk_ratios = ratio_rows,
   logistic_binary = binary_rows,
   logistic_normal = normal_rows,
   poisson_rates = rate_rows,
@@ -141,6 +180,13 @@ cat("\nMatched pairs (MESS, Connor)\n")
 for (row in pair_rows) {
   cat(sprintf("%d pairs, discordant %s, odds ratio %s, alpha %s: %.12f\n", row$pairs,
               row$share, row$odds_ratio, row$alpha, row$mess))
+}
+cat("\nModified Poisson regression, Wald test of the log risk ratio\n")
+for (row in ratio_rows) {
+  cat(sprintf("groups (%d, %d), p = (%s, %s), alpha %s: formula %.12f", row$unexposed,
+              row$exposed, row$p_reference, row$p_other, row$alpha, row$formula),
+      if (is.null(row$simulation)) "\n" else sprintf(", simulation %.4f\n", row$simulation),
+      sep = "")
 }
 cat("\nSimulation, glm Wald test\n")
 for (row in simulation_rows) {

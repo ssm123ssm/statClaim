@@ -3,6 +3,76 @@
   "packages": {
     "pwr": "1.3.0"
   },
+  "spearman": [
+    {
+      "rho": "3/10",
+      "n": 87,
+      "formula": 0.804482856891734,
+      "simulation": 0.82075
+    },
+    {
+      "rho": "1/2",
+      "n": 30,
+      "formula": 0.800432688526781,
+      "simulation": 0.8015
+    },
+    {
+      "rho": "-1/5",
+      "n": 200,
+      "formula": 0.809701934373447,
+      "simulation": 0.812
+    }
+  ],
+  "means": [
+    {
+      "difference": "5",
+      "sd": "15",
+      "unexposed": 200,
+      "exposed": 100,
+      "k": 0,
+      "alpha": "1/20",
+      "power": 0.774248107189893,
+      "pwr": 0.774249592140694
+    },
+    {
+      "difference": "-2",
+      "sd": "6",
+      "unexposed": 300,
+      "exposed": 300,
+      "k": 3,
+      "alpha": "1/100",
+      "power": 0.932576808946201,
+      "pwr": {}
+    },
+    {
+      "difference": "5",
+      "sd": "15",
+      "n": 300,
+      "share": "1/3",
+      "k": 0,
+      "alpha": "1/20",
+      "power": 0.772361424615221
+    },
+    {
+      "difference": "1",
+      "sd": "4",
+      "n": 500,
+      "share": "1/10",
+      "k": 2,
+      "alpha": "1/20",
+      "power": 0.386149318005477
+    }
+  ],
+  "survey_means": [
+    {
+      "difference": "5",
+      "sd": "15",
+      "n": 600,
+      "share": "1/3",
+      "deff": "2",
+      "power": 0.776877861077915
+    }
+  ],
   "correlations": [
     {
       "rho": "3/10",

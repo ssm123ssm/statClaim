@@ -33,3 +33,16 @@ let slope_target = power_target(at=expected, minimum=9/10, maximum_typeI=1/20)
 let slope_power = calculate(meets(analysis=fitted, target=slope_target))
 let slope_sizes = total_sizes(analysis=fitted, min_n=10, max_n=5000)
 let slope_needed = calculate(smallest_sample_size(candidates=slope_sizes, target=slope_target))
+
+# Spearman's rank correlation, at a rank correlation of 3/10.
+let ranks = spearman_correlation(design=fixed(model=clinic), null=no_association(model=clinic), alpha=1/20)
+let ranks_target = power_target(at=correlation(value=3/10), minimum=4/5, maximum_typeI=1/20)
+let ranks_needed = calculate(smallest_sample_size(candidates=total_sizes(analysis=ranks, min_n=4, max_n=5000), target=ranks_target))
+
+# A yes-or-no exposure: pressure in smokers and non-smokers, a third of whom smoke.
+let smokers = cross_sectional(n=300, exposure="smoking", outcome="systolic pressure", outcome_scale="continuous")
+let by_smoking = linear_association(design=fixed(model=smokers), null=no_association(model=smokers), alpha=1/20)
+let means = outcome_means(unexposed=120, exposed=125, sd=15, exposed_share=1/3)
+let means_target = power_target(at=means, minimum=4/5, maximum_typeI=1/20)
+let means_sizes = total_sizes(analysis=by_smoking, min_n=10, max_n=5000)
+let means_needed = calculate(smallest_sample_size(candidates=means_sizes, target=means_target))

@@ -11,11 +11,15 @@ from fractions import Fraction
 
 from statclaim.methods.association_power import CORRELATION as CORRELATION_POWER
 from statclaim.methods.association_power import (
+    EXPOSURE_MEANS,
     LOGISTIC_GROUPS,
     LOGISTIC_TREND,
     MATCHED_PAIRS,
     POISSON_RATES,
+    RISK_RATIO,
+    SPEARMAN,
     SURVEY_GROUPS,
+    SURVEY_MEANS,
     SURVEY_SLOPE,
     SURVEY_TREND,
 )
@@ -287,6 +291,7 @@ REGRESSION = (
             COEFFICIENT_NULL,
         ),
         references=(ZOU,),
+        power=RISK_RATIO,
     ),
     ObservationalMethod(
         key="linear_association",
@@ -304,6 +309,7 @@ REGRESSION = (
         references=(SEBER,),
         min_total=4,
         power=SLOPE_POWER,
+        more_power=(EXPOSURE_MEANS,),
     ),
 )
 CORRELATION = (
@@ -341,6 +347,7 @@ CORRELATION = (
         references=(HOLLANDER,),
         covariates=False,
         min_total=4,
+        power=SPEARMAN,
     ),
 )
 SURVEY = (
@@ -380,6 +387,7 @@ SURVEY = (
         min_clusters=20,
         limit="the number of sampled clusters grows",
         power=SURVEY_SLOPE,
+        more_power=(SURVEY_MEANS,),
     ),
     ObservationalMethod(
         key="rao_scott_test",
