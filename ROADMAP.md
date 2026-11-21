@@ -81,6 +81,8 @@
 - Blinded sample-size re-estimation for Student's t-test, whose Type I error is judged
   by simulation at null scenarios listed on the target, cross-checked against R. Next:
   more adaptive rules (unblinded re-estimation, dropping an arm) on the same footing.
+- Simulated power of families (Bonferroni, fixed sequence, graphical) of Fisher tests and
+  t-tests with correlated endpoints: each endpoint, any and all, cross-checked against R.
 - Precision targets: sample sizes for a margin of error, absolute or relative, with an
   optional assurance, for every interval StatClaim reports, and for surveys through the
   normal interval with a design effect and a finite population correction.

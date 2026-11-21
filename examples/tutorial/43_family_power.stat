@@ -1,0 +1,24 @@
+# Lesson 43: the power of a family of endpoints.
+use models.two_arm_binomial
+use models.two_arm_continuous
+use sampling
+use tests.fisher
+use tests.t
+use multiplicity.bonferroni
+use planning
+
+# The two endpoints of lesson 13, each at 1/40: response, yes or no, and a symptom score.
+let responders = two_arm_binomial(n_control=120, n_treatment=120)
+let response = fisher(design=fixed(model=responders), null=equal_proportions(model=responders), alpha=1/40)
+let scores = two_arm_continuous(n_control=120, n_treatment=120)
+let symptoms = t_test(design=fixed(model=scores), null=equal_means(model=scores), alpha=1/40)
+let endpoints = bonferroni(analyses=[response, symptoms], alpha=1/20)
+
+# What we expect on each endpoint, in order, and how strongly they move together in a patient.
+let expected = endpoint_points(at=[binomial_rates(p_control=3/10, p_treatment=1/2), mean_difference(value=4, sd=10)], correlation=1/2)
+
+# Power to show at least one benefit, and to show both.
+let at_least_one = power_target(at=expected, minimum=4/5, maximum_typeI=1/20, rejecting="any")
+let every_one = power_target(at=expected, minimum=4/5, maximum_typeI=1/20, rejecting="all")
+let either = simulate(meets(analysis=endpoints, target=at_least_one), seed=2026)
+let both = simulate(meets(analysis=endpoints, target=every_one), seed=2026)

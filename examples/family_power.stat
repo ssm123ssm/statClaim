@@ -1,0 +1,26 @@
+# The power of a family: its endpoints are simulated together at one point each, with the
+# correlation between endpoints measured on the same participants. The family's error
+# bound is proved or cited; its power is an estimate.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use multiplicity.graphical
+use planning
+
+let trial = two_arm_continuous(n_control=100, n_treatment=100)
+let pain = t_test(design=fixed(model=trial), null=equal_means(model=trial), alpha=1/20)
+let function_score = t_test(design=fixed(model=trial), null=equal_means(model=trial), alpha=1/20)
+
+# Half the level to each endpoint; a rejected endpoint passes its level to the other.
+let graph = graphical(
+    analyses=[pain, function_score],
+    alpha=1/20,
+    weights=[1/2, 1/2],
+    transitions=[[0, 1], [1, 0]],
+)
+let expected = endpoint_points(
+    at=[mean_difference(value=4, sd=10), mean_difference(value=3, sd=10)],
+    correlation=3/10,
+)
+let target = power_target(at=expected, minimum=4/5, maximum_typeI=1/20, rejecting="any")
+let simulated = simulate(meets(analysis=graph, target=target), seed=2026)

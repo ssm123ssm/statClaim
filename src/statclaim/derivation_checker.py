@@ -64,6 +64,7 @@ from statclaim.methods.assumptions import (
 )
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
 from statclaim.methods.observational import METHODS as OBSERVATIONAL_METHODS
+from statclaim.methods.simulation import FAMILY
 from statclaim.precision import MAX_EXACT_PAIRS as PRECISION_PAIRS
 from statclaim.precision import MAX_SIZE as PRECISION_LIMIT
 from statclaim.precision import MEASURES as PRECISION_MEASURES
@@ -747,6 +748,123 @@ def _cited_association_planning_expected(name: str, subject: dict, search, analy
     return steps, obligations, assumptions
 
 
+FAMILY_METHODS = ("bonferroni", "fixed_sequence", "graphical")
+
+
+def _endpoint_kind(analysis: dict) -> str | None:
+    """A member simulated in a family: Fisher's test, or a t-test."""
+    if analysis.get("test") == "fisher" and analysis.get("alternative", "two_sided") in (
+        "two_sided",
+        "greater",
+    ):
+        return "binary"
+    method = METHODS.get(analysis.get("test"))
+    if method is not None and method.module == "tests.t":
+        return "measured"
+    return None
+
+
+def _endpoint_outside(analysis: dict, kind: str, point: dict) -> bool:
+    if kind == "binary":
+        control, treatment = Fraction(point["p_control"]), Fraction(point["p_treatment"])
+        if analysis.get("alternative") == "greater":
+            return treatment > control
+        return treatment != control
+    null = analysis["null"]
+    effect, margin = Fraction(point["mean_difference"]), Fraction(null.get("value", "0"))
+    return {"higher": effect > margin, "lower": effect < margin, None: effect != margin}[
+        _favours(null)
+    ]
+
+
+def _family_planning_expected(name: str, subject: dict, search, family: dict):
+    """Simulated power of a family: the family's own steps, then one point per member."""
+    if search is not None:
+        raise ValueError("a family is simulated as declared, not searched")
+    inner = f"{name}.analysis"
+    if "joint_law" in family:
+        steps, obligations = _fisher_family_expected(inner, family)
+        texts = FAMILY_ASSUMPTIONS
+    else:
+        block = _combination(inner, family, 0)
+        steps, obligations = list(block["steps"]), list(block["obligations"])
+        texts = (*block["own"], *block["nested"], *block["cited"])
+    used = [len(steps) - 1]
+    members = [(item["name"], item["analysis"]) for item in family["analyses"]]
+    target = subject["target"]
+    point = target["at"]
+    points = point.get("endpoints") or []
+    correlation = Fraction(point.get("correlation", "-1"))
+    kinds = [_endpoint_kind(analysis) for _, analysis in members]
+    wanted = {"binary": {"p_control", "p_treatment"}, "measured": {"mean_difference", "sd"}}
+    shaped = (
+        len(points) == len(members)
+        and None not in kinds
+        and all(set(p) == wanted[k] for p, k in zip(points, kinds, strict=False))
+    )
+    valid = (
+        shaped
+        and all(
+            _probability(p["p_control"]) and _probability(p["p_treatment"])
+            if k == "binary"
+            else Fraction(p["sd"]) > 0
+            for p, k in zip(points, kinds, strict=True)
+        )
+        and 0 <= correlation < 1
+    )
+    if valid and correlation > 0:
+        sizes = {
+            (a["design"]["model"]["n_control"], a["design"]["model"]["n_treatment"])
+            for _, a in members
+        }
+        valid = len(sizes) == 1
+    if valid:
+        valid = any(
+            _endpoint_outside(a, k, p) for (_, a), k, p in zip(members, kinds, points, strict=True)
+        )
+    steps.append(
+        (
+            "endpoint-points",
+            {
+                "subject": name,
+                "members": [member for member, _ in members],
+                "points": points,
+                "correlation": point.get("correlation"),
+            },
+            valid,
+            (),
+        )
+    )
+    rejecting = target.get("rejecting")
+    steps.append(
+        ("family-power", {"subject": name, "rejecting": rejecting}, rejecting in ("any", "all"), ())
+    )
+    minimum, maximum = target["minimum_power"], target["maximum_typeI"]
+    steps.append(
+        (
+            "target-range",
+            {"subject": name, "minimum": minimum, "maximum_typeI": maximum},
+            0 < Fraction(minimum) <= 1 and _probability(maximum),
+            (),
+        )
+    )
+    used += [len(steps) - 3, len(steps) - 2, len(steps) - 1]
+    steps.append(("family-planning-contract", {"subject": name}, True, tuple(used)))
+    obligations.append(
+        (
+            "cited-error-budget",
+            {"subject": name, "alpha": family["alpha"], "maximum_typeI": maximum},
+            Fraction(family["alpha"]) <= Fraction(maximum),
+        )
+    )
+    assumptions = (
+        *texts,
+        *(item.text for item in FAMILY.assumptions),
+        PLANNING_POINT_ASSUMPTION,
+    )
+    return steps, obligations, assumptions
+
+
 REESTIMATED_TESTS = ("t_test", "t_test_one_sided")
 PLAIN_MEAN_DIFFERENCE = {"mean_difference", "sd"}
 
@@ -1214,6 +1332,8 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
         return _sequential_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("rule") == "blinded_reestimation":
         return _reestimation_planning_expected(name, subject, search, analysis)
+    if analysis is not None and analysis.get("method") in FAMILY_METHODS:
+        return _family_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("test") in METHODS:
         return _cited_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("test") in OBSERVATIONAL_METHODS:
@@ -2219,55 +2339,61 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     if contract in ("planning/meets", "planning/sample_size"):
         return _planning_expected(derivation)
     if contract == "multiplicity.bonferroni/bonferroni":
-        members = [(item["name"], item["analysis"]) for item in subject["analyses"]]
-        names = [member for member, _ in members]
-        steps, finals = [], []
-        for member, analysis in members:
-            start = len(steps)
-            for rule, facts, holds in _analysis_expectations(member, analysis):
-                steps.append((rule, facts, holds, ()))
-            steps.append(
-                ("analysis-contract", {"subject": member}, True, tuple(range(start, start + 3)))
-            )
-            finals.append(len(steps) - 1)
-        low, high = FAMILY_LIMITS
-        base = len(steps)
-        steps += [
-            (
-                "distinct-members",
-                {"subject": name, "members": names},
-                len(set(names)) == len(names),
-                (),
-            ),
-            ("family-size", {"subject": name, "count": len(names)}, low <= len(names) <= high, ()),
-            (
-                "joint-law",
-                {"subject": name, "joint_law": subject["joint_law"]},
-                subject["joint_law"] in SUPPORTED_JOINT_LAWS,
-                (),
-            ),
-        ]
-        questions = _questions(name, subject["analyses"])
-        steps += [questions] if questions else []
-        steps.append(
-            (
-                "family-contract",
-                {"subject": name, "members": names},
-                True,
-                (*finals, base, base + 1, base + 2),
-            )
-        )
-        allocated = sum((Fraction(analysis["alpha"]) for _, analysis in members), Fraction())
-        obligations = [
-            (
-                "allocation",
-                {"subject": name, "allocated": str(allocated), "alpha": subject["alpha"]},
-                allocated <= Fraction(subject["alpha"]),
-            )
-        ]
-        obligations += [_sampling_expectation(member, analysis) for member, analysis in members]
+        steps, obligations = _fisher_family_expected(name, subject)
         return steps, obligations, FAMILY_ASSUMPTIONS
     raise ValueError(f"unknown contract {contract!r}")
+
+
+def _fisher_family_expected(name: str, subject: dict) -> tuple[list, list]:
+    """A proved family of Fisher analyses: its steps and obligations."""
+    members = [(item["name"], item["analysis"]) for item in subject["analyses"]]
+    names = [member for member, _ in members]
+    steps, finals = [], []
+    for member, analysis in members:
+        start = len(steps)
+        for rule, facts, holds in _analysis_expectations(member, analysis):
+            steps.append((rule, facts, holds, ()))
+        steps.append(
+            ("analysis-contract", {"subject": member}, True, tuple(range(start, start + 3)))
+        )
+        finals.append(len(steps) - 1)
+    low, high = FAMILY_LIMITS
+    base = len(steps)
+    steps += [
+        (
+            "distinct-members",
+            {"subject": name, "members": names},
+            len(set(names)) == len(names),
+            (),
+        ),
+        ("family-size", {"subject": name, "count": len(names)}, low <= len(names) <= high, ()),
+        (
+            "joint-law",
+            {"subject": name, "joint_law": subject["joint_law"]},
+            subject["joint_law"] in SUPPORTED_JOINT_LAWS,
+            (),
+        ),
+    ]
+    questions = _questions(name, subject["analyses"])
+    steps += [questions] if questions else []
+    steps.append(
+        (
+            "family-contract",
+            {"subject": name, "members": names},
+            True,
+            (*finals, base, base + 1, base + 2),
+        )
+    )
+    allocated = sum((Fraction(analysis["alpha"]) for _, analysis in members), Fraction())
+    obligations = [
+        (
+            "allocation",
+            {"subject": name, "allocated": str(allocated), "alpha": subject["alpha"]},
+            allocated <= Fraction(subject["alpha"]),
+        )
+    ]
+    obligations += [_sampling_expectation(member, analysis) for member, analysis in members]
+    return steps, obligations
 
 
 def check_derivation(derivation: dict) -> list[str]:

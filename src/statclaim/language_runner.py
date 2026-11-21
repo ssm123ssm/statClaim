@@ -734,6 +734,8 @@ def _type_one_label(calculation: dict) -> str:
     """At the null; for a design judged at several null scenarios, the worst of them."""
     if "null_scenarios" in calculation:
         return "worst Type I over the null scenarios"
+    if "endpoints" in calculation:
+        return "familywise error under the global null"
     return "Type I at the null"
 
 
@@ -743,14 +745,29 @@ def _simulated_lines(details: dict) -> list[str]:
     show = lambda record: f"{float(record['decimal_approximation']):.4f}"  # noqa: E731
     lines = [f"  {details['target_property']}"]
     if "power_lower" in calculation:
-        lines.append(
-            f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
-            f"total = {calculation['total_sample_size']}"
-            if "n_control" in calculation
-            else f"  n = {calculation['total_sample_size']}; covariates = "
-            f"{calculation['covariates']}; degrees of freedom = "
-            f"{calculation['degrees_of_freedom']}"
-        )
+        if "n_control" in calculation:
+            lines.append(
+                f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
+                f"total = {calculation['total_sample_size']}"
+            )
+        elif "covariates" in calculation:
+            lines.append(
+                f"  n = {calculation['total_sample_size']}; covariates = "
+                f"{calculation['covariates']}; degrees of freedom = "
+                f"{calculation['degrees_of_freedom']}"
+            )
+        if "endpoints" in calculation:
+            lines.append(
+                "  endpoints: "
+                + ", ".join(
+                    f"{item['name']} ~ {show(item['power']['rate'])}"
+                    for item in calculation["endpoints"]
+                )
+                + f"; any ~ {show(calculation['power_any']['rate'])}, all ~ "
+                f"{show(calculation['power_all']['rate'])} ({calculation['procedure']}, "
+                f"correlation {calculation['correlation']['fraction']}; power means "
+                f"{calculation['rejecting']})"
+            )
         if "null_scenarios" in calculation:
             lines.append(
                 f"  re-estimated after {calculation['interim_per_arm']} per arm, ending with "

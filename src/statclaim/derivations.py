@@ -50,6 +50,7 @@ from statclaim.language import (
 )
 from statclaim.matched import matched_assumptions
 from statclaim.methods.assumptions import REESTIMATION_TYPE_I
+from statclaim.methods.simulation import FAMILY
 from statclaim.planning import MAX_ONE_ARM, MAX_STAGE
 from statclaim.precision import MEASURES as PLANNED_KINDS
 from statclaim.precision import assumptions as precision_assumptions
@@ -329,6 +330,20 @@ RULES = {
         "takes, with valid values.",
         "{subject}: {method} has the power formula {formula} (version {version}) for this "
         "planning point.",
+    ),
+    "endpoint-points": Rule(
+        "Each member has one planning point of its kind, the correlation lies in [0, 1), "
+        "correlated endpoints share their arm sizes, and some point lies outside its null.",
+        "{subject}: one planning point per member, with correlation {correlation}.",
+    ),
+    "family-power": Rule(
+        "The family's power means rejecting any endpoint or all of them.",
+        "{subject}: power means rejecting {rejecting} of the endpoints.",
+    ),
+    "family-planning-contract": Rule(
+        "The family's contract, and the endpoint-points, family-power and target-range rules, "
+        "hold.",
+        "{subject}: the family's power can be simulated at these points.",
     ),
     "simulation-model": Rule(
         "The looks' test has a simulation model for designs with looks, and the planning "
@@ -1125,8 +1140,8 @@ def derive_composed(name: str, family: ComposedFamilyIR) -> Derivation:
     )
 
 
-def derive_family(name: str, family: FamilyIR) -> Derivation:
-    builder = _Builder()
+def _fisher_family_steps(builder: _Builder, name: str, family: FamilyIR) -> tuple[int, list]:
+    """A proved family's steps; its allocation and sampling obligations, to settle later."""
     members = [_analysis_steps(builder, member, analysis) for member, analysis in family.analyses]
     names = [member for member, _ in family.analyses]
     used = (
@@ -1138,13 +1153,22 @@ def derive_family(name: str, family: FamilyIR) -> Derivation:
     _distinct_questions(builder, name, family.analyses)
     final = builder.apply("family-contract", {"subject": name, "members": names}, used)
     allocated = sum((analysis.alpha for _, analysis in family.analyses), Fraction())
-    builder.settle(
-        "allocation",
-        {"subject": name, "allocated": str(allocated), "alpha": str(family.alpha)},
-        allocated <= family.alpha,
-    )
-    for member, analysis in family.analyses:
-        _sampling(builder, member, analysis)
+    pending = [
+        (
+            "allocation",
+            {"subject": name, "allocated": str(allocated), "alpha": str(family.alpha)},
+            allocated <= family.alpha,
+        ),
+        *(_fixed(member, analysis) for member, analysis in family.analyses),
+    ]
+    return final, pending
+
+
+def derive_family(name: str, family: FamilyIR) -> Derivation:
+    builder = _Builder()
+    final, pending = _fisher_family_steps(builder, name, family)
+    for rule, facts, holds in pending:
+        builder.settle(rule, facts, holds)
     return Derivation(
         name,
         "multiplicity.bonferroni/bonferroni",
@@ -1313,6 +1337,58 @@ def derive_sequential_planning(name: str, claim: ClaimIR, design: SequentialIR) 
             *(item.text for item in model.assumptions),
             PLANNING_POINT_ASSUMPTION,
         ),
+        tuple(builder.obligations),
+        normalize(claim),
+    )
+
+
+def derive_family_planning(name: str, claim: ClaimIR, family) -> Derivation:
+    """Simulated power of a family: its contract holds, and it has one point per member."""
+    target, inner = claim.subject.target, f"{name}.analysis"
+    builder = _Builder()
+    if isinstance(family, FamilyIR):
+        family_final, pending = _fisher_family_steps(builder, inner, family)
+        texts = FAMILY_ASSUMPTIONS
+    else:
+        pending = []
+        family_final = _composed_steps(builder, inner, family, pending)
+        texts = composed_assumptions(family)
+    point = target.at
+    used = [
+        family_final,
+        builder.apply(
+            "endpoint-points",
+            {
+                "subject": name,
+                "members": [member for member, _ in family.analyses],
+                "points": [normalize(item) for item in point.points],
+                "correlation": str(point.correlation),
+            },
+        ),
+        builder.apply("family-power", {"subject": name, "rejecting": target.rejecting}),
+        builder.apply(
+            "target-range",
+            {
+                "subject": name,
+                "minimum": str(target.minimum),
+                "maximum_typeI": str(target.maximum_typeI),
+            },
+        ),
+    ]
+    final = builder.apply("family-planning-contract", {"subject": name}, tuple(used))
+    for rule, facts, holds in pending:
+        builder.settle(rule, facts, holds)
+    builder.settle(
+        "cited-error-budget",
+        {"subject": name, "alpha": str(family.alpha), "maximum_typeI": str(target.maximum_typeI)},
+        family.alpha <= target.maximum_typeI,
+    )
+    return Derivation(
+        name,
+        f"planning/{claim.kind}",
+        builder.steps[final].conclusion,
+        tuple(builder.steps),
+        (*texts, *(item.text for item in FAMILY.assumptions), PLANNING_POINT_ASSUMPTION),
         tuple(builder.obligations),
         normalize(claim),
     )
@@ -1571,6 +1647,8 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
         return derive_sequential_planning(name, claim, analysis)
     if isinstance(analysis, ReestimationIR):
         return derive_reestimation_planning(name, claim, analysis)
+    if isinstance(analysis, (FamilyIR, ComposedFamilyIR)):
+        return derive_family_planning(name, claim, analysis)
     if isinstance(analysis, CitedAnalysisIR):
         return derive_cited_planning(name, claim, analysis)
     if isinstance(analysis, CitedAssociationIR):

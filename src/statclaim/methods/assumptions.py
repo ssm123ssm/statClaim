@@ -349,3 +349,11 @@ REESTIMATION_TYPE_I = Assumption(
     "The re-estimated design's Type I error is not proved. It is judged by simulation at the "
     "declared null scenarios only; at other values of the standard deviation it may differ.",
 )
+SIMULATED_ENDPOINTS = Assumption(
+    "simulated_endpoints",
+    "monte_carlo",
+    "The simulation draws every endpoint at its planning point. Endpoints with a correlation "
+    "are measured on the same participants through latent normals with that exchangeable "
+    "correlation: a yes-or-no outcome is a success when its latent is high, a measured outcome "
+    "rises with its latent. Other forms of dependence may give other power.",
+)

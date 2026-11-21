@@ -32,6 +32,7 @@ from statclaim.methods.core import (
 from statclaim.methods.observational import METHODS as OBSERVATIONAL
 from statclaim.methods.outcomes import OUTCOMES as _OUTCOMES
 from statclaim.methods.outcomes import SHARP_NULL
+from statclaim.methods.simulation import FAMILY
 
 METHOD_MODULES: tuple[MethodModule, ...] = (
     t_tests.MODULE,
@@ -108,7 +109,7 @@ ASSUMPTIONS: dict[str, Assumption] = {
     value.id: value for value in vars(assumptions).values() if isinstance(value, Assumption)
 }
 ASSUMPTIONS.update({value.id: value for value in assumptions.ACCOUNTS_FOR.values()})
-for _item in (*METHODS.values(), *POWER_FORMULAS.values(), *SIMULATIONS.values()):
+for _item in (*METHODS.values(), *POWER_FORMULAS.values(), *SIMULATIONS.values(), FAMILY):
     for _assumption in _item.assumptions:
         if ASSUMPTIONS.setdefault(_assumption.id, _assumption) != _assumption:
             raise ValueError(f"Assumption id {_assumption.id!r} has two meanings.")
@@ -155,6 +156,13 @@ def versions() -> dict:
             + repr(users)
         )
         recorded[f"simulation:{key}"] = {"version": model.version, "sha256": _sha256(content)}
+    # The model that simulates a family's endpoints together.
+    recorded[f"simulation:{FAMILY.key}"] = {
+        "version": FAMILY.version,
+        "sha256": _sha256(
+            repr(FAMILY) + inspect.getsource(FAMILY.trial) + inspect.getsource(FAMILY.scenario)
+        ),
+    }
     # Simulation models of the cited observational tests.
     for model in {
         m.simulation.key: m.simulation for m in OBSERVATIONAL.values() if m.simulation

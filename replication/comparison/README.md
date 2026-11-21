@@ -30,6 +30,7 @@ gMCP was not used: it needs Java.
 | `survey_power_r.R` | `survey_power_r.txt` | Survey tests through the design effect: `pwrss`'s Hsieh sizes for a simple random sample, times the design effect, and the Wald test of a slope; writes `tests/fixtures/survey_power_r.json`, which `tests/test_survey_power.py` compares with StatClaim |
 | `precision_r.R` | `precision_r.txt` | Margins of error and assurance of StatClaim's exact intervals (`binom.test` for every count, `qbeta` at expected counts), the normal intervals (`presize`'s `prec_prop`, `prec_riskdiff`, `prec_riskratio`, `prec_or`), and Cochran's survey size; writes `tests/fixtures/precision_r.json`, which `tests/test_precision.py` compares with StatClaim |
 | `cluster_simulation_r.R` | `cluster_simulation_r.txt` | Power of the t-test on cluster means and proportions from a simulation that draws every participant, with cluster sizes that vary; writes `tests/fixtures/cluster_simulation_r.json`, which `tests/test_cluster_simulation.py` compares with StatClaim's simulation |
+| `family_power_r.R` | `family_power_r.txt` | Each endpoint's rejection rate, any and all, and the familywise error, for Bonferroni, fixed-sequence and graphical families of Fisher tests and t-tests with correlated endpoints, from a raw-data simulation with `fisher.test`, `t.test` and the graphical algorithm written in R; writes `tests/fixtures/family_power_r.json`, which `tests/test_family_power.py` compares with StatClaim's simulation |
 | `reestimation_r.R` | `reestimation_r.txt` | Power, Type I error and mean size per arm of Student's t-test with blinded sample-size re-estimation (Kieser and Friede), at three SDs, from a raw-data simulation; writes `tests/fixtures/reestimation_r.json`, which `tests/test_reestimation.py` compares with StatClaim's simulation |
 | `group_sequential_r.R` | `group_sequential_r.txt` | How often designs with two or three interim looks stop at each look, at the planning point and under the null, from a simulation that applies `t.test` at each look; writes `tests/fixtures/group_sequential_r.json`, which `tests/test_group_sequential.py` compares with StatClaim's simulation |
 | `correlation_simulation_r.R` | `correlation_simulation_r.txt` | Type I error and power of the t-tests of Pearson's correlation and of a simple regression slope with skewed data, from a simulation analysed with `cor.test` and `lm`; writes `tests/fixtures/correlation_simulation_r.json`, which `tests/test_correlation_simulation.py` compares with StatClaim's simulation |
@@ -96,6 +97,9 @@ graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup
   with and without cluster sizes that vary, StatClaim's simulation agrees with R's
   raw-data simulation within four standard errors; with equal clusters its interval holds
   the noncentral t.
+- **Families.** For four families (Bonferroni with correlation 1/2 or 0, a fixed sequence,
+  a three-endpoint graph), each endpoint's rate, any, all and the familywise error agree
+  with R's raw-data simulation within four standard errors.
 - **Blinded re-estimation.** At SDs of 6, 10 and 14, StatClaim's Type I error, power and
   mean size per arm agree with R's raw-data simulation within four standard errors (sizes
   within 3%).

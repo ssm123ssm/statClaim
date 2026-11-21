@@ -16,6 +16,7 @@ from statclaim.language import (
     DifferenceIntervalIR,
     EffectIntervalIR,
     FamilyIR,
+    FamilyLikeIR,
     FeasibilityIR,
     IntervalIR,
     LocatedValue,
@@ -32,7 +33,6 @@ from statclaim.language import (
     RateResultIR,
     ReestimationIR,
     RequestIR,
-    SequentialIR,
     SizingIR,
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
@@ -162,7 +162,7 @@ def inspect_planning(request: RequestIR) -> dict:
     analysis = subject.analysis if feasibility else subject.candidates.analysis
     if isinstance(analysis, PlannedIntervalIR):
         return precision_planning.describe(subject)
-    if isinstance(analysis, (SequentialIR, ReestimationIR)):
+    if isinstance(analysis, (FamilyLikeIR, ReestimationIR)):
         # Its power has no formula; only simulate(...) estimates it.
         return simulated_planning.describe(subject, None)
     if isinstance(analysis, CitedAnalysisIR):

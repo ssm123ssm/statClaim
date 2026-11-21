@@ -16,6 +16,11 @@ A design that re-estimates its size has no proved level, so its Type I error is 
 at every null scenario the target lists and judged at each; the report gives each one's
 estimate and expected size.
 
+A family's endpoints are simulated together at one point per member and tested by the
+family's procedure. The report gives each endpoint's power, the chance of rejecting any and
+all of them, and the familywise error under the global null, which is reported beside the
+proved or cited bound, not judged.
+
 A size passes when the whole 95% interval for its power is at or above the target. A
 sample-size search goes up from the smallest size and simulates every size it passes, so
 nothing assumes that power rises with the sample size. The first size that passes is
@@ -46,6 +51,7 @@ from statclaim.fisher import fraction_record
 from statclaim.language import (
     CitedAssociationIR,
     ClusterCandidatesIR,
+    FamilyLikeIR,
     FeasibilityIR,
     PowerTargetIR,
     ReestimationIR,
@@ -53,11 +59,14 @@ from statclaim.language import (
     SimulationIR,
     clustered_test,
     departs,
+    endpoint_kind,
+    family_procedure,
     planned_analysis,
 )
 from statclaim.methods import NULL_FORMS
 from statclaim.methods.assumptions import REESTIMATION_TYPE_I
 from statclaim.methods.identify import identify, mark
+from statclaim.methods.simulation import FAMILY
 from statclaim.report import planning_report
 
 ESTIMATE = "Monte Carlo estimate with a 95% interval, not a bound"
@@ -85,6 +94,11 @@ class Design:
     looks: tuple | None = None
 
 
+def _plain_family(analysis) -> bool:
+    """A family of tests, as opposed to one test at several looks."""
+    return isinstance(analysis, FamilyLikeIR) and not isinstance(analysis, SequentialIR)
+
+
 def _observational(analysis) -> bool:
     return isinstance(analysis, CitedAssociationIR)
 
@@ -97,6 +111,157 @@ def _method(analysis):
     if isinstance(analysis, ReestimationIR):
         return analysis.analysis.method
     return analysis.method
+
+
+def _family_member(name: str, analysis, point, *, at_null: bool) -> dict:
+    """One member of a family as the engine draws and tests it."""
+    model = analysis.plan.model
+    side = (
+        "higher"
+        if getattr(analysis, "alternative", None) == "greater"
+        else "both"
+        if endpoint_kind(analysis) == "binary"
+        else NULL_FORMS[analysis.hypothesis.predicate][1].favours or "both"
+    )
+    member = {
+        "name": name,
+        "sizes": (model.n_control, model.n_treatment),
+        "side": side,
+        "level": analysis.alpha,
+    }
+    if endpoint_kind(analysis) == "binary":
+        control = float(point.p_control)
+        treatment = control if at_null else float(point.p_treatment)
+        return {**member, "test": "fisher", "rates": (control, treatment)}
+    null_value = float(analysis.hypothesis.value)
+    return {
+        **member,
+        "test": "welch" if "welch" in analysis.method.key else "student",
+        "difference": null_value if at_null else float(point.value),
+        "sd": float(point.sd),
+        "null_value": null_value,
+    }
+
+
+def _family_evaluate(family, target: PowerTargetIR, settings: SimulationIR) -> dict:
+    """Each endpoint's power, any and all, at the points; the familywise error at the null."""
+    point, names = target.at, [name for name, _ in family.analyses]
+    procedure = family_procedure(family)
+    graph = (family.weights, family.transitions) if procedure == "graphical" else None
+
+    def endpoints(at_null: bool) -> list[dict]:
+        return [
+            _family_member(name, analysis, member_point, at_null=at_null)
+            for (name, analysis), member_point in zip(family.analyses, point.points, strict=True)
+        ]
+
+    labels = (procedure, str(point.correlation), *names)
+
+    def run(at_null: bool, stream: str) -> engine.FamilyEstimate:
+        trial = FAMILY.trial(
+            endpoints(at_null), float(point.correlation), procedure, family.alpha, graph
+        )
+        return engine.estimate_family(
+            trial, len(names), settings.runs, engine.Stream(settings.seed, stream, *labels)
+        )
+
+    power, error = run(False, "power"), run(True, "typeI")
+
+    def record(count: int, found: engine.FamilyEstimate) -> dict:
+        lower, upper = found.interval(count)
+        return {
+            "rate": fraction_record(Fraction(count, found.runs)),
+            "lower": _bound(lower, "down"),
+            "upper": _bound(upper, "up"),
+        }
+
+    chosen = power.any if target.rejecting == "any" else power.all
+    lower, upper = power.interval(chosen)
+    error_lower, error_upper = error.interval(error.any)
+    met = lower >= float(target.minimum)
+    sizes = {tuple(member["sizes"]) for member in endpoints(False)}
+    shared = next(iter(sizes)) if len(sizes) == 1 else None
+    return {
+        **(
+            {
+                "n_control": shared[0],
+                "n_treatment": shared[1],
+                "total_sample_size": shared[0] + shared[1],
+            }
+            if shared
+            else {}
+        ),
+        "procedure": procedure,
+        "rejecting": target.rejecting,
+        "correlation": fraction_record(point.correlation),
+        "endpoints": [
+            {"name": name, "power": record(count, power)}
+            for name, count in zip(names, power.each, strict=True)
+        ],
+        "power_any": record(power.any, power),
+        "power_all": record(power.all, power),
+        "power": fraction_record(Fraction(chosen, power.runs)),
+        "power_lower": _bound(lower, "down"),
+        "power_upper": _bound(upper, "up"),
+        "power_rejected": chosen,
+        "minimum_power": fraction_record(target.minimum),
+        "power_target_met": met,
+        "power_settled": met or upper < float(target.minimum),
+        "typeI": fraction_record(Fraction(error.any, error.runs)),
+        "typeI_lower": _bound(error_lower, "down"),
+        "typeI_upper": _bound(error_upper, "up"),
+        "typeI_rejected": error.any,
+        "alpha": fraction_record(family.alpha),
+        "maximum_typeI": fraction_record(target.maximum_typeI),
+        # Proved or cited for any dependence between members: reported, not judged.
+        "typeI_target_met": family.alpha <= target.maximum_typeI,
+        "typeI_settled": True,
+        "typeI_judged": False,
+        "runs": settings.runs,
+        "seed": settings.seed,
+        "stream": "power",
+        "scenario": FAMILY.scenario({"count": len(names), "correlation": float(point.correlation)}),
+        "model": FAMILY.key,
+        "model_version": FAMILY.version,
+        "engine_version": engine.ENGINE_VERSION,
+        "generator": engine.GENERATOR,
+        "interval": INTERVAL,
+        "note": ESTIMATE,
+    }
+
+
+def _family_describe(subject, settings: SimulationIR | None) -> dict:
+    family, target = planned_analysis(subject), subject.target
+    procedure = family_procedure(family)
+    runs = (
+        "simulate(...)"
+        if settings is None
+        else f"{settings.runs:,} simulated studies from seed {settings.seed}"
+    )
+    words = {
+        "bonferroni": "each at its own level",
+        "fixed_sequence": "in order at the full level",
+        "graphical": "along the graph",
+    }[procedure]
+    meaning = "at least one endpoint" if target.rejecting == "any" else "every endpoint"
+    text = (
+        f"A family of {len(family.analyses)} tests, {words}, with endpoints simulated together "
+        f"at one point each and correlation {target.at.correlation}: power at least "
+        f"{target.minimum} of rejecting {meaning}, and the family's level {family.alpha} at "
+        f"most {target.maximum_typeI}, estimated from {runs}. Power is a {ESTIMATE}."
+    )
+    listed = [*(mark(item) for item in FAMILY.assumptions), identify(PLANNING_POINT)]
+    report = planning_report("simulated_planning", text, [item["text"] for item in listed])
+    report["simulation"] = {
+        **FAMILY.to_dict(),
+        **({} if settings is None else {"runs": settings.runs, "seed": settings.seed}),
+        "engine_version": engine.ENGINE_VERSION,
+        "generator": engine.GENERATOR,
+        "interval": INTERVAL,
+    }
+    report["assumptions"] = listed
+    report["references"] = list(FAMILY.references)
+    return report
 
 
 def _reestimation_evaluate(
@@ -535,6 +700,8 @@ def _statement(subject, analysis, target: PowerTargetIR, runs: str) -> str:
 def describe(subject, settings: SimulationIR | None) -> dict:
     """The simulated planning claim before running: what will be estimated and how. Without
     settings, the claim itself, which only simulate(...) can estimate."""
+    if _plain_family(planned_analysis(subject)):
+        return _family_describe(subject, settings)
     analysis, target = planned_analysis(subject), subject.target
     method = _method(analysis)
     model = method.simulation
@@ -574,6 +741,11 @@ def run(report: dict, subject, settings: SimulationIR) -> dict:
     """Estimate power at the declared sizes, or search up the range for the first size that
     passes, and confirm it with an independent run."""
     analysis, target = planned_analysis(subject), subject.target
+    if _plain_family(analysis):
+        calculation = _family_evaluate(analysis, target, settings)
+        report["calculation"] = calculation
+        report["decision"] = _decision(calculation)
+        return report
     if isinstance(analysis, ReestimationIR):
         calculation = _reestimation_evaluate(analysis, target, settings)
         report["calculation"] = calculation

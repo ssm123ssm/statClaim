@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Forty-two short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Forty-three short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li><li><a href="#survival-simulation"><span class="n">39</span>Survival trials by simulation</a></li><li><a href="#skewed-correlation"><span class="n">40</span>A correlation with skewed data</a></li><li><a href="#interim-power"><span class="n">41</span>What an interim look costs and saves</a></li><li><a href="#reestimation"><span class="n">42</span>Re-estimate the sample size</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li><li><a href="#survival-simulation"><span class="n">39</span>Survival trials by simulation</a></li><li><a href="#skewed-correlation"><span class="n">40</span>A correlation with skewed data</a></li><li><a href="#interim-power"><span class="n">41</span>What an interim look costs and saves</a></li><li><a href="#reestimation"><span class="n">42</span>Re-estimate the sample size</a></li><li><a href="#family-power"><span class="n">43</span>The power of a family of endpoints</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -3288,6 +3288,67 @@ depends on the treatment effect, and no one at the interim learns which arm is a
     <div class="task"><h4>Try it</h4><p>Add an SD of 20 to the null scenarios. Does the maximum of 200 per arm still give enough power at that SD?</p></div>
   </div>
 </section>
+<section class="lesson" id="family-power">
+  <p class="eyebrow">Lesson 43</p>
+  <h2>The power of a family of endpoints</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>Lesson 13 kept the error of two endpoints at 1/20. Their power depends on how they move together: the chance of showing at least one benefit is not the chance of showing both. Simulation gives each.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/43_family_power.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 43: the power of a family of endpoints.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> models.two_arm_continuous
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> tests.t
+<span class="k">use</span> multiplicity.bonferroni
+<span class="k">use</span> planning
+
+<span class="c"># The two endpoints of lesson 13, each at 1/40: response, yes or no, and a symptom score.</span>
+<span class="k">let</span> responders = <span class="f">two_arm_binomial</span>(n_control=120, n_treatment=120)
+<span class="k">let</span> response = <span class="f">fisher</span>(design=<span class="f">fixed</span>(model=responders), null=<span class="f">equal_proportions</span>(model=responders), alpha=1/40)
+<span class="k">let</span> scores = <span class="f">two_arm_continuous</span>(n_control=120, n_treatment=120)
+<span class="k">let</span> symptoms = <span class="f">t_test</span>(design=<span class="f">fixed</span>(model=scores), null=<span class="f">equal_means</span>(model=scores), alpha=1/40)
+<span class="k">let</span> endpoints = <span class="f">bonferroni</span>(analyses=[response, symptoms], alpha=1/20)
+
+<span class="c"># What we expect on each endpoint, in order, and how strongly they move together in a patient.</span>
+<span class="k">let</span> expected = <span class="f">endpoint_points</span>(at=[<span class="f">binomial_rates</span>(p_control=3/10, p_treatment=1/2), <span class="f">mean_difference</span>(value=4, sd=10)], correlation=1/2)
+
+<span class="c"># Power to show at least one benefit, and to show both.</span>
+<span class="k">let</span> at_least_one = <span class="f">power_target</span>(at=expected, minimum=4/5, maximum_typeI=1/20, rejecting=&quot;any&quot;)
+<span class="k">let</span> every_one = <span class="f">power_target</span>(at=expected, minimum=4/5, maximum_typeI=1/20, rejecting=&quot;all&quot;)
+<span class="k">let</span> either = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=endpoints, target=at_least_one), seed=2026)
+<span class="k">let</span> both = <span class="f">simulate</span>(<span class="f">meets</span>(analysis=endpoints, target=every_one), seed=2026)</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>endpoint_points(at=[...], correlation=1/2)</code></dt>
+  <dd>One planning point per member of the family, in order, and how strongly the endpoints
+  move together within a patient.</dd>
+  <dt><code>rejecting="any"</code>, <code>rejecting="all"</code></dt>
+  <dd>What the family&#x27;s power means: rejecting at least one endpoint, or every one.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">simulated</span> [either]: meets(endpoints)
+  arm sizes = (120, 120); total = 240
+  endpoints: response ~ 0.7962, symptoms ~ 0.8017; any ~ 0.9239, all ~ 0.6740 (bonferroni, correlation 1/2; power means any)
+  power ~ 0.9239 (95% interval 0.9185 to 0.9290); power target met = true
+  familywise error under the global null ~ 0.0379 (95% interval 0.0342 to 0.0418); level 1/20; Type I target met = true
+  ...
+<span class="calc">simulated</span> [both]: meets(endpoints)
+  power ~ 0.6740 (95% interval 0.6647 to 0.6832); power target met = false
+  ...
+Program status: simulated</code></pre></div>
+<p>Each endpoint alone has about 80% power. Together, the trial shows at least one benefit
+92% of the time, but both only 67% of the time. If the protocol needs both, it needs more
+patients. The familywise error is below the proved 1/20. A simulation in R with
+<code>fisher.test</code> and <code>t.test</code> gives the same rates within its Monte Carlo
+error.</p>
+<div class="note"><strong>Why the correlation matters.</strong> When the endpoints move
+together, a trial that does well on one tends to do well on the other. That raises the
+chance of both and lowers the chance of at least one. With a correlation of 0 the two
+would be independent.</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>endpoint_points</code> gives a family one point per member and a correlation.</li><li><code>rejecting</code> says whether power means any endpoint or all.</li><li>Families, sequences and graphs are simulated with their own procedure.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Set the correlation to 0. How do the chances of any and of both change?</p></div>
+  </div>
+</section>
 <section class="lesson" id="reference">
   <p class="eyebrow">Reference</p>
   <h2>What to reach for</h2>
@@ -3322,6 +3383,7 @@ depends on the treatment effect, and no one at the interim learns which arm is a
       <tr><td>Plan a logistic, modified Poisson, conditional logistic or Poisson rate regression</td><td><code>planning</code>, <code>tests.regression</code></td><td><code>meets</code>, <code>smallest_sample_size</code> at the design&#x27;s point or <code>odds_per_sd</code>, with <code>cohort_sizes</code>, <code>case_control_sizes</code>, <code>total_sizes</code>, <code>matched_sizes</code> or <code>event_counts</code></td><td>34</td></tr>
       <tr><td>Plan a complex survey</td><td><code>planning</code>, <code>tests.survey</code></td><td><code>meets</code>, <code>smallest_sample_size</code> with <code>design_effect</code> on the point, with <code>total_sizes</code></td><td>35</td></tr>
       <tr><td>Size a study for a margin of error</td><td><code>planning</code></td><td><code>meets</code>, <code>smallest_sample_size</code>, <code>sample_size</code> with <code>planned_interval</code>, <code>precision_target</code> and <code>interval_sizes</code></td><td>36</td></tr>
+      <tr><td>Simulate a family's power: each endpoint, any and all</td><td><code>planning</code>, <code>multiplicity.*</code></td><td><code>endpoint_points</code>, <code>power_target(..., rejecting=...)</code>, <code>simulate</code></td><td>43</td></tr>
       <tr><td>Re-estimate the sample size at an interim look, judging Type I at null scenarios</td><td><code>designs.adaptive</code>, <code>planning</code></td><td><code>blinded_reestimation</code>, <code>null_scenarios</code>, <code>simulate</code></td><td>42</td></tr>
       <tr><td>Simulate a trial with interim looks: power, stopping and expected size</td><td><code>planning</code>, <code>designs.group_sequential</code></td><td><code>simulate(meets(analysis=trial, ...))</code> for an <code>alpha_spending</code> design</td><td>41</td></tr>
       <tr><td>Simulate a correlation or a slope with skewed data</td><td><code>planning</code>, <code>tests.correlation</code></td><td><code>simulate</code> at <code>correlation</code> or <code>slope</code> with <code>skewness</code></td><td>40</td></tr>

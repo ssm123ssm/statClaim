@@ -19,6 +19,7 @@ import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
+from functools import lru_cache
 from statistics import NormalDist
 
 ENGINE_VERSION = 1
@@ -718,3 +719,209 @@ def estimate_sized(trial: Callable[[Stream], tuple[bool, int]], runs: int, strea
     return SizedEstimate(
         Estimate(rejected, runs, *clopper_pearson(rejected, runs)), Fraction(sizes, runs)
     )
+
+
+@lru_cache(maxsize=4096)
+def _fisher_tails(n_control: int, n_treatment: int, total: int, alternative: str) -> tuple:
+    """For one pooled total: each table's exact tail weight, by control successes, over
+    the number of tables C(n_control + n_treatment, total)."""
+    lower, upper = max(0, total - n_treatment), min(n_control, total)
+    weights = [
+        math.comb(n_control, k) * math.comb(n_treatment, total - k) for k in range(lower, upper + 1)
+    ]
+    if alternative == "greater":
+        # Fewer control successes favour treatment: the tail at k is every table with at most k.
+        tails, running = [], 0
+        for weight in weights:
+            running += weight
+            tails.append(running)
+    else:
+        # Two-sided: every table no more likely than this one, ties included exactly.
+        tails = [sum(w for w in weights if w <= weight) for weight in weights]
+    return lower, tuple(tails), math.comb(n_control + n_treatment, total)
+
+
+def fisher_p_value(
+    n_control: int, n_treatment: int, control: int, treatment: int, alternative: str
+) -> Fraction:
+    """The exact p-value of Fisher's test for one table, as fisher_exact computes it."""
+    lower, tails, tables = _fisher_tails(n_control, n_treatment, control + treatment, alternative)
+    return Fraction(tails[control - lower], tables)
+
+
+def graphical_rejections(p_values: list, alpha: Fraction, weights, transitions) -> list[bool]:
+    """Bretz et al.'s algorithm: reject a hypothesis whose p-value is at most its weight times
+    alpha, pass its weight on along the graph, and repeat. Exact in Fractions."""
+    k = len(p_values)
+    weights = [Fraction(w) for w in weights]
+    graph = [[Fraction(g) for g in row] for row in transitions]
+    active, rejected = set(range(k)), [False] * k
+    while True:
+        chosen = next((j for j in sorted(active) if p_values[j] <= weights[j] * alpha), None)
+        if chosen is None:
+            return rejected
+        rejected[chosen] = True
+        active.discard(chosen)
+        new_weights = list(weights)
+        for low in active:
+            new_weights[low] = weights[low] + weights[chosen] * graph[chosen][low]
+        new_graph = [row[:] for row in graph]
+        for low in active:
+            for high in active:
+                if low == high:
+                    new_graph[low][high] = Fraction(0)
+                    continue
+                denominator = 1 - graph[low][chosen] * graph[chosen][low]
+                new_graph[low][high] = (
+                    (graph[low][high] + graph[low][chosen] * graph[chosen][high]) / denominator
+                    if denominator > 0
+                    else Fraction(0)
+                )
+        new_weights[chosen] = Fraction(0)
+        weights, graph = new_weights, new_graph
+
+
+def family_trial(
+    endpoints: list[dict], correlation: float, procedure: str, alpha: Fraction, graph=None
+) -> Callable[[Stream], tuple[bool, ...]]:
+    """One simulated trial with several endpoints: which of them does the procedure reject?
+
+    Each endpoint is a dict with `test` ("fisher" or "student"/"welch"), `sizes`
+    (n_control, n_treatment), `side`, `level` (its own alpha) and its point: `rates` for a
+    yes-or-no outcome, or `difference`, `sd` and `null_value` for a measured one. With a
+    correlation above 0 the endpoints are measured on the same participants: each has a
+    latent normal with that exchangeable correlation; a yes-or-no outcome is a success when
+    its latent is above the normal quantile at 1 - rate, and a measured outcome rises with its
+    latent, so a positive correlation moves both the same way. With 0 the endpoints are drawn
+    independently, as summaries.
+    The procedure is "bonferroni" (each at its level), "fixed_sequence" (in order at alpha,
+    stopping at the first failure) or "graphical" (graph is (weights, transitions)).
+    """
+    normal = NormalDist()
+    shared = correlation > 0.0
+    common, own = math.sqrt(correlation), math.sqrt(1.0 - correlation)
+    plans = []
+    for endpoint in endpoints:
+        if endpoint["test"] == "fisher":
+            p_c, p_t = endpoint["rates"]
+            cuts = tuple(
+                normal.inv_cdf(1.0 - p) if 0 < p < 1 else (-math.inf if p >= 1 else math.inf)
+                for p in (p_c, p_t)
+            )
+            plans.append(("binary", cuts))
+        else:
+            plans.append(("measured", (0.0, endpoint["difference"])))
+
+    def draw(stream: Stream) -> list:
+        """Each endpoint's data: success counts, or each arm's (n, mean, sum of squares)."""
+        if not shared:
+            data = []
+            for endpoint, (kind, values) in zip(endpoints, plans, strict=True):
+                n_c, n_t = endpoint["sizes"]
+                if kind == "binary":
+                    p_c, p_t = endpoint["rates"]
+                    data.append((stream.binomial(n_c, p_c), stream.binomial(n_t, p_t)))
+                else:
+                    arms = []
+                    for n, mean in zip((n_c, n_t), values, strict=True):
+                        centre = mean + endpoint["sd"] / math.sqrt(n) * stream.normal()
+                        ss = endpoint["sd"] ** 2 * stream.chi_square(n - 1) if n > 1 else 0.0
+                        arms.append((n, centre, ss))
+                    data.append(tuple(arms))
+            return data
+        n_c, n_t = endpoints[0]["sizes"]
+        sums = [[[0, 0.0, 0.0], [0, 0.0, 0.0]] for _ in endpoints]
+        for arm, n in ((0, n_c), (1, n_t)):
+            for _ in range(n):
+                factor = common * stream.normal()
+                for index, (endpoint, (kind, values)) in enumerate(
+                    zip(endpoints, plans, strict=True)
+                ):
+                    z = factor + own * stream.normal()
+                    cell = sums[index][arm]
+                    if kind == "binary":
+                        cell[0] += z > values[arm]
+                    else:
+                        y = values[arm] + endpoint["sd"] * z
+                        cell[1] += y
+                        cell[2] += y * y
+        data = []
+        for (kind, _), cells in zip(plans, sums, strict=True):
+            if kind == "binary":
+                data.append((cells[0][0], cells[1][0]))
+            else:
+                arms = []
+                for n, cell in zip((n_c, n_t), cells, strict=True):
+                    mean = cell[1] / n
+                    arms.append((n, mean, max(cell[2] - n * mean * mean, 0.0)))
+                data.append(tuple(arms))
+        return data
+
+    def p_value(endpoint: dict, data) -> Fraction | float:
+        if endpoint["test"] == "fisher":
+            n_c, n_t = endpoint["sizes"]
+            alternative = "greater" if endpoint["side"] == "higher" else "two_sided"
+            return fisher_p_value(n_c, n_t, data[0], data[1], alternative)
+        (n_c, mean_c, ss_c), (n_t, mean_t, ss_t) = data
+        shift = mean_t - mean_c - endpoint["null_value"]
+        if endpoint["test"] == "welch":
+            var_c, var_t = ss_c / (n_c - 1) / n_c, ss_t / (n_t - 1) / n_t
+            if var_c + var_t <= 0.0:
+                return 1.0
+            t = shift / math.sqrt(var_c + var_t)
+            df = (var_c + var_t) ** 2 / (var_c**2 / (n_c - 1) + var_t**2 / (n_t - 1))
+        else:
+            df = n_c + n_t - 2
+            pooled = (ss_c + ss_t) / df * (1.0 / n_c + 1.0 / n_t)
+            if pooled <= 0.0:
+                return 1.0
+            t = shift / math.sqrt(pooled)
+        side = endpoint["side"]
+        if side == "both":
+            return min(1.0, 2.0 * t_tail(t, df))
+        tail = t_tail(t, df)
+        towards = t > 0 if side == "higher" else t < 0
+        return tail if towards else 1.0 - tail
+
+    def study(stream: Stream) -> tuple[bool, ...]:
+        p_values = [p_value(e, d) for e, d in zip(endpoints, draw(stream), strict=True)]
+        if procedure == "bonferroni":
+            return tuple(p <= e["level"] for p, e in zip(p_values, endpoints, strict=True))
+        if procedure == "fixed_sequence":
+            rejected = []
+            for p in p_values:
+                if rejected and not rejected[-1] or p > alpha:
+                    rejected.append(False)
+                    continue
+                rejected.append(True)
+            # Once one fails, every later hypothesis is retained.
+            for index in range(1, len(rejected)):
+                rejected[index] = rejected[index] and rejected[index - 1]
+            return tuple(rejected)
+        return tuple(graphical_rejections(p_values, alpha, *graph))
+
+    return study
+
+
+@dataclass(frozen=True)
+class FamilyEstimate:
+    """How often each endpoint, any endpoint and every endpoint was rejected."""
+
+    each: tuple[int, ...]
+    any: int
+    all: int
+    runs: int
+
+    def interval(self, count: int) -> tuple[float, float]:
+        return clopper_pearson(count, self.runs)
+
+
+def estimate_family(trial, endpoints: int, runs: int, stream: Stream) -> FamilyEstimate:
+    each, any_count, all_count = [0] * endpoints, 0, 0
+    for _ in range(runs):
+        rejected = trial(stream)
+        for index, flag in enumerate(rejected):
+            each[index] += flag
+        any_count += any(rejected)
+        all_count += all(rejected)
+    return FamilyEstimate(tuple(each), any_count, all_count, runs)

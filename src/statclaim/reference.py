@@ -162,6 +162,10 @@ ENUMERATIONS = {
 # The values a string input accepts, by parameter name, wherever the parameter appears.
 # Editors offer them as choices; inputs not listed here take free text.
 PARAMETER_CHOICES = {
+    "rejecting": {
+        "any": "A family's power is the chance of rejecting at least one endpoint.",
+        "all": "A family's power is the chance of rejecting every endpoint.",
+    },
     "better": {
         "higher": "Higher outcome values are better for the treatment.",
         "lower": "Lower outcome values are better for the treatment.",

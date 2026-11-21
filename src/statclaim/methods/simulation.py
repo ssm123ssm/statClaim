@@ -14,6 +14,7 @@ from statclaim.methods.assumptions import (
     SIMULATED_ASSOCIATION,
     SIMULATED_CLUSTER_PROPORTIONS,
     SIMULATED_CLUSTERS,
+    SIMULATED_ENDPOINTS,
     SIMULATED_SURVIVAL,
     SIMULATED_TWO_MEANS,
 )
@@ -24,6 +25,7 @@ from statclaim.simulation import (
     blinded_reestimation_trial,
     cluster_trial,
     correlation_trial,
+    family_trial,
     log_rank_trial,
     sequential_two_means_trial,
     two_means_trial,
@@ -337,4 +339,36 @@ SLOPE = SimulationModel(
     scenario=_slope_scenario,
     assumptions=(SIMULATED_ASSOCIATION, MONTE_CARLO_ERROR),
     references=(FISHER_1915, *REFERENCES),
+)
+
+
+# A family of tests: trial(endpoints, correlation, procedure, alpha, graph), each endpoint a
+# dict as simulation.family_trial takes it; one study returns each member's rejection.
+BRETZ_2009 = (
+    "Bretz, F., Maurer, W., Brannath, W. and Posch, M. (2009). A graphical approach to "
+    "sequentially rejective multiple test procedures. Statistics in Medicine 28(4), 586-604."
+)
+
+
+def _family(endpoints, correlation, procedure, alpha, graph=None):
+    """Every endpoint drawn together, then the family's procedure applied to the p-values."""
+    return family_trial(endpoints, correlation, procedure, alpha, graph)
+
+
+def _family_scenario(point: dict) -> str:
+    return (
+        f"{point['count']} endpoints at their planning points, with correlation "
+        f"{point['correlation']:g} between endpoints measured on the same participants"
+    )
+
+
+FAMILY = SimulationModel(
+    key="family_simulated",
+    title="Endpoints simulated together, tested by the family's procedure",
+    version=1,
+    point="endpoint_points",
+    trial=_family,
+    scenario=_family_scenario,
+    assumptions=(SIMULATED_ENDPOINTS, MONTE_CARLO_ERROR),
+    references=(BRETZ_2009, *REFERENCES),
 )

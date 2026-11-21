@@ -30,6 +30,7 @@ from statclaim.language import (
     DifferenceIntervalIR,
     DiscordantPairsIR,
     EffectIntervalIR,
+    EndpointPointsIR,
     EstimableModelIR,
     ExponentialSurvivalIR,
     ExposurePrevalenceIR,
@@ -349,6 +350,14 @@ SCHEMAS = {
     SequentialIR: {
         "looks": FieldSpec("list", attribute="analyses"),
         "alpha": FieldSpec(Fraction, description="Overall error level across all looks."),
+    },
+    EndpointPointsIR: {
+        "endpoints": FieldSpec(
+            "list", attribute="points", description="One planning point per member, in order."
+        ),
+        "correlation": FieldSpec(
+            Fraction, description="Between endpoints measured on the same participants."
+        ),
     },
     NullScenariosIR: {
         "scenarios": FieldSpec(
@@ -878,6 +887,12 @@ SCHEMAS = {
         ),
         "max_per_arm": FieldSpec(
             int, optional=True, description="A re-estimated design's largest size per arm."
+        ),
+        "power_any": FieldSpec(
+            Fraction, optional=True, description="For a family: the chance of rejecting any."
+        ),
+        "power_all": FieldSpec(
+            Fraction, optional=True, description="For a family: the chance of rejecting all."
         ),
         "typeI_judged": FieldSpec(
             bool,

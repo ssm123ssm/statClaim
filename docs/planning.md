@@ -448,8 +448,8 @@ simulated [estimate]: meets(analysis)
 Simulation covers the t-tests, Student's and Welch's, on normal outcomes with the
 planning SD in both arms or in the scenarios below, the t-tests on cluster summaries,
 the log-rank test from survival times, the tests of a correlation or a slope with
-skewed data, t-tests repeated at interim looks, and Student's t-test with its sample
-size re-estimated at an interim look. Other tests get
+skewed data, t-tests repeated at interim looks, Student's t-test with its sample size
+re-estimated at an interim look, and families of Fisher tests and t-tests. Other tests get
 `no_simulation_model`; exact tests are refused, since `calculate` gives their exact
 power. See lesson 28 of the tutorial.
 
@@ -602,6 +602,39 @@ power, each scenario's Type I and expected size, and the expected size at the pl
 point. `calculate` and `verify` refuse the claim, and `nulls` is refused for analyses
 whose level is proved or cited. A raw-data simulation in R agrees within its Monte Carlo
 error (`replication/comparison/reestimation_r.R`). See lesson 42.
+
+### The power of a family
+
+A family's power depends on how its endpoints move together, so it is planned at one
+point per member and a correlation, and `power_target` says what power means:
+`rejecting="any"` (at least one endpoint) or `rejecting="all"` (every endpoint).
+
+```stat
+let expected = endpoint_points(at=[binomial_rates(p_control=3/10, p_treatment=1/2),
+    mean_difference(value=4, sd=10)], correlation=1/2)
+let either = simulate(meets(analysis=endpoints, target=power_target(at=expected,
+    minimum=4/5, maximum_typeI=1/20, rejecting="any")), seed=2026)
+```
+
+```text
+  endpoints: response ~ 0.7962, symptoms ~ 0.8017; any ~ 0.9239, all ~ 0.6740 (bonferroni, correlation 1/2; power means any)
+  familywise error under the global null ~ 0.0379 (95% interval 0.0342 to 0.0418); ...
+```
+
+- The family may be `bonferroni`, `fixed_sequence` or `graphical`, of Fisher's tests and
+  t-tests. Each endpoint is tested by its own test, and the family's procedure decides;
+  a graph passes level along its edges (Bretz et al., 2009).
+- Endpoints with a correlation above 0 are measured on the same participants: each has a
+  latent normal with that exchangeable correlation, and a yes-or-no outcome is a success
+  when its latent is high. They must share their arm sizes. With 0 they are independent.
+- The familywise bound is proved or cited for any dependence, so the simulated error
+  under the global null is reported, not judged.
+- Families are simulated as declared, not searched. `calculate` and `verify` refuse the
+  claim.
+
+A raw-data simulation in R with `fisher.test` and `t.test`, and the graphical algorithm
+written independently, agrees within its Monte Carlo error
+(`replication/comparison/family_power_r.R`). See lesson 43.
 
 ## What is checked
 

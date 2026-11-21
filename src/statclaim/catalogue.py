@@ -283,6 +283,10 @@ OBJECT_CLASSES = {
     ),
     "IntervalCandidates": ("Planning objects", "Sizes searched for a planned interval."),
     "PowerTarget": ("Planning objects", "Required power at a point and a Type I bound."),
+    "EndpointPoints": (
+        "Planning objects",
+        "One planning point per member of a family, and the correlation between endpoints.",
+    ),
     "NullScenarios": (
         "Planning objects",
         "Points at the null where a simulated Type I error is judged, for a design whose level "

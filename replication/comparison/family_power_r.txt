@@ -1,0 +1,23 @@
+Rejection rates of families of tests, written to tests/fixtures/family_power_r.json
+
+bonferroni, correlation 1/2, 2 endpoints: each 0.7887, 0.7969; any 0.9199; all 0.6657; familywise error 0.0423
+fixed_sequence, correlation 3/10, 2 endpoints: each 0.8057, 0.4942; any 0.8057; all 0.4942; familywise error 0.0486
+graphical, correlation 2/5, 3 endpoints: each 0.7497, 0.7611, 0.4770; any 0.8776; all 0.4283; familywise error 0.0390
+bonferroni, correlation 0, 2 endpoints: each 0.6481, 0.7019; any 0.8969; all 0.4531; familywise error 0.0317
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

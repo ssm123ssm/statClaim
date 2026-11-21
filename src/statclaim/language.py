@@ -144,7 +144,7 @@ from statclaim.simulation import (
     MIN_RUNS,
 )
 
-LANGUAGE_VERSION = "0.38.0"
+LANGUAGE_VERSION = "0.39.0"
 
 
 class PlannableIR:
@@ -886,8 +886,9 @@ class ProportionIR:
         )
 
 
-class FamilyLikeIR:
-    """Several analyses under one familywise error bound."""
+class FamilyLikeIR(PlannableIR):
+    """Several analyses under one familywise error bound. Its power, for a family of Fisher
+    tests and t-tests, can be simulated at one point per member."""
 
 
 @dataclass(frozen=True)
@@ -1188,6 +1189,17 @@ class PowerTargetIR(TargetIR):
     maximum_typeI: Fraction
     # Where the Type I error is judged by simulation, for a design whose level is not proved.
     nulls: "NullScenariosIR | None" = None
+    # For a family: whether power means rejecting "any" endpoint or "all" of them.
+    rejecting: str | None = None
+
+
+@dataclass(frozen=True)
+class EndpointPointsIR(PlanningPointIR):
+    """A planning point for a family: one point per member, in order, and the exchangeable
+    correlation between endpoints measured on the same participants."""
+
+    points: tuple[PlanningPointIR, ...]
+    correlation: Fraction
 
 
 @dataclass(frozen=True)
@@ -2138,7 +2150,14 @@ def normalize(value: object) -> object:
             }
             if value.nulls is not None:
                 target["nulls"] = [normalize(null) for null in value.nulls.points]
+            if value.rejecting is not None:
+                target["rejecting"] = value.rejecting
             return target
+        case EndpointPointsIR(points=points, correlation=correlation):
+            return {
+                "endpoints": [normalize(point) for point in points],
+                "correlation": str(correlation),
+            }
         case NullScenariosIR(points=points):
             return {"null_scenarios": [normalize(point) for point in points]}
         case ReestimationIR(analysis=analysis):
@@ -3622,6 +3641,15 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             claim.span,
         )
     if claim.value.kind in ("meets", "sample_size") and isinstance(
+        planned_analysis(claim.value.subject), FamilyLikeIR
+    ):
+        fail(
+            "unsupported_claim",
+            "A family's power has no formula. Use simulate(...), which runs every endpoint "
+            "together.",
+            claim.span,
+        )
+    if claim.value.kind in ("meets", "sample_size") and isinstance(
         planned_analysis(claim.value.subject), ReestimationIR
     ):
         fail(
@@ -3834,13 +3862,36 @@ def _skews(arguments: dict[str, LocatedValue]) -> tuple:
 
 
 def _power_target(arguments: dict[str, LocatedValue], span: Span) -> PowerTargetIR:
-    nulls = arguments.get("nulls")
+    nulls, rejecting = arguments.get("nulls"), arguments.get("rejecting")
+    if rejecting is not None and rejecting.value is not None and rejecting.value not in REJECTING:
+        fail("domain", 'rejecting is "any" or "all".', rejecting.span)
     return PowerTargetIR(
         arguments["at"].value,
         _probability(arguments["minimum"], "minimum", positive=True),
         arguments["maximum_typeI"].value,
         None if nulls is None else nulls.value,
+        None if rejecting is None else rejecting.value,
     )
+
+
+REJECTING = ("any", "all")
+
+
+def _endpoint_points(arguments: dict[str, LocatedValue], span: Span) -> EndpointPointsIR:
+    items, correlation = arguments["at"].value, arguments["correlation"]
+    if not 2 <= len(items) <= MAX_ENDPOINTS:
+        fail("domain", f"Give between 2 and {MAX_ENDPOINTS} points.", arguments["at"].span)
+    for item in items:
+        if not isinstance(item.value, (RatesIR, MeanDifferenceIR)):
+            fail(
+                "type",
+                "Each endpoint's point is binomial_rates(...) for a yes-or-no endpoint or "
+                "mean_difference(...) for a measured one.",
+                item.span,
+            )
+    if not 0 <= correlation.value < 1:
+        fail("domain", "correlation must lie in [0, 1).", correlation.span)
+    return EndpointPointsIR(tuple(item.value for item in items), correlation.value)
 
 
 MAX_NULL_SCENARIOS = 20
@@ -4479,6 +4530,23 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
             "nulls out.",
             target.span,
         )
+    family = isinstance(analysis, FamilyLikeIR) and not isinstance(analysis, SequentialIR)
+    if family:
+        _check_family_point(analysis, target)
+        return
+    if getattr(target.value, "rejecting", None) is not None:
+        fail(
+            "planning_point",
+            "rejecting is for a family of tests: whether its power means rejecting any "
+            "endpoint or all of them. Leave it out here.",
+            target.span,
+        )
+    if isinstance(point, EndpointPointsIR):
+        fail(
+            "planning_point",
+            "endpoint_points(...) is for a family of tests; give this analysis one point.",
+            target.span,
+        )
     if isinstance(analysis, SequentialIR):
         _check_sequential(analysis, where)
         _check_cited_point(analysis.final, target, where)
@@ -4581,6 +4649,100 @@ def _check_reestimation_point(design: ReestimationIR, target: LocatedValue) -> N
                 f"{design.analysis.hypothesis.value}, not {null.value}.",
                 target.span,
             )
+
+
+FAMILY_MODES = {
+    "family": "bonferroni",
+    "fixed_sequence": "fixed_sequence",
+    "graphical": "graphical",
+}
+
+
+def family_procedure(family: FamilyLikeIR) -> str:
+    """How a family rejects: each member at its own level, in order, or along a graph."""
+    return "bonferroni" if isinstance(family, FamilyIR) else FAMILY_MODES[family.mode]
+
+
+def endpoint_kind(analysis) -> str | None:
+    """A member simulated in a family: "binary" for Fisher's test, "measured" for a t-test."""
+    if isinstance(analysis, AnalysisIR) and analysis.alternative in ("two_sided", "greater"):
+        return "binary"
+    if isinstance(analysis, CitedAnalysisIR) and analysis.method.module == "tests.t":
+        return "measured"
+    return None
+
+
+def _outside_null(analysis, point) -> bool:
+    if isinstance(point, RatesIR):
+        if analysis.alternative == "greater":
+            return point.p_treatment > point.p_control
+        return point.p_treatment != point.p_control
+    null = analysis.hypothesis
+    favours = NULL_FORMS[null.predicate][1].favours
+    if favours == "higher":
+        return point.value > null.value
+    if favours == "lower":
+        return point.value < null.value
+    return point.value != null.value
+
+
+def _check_family_point(family: FamilyLikeIR, target: LocatedValue) -> None:
+    """One point per member, of its kind; any or all; shared participants when correlated."""
+    point, members = target.value.at, family.analyses
+    if not isinstance(family, FamilyIR) and family.mode not in FAMILY_MODES:
+        fail("unsupported_claim", "This kind of family is not simulated yet.", target.span)
+    if not isinstance(point, EndpointPointsIR):
+        fail(
+            "planning_point",
+            "A family's power is planned at endpoint_points(at=[one point per member, in "
+            "order], correlation=...).",
+            target.span,
+        )
+    if len(point.points) != len(members):
+        fail(
+            "planning_point",
+            f"The family has {len(members)} members, so give {len(members)} points, in order.",
+            target.span,
+        )
+    if target.value.rejecting is None:
+        fail(
+            "planning_point",
+            "Say whether the family's power means rejecting any endpoint or all of them: "
+            'power_target(..., rejecting="any") or rejecting="all".',
+            target.span,
+        )
+    for (name, analysis), member_point in zip(members, point.points, strict=True):
+        kind = endpoint_kind(analysis)
+        if kind is None:
+            fail(
+                "unsupported_claim",
+                f"{name}: a family's power is simulated for members that are Fisher's test or "
+                "the t-tests; this member is not simulated yet.",
+                target.span,
+            )
+        wanted = RatesIR if kind == "binary" else MeanDifferenceIR
+        scenario = any(
+            getattr(member_point, field, None) is not None for field in SIMULATION_SCENARIO
+        )
+        if not isinstance(member_point, wanted) or scenario:
+            words = "binomial_rates(...)" if kind == "binary" else "mean_difference(value, sd)"
+            fail("planning_point", f"{name} is planned at {words}.", target.span)
+    if point.correlation > 0:
+        sizes = {(a.plan.model.n_control, a.plan.model.n_treatment) for _, a in members}
+        if len(sizes) > 1:
+            fail(
+                "planning_point",
+                "Correlated endpoints are measured on the same participants: give every "
+                "member the same arm sizes, or correlation=0.",
+                target.span,
+            )
+    if not any(_outside_null(a, p) for (_, a), p in zip(members, point.points, strict=True)):
+        fail(
+            "planning_point",
+            "At least one endpoint's point must lie outside its null; otherwise there is no "
+            "power to plan.",
+            target.span,
+        )
 
 
 def _check_sequential(analysis: SequentialIR, where: Span) -> None:
@@ -5342,7 +5504,7 @@ def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         )
     if claim.value.kind in ("meets", "sample_size") and isinstance(
         planned_analysis(claim.value.subject),
-        (CitedAnalysisIR, CitedAssociationIR, SequentialIR, ReestimationIR),
+        (CitedAnalysisIR, CitedAssociationIR, FamilyLikeIR, ReestimationIR),
     ):
         fail(
             "unsupported_claim",
@@ -5400,6 +5562,8 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             )
         simulation_settings(arguments)
         return claim.value
+    if isinstance(analysis, FamilyLikeIR):
+        return _family_simulation(analysis, subject, arguments, claim)
     if not isinstance(analysis, CitedAnalysisIR):
         fail(
             "unsupported_claim",
@@ -5468,6 +5632,29 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
                 "This scenario is simulated one participant at a time, and this could draw "
                 f"more than {MAX_SIMULATED_PARTICIPANTS:,} participants. Narrow the range or "
                 "use fewer runs.",
+                claim.span,
+            )
+    return claim.value
+
+
+def _family_simulation(family, subject, arguments, claim) -> ClaimIR:
+    """A family is simulated as declared; correlated endpoints draw every participant."""
+    if isinstance(subject, SizingIR):
+        fail(
+            "unsupported_claim",
+            "A family is simulated as declared; searching its sizes is not supported yet.",
+            claim.span,
+        )
+    settings = simulation_settings(arguments)
+    point = subject.target.at
+    if point.correlation > 0:
+        model = family.analyses[0][1].plan.model
+        drawn = 2 * (model.n_control + model.n_treatment) * len(point.points)
+        if drawn * settings.runs > MAX_SIMULATED_PARTICIPANTS:
+            fail(
+                "domain",
+                "Correlated endpoints are simulated one participant at a time, and this could "
+                f"draw more than {MAX_SIMULATED_PARTICIPANTS:,} outcomes. Use fewer runs.",
                 claim.span,
             )
     return claim.value
@@ -6545,6 +6732,7 @@ MODULES = {
                         ("minimum", "number"),
                         ("maximum_typeI", "level"),
                         ("nulls", NullScenariosIR, True),
+                        ("rejecting", "string", True),
                     ),
                     "PowerTarget",
                     _power_target,
@@ -6552,7 +6740,18 @@ MODULES = {
                     "and a Type I error bound of at most maximum_typeI under the null. "
                     "Power at this point is not a guarantee for other alternatives. For a "
                     "design whose level is not proved, nulls lists where simulate(...) judges "
-                    "its Type I error.",
+                    "its Type I error. For a family, rejecting says whether power means "
+                    'rejecting "any" endpoint or "all" of them.',
+                ),
+                _constructor(
+                    "endpoint_points",
+                    (("at", "list"), ("correlation", "number")),
+                    "EndpointPoints",
+                    _endpoint_points,
+                    documentation="A planning point for a family: one point per member, in "
+                    "order (binomial_rates for Fisher's test, mean_difference for a t-test), "
+                    "and the correlation between endpoints measured on the same participants, "
+                    "from 0 for independent endpoints to below 1. Planning inputs.",
                 ),
                 _constructor(
                     "null_scenarios",
