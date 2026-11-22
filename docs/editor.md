@@ -112,7 +112,7 @@ from the Dock and cannot find it, put its absolute path in the workspace setting
 the StatClaim repository when editing `.stat` files in another workspace.
 
 By default the project is the first workspace folder containing
-`src/statclaim/language.py`, or the development extension's containing repository.
+`src/statclaim/language/`, or the development extension's containing repository.
 The initial implementation supports one StatClaim backend project per host.
 
 Run **StatClaim: Restart Language Server** after Python server/compiler changes.

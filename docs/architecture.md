@@ -13,9 +13,14 @@
 
 The compiler is written in Python. It does not continuously generate Python
 source: it builds typed objects in memory. `use` loads registered constructors
-from `src/statclaim/language.py`, not arbitrary Python or `.stat` files.
+from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files.
 
-- `language_syntax.py`, `language.py`: syntax, typed objects and constructors.
+- `language_syntax.py`: syntax and source spans.
+- `language/`: typed objects (`ir.py`), their canonical JSON (`normalize.py`), the
+  builders and checks by area (`designs`, `analyses`, `points`, `checks`, `searches`),
+  the operations verify, calculate and simulate (`operations.py`), every module and
+  constructor (`registry.py`) and elaboration (`elaborate.py`). Each imports only the
+  ones before it in that list; the package re-exports its public names.
 - `language_contracts.py`, `language_compiler.py`: compatibility and requirements.
 - `language_fields.py`, `language_values.py`: public fields and runtime values.
 - `language_runner.py`, `verification.py`: explicit execution and certificates.

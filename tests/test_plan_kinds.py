@@ -4,7 +4,7 @@ import inspect
 
 import pytest
 
-from statclaim import language
+from statclaim.language import ir
 from statclaim.plan_kinds import KINDS, kind_of, resolve
 
 
@@ -21,7 +21,7 @@ def test_every_entry_names_real_functions(kind):
         if path is not None:
             assert callable(resolve(path)), path
     assert inspect.isclass(resolve(kind.details))
-    assert all(hasattr(language, name) for name in kind.classes), kind.classes
+    assert all(hasattr(ir, name) for name in kind.classes), kind.classes
     # A kind either runs calculate(...) or says why it cannot.
     assert kind.calculate is not None or kind.refuse_calculate
     assert kind.check_simulate is not None or kind.refuse_simulate
@@ -32,11 +32,12 @@ ABSTRACT = {"PlannableIR", "TwoArmTestIR", "FamilyLikeIR"}
 
 
 def test_every_plannable_analysis_has_a_kind():
+    # Every typed object, re-exported or not, lives in language/ir.py.
     plannable = [
         cls
-        for cls in vars(language).values()
+        for cls in vars(ir).values()
         if inspect.isclass(cls)
-        and issubclass(cls, language.PlannableIR)
+        and issubclass(cls, ir.PlannableIR)
         and cls.__name__ not in ABSTRACT
     ]
     assert len(plannable) >= 10
