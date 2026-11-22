@@ -122,8 +122,9 @@ distinguishable in every report. See the [planning roadmap](docs/study-planning.
 
 ## Future integrations
 
-- **StatClaim Studio.** Use generative AI to turn a plain-language description of
-  the study design and its goal into editable StatClaim code. Flag assumptions
+- **StatClaim Studio.** The block editor is in `studio/`. Next, use generative AI
+  to turn a plain-language description of the study design and its goal into
+  editable StatClaim code. Flag assumptions
   for the user to review and run the draft through the existing checker.
 - **R package.** Let R users check StatClaim protocols from an R script and
   inspect claims, evidence grades and diagnostics as R objects. Use the same

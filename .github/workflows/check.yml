@@ -24,6 +24,12 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: make python-check catalogue-check repository-check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+      - run: make studio-check
       - run: uv build
   wheel:
     strategy:

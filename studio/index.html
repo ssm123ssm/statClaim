@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StatClaim Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237c55d8'/%3E%3Cpath d='M9 17l5 5 9-11' stroke='white' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="studio.css">
+  <link rel="stylesheet" href="document.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="StatClaim Studio home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">statClaim</span><span class="brand-sub">Studio</span>
+      </a>
+      <div class="doc-picker">
+        <label class="sr-only" for="lesson">Open a study</label>
+        <select id="lesson" disabled></select>
+      </div>
+      <button id="commandButton" class="cmd-btn" type="button" title="Command palette (⌘K)"><span class="cmd-long">Search and commands</span><span class="cmd-short">Search</span><kbd>⌘K</kbd></button>
+      <div class="tb-group" role="group" aria-label="History">
+        <button id="undo" class="icon-btn" type="button" aria-label="Undo" title="Undo (⌘Z)" disabled></button>
+        <button id="redo" class="icon-btn" type="button" aria-label="Redo" title="Redo (⇧⌘Z)" disabled></button>
+        <button id="historyButton" class="icon-btn" type="button" aria-label="Recent edits" title="Recent edits" aria-haspopup="menu" disabled></button>
+        <button id="restoreLesson" class="btn ghost small" type="button" title="Discard edits to this study" disabled>Restore original</button>
+      </div>
+      <span class="tb-spacer"></span>
+      <div class="tb-group" role="group" aria-label="File">
+        <button id="newDoc" class="btn new-study" type="button" title="New study from a design" disabled><span class="lbl">New study</span></button>
+        <label class="btn ghost file-button" title="Open a .stat file"><span class="lbl">Open</span><input id="openFile" type="file" accept=".stat,text/plain" disabled></label>
+        <button id="download" class="btn primary" type="button" title="Save .stat (⌘S)" disabled>Save<span class="lbl"> .stat</span></button>
+      </div>
+      <button id="runChecks" class="btn run" type="button" disabled><span id="runLabel">Run checks</span></button>
+      <button id="status" class="status" type="button" data-state="pending" aria-controls="panel-problems" title="Show problems">
+        <span class="status-dot" aria-hidden="true"></span><span id="statusText">Connecting…</span>
+      </button>
+      <button id="togglePanel" class="icon-btn" type="button" aria-label="Toggle side panel" aria-expanded="true" title="Toggle side panel"></button>
+    </header>
+
+    <aside class="library" id="library" aria-label="Block library"></aside>
+
+    <main class="stage">
+      <div class="stage-head">
+        <div class="stage-titles">
+          <h1 id="lessonTitle">Study editor</h1>
+          <p class="filename"><span id="filename"></span><span id="dirty" class="dirty" hidden>edited</span><button id="practiceStart" class="practice-start" type="button" hidden>Practice this lesson</button></p>
+        </div>
+        <div id="legend" class="legend" aria-label="Block colours"></div>
+      </div>
+      <div id="banner" class="banner" role="alert" hidden></div>
+      <div class="canvas-wrap">
+      <div id="lessonBlocks" class="canvas" aria-label="Study blocks"></div>
+      <div id="overlay" class="canvas-overlay"></div>
+      <div id="dock" class="canvas-dock"></div>
+      <aside id="practice" class="practice-card" aria-label="Practice checklist" hidden></aside>
+      <div id="minimap" class="minimap" aria-label="Overview of the whole study; click to scroll there" title="Overview: click or drag to scroll" hidden></div>
+      <div class="canvas-tools" role="toolbar" aria-label="Canvas">
+        <button id="showLinks" class="icon-btn" type="button" aria-label="Show links between blocks" aria-pressed="false"></button>
+        <button id="showReadings" class="icon-btn" type="button" aria-label="Show what each value says in words" aria-pressed="true"></button>
+        <button id="arrangeFlow" class="icon-btn" type="button" aria-label="Arrange by flow" title="Arrange by flow: each value to the right of what it uses"></button>
+        <button id="cleanUp" class="icon-btn" type="button" aria-label="Clean up blocks" title="Clean up blocks: one column in file order"></button>
+        <button id="collapseAll" class="icon-btn" type="button" aria-label="Collapse all" title="Collapse all"></button>
+        <button id="expandAll" class="icon-btn" type="button" aria-label="Expand all" title="Expand all"></button>
+        <span class="tools-sep"></span>
+        <button id="zoomOut" class="icon-btn" type="button" aria-label="Zoom out" title="Zoom out"></button>
+        <button id="zoomReset" class="zoom-level" type="button" aria-label="Reset zoom" title="Reset zoom">100%</button>
+        <button id="zoomIn" class="icon-btn" type="button" aria-label="Zoom in" title="Zoom in"></button>
+        <button id="zoomFit" class="icon-btn" type="button" aria-label="Zoom to fit" title="Zoom to fit the whole study"></button>
+      </div>
+      </div>
+    </main>
+
+    <aside class="side" id="side" aria-label="Problems, code and help">
+      <div class="side-resizer" id="sideResizer" role="separator" aria-orientation="vertical" aria-label="Resize side panel" tabindex="0" title="Drag to resize"></div>
+      <div class="tabs" role="tablist" aria-label="Side panel">
+        <button role="tab" type="button" id="tab-problems" aria-controls="panel-problems" aria-selected="true">Problems <span id="problemCount" class="count" hidden>0</span></button>
+        <button role="tab" type="button" id="tab-results" aria-controls="panel-results" aria-selected="false" tabindex="-1">Results <span id="resultCount" class="count" hidden>0</span></button>
+        <button role="tab" type="button" id="tab-code" aria-controls="panel-code" aria-selected="false" tabindex="-1">Code</button>
+        <button role="tab" type="button" id="tab-help" aria-controls="panel-help" aria-selected="false" tabindex="-1">Help</button>
+      </div>
+      <section id="panel-problems" class="tab-panel" role="tabpanel" aria-labelledby="tab-problems">
+        <div id="report" role="status" aria-live="polite" data-state="pending">Connecting to StatClaim…</div>
+        <div class="panel-foot"><button id="compile" class="btn small ghost" type="button" disabled>Recheck now</button></div>
+      </section>
+      <section id="panel-results" class="tab-panel" role="tabpanel" aria-labelledby="tab-results" hidden>
+        <div id="results"></div>
+      </section>
+      <section id="panel-code" class="tab-panel" role="tabpanel" aria-labelledby="tab-code" hidden>
+        <p class="panel-note">The .stat source. Blocks update as you type.<span id="changeNote"></span></p>
+        <div class="code">
+          <div class="gutter" id="gutter" aria-hidden="true"></div>
+          <div class="code-area">
+            <pre id="highlight" class="code-hl" aria-hidden="true"></pre>
+            <textarea id="source" spellcheck="false" wrap="off" autocomplete="off" autocapitalize="off" aria-label="Edit the .stat document" disabled></textarea>
+          </div>
+        </div>
+      </section>
+      <section id="panel-help" class="tab-panel" role="tabpanel" aria-labelledby="tab-help" hidden>
+        <div id="help"></div>
+      </section>
+    </aside>
+  </div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <p id="notice" class="sr-only" role="status"></p>
+  <noscript>The study editor needs JavaScript to display blocks.</noscript>
+  <script type="module">
+    import('./editor.js').catch(() => {
+      const report = document.getElementById('report');
+      report.dataset.state = 'error';
+      report.textContent = 'The editor files could not load. Restart the studio server from this checkout with .venv/bin/python studio/server.py, then reload this page.';
+    });
+  </script>
+</body>
+</html>

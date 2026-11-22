@@ -52,12 +52,15 @@ include = [
     "/docs",
     "/tests",
     "/replication",
+    "/studio",
     "/README.md",
     "/ROADMAP.md",
     "/LICENSE",
     "/THIRD_PARTY_NOTICES.md",
     "/CITATION.cff",
 ]
+# Local experiments beside the studio, which git ignores.
+exclude = ["/studio/prototypes"]
 
 # PyPI cannot follow links relative to the repository, so point them at GitHub.
 [tool.hatch.metadata.hooks.fancy-pypi-readme]

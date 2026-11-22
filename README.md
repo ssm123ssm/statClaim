@@ -163,6 +163,10 @@ uv run --locked statclaim catalogue
 
 See [quickstart](docs/quickstart.md) for VS Code and result inspection.
 
+To build a study from blocks instead, run the [studio](studio/README.md) with
+`uv run --locked python studio/server.py` and open <http://127.0.0.1:4180/>.
+In Codespaces, run the same command and the studio opens in a browser tab.
+
 Then work through the [tutorial](docs/tutorial.html): short lessons, from a first
 checked claim to planning and analysing a study. Open the file in a browser;
 the lesson files are in `examples/tutorial/`.

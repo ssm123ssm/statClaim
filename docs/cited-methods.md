@@ -216,4 +216,6 @@ A new test arrives complete. Before it is merged it has:
 6. An example in `examples/` and a lesson in the tutorial: add the lesson file, write
    its section in `docs/tutorial.html`, then run `python scripts/tutorial.py sync` to
    fill in the highlighted code and the contents.
-7. Support in the studio (maintainers: the studio is not in this repository yet).
+7. Support in the [studio](../studio/README.md): readings of the new values in
+   `studio/server.py`, and the new-study cards in `studio/designs.js`. Run
+   `make studio-check`.

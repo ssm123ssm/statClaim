@@ -29,6 +29,12 @@ python-check: type-check
 	uv run --locked python scripts/tutorial.py check
 	uv run --locked pytest -m 'not lean'
 
+# The studio's page tests; its server tests run with the other Python tests.
+.PHONY: studio-check
+studio-check:
+	npm --prefix studio ci
+	npm --prefix studio test
+
 # Gradual: pyproject.toml lists the modules mypy does not check yet.
 .PHONY: type-check
 type-check:

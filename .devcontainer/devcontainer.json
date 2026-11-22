@@ -12,6 +12,12 @@
   "remoteUser": "vscode",
   "onCreateCommand": "bash .devcontainer/bootstrap.sh",
   "postAttachCommand": "bash .devcontainer/attach.sh",
+  "portsAttributes": {
+    "4180": {
+      "label": "StatClaim Studio",
+      "onAutoForward": "openBrowser"
+    }
+  },
   "customizations": {
     "vscode": {
       "settings": {
