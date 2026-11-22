@@ -1,0 +1,43 @@
+{
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "cases": [
+    {
+      "alternative": "two_sided",
+      "p_control": "3/10",
+      "p_treatment": "7/10",
+      "looks": [
+        {
+          "n_control": 12,
+          "n_treatment": 12,
+          "alpha": "1/100"
+        },
+        {
+          "n_control": 24,
+          "n_treatment": 24,
+          "alpha": "1/25"
+        }
+      ],
+      "stopped": [0.148369941049792, 0.536281505314691],
+      "stopped_null": [0.0025034863023786, 0.0189881420443098]
+    },
+    {
+      "alternative": "greater",
+      "p_control": "1/5",
+      "p_treatment": "3/5",
+      "looks": [
+        {
+          "n_control": 8,
+          "n_treatment": 16,
+          "alpha": "1/50"
+        },
+        {
+          "n_control": 16,
+          "n_treatment": 32,
+          "alpha": "3/100"
+        }
+      ],
+      "stopped": [0.273867067583628, 0.45615293979414],
+      "stopped_null": [0.00118601903649984, 0.0103722272673691]
+    }
+  ]
+}

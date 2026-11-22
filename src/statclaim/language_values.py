@@ -101,6 +101,10 @@ class PlanningDetails:
         return thaw(self.record)
 
 
+class LooksPowerDetails(PlanningDetails):
+    """Exact power of Fisher's test at interim looks: stopping at each look, the expected size."""
+
+
 class SimulationDetails(PlanningDetails):
     """Power and Type I error estimated by simulation, with 95% intervals. Not evidence."""
 

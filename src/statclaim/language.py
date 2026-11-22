@@ -144,7 +144,7 @@ from statclaim.simulation import (
     MIN_RUNS,
 )
 
-LANGUAGE_VERSION = "0.40.0"
+LANGUAGE_VERSION = "0.41.0"
 
 
 class PlannableIR:
@@ -3634,12 +3634,21 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     if claim.value.kind in ("meets", "sample_size") and isinstance(
         planned_analysis(claim.value.subject), SequentialIR
     ):
-        fail(
-            "unsupported_claim",
-            "A design with looks has no power formula. Use simulate(...), which runs the trial "
-            "look by look.",
-            claim.span,
-        )
+        if not exact_looks(planned_analysis(claim.value.subject)):
+            fail(
+                "unsupported_claim",
+                "A design with t-test looks has no power formula. Use simulate(...), which runs "
+                "the trial look by look.",
+                claim.span,
+            )
+        if claim.value.kind == "sample_size":
+            fail(
+                "unsupported_claim",
+                "A design with looks is calculated as declared; searching its sizes is not "
+                "supported yet.",
+                claim.span,
+            )
+        return claim.value
     if claim.value.kind in ("meets", "sample_size") and isinstance(
         planned_analysis(claim.value.subject), FamilyLikeIR
     ):
@@ -4549,7 +4558,10 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
         )
     if isinstance(analysis, SequentialIR):
         _check_sequential(analysis, where)
-        _check_cited_point(analysis.final, target, where)
+        if exact_looks(analysis):
+            _check_point(analysis.final, target, where)
+        else:
+            _check_cited_point(analysis.final, target, where)
         return
     if isinstance(analysis, CitedAnalysisIR):
         _check_cited_point(analysis, target, where)
@@ -4745,16 +4757,36 @@ def _check_family_point(family: FamilyLikeIR, target: LocatedValue) -> None:
         )
 
 
-def _check_sequential(analysis: SequentialIR, where: Span) -> None:
-    """A design with looks is planned by simulation, for tests with a model for looks."""
+def exact_looks(analysis: SequentialIR) -> bool:
+    """Whether a design's looks are Fisher's test, whose power is summed exactly."""
     look = analysis.final
+    return isinstance(look, AnalysisIR) and look.alternative in ("two_sided", "greater")
+
+
+MAX_LOOK_ARM = 500  # participants per arm at the last look, for the exact sum
+
+
+def _check_sequential(analysis: SequentialIR, where: Span) -> None:
+    """A design with looks is planned exactly for Fisher's test, and by simulation for tests
+    with a simulation model for looks."""
+    look = analysis.final
+    if exact_looks(analysis):
+        model = look.plan.model
+        if max(model.n_control, model.n_treatment) > MAX_LOOK_ARM:
+            fail(
+                "domain",
+                f"The exact power of Fisher's test at looks is summed up to {MAX_LOOK_ARM} per "
+                "arm at the last look.",
+                where,
+            )
+        return
     model = getattr(getattr(look, "method", None), "simulation", None)
     if not isinstance(look, CitedAnalysisIR) or model is None or model.looks is None:
         key = getattr(getattr(look, "method", None), "key", None) or _test_key(look)
         fail(
             "unsupported_claim",
-            f"The power of a design with looks is simulated for the t-tests; {key} looks are "
-            "not simulated yet.",
+            f"The power of a design with looks is exact for Fisher's test and simulated for "
+            f"the t-tests; {key} looks are not supported yet.",
             where,
         )
 
@@ -5503,6 +5535,15 @@ def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
             claim.span,
         )
     if claim.value.kind in ("meets", "sample_size") and isinstance(
+        planned_analysis(claim.value.subject), SequentialIR
+    ):
+        fail(
+            "unsupported_claim",
+            "The power of a design with looks is calculated or simulated, not proved, so it "
+            "cannot be verified. Use calculate(...) for Fisher's test, simulate(...) for t-tests.",
+            claim.span,
+        )
+    if claim.value.kind in ("meets", "sample_size") and isinstance(
         planned_analysis(claim.value.subject),
         (CitedAnalysisIR, CitedAssociationIR, FamilyLikeIR, ReestimationIR),
     ):
@@ -5662,6 +5703,13 @@ def _family_simulation(family, subject, arguments, claim) -> ClaimIR:
 
 def _sequential_simulation(analysis, subject, arguments, claim) -> ClaimIR:
     """A design with looks is simulated as declared, look by look."""
+    if exact_looks(analysis):
+        fail(
+            "unsupported_claim",
+            "Fisher's test at looks has exact power, so there is nothing to simulate: "
+            "calculate(...) sums it over every path of counts.",
+            claim.span,
+        )
     if isinstance(subject, SizingIR):
         fail(
             "unsupported_claim",

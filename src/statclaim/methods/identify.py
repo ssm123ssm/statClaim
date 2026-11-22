@@ -13,6 +13,12 @@ from statclaim.methods.core import ASSUMPTION_KINDS
 
 # (pattern, id, kind). The first match wins, so put specific patterns first.
 RECOGNISED = [
+    # Exact power of Fisher's test at interim looks (statclaim.looks_planning).
+    (
+        r"^Power, the chance of stopping at each look and the expected size are summed exactly",
+        "exact_looks_sum",
+        "approximation",
+    ),
     # Observational studies (statclaim.association).
     (r"^The exposed and unexposed groups were sampled separately", "cohort_groups", "design"),
     (r"^Cases and controls were sampled separately", "case_control_groups", "design"),

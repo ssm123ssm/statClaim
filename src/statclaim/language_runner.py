@@ -7,7 +7,13 @@ from collections.abc import Collection
 from fractions import Fraction
 from pathlib import Path
 
-from statclaim import association_planning, cited_planning, precision_planning, simulated_planning
+from statclaim import (
+    association_planning,
+    cited_planning,
+    looks_planning,
+    precision_planning,
+    simulated_planning,
+)
 from statclaim.composition import composition_claims
 from statclaim.language import (
     LANGUAGE_VERSION,
@@ -33,6 +39,7 @@ from statclaim.language import (
     RateRatioIR,
     RateResultIR,
     RequestIR,
+    SequentialIR,
     TotalCandidatesIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
@@ -159,6 +166,9 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         )
         if isinstance(analysis, PlannedIntervalIR):
             return precision_planning.run(report, subject)
+        if isinstance(analysis, SequentialIR):
+            # Only Fisher's test at looks reaches here; t-test looks are simulated.
+            return looks_planning.run(report, subject)
         if isinstance(analysis, CitedAnalysisIR):
             # verify(...) was refused while compiling: approximate power is a calculation.
             return cited_planning.run(report, subject)
@@ -930,9 +940,41 @@ def _precision_lines(details: dict) -> list[str]:
     return lines
 
 
+def _looks_lines(details: dict) -> list[str]:
+    """Fisher's test at looks: each look's exact chance of stopping, and the expected size."""
+    calculation = details["calculation"]
+    show = lambda record: f"{float(record['decimal_approximation']):.4f}"  # noqa: E731
+    looks = calculation["looks"]
+    expected = calculation["expected_sample_size"]
+    expected_null = calculation["expected_sample_size_null"]
+    return [
+        f"  arm sizes = ({calculation['n_control']}, {calculation['n_treatment']}); "
+        f"total = {calculation['total_sample_size']}",
+        "  looks: "
+        + ", ".join(
+            f"({look['n_control']}, {look['n_treatment']}) at {look['alpha']['fraction']}"
+            for look in looks
+        )
+        + "; stopping ~ "
+        + ", ".join(show(look["stop"]) for look in looks)
+        + " (under the null "
+        + ", ".join(show(look["stop_null"]) for look in looks)
+        + ")",
+        f"  expected total ~ {float(expected['decimal_approximation']):.1f} (under the null ~ "
+        f"{float(expected_null['decimal_approximation']):.1f})",
+        f"  power ~ {show(calculation['power'])} (exact sum over every path of counts); power "
+        f"target met = {str(calculation['power_target_met']).lower()}",
+        f"  exact Type I with both arms at the control rate ~ "
+        f"{show(calculation['typeI_at_control_rate'])}; level {calculation['alpha']['fraction']}"
+        f"; Type I target met = {str(calculation['typeI_target_met']).lower()}",
+    ]
+
+
 def _planning_lines(details: dict) -> list[str]:
     if details.get("verification_scope") == "precision":
         return _precision_lines(details)
+    if details.get("verification_scope") == "looks_planning":
+        return _looks_lines(details)
     if details.get("verification_scope") == "cited_planning":
         return _approximate_lines(details)
     calculation = details["calculation"]

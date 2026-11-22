@@ -1,6 +1,12 @@
 """Pure claim descriptions and inspection data for reports and editor views."""
 
-from statclaim import association_planning, cited_planning, precision_planning, simulated_planning
+from statclaim import (
+    association_planning,
+    cited_planning,
+    looks_planning,
+    precision_planning,
+    simulated_planning,
+)
 from statclaim.composition import DISCHARGED, composition_assumptions
 from statclaim.design import inspect_design
 from statclaim.family import inspect_family
@@ -33,11 +39,13 @@ from statclaim.language import (
     RateResultIR,
     ReestimationIR,
     RequestIR,
+    SequentialIR,
     SizingIR,
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
     VerificationResultIR,
+    exact_looks,
     group_probabilities,
     normalize,
     planned_analysis,
@@ -162,6 +170,8 @@ def inspect_planning(request: RequestIR) -> dict:
     analysis = subject.analysis if feasibility else subject.candidates.analysis
     if isinstance(analysis, PlannedIntervalIR):
         return precision_planning.describe(subject)
+    if isinstance(analysis, SequentialIR) and exact_looks(analysis):
+        return looks_planning.describe(subject)
     if isinstance(analysis, (FamilyLikeIR, ReestimationIR)):
         # Its power has no formula; only simulate(...) estimates it.
         return simulated_planning.describe(subject, None)

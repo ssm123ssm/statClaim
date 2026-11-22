@@ -575,8 +575,14 @@ let looked = simulate(meets(analysis=trial, target=target), seed=2026)
 - Lean proves the design's Type I bound (lesson 14), so the simulated Type I is
   reported, not judged. It shows how conservative the split is.
 - The looks may be Student's or Welch's t-tests, at normal outcomes or the scenarios
-  above. Exact and other tests are not simulated at looks yet, and the looks are
-  simulated as declared, not searched. `calculate` and `verify` refuse the claim.
+  above. The looks are simulated as declared, not searched.
+- When the looks are Fisher's test, nothing is simulated: `calculate(meets(...))` sums
+  the power exactly over every path of counts through the looks, each look with the
+  exact rejection region of its own level, up to 500 per arm at the last look. It
+  reports the same stopping rates and expected sizes, and the exact Type I with both
+  arms at the control rate. A brute-force enumeration in R with `fisher.test` agrees to
+  1e-12 (`replication/comparison/fisher_looks_r.R`). See lesson 45.
+- `verify` refuses the claim either way.
 
 A raw-data simulation in R that applies `t.test` at each look agrees within its Monte
 Carlo error (`replication/comparison/group_sequential_r.R`). See lesson 41.

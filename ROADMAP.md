@@ -85,6 +85,8 @@
   t-tests with correlated endpoints: each endpoint, any and all, cross-checked against R.
 - Exact power of the logistic regression trial test, summed over both arms' counts for its
   Wald test, matching glm on every table.
+- Exact power of Fisher's test at interim looks, summed over every path of counts,
+  matching a brute-force enumeration in R.
 - Precision targets: sample sizes for a margin of error, absolute or relative, with an
   optional assurance, for every interval StatClaim reports, and for surveys through the
   normal interval with a design effect and a finite population correction.

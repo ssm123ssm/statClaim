@@ -130,10 +130,10 @@ def test_the_lesson_reports_looks_and_the_expected_size(tmp_path):
             "null=equal_proportions(model=two_arm_binomial(n_control=100, n_treatment=100)), "
             "alpha=9/200)\n"
             "let exact = alpha_spending(looks=[a, b], alpha=1/20)\n"
-            "let p = meets(analysis=exact, target=power_target(at=binomial_rates(p_control=3/10, "
-            "p_treatment=1/2), minimum=4/5, maximum_typeI=1/20))",
+            "let p = simulate(meets(analysis=exact, target=power_target(at=binomial_rates("
+            "p_control=3/10, p_treatment=1/2), minimum=4/5, maximum_typeI=1/20)), seed=1)",
             "unsupported_claim",
-            "t-tests",
+            "calculate",
         ),
     ],
 )

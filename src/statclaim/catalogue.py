@@ -484,6 +484,11 @@ OBJECT_CLASSES = {
         "Evidence and inspection",
         "Approximate power and critical estimate of a cited test; not a bound.",
     ),
+    "LooksPowerDetails": (
+        "Evidence and inspection",
+        "Exact power of Fisher's test at interim looks, the expected size and the exact Type I "
+        "at the control rate; a calculation.",
+    ),
     "SimulationDetails": (
         "Evidence and inspection",
         "Power and Type I error estimated by simulate(...), with 95% intervals, the number "

@@ -1,0 +1,21 @@
+# Fisher's test at an interim look and at the end. Lean proves the design's error bound;
+# its power, the chance of stopping at each look and the expected size are summed exactly
+# over every path of counts through the looks.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use designs.group_sequential
+use planning
+
+let halfway = two_arm_binomial(n_control=60, n_treatment=60)
+let complete = two_arm_binomial(n_control=120, n_treatment=120)
+let interim = fisher(design=fixed(model=halfway), null=equal_proportions(model=halfway), alpha=1/100)
+let final = fisher(design=fixed(model=complete), null=equal_proportions(model=complete), alpha=1/25)
+let trial = alpha_spending(looks=[interim, final], alpha=1/20)
+let target = power_target(
+    at=binomial_rates(p_control=1/4, p_treatment=9/20),
+    minimum=4/5,
+    maximum_typeI=1/20,
+)
+let power = calculate(meets(analysis=trial, target=target))
+let expected_total = power.calculation.expected_sample_size

@@ -46,6 +46,7 @@ from statclaim.derivations import (
     TWO_STAGE_ASSUMPTIONS,
 )
 from statclaim.incidence import PERSON_TIME, POISSON_EVENTS, RATE_NULL
+from statclaim.looks_planning import EXACT_LOOKS, MAX_LOOK_ARM
 from statclaim.matched import MATCHED_NULL, PAIRS_SAMPLED, WITHIN_PAIRS
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES, SHARP_NULL
 from statclaim.methods.assumptions import (
@@ -971,28 +972,46 @@ def _sequential_planning_expected(name: str, subject: dict, search, design: dict
     steps = list(block["steps"])
     used = [len(steps) - 1]
     final = design["analyses"][-1]["analysis"]
-    method = _method(final)
-    if method is None or method.simulation is None or method.simulation.looks is None:
-        raise ValueError("the looks' test has no simulation model for looks")
-    model = method.simulation
     target, point = subject["target"], subject["target"]["at"]
     sizes = _sizes(final["design"]["model"])
-    facts = {
-        "subject": name,
-        "method": method.key,
-        "model": model.key,
-        "version": model.version,
-        "point": point,
-    }
-    valid = _point_valid(point, model.point, sum(sizes.values()), False, True)
-    steps.append(("simulation-model", facts, valid, ()))
-    null = final["null"]
-    margin = Fraction(null.get("value", "0"))
-    effect = Fraction(point.get("mean_difference", "0"))
-    outside = {"higher": effect > margin, "lower": effect < margin, None: effect != 0}[
-        _favours(null)
-    ]
-    statement = _null_statement(null)
+    if final.get("test") == "fisher":
+        # Fisher's test at looks: its power is summed exactly; no simulation model.
+        model = None
+        valid = (
+            set(point) == {"p_control", "p_treatment"}
+            and _probability(point["p_control"])
+            and _probability(point["p_treatment"])
+            and max(sizes.values()) <= MAX_LOOK_ARM
+        )
+        steps.append(("exact-looks", {"subject": name, "point": point}, valid, ()))
+        alternative = final.get("alternative", "two_sided")
+        control, treatment = (
+            Fraction(point.get("p_control", "0")),
+            Fraction(point.get("p_treatment", "0")),
+        )
+        outside = treatment > control if alternative == "greater" else treatment != control
+        statement = _statement(final["null"])
+    else:
+        method = _method(final)
+        if method is None or method.simulation is None or method.simulation.looks is None:
+            raise ValueError("the looks' test has no simulation model for looks")
+        model = method.simulation
+        facts = {
+            "subject": name,
+            "method": method.key,
+            "model": model.key,
+            "version": model.version,
+            "point": point,
+        }
+        valid = _point_valid(point, model.point, sum(sizes.values()), False, True)
+        steps.append(("simulation-model", facts, valid, ()))
+        null = final["null"]
+        margin = Fraction(null.get("value", "0"))
+        effect = Fraction(point.get("mean_difference", "0"))
+        outside = {"higher": effect > margin, "lower": effect < margin, None: effect != 0}[
+            _favours(null)
+        ]
+        statement = _null_statement(null)
     steps.append(("alternative", {"subject": name, "point": point, "null": statement}, outside, ()))
     minimum, maximum = target["minimum_power"], target["maximum_typeI"]
     steps.append(
@@ -1017,7 +1036,7 @@ def _sequential_planning_expected(name: str, subject: dict, search, design: dict
         *block["own"],
         *block["nested"],
         *block["cited"],
-        *(item.text for item in model.assumptions),
+        *((EXACT_LOOKS,) if model is None else (item.text for item in model.assumptions)),
         PLANNING_POINT_ASSUMPTION,
     )
     return steps, obligations, assumptions

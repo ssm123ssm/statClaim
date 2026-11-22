@@ -113,6 +113,7 @@ from statclaim.language_values import (
     EffectIntervalDetails,
     Evidence,
     IntervalDetails,
+    LooksPowerDetails,
     MarginDetails,
     MatchedPowerDetails,
     MatchedResultDetails,
@@ -822,6 +823,30 @@ SCHEMAS = {
         "candidates_evaluated": FieldSpec(int, optional=True),
         "minimum_sample_size_claim": FieldSpec(str, optional=True),
     },
+    LooksPowerDetails: {
+        "n_control": FieldSpec(int, optional=True),
+        "n_treatment": FieldSpec(int, optional=True),
+        "total_sample_size": FieldSpec(int, optional=True),
+        "power": FieldSpec(
+            Fraction,
+            optional=True,
+            description="The exact chance of rejecting at some look, at the planning rates.",
+        ),
+        "power_target_met": FieldSpec(bool),
+        "expected_sample_size": FieldSpec(
+            Fraction, optional=True, description="The mean total at which the trial stops."
+        ),
+        "expected_sample_size_null": FieldSpec(
+            Fraction, optional=True, description="The same, with both arms at the control rate."
+        ),
+        "typeI_at_control_rate": FieldSpec(
+            Fraction,
+            optional=True,
+            description="The exact rejection rate with both arms at the control rate.",
+        ),
+        "alpha": FieldSpec(Fraction, optional=True, description="The design's overall level."),
+        "typeI_target_met": FieldSpec(bool, optional=True),
+    },
     SimulationDetails: {
         "n_control": FieldSpec(int, optional=True),
         "n_treatment": FieldSpec(int, optional=True),
@@ -1080,6 +1105,8 @@ def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
     )
     if isinstance(analysis, PlannedIntervalIR):
         return PrecisionDetails
+    if isinstance(analysis, SequentialIR):
+        return LooksPowerDetails
     if isinstance(analysis, (CitedAnalysisIR, CitedAssociationIR)):
         return ApproximatePowerDetails
     if isinstance(analysis, AssociationAnalysisIR):

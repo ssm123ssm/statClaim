@@ -43,11 +43,13 @@ from statclaim.language import (
     TotalCandidatesIR,
     TwoStageAnalysisIR,
     cited_formula,
+    exact_looks,
     named_outcomes,
     normalize,
     observational_formula,
     planned_analysis,
 )
+from statclaim.looks_planning import EXACT_LOOKS
 from statclaim.matched import matched_assumptions
 from statclaim.methods.assumptions import REESTIMATION_TYPE_I
 from statclaim.methods.simulation import FAMILY
@@ -369,8 +371,14 @@ RULES = {
         "{subject}: power and Type I error can be simulated for this re-estimated design.",
     ),
     "sequential-planning-contract": Rule(
-        "The sequential-contract, simulation-model, alternative and target-range rules hold.",
-        "{subject}: power can be simulated for this design with looks.",
+        "The sequential-contract, simulation-model or exact-looks, alternative and "
+        "target-range rules hold.",
+        "{subject}: power can be found for this design with looks.",
+    ),
+    "exact-looks": Rule(
+        "The looks are Fisher's test, within the exact sum's sizes, and the planning point "
+        "gives two response rates.",
+        "{subject}: power is summed exactly over every path of counts through the looks.",
     ),
     "cited-planning-contract": Rule(
         "The cited-contract, power-formula, alternative, target-range and, for a search, "
@@ -1290,13 +1298,17 @@ def derive_sequential_planning(name: str, claim: ClaimIR, design: SequentialIR) 
     """Simulated power of a design with looks: the looks form one sequential test, and their
     test has a simulation model for looks at this planning point."""
     target, inner = claim.subject.target, f"{name}.analysis"
-    method = design.final.method
-    model, point = method.simulation, normalize(target.at)
+    point = normalize(target.at)
     builder = _Builder()
     pending: list = []
-    used = [
-        _composed_steps(builder, inner, design, pending),
-        builder.apply(
+    family_final = _composed_steps(builder, inner, design, pending)
+    if exact_looks(design):
+        model = None
+        found = builder.apply("exact-looks", {"subject": name, "point": point})
+    else:
+        method = design.final.method
+        model = method.simulation
+        found = builder.apply(
             "simulation-model",
             {
                 "subject": name,
@@ -1305,7 +1317,10 @@ def derive_sequential_planning(name: str, claim: ClaimIR, design: SequentialIR) 
                 "version": model.version,
                 "point": point,
             },
-        ),
+        )
+    used = [
+        family_final,
+        found,
         builder.apply(
             "alternative",
             {"subject": name, "point": point, "null": design.final.hypothesis.statement},
@@ -1334,7 +1349,7 @@ def derive_sequential_planning(name: str, claim: ClaimIR, design: SequentialIR) 
         tuple(builder.steps),
         (
             *composed_assumptions(design),
-            *(item.text for item in model.assumptions),
+            *((EXACT_LOOKS,) if model is None else (item.text for item in model.assumptions)),
             PLANNING_POINT_ASSUMPTION,
         ),
         tuple(builder.obligations),

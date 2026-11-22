@@ -30,6 +30,7 @@ gMCP was not used: it needs Java.
 | `survey_power_r.R` | `survey_power_r.txt` | Survey tests through the design effect: `pwrss`'s Hsieh sizes for a simple random sample, times the design effect, and the Wald test of a slope; writes `tests/fixtures/survey_power_r.json`, which `tests/test_survey_power.py` compares with StatClaim |
 | `precision_r.R` | `precision_r.txt` | Margins of error and assurance of StatClaim's exact intervals (`binom.test` for every count, `qbeta` at expected counts), the normal intervals (`presize`'s `prec_prop`, `prec_riskdiff`, `prec_riskratio`, `prec_or`), and Cochran's survey size; writes `tests/fixtures/precision_r.json`, which `tests/test_precision.py` compares with StatClaim |
 | `cluster_simulation_r.R` | `cluster_simulation_r.txt` | Power of the t-test on cluster means and proportions from a simulation that draws every participant, with cluster sizes that vary; writes `tests/fixtures/cluster_simulation_r.json`, which `tests/test_cluster_simulation.py` compares with StatClaim's simulation |
+| `fisher_looks_r.R` | `fisher_looks_r.txt` | The chance of stopping at each of two looks for Fisher's test, two-sided and one-sided with unequal arms, at the planning rates and under the null, by brute force with `fisher.test` on every table and increment; writes `tests/fixtures/fisher_looks_r.json`, which `tests/test_fisher_looks.py` compares with StatClaim's exact sum |
 | `logistic_wald_r.R` | `logistic_wald_r.txt` | Exact power of the logistic regression trial test, with `glm` fitted to every 2x2 table; writes `tests/fixtures/logistic_wald_r.json`, which `tests/test_logistic_wald.py` compares with StatClaim's closed-form sum |
 | `family_power_r.R` | `family_power_r.txt` | Each endpoint's rejection rate, any and all, and the familywise error, for Bonferroni, fixed-sequence and graphical families of Fisher tests and t-tests with correlated endpoints, from a raw-data simulation with `fisher.test`, `t.test` and the graphical algorithm written in R; writes `tests/fixtures/family_power_r.json`, which `tests/test_family_power.py` compares with StatClaim's simulation |
 | `reestimation_r.R` | `reestimation_r.txt` | Power, Type I error and mean size per arm of Student's t-test with blinded sample-size re-estimation (Kieser and Friede), at three SDs, from a raw-data simulation; writes `tests/fixtures/reestimation_r.json`, which `tests/test_reestimation.py` compares with StatClaim's simulation |
@@ -98,6 +99,9 @@ graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup
   with and without cluster sizes that vary, StatClaim's simulation agrees with R's
   raw-data simulation within four standard errors; with equal clusters its interval holds
   the noncentral t.
+- **Fisher's test at looks.** For two designs, the exact chance of stopping at each look
+  agrees with R's brute-force enumeration to 1e-12, at the planning rates and under the
+  null.
 - **Logistic regression.** In four cases (both sides, unequal arms, a rare control
   rate, the null), StatClaim's exact Wald power agrees with `glm` on every table to 1e-12,
   including tables with an empty cell.

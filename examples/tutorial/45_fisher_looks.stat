@@ -1,0 +1,17 @@
+# Lesson 45: exact power for Fisher's test at an interim look.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use designs.group_sequential
+use planning
+
+# Lesson 14's design with a yes-or-no outcome: a look at 50 per arm, the end at 100.
+let halfway = two_arm_binomial(n_control=50, n_treatment=50)
+let complete = two_arm_binomial(n_control=100, n_treatment=100)
+let interim = fisher(design=fixed(model=halfway), null=equal_proportions(model=halfway), alpha=1/200)
+let final = fisher(design=fixed(model=complete), null=equal_proportions(model=complete), alpha=9/200)
+let trial = alpha_spending(looks=[interim, final], alpha=1/20)
+
+# Response rates of 30% and 50%: every path of counts through the looks is summed.
+let target = power_target(at=binomial_rates(p_control=3/10, p_treatment=1/2), minimum=4/5, maximum_typeI=1/20)
+let power = calculate(meets(analysis=trial, target=target))
