@@ -110,7 +110,7 @@
     import('./editor.js').catch(() => {
       const report = document.getElementById('report');
       report.dataset.state = 'error';
-      report.textContent = 'The editor files could not load. Restart the studio server from this checkout with .venv/bin/python studio/server.py, then reload this page.';
+      report.textContent = 'The editor files could not load. Reload this page; if you run the studio yourself, restart it with .venv/bin/python studio/server.py first.';
     });
   </script>
 </body>

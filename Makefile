@@ -29,6 +29,18 @@ python-check: type-check
 	uv run --locked python scripts/tutorial.py check
 	uv run --locked pytest -m 'not lean'
 
+# The web studio, built from this commit into dist/studio-site. site-check also runs every
+# example in its Pyodide and compares the answers with CPython's.
+.PHONY: site site-check
+site:
+	npm --prefix studio ci
+	uv run --locked python scripts/build_studio_site.py
+
+site-check:
+	npm --prefix studio ci
+	uv run --locked python scripts/build_studio_site.py --reference dist/studio-reference.json
+	node studio/tests/site.check.mjs dist/studio-site dist/studio-reference.json
+
 # The studio's page tests; its server tests run with the other Python tests.
 .PHONY: studio-check
 studio-check:

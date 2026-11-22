@@ -1,4 +1,5 @@
 import { mountDocument, applyEdits } from './document.js';
+import { request as backendRequest, prepare, onState, where } from './backend.js';
 import { mountPalette, miniBlock } from './palette.js';
 import { openWizard, DESIGNS, FAMILIES as DESIGN_FAMILIES } from './wizard.js';
 import { el, button, icon, human, title, familyOf, FAMILIES, SHAPES, keyGlyph, derivationView, codeTitle, statusText, plural, messageBlock, outcome, outcomeBadge, headline, valueText, setFamily, calculationLines, powerCurve, certStamp, scrollInside, fixBox } from './ui.js';
@@ -246,13 +247,16 @@ async function api(path, body, signal) {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body), signal,
   } : {signal};
   let response;
-  try { response = await fetch('/api/' + path, options); }
+  try { response = await backendRequest(path, options); }
   catch (error) {
     if (error.name === 'AbortError') throw error;
-    throw Object.assign(Error('The StatClaim checker is not responding. Start the studio server with .venv/bin/python studio/server.py, then press Recheck.'), {offline: true});
+    throw Object.assign(Error(where === 'browser' ? 'StatClaim stopped responding in this browser. Reload the page.' :
+      'The StatClaim checker is not responding. Start the studio server with .venv/bin/python studio/server.py, then press Recheck.'), {offline: true});
   }
+  if (response.status === 503) throw Object.assign(Error((await response.json()).error), {offline: true});
   if (!response.ok) throw Error(response.status === 413 ? 'This document exceeds the editor size limit.' :
-    response.status === 404 ? 'The running server is older than the editor and cannot do this. Restart it with .venv/bin/python studio/server.py, then reload the page.' :
+    response.status === 404 ? (where === 'browser' ? 'This web studio cannot do that yet. Reload the page in case it was updated.' :
+      'The running server is older than the editor and cannot do this. Restart it with .venv/bin/python studio/server.py, then reload the page.') :
     'The StatClaim checker could not handle this request (' + response.status + ').');
   const result = await response.json();
   return path === 'compile' ? describeGaps(result) : result;
@@ -830,12 +834,12 @@ function toast(message, {undo} = {}) {
   byId('notice').textContent = message;
   setTimeout(dismiss, undo ? 6000 : 3600);
 }
-function setBanner(message, action) {
+function setBanner(message, action, glyph = 'alert') {
   const banner = byId('banner');
   banner.replaceChildren();
   banner.hidden = !message;
   if (!message) return;
-  banner.append(icon('alert'), el('span', '', message));
+  banner.append(icon(glyph), el('span', '', message));
   if (action) banner.append(button(action[0], action[1], 'btn small'));
 }
 
@@ -1314,8 +1318,11 @@ function renderResults(focus) {
   // The head: the file's grade, what it means, and one count per grade.
   const status = run.error ? 'error' : run.result.status;
   const head = el('section', 'results-head');
+  const unproved = requests.filter(request => request.status === 'needs_lean').length;
+  const meaning = unproved ? plural(unproved, 'check') + (unproved === 1 ? ' needs' : ' need') + ' Lean to build ' + (unproved === 1 ? 'its proof' : 'their proofs') + '; everything else ran.' :
+    catalog.program_statuses?.[status] || statusText(status);
   head.append(outcomeBadge({status: run.error ? 'backend_error' : status}, 'outcome big'),
-    el('p', 'results-status', run.error || catalog.program_statuses?.[status] || statusText(status)));
+    el('p', 'results-status', run.error || meaning));
   const tones = new Map();
   for (const request of requests) {
     const info = outcome(request);
@@ -1392,7 +1399,8 @@ function renderResults(focus) {
       weak.append(icon('alert'), el('span', '', 'Only as strong as its weakest part: ' + info.weakest.grade + ' (' + info.weakest.parts.join(', ') + ').'));
       panel.append(weak);
     }
-    if (request.message && !['verified', 'conditional', 'cited', 'declared', 'calculated', 'simulated'].includes(request.status)) panel.append(messageBlock(request.message, 'result-message'));
+    // A proof that needs Lean says so in its headline, and the button below says what to do.
+    if (request.message && !['verified', 'conditional', 'cited', 'declared', 'calculated', 'simulated', 'needs_lean'].includes(request.status)) panel.append(messageBlock(request.message, 'result-message'));
     if (request.status === 'needs_lean') {
       const way = button('', () => openLeanHelp(), 'btn small lean-help-btn');
       way.append(icon('lock'), el('span', '', 'How to get a proof'));
@@ -1902,7 +1910,7 @@ function showLeanChip() {
   const chip = byId('leanChip');
   if (!chip || capabilities.lean) return;
   chip.hidden = false;
-  chip.replaceChildren(icon('lock'), el('span', 'lbl', capabilities.where === 'browser' ? 'Web studio: no proofs' : 'No Lean: no proofs'));
+  chip.replaceChildren(icon('lock'), el('span', 'lbl', 'Proofs need Lean'));
   chip.title = capabilities.needs_lean || 'Proofs need Lean';
   chip.addEventListener('click', () => openLeanHelp());
 }
@@ -2062,6 +2070,25 @@ document.addEventListener('keydown', event => {
   else if (event.key === '/' && palette) { event.preventDefault(); palette.search.focus(); }
 });
 
+// In the web studio, StatClaim starts loading in this browser at once, while the page builds.
+if (where === 'browser') {
+  prepare();
+  let starting = false;
+  onState((state, detail) => {
+    if (state === 'starting') {
+      starting = true;
+      setBanner('Starting StatClaim in this browser. The first visit downloads about 12 MB; later visits start sooner.', null, 'info');
+    } else if (state === 'ready' && starting) {
+      starting = false;
+      setBanner(null);
+    } else if (state === 'failed') {
+      setStatus('offline', 'StatClaim stopped');
+      setBanner('StatClaim could not start in this browser (' + detail + '). Try a recent Chrome, Edge, Firefox or Safari, or the full studio in Codespaces.',
+        capabilities.links?.codespaces ? ['Open Codespaces', () => window.open(capabilities.links.codespaces, '_blank', 'noopener')] : null);
+    }
+  });
+}
+
 try {
   try {
     const stored = window.localStorage.getItem(panelKey);
@@ -2121,6 +2148,11 @@ try {
 } catch (error) {
   setStatus('offline', 'Checker offline');
   report.dataset.state = 'error';
-  report.textContent = 'Could not load the editor. Restart studio/server.py from this checkout and reload. ' + error.message;
-  setBanner('Could not reach the StatClaim checker. Start the studio server with .venv/bin/python studio/server.py, then reload.');
+  if (where === 'browser') {
+    report.textContent = 'Could not load the web studio. Reload the page. ' + error.message;
+    setBanner('Could not load the web studio. Reload the page.');
+  } else {
+    report.textContent = 'Could not load the editor. Restart studio/server.py from this checkout and reload. ' + error.message;
+    setBanner('Could not reach the StatClaim checker. Start the studio server with .venv/bin/python studio/server.py, then reload.');
+  }
 }

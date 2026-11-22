@@ -32,8 +32,9 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
-- `studio/`: the block editor, a local web page served by `studio/server.py` on the
-  same compiler, runner and language-server features.
+- `studio/`: the block editor. `api.py` answers its requests on the same compiler,
+  runner and language-server features; `server.py` serves it on this machine, and
+  the web studio runs it in the browser in Pyodide, without Lean.
 - `catalogue.py`: classified public inventory generated from those registries.
 
 Planning claims (`meets`, sample-size searches) are calculated, simulated or proved

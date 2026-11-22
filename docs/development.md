@@ -13,12 +13,14 @@ make catalogue-check repository-check
 make tutorial-check           # rerun the lessons and check the outputs the page shows
 make editor-package           # distributable VSIX in extensions/vscode/dist
 make studio-check             # the studio's page tests (its server tests are in python-check)
+make site site-check          # build the web studio; run every example in its Pyodide
 ```
 
 CI runs the fast checks and the studio's tests, the wheel on two systems and two
-Python versions, the R replication, the container, and the Lean integration tests
-in three parallel shards (`make integration-shard SHARD=a|b|c`; the last takes
-every file the first two do not name). A new push to a pull request cancels its
+Python versions, the R replication, the container, the web studio, and the Lean
+integration tests in three parallel shards (`make integration-shard SHARD=a|b|c`;
+the last takes every file the first two do not name). Once all pass on `main`, it
+publishes the web studio to GitHub Pages. A new push to a pull request cancels its
 running check; on `main` every commit is checked to the end.
 
 Type checking is gradual. mypy checks every module except those listed in

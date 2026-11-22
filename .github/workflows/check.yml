@@ -101,6 +101,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: test "${{ needs.lean.result }}" = success
+  # The web studio: built as GitHub Pages serves it, then every example run in its Pyodide
+  # and compared with CPython.
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+      - run: uv sync --locked
+      - run: make site-check
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/studio-site
+  # Publish the web studio from main, only once every check has passed.
+  pages:
+    needs: [python, wheel, replicate, lean-editor, container, site]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
   container:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -113,3 +149,11 @@ jobs:
       - run: devcontainer up --workspace-folder . --skip-post-attach
       - run: devcontainer exec --workspace-folder . uv run --locked statclaim check examples/playground.stat
       - run: devcontainer exec --workspace-folder . make catalogue-check repository-check
+      # The Codespace starts the studio by itself, and with Lean.
+      - run: |
+          devcontainer exec --workspace-folder . bash -c '
+            for attempt in $(seq 90); do
+              curl -sf http://127.0.0.1:4180/api/capabilities > /tmp/capabilities.json && break
+              sleep 2
+            done
+            grep -q "\"lean\": true" /tmp/capabilities.json || { cat .statclaim/studio.log; exit 1; }'

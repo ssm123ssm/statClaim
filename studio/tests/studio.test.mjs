@@ -1917,7 +1917,7 @@ test('a studio without Lean says what needs it and where proofs can be built', a
 
   // Before anything runs, the top bar and the proof's block say that proofs need Lean.
   assert.equal(el('leanChip').hidden, false);
-  assert.match(el('leanChip').textContent, /no proofs/);
+  assert.match(el('leanChip').textContent, /Proofs need Lean/);
   const idle = stack('verification').querySelector('.result-tray');
   assert.match(idle.textContent, /needs Lean/);
   assert.ok(idle.querySelector('.lean-link'), 'the idle tray offers the way to a proof');
@@ -1928,6 +1928,8 @@ test('a studio without Lean says what needs it and where proofs can be built', a
   await until(() => host.querySelector('.result-tray[data-state="done"]'), 'run results never appeared');
   const done = stack('verification').querySelector('.result-tray');
   assert.match(done.textContent, /Needs Lean/);
+  assert.match(el('results').querySelector('.results-status').textContent, /1 check needs Lean to build its proof; everything else ran/);
+  assert.equal(el('results').querySelector('.result-message'), null, 'the reason is said once, in the headline');
   await until(() => dialog(), 'the first unproved run did not explain');
   assert.match(dialog().textContent, /Formal proofs need Lean/);
   assert.match(dialog().textContent, /1 check in this study needs a proof/);

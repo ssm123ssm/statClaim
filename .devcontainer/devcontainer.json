@@ -11,6 +11,7 @@
   },
   "remoteUser": "vscode",
   "onCreateCommand": "bash .devcontainer/bootstrap.sh",
+  "postStartCommand": "bash .devcontainer/studio.sh",
   "postAttachCommand": "bash .devcontainer/attach.sh",
   "portsAttributes": {
     "4180": {

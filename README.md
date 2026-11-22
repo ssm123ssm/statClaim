@@ -7,7 +7,8 @@ researchers make study assumptions explicit, catch incompatible analyses, and
 obtain machine-checked evidence for supported statistical claims.
 
 [![Check](https://img.shields.io/github/actions/workflow/status/ssm123ssm/statClaim/check.yml?branch=main&style=flat&label=Check&logo=github&logoColor=white)](https://github.com/ssm123ssm/statClaim/actions/workflows/check.yml)
-[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in_GitHub_Codespaces-24292f?style=flat&logo=github&logoColor=white)](https://codespaces.new/ssm123ssm/statClaim)
+[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in_GitHub_Codespaces-24292f?style=flat&logo=github&logoColor=white)](https://codespaces.new/ssm123ssm/statClaim?quickstart=1)
+[![Web studio](https://img.shields.io/badge/Web_studio-7c55d8?style=flat)](https://ssm123ssm.github.io/statClaim/)
 
 ## Why StatClaim?
 
@@ -138,6 +139,15 @@ and adaptive designs. See the [roadmap](ROADMAP.md).
 
 ## Try it
 
+The [studio](studio/README.md) builds a study from blocks and checks it as you edit:
+
+- **[In your browser](https://ssm123ssm.github.io/statClaim/)**, with nothing to
+  install. It runs calculations, simulations and cited checks. Formal proofs need
+  Lean, which a browser cannot run; the studio says so and shows where to get them.
+- **[In Codespaces](https://codespaces.new/ssm123ssm/statClaim?quickstart=1)**, with
+  Lean and formal proofs. The first setup takes a few minutes; then the studio opens
+  in its own tab.
+
 For cited claims, contract explanations and reports, Python is enough:
 
 ```sh
@@ -163,9 +173,8 @@ uv run --locked statclaim catalogue
 
 See [quickstart](docs/quickstart.md) for VS Code and result inspection.
 
-To build a study from blocks instead, run the [studio](studio/README.md) with
-`uv run --locked python studio/server.py` and open <http://127.0.0.1:4180/>.
-In Codespaces, run the same command and the studio opens in a browser tab.
+To run the studio locally, start `uv run --locked python studio/server.py` and
+open <http://127.0.0.1:4180/>.
 
 Then work through the [tutorial](docs/tutorial.html): short lessons, from a first
 checked claim to planning and analysing a study. Open the file in a browser;

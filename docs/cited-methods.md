@@ -217,5 +217,5 @@ A new test arrives complete. Before it is merged it has:
    its section in `docs/tutorial.html`, then run `python scripts/tutorial.py sync` to
    fill in the highlighted code and the contents.
 7. Support in the [studio](../studio/README.md): readings of the new values in
-   `studio/server.py`, and the new-study cards in `studio/designs.js`. Run
-   `make studio-check`.
+   `studio/api.py`, and the new-study cards in `studio/designs.js`. Run
+   `make studio-check site-check`.

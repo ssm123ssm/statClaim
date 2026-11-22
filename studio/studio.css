@@ -137,6 +137,10 @@ button:disabled { cursor: default; }
   font-weight: 650; text-transform: capitalize; cursor: pointer;
 }
 .doc-picker select:hover { border-color: var(--faint); }
+/* The picker gives up width first when the top bar is tight; it would otherwise be as wide as
+   its longest study name. */
+.doc-picker { flex: 0 1 300px; min-width: 130px; }
+.doc-picker select { width: 100%; text-overflow: ellipsis; }
 .tb-group { display: flex; align-items: center; gap: 4px; }
 .tb-spacer { flex: 1; }
 .status {
@@ -1099,7 +1103,11 @@ kbd { font: 650 11px var(--mono); padding: 1px 6px; border-radius: 6px; backgrou
 }
 .lean-chip .icon { width: 15px; height: 15px; }
 .lean-chip:hover { border-color: var(--warn); }
-@media (max-width: 1180px) { .lean-chip .lbl { display: none; } .lean-chip { padding: 0 8px; } }
+/* Laptop widths: short labels give way first; New study and Run checks keep their words. */
+@media (max-width: 1460px) {
+  .brand-sub, .lean-chip .lbl, .file-button .lbl, #download .lbl { display: none; }
+  .lean-chip { padding: 0 8px; }
+}
 .lean-link { font-weight: 750; }
 .btn.lean-help-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
 .lean-back { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 4vh 16px; overflow: auto; background: rgba(15, 22, 36, .38); animation: fade-in .15s ease-out; }

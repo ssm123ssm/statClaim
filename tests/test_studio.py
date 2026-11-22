@@ -44,7 +44,9 @@ def test_every_module_the_pages_import_is_served():
     for page in pages:
         text = (ROOT / "studio" / page).read_text(encoding="utf-8")
         for imported in re.findall(
-            r"""from ['"]\./([\w.-]+\.js)['"]|import\(['"]\./([\w.-]+\.js)['"]\)""", text
+            r"""from ['"]\./([\w.-]+\.js)['"]|import\(['"]\./([\w.-]+\.js)['"]\)"""
+            r"""|new URL\(['"]([\w.-]+\.js)['"], import\.meta\.url\)""",
+            text,
         ):
             name = next(filter(None, imported))
             assert name in editor.ASSETS, f"{page} imports {name}, which the server does not serve"
@@ -411,6 +413,8 @@ def test_without_lean_a_proof_says_it_needs_lean_and_the_rest_runs(backend, tmp_
     assert ("Codespaces" in proof["message"]) == (backend.where == "browser")
     assert result["values"]["recommended_n"] == 35
     assert result["run_directory"] is None
+    # The study as a whole is not established, as statclaim check reports it without Lean.
+    assert result["status"] == "unresolved_obligation"
 
 
 def test_the_capabilities_say_what_needs_lean_and_where_to_go():

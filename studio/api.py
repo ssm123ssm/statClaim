@@ -64,6 +64,9 @@ ASSETS = {
     "ui.js",
     "wizard.js",
     "designs.js",
+    "backend.js",
+    "worker.js",
+    "python.js",
     "document.css",
     "studio.css",
 }
@@ -1185,8 +1188,11 @@ def run_document(source, backend, only=None):
         for binding in program.bindings
         if binding.name in values and reads_result(binding.value)
     }
+    # A proof that could not be built leaves its claim open, as `statclaim check` reports it
+    # without Lean; the page says which checks need Lean.
+    unproved = any(request["status"] == "needs_lean" for request in requests)
     return {
-        "status": report["status"],
+        "status": "unresolved_obligation" if unproved else report["status"],
         "requests": requests,
         "values": realized,
         "diagnostics": report["diagnostics"],

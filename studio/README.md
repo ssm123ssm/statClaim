@@ -39,6 +39,19 @@ Where Lean is not available (the web studio, a checkout before `make setup`, or 
 
 The server listens on `127.0.0.1` only, serves only the editor's own files, and answers API requests only when they are JSON from a page on `127.0.0.1` or `localhost`, so other websites cannot start runs.
 
+## The web studio
+
+The same studio runs on GitHub Pages with StatClaim inside the browser, in [Pyodide](https://pyodide.org). `backend.js` is the page's only way to the API: on this machine it calls `server.py`; in the web studio it sends requests to `worker.js`, which starts StatClaim and `api.py` through `python.js`, and it reads the answers that never change, such as the block manifest and the lessons, from files. Lean cannot run in a browser, so proofs there say **Needs Lean**, as above. Codespaces runs the full studio with Lean: `.devcontainer/studio.sh` starts it when the Codespace starts.
+
+`make site` builds the web studio into `dist/studio-site`; preview it with `python3 -m http.server --directory dist/studio-site`. CI builds it on every change, runs every example and lesson in its Pyodide and compares the answers with CPython's (`make site-check`), and publishes it from `main` once every check passes.
+
+What keeps the two studios in step:
+
+- One API. Add an endpoint to `api.GETS` or `api.POSTS` and both studios answer it; the build writes every GET answer into the site. Never answer a request in `server.py` alone.
+- One file list. A new page file goes in `api.ASSETS`, which both the server and the build use; a test checks that every module the pages import is listed.
+- Every operation says whether it needs Lean, in `OPERATION_BACKENDS`; a test requires it.
+- What a request runs must work in a browser: no threads, subprocesses or network, and StatClaim keeps no dependencies outside Python's standard library. `make site-check` fails otherwise.
+
 ## Tests
 
-Run `.venv/bin/python -m pytest tests/test_studio.py` for the backend, and `make studio-check` for the DOM integration tests, which install the development dependency and use the real server handlers in memory. CI runs both.
+Run `.venv/bin/python -m pytest tests/test_studio.py` for the backend, `make studio-check` for the DOM integration tests, which use the real server handlers in memory, and `make site-check` for the web studio. CI runs all three.
