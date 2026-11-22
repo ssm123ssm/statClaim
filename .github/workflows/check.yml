@@ -8,9 +8,10 @@ on:
 permissions:
   contents: read
 # A new push to a pull request cancels its running check. On main every commit is checked
-# to the end, so no commit is left without a full result.
+# to the end, so no commit is left without a full result: each push has its own group,
+# since a group keeps only one waiting run and replaces it with the next.
 concurrency:
-  group: check-${{ github.ref }}
+  group: check-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   python:
