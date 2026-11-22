@@ -163,7 +163,8 @@ STUDY_FIELDS = {
     ),
 }
 
-SCHEMAS = {
+# Keyed by class, or by a field's value type (a class or a name).
+SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
     AssignmentIR: {
         "n_control": FieldSpec(int),
         "n_treatment": FieldSpec(int),
@@ -1064,10 +1065,8 @@ CALCULATION_FIELDS = {
     "calculation": FieldSpec(CalculationDetails, optional=True),
     "decision": FieldSpec(str, optional=True),
 }
-for kind in (VerificationResultIR, VerificationResult):
-    SCHEMAS[kind] = VERIFICATION_FIELDS
-for kind in (CalculationResultIR, CalculationResult):
-    SCHEMAS[kind] = CALCULATION_FIELDS
+SCHEMAS.update(dict.fromkeys((VerificationResultIR, VerificationResult), VERIFICATION_FIELDS))
+SCHEMAS.update(dict.fromkeys((CalculationResultIR, CalculationResult), CALCULATION_FIELDS))
 
 
 def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
@@ -1137,7 +1136,7 @@ def project(value: object, name: str, span: Span, requests) -> object:
         fail("absent_value", f"There is no value here to read {name!r} from.", span)
     spec = fields_for(value).get(name)
     if spec is None:
-        kind = (
+        label = (
             value.value_type.label
             if isinstance(value, FieldIR)
             else type(value).__name__.removesuffix("IR")
@@ -1145,7 +1144,7 @@ def project(value: object, name: str, span: Span, requests) -> object:
         available = ", ".join(fields_for(value)) or "none"
         fail(
             "unknown_field",
-            f"{kind} has no public field {name!r}. Available fields: {available}.",
+            f"{label} has no public field {name!r}. Available fields: {available}.",
             span,
         )
     if isinstance(value, (VerificationResultIR, CalculationResultIR)) and name == "claim":

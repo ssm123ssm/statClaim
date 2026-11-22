@@ -728,7 +728,7 @@ def render_catalogue() -> str:
     ]
     for title, values in data["enumerations"].items():
         lines += _meanings(f"`{title}`", values)
-    used = {}
+    used: dict[str, dict[str, None]] = {}
     for module in data["modules"]:
         for constructor in module["constructors"]:
             for name in constructor["choices"]:

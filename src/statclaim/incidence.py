@@ -149,7 +149,7 @@ class ProportionEstimate:
 
 def proportion_payload(estimate: ProportionEstimate) -> dict:
     interval = estimate.binomial
-    payload = {
+    payload: dict = {
         "schema_version": 1,
         "scope": "proportion",
         "design": {

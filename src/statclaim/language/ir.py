@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from fractions import Fraction
+from typing import Any
 from typing import Literal as Choice
 
 from statclaim.association import (
@@ -826,7 +827,8 @@ class ComposedFamilyIR(FamilyLikeIR):
     another combination: a design with looks, a family, a sequence or a graph.
     """
 
-    analyses: tuple[tuple[str, object], ...]
+    # Each member is an analysis or another combination.
+    analyses: tuple[tuple[str, Any], ...]
     alpha: Fraction
     mode: str = "family"
     # For a graph only: each test's starting share of the level, and for each test
@@ -1494,7 +1496,8 @@ class SizingIR:
 @dataclass(frozen=True)
 class ClaimIR:
     kind: Choice["typeI", "familywise", "result", "meets", "sample_size", "interval"]
-    subject: object
+    # What the claim is about: an analysis, a family, a planning subject or a result.
+    subject: Any
     name: str
 
     @property
@@ -1674,7 +1677,7 @@ class ProgramIR:
         }
 
 
-def planned_analysis(subject: object) -> object:
+def planned_analysis(subject: Any) -> Any:
     """The analysis a planning claim is about."""
     if isinstance(subject, FeasibilityIR):
         return subject.analysis

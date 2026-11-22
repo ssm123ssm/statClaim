@@ -1,5 +1,6 @@
 """Combine exact numerical results with explicit formal-verification status."""
 
+from fractions import Fraction
 from pathlib import Path
 
 from statclaim.design import Design, inspect_design
@@ -486,7 +487,7 @@ def run_association_plan(
 def run_association_search(
     report: dict,
     test,
-    target: tuple,
+    target: tuple[Fraction, Fraction, Fraction, Fraction],
     bounds: tuple[int, int],
     *,
     minimal: bool,
@@ -881,6 +882,9 @@ def run_margin_search(
 ) -> dict:
     """Search ascending for a sufficient size; each candidate has its own critical value."""
     search = {"min_per_arm": bounds[0], "max_per_arm": bounds[1]}
+    minimum = template.minimum_power
+    if minimum is None:
+        raise ValueError("A sample-size search needs a minimum power.")
     for evaluated, size in enumerate(range(bounds[0], bounds[1] + 1), 1):
         candidate = MarginTest(
             size,
@@ -892,7 +896,7 @@ def run_margin_search(
             template.minimum_power,
             template.maximum_typeI,
         )
-        if candidate.power >= candidate.minimum_power:
+        if candidate.power >= minimum:
             report = run_margin(
                 candidate, verify=verify, project=project, output=output, timeout=timeout
             )

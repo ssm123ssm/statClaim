@@ -5,7 +5,8 @@ Use the README Codespaces button, or install uv, elan and Node.js 22+ locally.
 versions. Mathlib needs several GB; its cache download dominates first setup.
 
 ```sh
-make python-check             # lint, tutorial page and fast Python tests
+make python-check             # lint, types, tutorial page and fast Python tests
+make type-check               # mypy alone
 make check                    # plus Lean, axioms and real backend/replay tests
 make editor-check             # JS unit tests and real VS Code integration
 make catalogue-check repository-check
@@ -18,6 +19,10 @@ replication, the container, and the Lean integration tests in three parallel sha
 (`make integration-shard SHARD=a|b|c`; the last takes every file the first two do
 not name). A new push to a pull request cancels its running check; on `main` every
 commit is checked to the end.
+
+Type checking is gradual. mypy checks every module except those listed in
+`pyproject.toml`; when a module on that list passes, remove it from the list. New
+modules are checked from the start.
 
 On headless Linux use `xvfb-run -a make editor-check`. The test runner downloads
 VS Code unless `VSCODE_EXECUTABLE_PATH` selects an installation. Keep Python and

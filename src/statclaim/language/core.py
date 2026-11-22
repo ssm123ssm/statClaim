@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any, NoReturn
 
 from statclaim.language_contracts import (
     HypothesisContract,
@@ -17,7 +18,7 @@ LANGUAGE_VERSION = "0.41.0"
 
 @dataclass(frozen=True)
 class LocatedValue:
-    value: object
+    value: Any  # any typed value: a number, a model, an analysis, a claim
     span: Span
     name: str | None = None
     definition_span: Span | None = None
@@ -52,7 +53,7 @@ class Module:
     constructors: tuple[Constructor, ...]
 
 
-def fail(code: str, message: str, span: Span) -> None:
+def fail(code: str, message: str, span: Span) -> NoReturn:
     raise LanguageError(Diagnostic(code, message, span))
 
 

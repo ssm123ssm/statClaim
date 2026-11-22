@@ -8,6 +8,7 @@ serves. See docs/cited-methods.md.
 
 import hashlib
 import inspect
+from typing import Any
 
 from statclaim import simulation as engine
 from statclaim.methods import (
@@ -109,7 +110,13 @@ ASSUMPTIONS: dict[str, Assumption] = {
     value.id: value for value in vars(assumptions).values() if isinstance(value, Assumption)
 }
 ASSUMPTIONS.update({value.id: value for value in assumptions.ACCOUNTS_FOR.values()})
-for _item in (*METHODS.values(), *POWER_FORMULAS.values(), *SIMULATIONS.values(), FAMILY):
+_owners: tuple[Any, ...] = (
+    *METHODS.values(),
+    *POWER_FORMULAS.values(),
+    *SIMULATIONS.values(),
+    FAMILY,
+)
+for _item in _owners:
     for _assumption in _item.assumptions:
         if ASSUMPTIONS.setdefault(_assumption.id, _assumption) != _assumption:
             raise ValueError(f"Assumption id {_assumption.id!r} has two meanings.")

@@ -67,7 +67,7 @@ def _arm_limit(analysis: TwoArmTestIR) -> int:
     """The largest arm a search may reach: exact tests are slower to evaluate."""
     if isinstance(analysis, CitedAnalysisIR):
         return MAX_CITED_ARM
-    return MAX_MARGIN_ARM if analysis.alternative == "margin" else MAX_PER_ARM
+    return MAX_MARGIN_ARM if getattr(analysis, "alternative", None) == "margin" else MAX_PER_ARM
 
 
 def _not_clustered(analysis: LocatedValue) -> None:
@@ -390,7 +390,7 @@ def _stage_data(completed: bool) -> Callable:
             if argument is not None and not 0 <= argument.value <= size:
                 fail("domain", f"Responses must be between 0 and {size}.", argument.span)
         observation = TwoStageObservationIR(
-            analysis, first.value, second.value if completed else None
+            analysis, first.value, second.value if second is not None else None
         )
         try:
             observation.lower()
