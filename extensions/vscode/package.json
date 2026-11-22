@@ -99,7 +99,7 @@
     "package": "vsce package --out dist/statclaim.vsix"
   },
   "dependencies": {
-    "vscode-languageclient": "9.0.1"
+    "vscode-languageclient": "11.0.0"
   },
   "devDependencies": {
     "@vscode/test-electron": "3.1.0",
