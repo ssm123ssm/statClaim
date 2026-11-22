@@ -16,13 +16,13 @@ jobs:
           node-version: '22'
       - run: make editor-package
       - run: uv build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-packages
           path: |
             extensions/vscode/dist/statclaim.vsix
             dist/*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-dist
           path: dist/*
