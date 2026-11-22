@@ -1,5 +1,10 @@
 name: Check
-on: [push, pull_request]
+# Pushes to main, and pull requests: a branch with a pull request is checked once, not
+# once for the push and again for the pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
 permissions:
   contents: read
 # A new push to a pull request cancels its running check. On main every commit is checked

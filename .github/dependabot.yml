@@ -1,15 +1,25 @@
-# Weekly updates for the CI actions, the editor's npm packages and the Python lockfile.
+# Weekly updates for the CI actions, the editor's npm packages and the Python lockfile,
+# each ecosystem's updates grouped into one pull request so CI runs once for them.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: npm
     directory: /extensions/vscode
     schedule:
       interval: weekly
+    groups:
+      editor:
+        patterns: ["*"]
   - package-ecosystem: uv
     directory: /
     schedule:
       interval: weekly
+    groups:
+      python:
+        patterns: ["*"]
