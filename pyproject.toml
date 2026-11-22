@@ -30,7 +30,11 @@ Documentation = "https://github.com/ssm123ssm/statClaim/tree/main/docs"
 statclaim = "statclaim.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "ruff>=0.14,<1"]
+dev = [
+    "mypy>=1.13,<2",
+    "pytest>=8,<10",
+    "ruff>=0.14,<1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/statclaim"]
@@ -76,3 +80,44 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/statclaim"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Type checking is gradual: every module is checked except these, which still have errors.
+# Fix a module, remove it here, and keep `make type-check` passing.
+[[tool.mypy.overrides]]
+ignore_errors = true
+module = [
+    "statclaim.association_planning",
+    "statclaim.association",
+    "statclaim.cited_planning",
+    "statclaim.derivation_checker",
+    "statclaim.derivations",
+    "statclaim.language_inspection",
+    "statclaim.language_runner",
+    "statclaim.language_syntax",
+    "statclaim.language.analyses",
+    "statclaim.language.checks",
+    "statclaim.language.designs",
+    "statclaim.language.elaborate",
+    "statclaim.language.ir",
+    "statclaim.language.normalize",
+    "statclaim.language.operations",
+    "statclaim.language.points",
+    "statclaim.language.registry",
+    "statclaim.methods.logistic",
+    "statclaim.methods.mixed_models",
+    "statclaim.methods.t_tests",
+    "statclaim.observational_planning",
+    "statclaim.planning",
+    "statclaim.precision_planning",
+    "statclaim.randomisation",
+    "statclaim.simulated_planning",
+    "statclaim.simulation",
+    "statclaim.verification",
+]

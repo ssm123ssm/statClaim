@@ -15,7 +15,7 @@ async function activate(context) {
   const uv = config.get('uvPath', 'uv');
   const roots = (vscode.workspace.workspaceFolders || []).map(folder => folder.uri.fsPath);
   const project = config.get('projectPath') || roots.find(root =>
-    fs.existsSync(path.join(root, 'src', 'statclaim', 'language.py'))
+    fs.existsSync(path.join(root, 'src', 'statclaim', 'language', '__init__.py'))
   ) || path.resolve(context.extensionPath, '../..');
   const output = vscode.window.createOutputChannel('StatClaim', { log: true });
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 20);

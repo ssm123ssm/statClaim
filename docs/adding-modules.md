@@ -8,8 +8,10 @@ A method whose guarantee Lean cannot prove yet is added as a
 
 1. Define the model, hypothesis, design and assumptions precisely. Explain which
    combinations must fail and why.
-2. Add a typed object/constructor in `language.py`. Add an analysis contract in
-   `language_contracts.py`; never silently replace the user's null.
+2. Add a typed object in `language/ir.py`, its builder in the module of its area
+   (`designs`, `analyses`, `points`, `checks`, `searches`), and its constructor in
+   `language/registry.py`. Add an analysis contract in `language_contracts.py`;
+   never silently replace the user's null.
 3. Publish fields through `language_fields.py`. Keep compilation pure: no Lean,
    calculations, filesystem writes or evidence generation while editing.
 4. Add an explicit lowering/proof adapter and Lean theorem for supported claims.
@@ -28,6 +30,11 @@ A method whose guarantee Lean cannot prove yet is added as a
    target, applicable claims and evidence method; record unsupported planning
    explicitly. This is the [planning roadmap](study-planning.md), not an existing
    plugin API. Bayesian modules should also specify priors and decision criteria.
+
+   A new kind of planned analysis is one entry in `plan_kinds.KINDS`. The entry names
+   how `calculate`, `verify` and `simulate` are checked, how the claim is described,
+   run and derived, and which record it publishes. Then teach the independent checker
+   in `derivation_checker.py` to re-derive the new derivation from its JSON.
 
 Keep registry metadata, runtime behavior and formal statements aligned.
 A maintainer reviews mathematical meaning and assumptions before merging.

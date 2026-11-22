@@ -7,6 +7,7 @@ their fields remain optional, so they cannot be mistaken for checked evidence.
 from dataclasses import dataclass
 from fractions import Fraction
 
+from statclaim import plan_kinds
 from statclaim.language import (
     AnalysisIR,
     AssignmentIR,
@@ -100,6 +101,7 @@ from statclaim.language import (
     ValueType,
     VerificationResultIR,
     fail,
+    planned_analysis,
 )
 from statclaim.language_syntax import Diagnostic, Span
 from statclaim.language_values import (
@@ -161,7 +163,8 @@ STUDY_FIELDS = {
     ),
 }
 
-SCHEMAS = {
+# Keyed by class, or by a field's value type (a class or a name).
+SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
     AssignmentIR: {
         "n_control": FieldSpec(int),
         "n_treatment": FieldSpec(int),
@@ -1062,10 +1065,8 @@ CALCULATION_FIELDS = {
     "calculation": FieldSpec(CalculationDetails, optional=True),
     "decision": FieldSpec(str, optional=True),
 }
-for kind in (VerificationResultIR, VerificationResult):
-    SCHEMAS[kind] = VERIFICATION_FIELDS
-for kind in (CalculationResultIR, CalculationResult):
-    SCHEMAS[kind] = CALCULATION_FIELDS
+SCHEMAS.update(dict.fromkeys((VerificationResultIR, VerificationResult), VERIFICATION_FIELDS))
+SCHEMAS.update(dict.fromkeys((CalculationResultIR, CalculationResult), CALCULATION_FIELDS))
 
 
 def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
@@ -1099,27 +1100,9 @@ def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
         return OneSampleResultDetails
     if claim.kind not in ("meets", "sample_size"):
         return CalculationDetails
-    subject = claim.subject
-    analysis = (
-        subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
-    )
-    if isinstance(analysis, PlannedIntervalIR):
-        return PrecisionDetails
-    if isinstance(analysis, SequentialIR):
-        return LooksPowerDetails
-    if isinstance(analysis, (CitedAnalysisIR, CitedAssociationIR)):
-        return ApproximatePowerDetails
-    if isinstance(analysis, AssociationAnalysisIR):
-        return AssociationPowerDetails
-    if isinstance(analysis, MatchedAnalysisIR):
-        return MatchedPowerDetails
-    if isinstance(analysis, RateAnalysisIR):
-        return RatePowerDetails
-    if isinstance(analysis, OneSampleAnalysisIR):
-        return OneSampleDetails
-    if isinstance(analysis, TwoStageAnalysisIR):
-        return PolicyDetails
-    return PlanningDetails
+    # The analysis's kind names its record: see plan_kinds.KINDS.
+    analysis = planned_analysis(claim.subject)
+    return plan_kinds.resolve(plan_kinds.kind_of(analysis).details)
 
 
 def fields_for(value: object) -> dict[str, FieldSpec]:
@@ -1153,7 +1136,7 @@ def project(value: object, name: str, span: Span, requests) -> object:
         fail("absent_value", f"There is no value here to read {name!r} from.", span)
     spec = fields_for(value).get(name)
     if spec is None:
-        kind = (
+        label = (
             value.value_type.label
             if isinstance(value, FieldIR)
             else type(value).__name__.removesuffix("IR")
@@ -1161,7 +1144,7 @@ def project(value: object, name: str, span: Span, requests) -> object:
         available = ", ".join(fields_for(value)) or "none"
         fail(
             "unknown_field",
-            f"{kind} has no public field {name!r}. Available fields: {available}.",
+            f"{label} has no public field {name!r}. Available fields: {available}.",
             span,
         )
     if isinstance(value, (VerificationResultIR, CalculationResultIR)) and name == "claim":

@@ -123,8 +123,8 @@ class CallContext:
 
 def call_context(tokens: list[Token]) -> list[CallContext]:
     """Track unfinished delimiters using the existing lexer, not a second grammar."""
-    stack = []
-    previous = None
+    stack: list[CallContext] = []
+    previous: Token | None = None
     for token in tokens:
         if token.kind in ("NEWLINE", "EOF", "SPACE", "COMMENT"):
             continue
@@ -322,7 +322,7 @@ class Document:
             receiver = self.receiver_before(dot)
             field_prefix = self.text[dot + 1 : offset]
             edit_range["start"] = self.mapping.position(dot + 1)
-            suffix = re.match(r"[A-Za-z_0-9]*", self.text[offset:]).group()
+            suffix = re.match(r"[A-Za-z_0-9]*", self.text[offset:]).group()  # type: ignore[union-attr]
             edit_range["end"] = self.mapping.position(offset + len(suffix))
             optional = isinstance(receiver, FieldIR) and receiver.value_type.optional
             return {

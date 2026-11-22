@@ -12,6 +12,7 @@ the serialized subject without using the code in this module that built it.
 from dataclasses import dataclass
 from fractions import Fraction
 
+from statclaim import plan_kinds
 from statclaim.association import association_assumptions
 from statclaim.composition import DISCHARGED, MODES
 from statclaim.family import MAX_ENDPOINTS
@@ -1641,11 +1642,16 @@ def derive_precision(name: str, claim: ClaimIR, interval: PlannedIntervalIR) -> 
 
 
 def derive_planning(name: str, claim: ClaimIR) -> Derivation:
-    """A planning claim: its analysis fits, and the target can be assessed for it."""
+    """A planning claim: its analysis fits, and the target can be assessed for it. The
+    analysis's kind builds the derivation: see plan_kinds.KINDS."""
+    analysis = planned_analysis(claim.subject)
+    return plan_kinds.resolve(plan_kinds.kind_of(analysis).derive)(name, claim, analysis)
+
+
+def derive_exact_planning(name: str, claim: ClaimIR, analysis) -> Derivation:
+    """An exact test planned in Lean: Fisher's two-arm test, the difference test, a
+    one-sample test or a two-stage design. A two-stage search names no single analysis."""
     subject = claim.subject
-    interval = planned_analysis(subject)
-    if isinstance(interval, PlannedIntervalIR):
-        return derive_precision(name, claim, interval)
     search = None if isinstance(subject, FeasibilityIR) else subject.candidates
     analysis = subject.analysis if search is None else None
     searches = (
@@ -1658,18 +1664,6 @@ def derive_planning(name: str, claim: ClaimIR) -> Derivation:
     )
     if isinstance(search, searches):
         analysis = search.analysis
-    if isinstance(analysis, SequentialIR):
-        return derive_sequential_planning(name, claim, analysis)
-    if isinstance(analysis, ReestimationIR):
-        return derive_reestimation_planning(name, claim, analysis)
-    if isinstance(analysis, (FamilyIR, ComposedFamilyIR)):
-        return derive_family_planning(name, claim, analysis)
-    if isinstance(analysis, CitedAnalysisIR):
-        return derive_cited_planning(name, claim, analysis)
-    if isinstance(analysis, CitedAssociationIR):
-        return derive_cited_association_planning(name, claim, analysis)
-    if isinstance(analysis, (AssociationAnalysisIR, MatchedAnalysisIR, RateAnalysisIR)):
-        return derive_association_planning(name, claim, analysis)
     target, inner = subject.target, f"{name}.analysis"
     builder = _Builder()
     used: list[int] = []

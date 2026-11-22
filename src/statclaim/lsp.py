@@ -19,7 +19,7 @@ class JsonError(ProtocolError):
 
 
 def read_message(stream: BinaryIO) -> dict | None:
-    headers = {}
+    headers: dict[str, str] = {}
     while True:
         line = stream.readline(8193)
         if not line:
@@ -57,7 +57,7 @@ def write_message(stream: BinaryIO, message: dict) -> None:
 
 
 class Server:
-    def __init__(self, send):
+    def __init__(self, send) -> None:
         self.send = send
         self.documents: dict[str, Document] = {}
         # The text as opened or last saved; change impact is measured against it.
@@ -164,25 +164,25 @@ class Server:
                 "statclaim/explain",
                 "statclaim/impact",
             ):
-                document = self.documents.get(params["textDocument"]["uri"])
-                if document is None:
+                current = self.documents.get(params["textDocument"]["uri"])
+                if current is None:
                     result = None
                 else:
                     feature = method.rsplit("/", 1)[1]
                     if method == "statclaim/inspect":
-                        result = document.inspection()
+                        result = current.inspection()
                     elif method == "statclaim/explain":
-                        result = document.explain(params.get("position"))
+                        result = current.explain(params.get("position"))
                     elif method == "statclaim/impact":
                         from statclaim.contract_reports import impact, impact_markdown
 
-                        baseline = self.baselines.get(document.uri, document.text)
+                        baseline = self.baselines.get(current.uri, current.text)
                         result = impact(
-                            compile_source(Source(baseline, document.uri)), document.compilation
+                            compile_source(Source(baseline, current.uri)), current.compilation
                         )
                         result["markdown"] = impact_markdown(result)
                     else:
-                        result = getattr(document, feature)(params["position"])
+                        result = getattr(current, feature)(params["position"])
             else:
                 if is_request:
                     self.error(identifier, -32601, f"Method not found: {method}")

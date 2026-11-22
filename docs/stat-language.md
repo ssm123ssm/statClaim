@@ -442,8 +442,8 @@ With no requests, the status is only `elaborated`, and no artifacts are written.
 
 ## Implementation and parallel comparison
 
-`language_syntax.py` handles the common grammar and source spans. `language.py`
-defines typed objects, constructor schemas, module builders, elaboration, and
+`language_syntax.py` handles the common grammar and source spans. The `language/`
+package defines typed objects, constructor schemas, module builders, elaboration, and
 planned operation slots. `language_fields.py` is the shared public field schema.
 `language_inspection.py` supplies pure claim descriptions and requirements for
 reports and the IDE Claims view. `language_compiler.py` exposes backend-free compilation

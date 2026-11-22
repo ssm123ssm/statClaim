@@ -23,11 +23,16 @@ check: python-check lean-check integration-check
 # Lint the files git tracks, so local scratch folders never fail the check.
 PYTHON_FILES = $$(git ls-files '*.py')
 
-python-check:
+python-check: type-check
 	uv run --locked ruff check $(PYTHON_FILES)
 	uv run --locked ruff format --check $(PYTHON_FILES)
 	uv run --locked python scripts/tutorial.py check
 	uv run --locked pytest -m 'not lean'
+
+# Gradual: pyproject.toml lists the modules mypy does not check yet.
+.PHONY: type-check
+type-check:
+	uv run --locked mypy
 
 lean-check:
 	lake build

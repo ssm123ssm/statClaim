@@ -11,7 +11,6 @@ from statclaim.composition import DISCHARGED, composition_assumptions
 from statclaim.design import inspect_design
 from statclaim.family import inspect_family
 from statclaim.language import (
-    AnalysisIR,
     AssociationAnalysisIR,
     AssociationResultIR,
     CalculationResultIR,
@@ -22,7 +21,6 @@ from statclaim.language import (
     DifferenceIntervalIR,
     EffectIntervalIR,
     FamilyIR,
-    FamilyLikeIR,
     FeasibilityIR,
     IntervalIR,
     LocatedValue,
@@ -31,15 +29,12 @@ from statclaim.language import (
     MatchedResultIR,
     ObservationIR,
     OneSampleObservationIR,
-    PlannedIntervalIR,
     ProportionIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RateRatioIR,
     RateResultIR,
-    ReestimationIR,
     RequestIR,
-    SequentialIR,
     SizingIR,
     TwoStageAnalysisIR,
     TwoStageCandidatesIR,
@@ -53,6 +48,7 @@ from statclaim.language import (
 )
 from statclaim.language_compiler import Compilation, requirements
 from statclaim.methods.identify import identify, mark
+from statclaim.plan_kinds import kind_of, resolve
 from statclaim.planning import (
     RESULT_ASSUMPTIONS,
     TwoStagePlan,
@@ -161,59 +157,89 @@ def _count_planning(subject, analysis, feasibility: bool) -> dict:
 
 
 def inspect_planning(request: RequestIR) -> dict:
-    """Describe a planning claim from its declaration, without calculating."""
+    """Describe a planning claim from its declaration, without calculating. The analysis's
+    kind chooses the description: see plan_kinds.KINDS."""
     subject = request.claim.subject
     if request.operation == "simulate":
         return simulated_planning.describe(subject, request.settings)
-    target = subject.target
-    feasibility = isinstance(subject, FeasibilityIR)
-    analysis = subject.analysis if feasibility else subject.candidates.analysis
-    if isinstance(analysis, PlannedIntervalIR):
-        return precision_planning.describe(subject)
-    if isinstance(analysis, SequentialIR) and exact_looks(analysis):
+    return resolve(kind_of(planned_analysis(subject)).describe)(subject, request)
+
+
+def describe_precision(subject, request: RequestIR) -> dict:
+    return precision_planning.describe(subject)
+
+
+def describe_looks(subject, request: RequestIR) -> dict:
+    """Fisher's test at looks is summed exactly; t-test looks only simulate(...) estimates."""
+    if exact_looks(planned_analysis(subject)):
         return looks_planning.describe(subject)
-    if isinstance(analysis, (FamilyLikeIR, ReestimationIR)):
-        # Its power has no formula; only simulate(...) estimates it.
-        return simulated_planning.describe(subject, None)
-    if isinstance(analysis, CitedAnalysisIR):
-        return cited_planning.describe(subject)
-    if isinstance(analysis, CitedAssociationIR):
-        return association_planning.describe(subject)
-    if isinstance(analysis, AssociationAnalysisIR):
-        return _association_planning(subject, analysis, feasibility)
-    if isinstance(analysis, (MatchedAnalysisIR, RateAnalysisIR)):
-        return _count_planning(subject, analysis, feasibility)
-    if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
-        if feasibility:
-            return margin_report(subject.lower(), verify=request.operation == "verify")
+    return simulated_planning.describe(subject, None)
+
+
+def describe_simulated_only(subject, request: RequestIR) -> dict:
+    """Its power has no formula; only simulate(...) estimates it."""
+    return simulated_planning.describe(subject, None)
+
+
+def describe_cited(subject, request: RequestIR) -> dict:
+    return cited_planning.describe(subject)
+
+
+def describe_cited_association(subject, request: RequestIR) -> dict:
+    return association_planning.describe(subject)
+
+
+def describe_association(subject, request: RequestIR) -> dict:
+    feasibility = isinstance(subject, FeasibilityIR)
+    return _association_planning(subject, planned_analysis(subject), feasibility)
+
+
+def describe_count(subject, request: RequestIR) -> dict:
+    feasibility = isinstance(subject, FeasibilityIR)
+    return _count_planning(subject, planned_analysis(subject), feasibility)
+
+
+def describe_margin(subject, request: RequestIR) -> dict:
+    target, analysis = subject.target, planned_analysis(subject)
+    if isinstance(subject, FeasibilityIR):
+        return margin_report(subject.lower(), verify=request.operation == "verify")
+    candidates = subject.candidates
+    null = f"p_treatment - p_control <= {analysis.hypothesis.value}"
+    return planning_report(
+        "margin_test",
+        f"Some {_allocation(candidates)} size from {candidates.min_per_arm} to "
+        f"{candidates.max_per_arm} controls gives the exact difference test power >= "
+        f"{target.minimum} at p_control = {target.at.p_control}, p_treatment = "
+        f"{target.at.p_treatment}, with Type I error <= {target.maximum_typeI} whenever "
+        f"{null}. Minimality is not claimed.",
+        margin_assumptions(analysis.margin_test(target)),
+    )
+
+
+def describe_fisher(subject, request: RequestIR) -> dict:
+    target, analysis = subject.target, planned_analysis(subject)
+    point = f"p_control = {target.at.p_control}, p_treatment = {target.at.p_treatment}"
+    goal = (
+        f"power >= {target.minimum} at {point}; "
+        f"Type I error <= {target.maximum_typeI} under the null"
+    )
+    if isinstance(subject, FeasibilityIR):
+        model = analysis.plan.model
+        text = f"Arm sizes ({model.n_control}, {model.n_treatment}) give {goal}."
+    else:
         candidates = subject.candidates
-        null = f"p_treatment - p_control <= {analysis.hypothesis.value}"
-        return planning_report(
-            "margin_test",
+        text = (
             f"Some {_allocation(candidates)} size from {candidates.min_per_arm} to "
-            f"{candidates.max_per_arm} controls gives the exact difference test power >= "
-            f"{target.minimum} at p_control = {target.at.p_control}, p_treatment = "
-            f"{target.at.p_treatment}, with Type I error <= {target.maximum_typeI} whenever "
-            f"{null}. Minimality is not claimed.",
-            margin_assumptions(analysis.margin_test(target)),
+            f"{candidates.max_per_arm} controls "
+            f"gives {goal}. {_scope(subject)}"
         )
-    if isinstance(analysis, AnalysisIR):
-        point = f"p_control = {target.at.p_control}, p_treatment = {target.at.p_treatment}"
-        goal = (
-            f"power >= {target.minimum} at {point}; "
-            f"Type I error <= {target.maximum_typeI} under the null"
-        )
-        if feasibility:
-            model = analysis.plan.model
-            text = f"Arm sizes ({model.n_control}, {model.n_treatment}) give {goal}."
-        else:
-            candidates = subject.candidates
-            text = (
-                f"Some {_allocation(candidates)} size from {candidates.min_per_arm} to "
-                f"{candidates.max_per_arm} controls "
-                f"gives {goal}. {_scope(subject)}"
-            )
-        return planning_report("planning", text, planning_assumptions(analysis.alternative))
+    return planning_report("planning", text, planning_assumptions(analysis.alternative))
+
+
+def describe_policy(subject, request: RequestIR) -> dict:
+    """A one-sample test or a two-stage design, declared or searched."""
+    target, analysis = subject.target, planned_analysis(subject)
+    feasibility = isinstance(subject, FeasibilityIR)
     if not feasibility and isinstance(subject.candidates, TwoStageCandidatesIR):
         candidates = subject.candidates
         return planning_report(

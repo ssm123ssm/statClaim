@@ -13,9 +13,14 @@
 
 The compiler is written in Python. It does not continuously generate Python
 source: it builds typed objects in memory. `use` loads registered constructors
-from `src/statclaim/language.py`, not arbitrary Python or `.stat` files.
+from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files.
 
-- `language_syntax.py`, `language.py`: syntax, typed objects and constructors.
+- `language_syntax.py`: syntax and source spans.
+- `language/`: typed objects (`ir.py`), their canonical JSON (`normalize.py`), the
+  builders and checks by area (`designs`, `analyses`, `points`, `checks`, `searches`),
+  the operations verify, calculate and simulate (`operations.py`), every module and
+  constructor (`registry.py`) and elaboration (`elaborate.py`). Each imports only the
+  ones before it in that list; the package re-exports its public names.
 - `language_contracts.py`, `language_compiler.py`: compatibility and requirements.
 - `language_fields.py`, `language_values.py`: public fields and runtime values.
 - `language_runner.py`, `verification.py`: explicit execution and certificates.
@@ -29,8 +34,10 @@ from `src/statclaim/language.py`, not arbitrary Python or `.stat` files.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `catalogue.py`: classified public inventory generated from those registries.
 
-Planning claims (`meets`, sample-size searches) are calculated or simulated, never
-proved here:
+Planning claims (`meets`, sample-size searches) are calculated, simulated or proved
+in Lean. `plan_kinds.py` lists every kind of analysis a planning claim can be about,
+with how its claims are checked, described, run and derived; the modules below do
+the work:
 
 - `planning.py`, `observational_planning.py`: exact power, checked in Lean.
 - `cited_planning.py`, `association_planning.py`: formula or exact power for cited

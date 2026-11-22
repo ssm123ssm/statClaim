@@ -340,14 +340,14 @@ def impact(old: Compilation, new: Compilation) -> dict:
         )
         if same:
             continue
-        after = _contract_state(current)
-        if current is not None and after == _contract_state(previous):
-            after += " (re-derived for the new declaration)"
+        now = _contract_state(current)
+        if current is not None and now == _contract_state(previous):
+            now += " (re-derived for the new declaration)"
         contracts.append(
             {
                 "name": name,
                 "before": _contract_state(previous),
-                "after": after,
+                "after": now,
                 "checked": current["checked"] if current else None,
             }
         )
