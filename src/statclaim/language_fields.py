@@ -7,6 +7,7 @@ their fields remain optional, so they cannot be mistaken for checked evidence.
 from dataclasses import dataclass
 from fractions import Fraction
 
+from statclaim import plan_kinds
 from statclaim.language import (
     AnalysisIR,
     AssignmentIR,
@@ -100,6 +101,7 @@ from statclaim.language import (
     ValueType,
     VerificationResultIR,
     fail,
+    planned_analysis,
 )
 from statclaim.language_syntax import Diagnostic, Span
 from statclaim.language_values import (
@@ -1099,27 +1101,9 @@ def details_kind(claim: ClaimIR, operation: str = "calculate") -> type:
         return OneSampleResultDetails
     if claim.kind not in ("meets", "sample_size"):
         return CalculationDetails
-    subject = claim.subject
-    analysis = (
-        subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
-    )
-    if isinstance(analysis, PlannedIntervalIR):
-        return PrecisionDetails
-    if isinstance(analysis, SequentialIR):
-        return LooksPowerDetails
-    if isinstance(analysis, (CitedAnalysisIR, CitedAssociationIR)):
-        return ApproximatePowerDetails
-    if isinstance(analysis, AssociationAnalysisIR):
-        return AssociationPowerDetails
-    if isinstance(analysis, MatchedAnalysisIR):
-        return MatchedPowerDetails
-    if isinstance(analysis, RateAnalysisIR):
-        return RatePowerDetails
-    if isinstance(analysis, OneSampleAnalysisIR):
-        return OneSampleDetails
-    if isinstance(analysis, TwoStageAnalysisIR):
-        return PolicyDetails
-    return PlanningDetails
+    # The analysis's kind names its record: see plan_kinds.KINDS.
+    analysis = planned_analysis(claim.subject)
+    return plan_kinds.resolve(plan_kinds.kind_of(analysis).details)
 
 
 def fields_for(value: object) -> dict[str, FieldSpec]:

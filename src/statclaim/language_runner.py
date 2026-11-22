@@ -11,6 +11,7 @@ from statclaim import (
     association_planning,
     cited_planning,
     looks_planning,
+    plan_kinds,
     precision_planning,
     simulated_planning,
 )
@@ -32,18 +33,17 @@ from statclaim.language import (
     ObservationIR,
     OneArmCandidatesIR,
     OneSampleObservationIR,
-    PlannedIntervalIR,
     ProportionIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RateRatioIR,
     RateResultIR,
     RequestIR,
-    SequentialIR,
     TotalCandidatesIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
     group_probabilities,
+    planned_analysis,
 )
 from statclaim.language_compiler import compile_source
 from statclaim.language_inspection import (
@@ -161,106 +161,9 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         if request.operation == "simulate":
             # Refused while compiling unless the analysis has a simulation model.
             return simulated_planning.run(report, subject, request.settings)
-        analysis = (
-            subject.analysis if isinstance(subject, FeasibilityIR) else subject.candidates.analysis
-        )
-        if isinstance(analysis, PlannedIntervalIR):
-            return precision_planning.run(report, subject)
-        if isinstance(analysis, SequentialIR):
-            # Only Fisher's test at looks reaches here; t-test looks are simulated.
-            return looks_planning.run(report, subject)
-        if isinstance(analysis, CitedAnalysisIR):
-            # verify(...) was refused while compiling: approximate power is a calculation.
-            return cited_planning.run(report, subject)
-        if isinstance(analysis, CitedAssociationIR):
-            return association_planning.run(report, subject)
-        if isinstance(analysis, (MatchedAnalysisIR, RateAnalysisIR)):
-            if isinstance(subject, FeasibilityIR):
-                return run_association_plan(report, subject.lower(), **options)
-            candidates = subject.candidates
-            bounds = (candidates.min_size, candidates.max_size)
-            return run_count_search(
-                report,
-                _count_template(analysis, subject.target, bounds, subject.minimal),
-                bounds,
-                minimal=subject.minimal,
-                **options,
-            )
-        if isinstance(analysis, AssociationAnalysisIR):
-            if isinstance(subject, FeasibilityIR):
-                return run_association_plan(report, subject.lower(), **options)
-            if isinstance(subject.candidates, TotalCandidatesIR):
-                from statclaim.association import AssociationTest
-                from statclaim.observational_planning import TotalPowerPlan
-
-                candidates, target, test = subject.candidates, subject.target, analysis.lower()
-                bounds = (candidates.min_n, candidates.max_n)
-                template = TotalPowerPlan(
-                    AssociationTest(
-                        test.design, test.alpha, None, bounds[0], test.exposure, test.outcome
-                    ),
-                    *group_probabilities(target.at),
-                    target.at.exposed_share,
-                    target.minimum,
-                    target.maximum_typeI,
-                    "sample_size",
-                    bounds,
-                )
-                return run_total_search(report, template, bounds, **options)
-            target, candidates = subject.target, subject.candidates
-            return run_association_search(
-                report,
-                analysis.lower(),
-                (*group_probabilities(target.at), target.minimum, target.maximum_typeI),
-                (candidates.min_size, candidates.max_size),
-                minimal=subject.minimal,
-                ratio=candidates.ratio,
-                **options,
-            )
-        if isinstance(analysis, AnalysisIR) and analysis.alternative == "margin":
-            del options["verify"]
-            verify = request.operation == "verify"
-            if isinstance(subject, FeasibilityIR):
-                return run_margin(subject.lower(), verify=verify, **options)
-            candidates = subject.candidates
-            return run_margin_search(
-                analysis.margin_test(subject.target, sizes=(1, 1)),
-                (candidates.min_per_arm, candidates.max_per_arm),
-                candidates.ratio,
-                verify=verify,
-                **options,
-            )
-        if isinstance(subject, FeasibilityIR):
-            run = run_power_plan if isinstance(subject.analysis, AnalysisIR) else run_policy_plan
-            return run(report, subject.lower(), **options)
-        target, candidates = subject.target, subject.candidates
-        if isinstance(candidates, TwoStageCandidatesIR):
-            return run_two_stage_search(
-                report,
-                candidates.null_rate,
-                (target.at.value, target.minimum, target.maximum_typeI),
-                candidates.max_total,
-                candidates.criterion,
-                **options,
-            )
-        if isinstance(candidates, OneArmCandidatesIR):
-            return run_one_sample_search(
-                report,
-                candidates.analysis.plan(target, candidates.min_n),
-                (candidates.min_n, candidates.max_n),
-                minimal=subject.minimal,
-                **options,
-            )
-        return run_sample_size(
-            report,
-            candidates.analysis.alpha,
-            (target.at.p_control, target.at.p_treatment, target.minimum, target.maximum_typeI),
-            (candidates.min_per_arm, candidates.max_per_arm),
-            minimal=subject.minimal,
-            ratio=candidates.ratio,
-            alternative=candidates.analysis.alternative,
-            **options,
-        )
+        # The analysis's kind runs the claim: see plan_kinds.KINDS.
+        kind = plan_kinds.kind_of(planned_analysis(subject))
+        return plan_kinds.resolve(kind.calculate)(report, subject, request, options)
     if isinstance(subject, (RateAnalysisIR, RateResultIR, RateRatioIR, ProportionIR)):
         plan = getattr(getattr(subject, "analysis", subject), "plan", None)
         return run_incidence(
@@ -1050,6 +953,126 @@ def _planning_lines(details: dict) -> list[str]:
         lines.append(f"  candidates evaluated = {calculation['candidates_evaluated']}")
     lines.append(f"  decision = {details['decision']}; no formal certificate issued.")
     return lines
+
+
+def calculate_precision(report: dict, subject, request: RequestIR, options: dict) -> dict:
+    return precision_planning.run(report, subject)
+
+
+def calculate_looks(report: dict, subject, request: RequestIR, options: dict) -> dict:
+    """Only Fisher's test at looks reaches here; t-test looks are simulated."""
+    return looks_planning.run(report, subject)
+
+
+def calculate_cited(report: dict, subject, request: RequestIR, options: dict) -> dict:
+    """verify(...) was refused while compiling: approximate power is a calculation."""
+    return cited_planning.run(report, subject)
+
+
+def calculate_cited_association(report: dict, subject, request: RequestIR, options: dict) -> dict:
+    return association_planning.run(report, subject)
+
+
+def calculate_count(report: dict, subject, request: RequestIR, options: dict) -> dict:
+    """McNemar's test or the rate test: exact power, checked in Lean when verified."""
+    analysis = planned_analysis(subject)
+    if isinstance(subject, FeasibilityIR):
+        return run_association_plan(report, subject.lower(), **options)
+    candidates = subject.candidates
+    bounds = (candidates.min_size, candidates.max_size)
+    return run_count_search(
+        report,
+        _count_template(analysis, subject.target, bounds, subject.minimal),
+        bounds,
+        minimal=subject.minimal,
+        **options,
+    )
+
+
+def calculate_association(report: dict, subject, request: RequestIR, options: dict) -> dict:
+    """Fisher's test of association: exact power, checked in Lean when verified."""
+    analysis = planned_analysis(subject)
+    if isinstance(subject, FeasibilityIR):
+        return run_association_plan(report, subject.lower(), **options)
+    if isinstance(subject.candidates, TotalCandidatesIR):
+        from statclaim.association import AssociationTest
+        from statclaim.observational_planning import TotalPowerPlan
+
+        candidates, target, test = subject.candidates, subject.target, analysis.lower()
+        bounds = (candidates.min_n, candidates.max_n)
+        template = TotalPowerPlan(
+            AssociationTest(test.design, test.alpha, None, bounds[0], test.exposure, test.outcome),
+            *group_probabilities(target.at),
+            target.at.exposed_share,
+            target.minimum,
+            target.maximum_typeI,
+            "sample_size",
+            bounds,
+        )
+        return run_total_search(report, template, bounds, **options)
+    target, candidates = subject.target, subject.candidates
+    return run_association_search(
+        report,
+        analysis.lower(),
+        (*group_probabilities(target.at), target.minimum, target.maximum_typeI),
+        (candidates.min_size, candidates.max_size),
+        minimal=subject.minimal,
+        ratio=candidates.ratio,
+        **options,
+    )
+
+
+def calculate_margin(report: dict, subject, request: RequestIR, options: dict) -> dict:
+    """The difference test with a margin."""
+    analysis = planned_analysis(subject)
+    options = dict(options)
+    del options["verify"]
+    verify = request.operation == "verify"
+    if isinstance(subject, FeasibilityIR):
+        return run_margin(subject.lower(), verify=verify, **options)
+    candidates = subject.candidates
+    return run_margin_search(
+        analysis.margin_test(subject.target, sizes=(1, 1)),
+        (candidates.min_per_arm, candidates.max_per_arm),
+        candidates.ratio,
+        verify=verify,
+        **options,
+    )
+
+
+def calculate_exact(report: dict, subject, request: RequestIR, options: dict) -> dict:
+    """Fisher's two-arm test, a one-sample test or a two-stage design."""
+    if isinstance(subject, FeasibilityIR):
+        run = run_power_plan if isinstance(subject.analysis, AnalysisIR) else run_policy_plan
+        return run(report, subject.lower(), **options)
+    target, candidates = subject.target, subject.candidates
+    if isinstance(candidates, TwoStageCandidatesIR):
+        return run_two_stage_search(
+            report,
+            candidates.null_rate,
+            (target.at.value, target.minimum, target.maximum_typeI),
+            candidates.max_total,
+            candidates.criterion,
+            **options,
+        )
+    if isinstance(candidates, OneArmCandidatesIR):
+        return run_one_sample_search(
+            report,
+            candidates.analysis.plan(target, candidates.min_n),
+            (candidates.min_n, candidates.max_n),
+            minimal=subject.minimal,
+            **options,
+        )
+    return run_sample_size(
+        report,
+        candidates.analysis.alpha,
+        (target.at.p_control, target.at.p_treatment, target.minimum, target.maximum_typeI),
+        (candidates.min_per_arm, candidates.max_per_arm),
+        minimal=subject.minimal,
+        ratio=candidates.ratio,
+        alternative=candidates.analysis.alternative,
+        **options,
+    )
 
 
 def render_report(report: dict, source: Source) -> str:

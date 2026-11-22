@@ -100,6 +100,7 @@ from statclaim.observational_planning import (
     TotalPowerPlan,
 )
 from statclaim.observational_planning import SEARCH_KEYS as GROUP_SEARCH_KEYS
+from statclaim.plan_kinds import kind_of, resolve
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
@@ -3631,42 +3632,13 @@ def _calculation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         )
     target = getattr(claim.value.subject, "target", None)
     point = getattr(target, "at", None)
-    if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject), SequentialIR
-    ):
-        if not exact_looks(planned_analysis(claim.value.subject)):
-            fail(
-                "unsupported_claim",
-                "A design with t-test looks has no power formula. Use simulate(...), which runs "
-                "the trial look by look.",
-                claim.span,
-            )
-        if claim.value.kind == "sample_size":
-            fail(
-                "unsupported_claim",
-                "A design with looks is calculated as declared; searching its sizes is not "
-                "supported yet.",
-                claim.span,
-            )
-        return claim.value
-    if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject), FamilyLikeIR
-    ):
-        fail(
-            "unsupported_claim",
-            "A family's power has no formula. Use simulate(...), which runs every endpoint "
-            "together.",
-            claim.span,
-        )
-    if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject), ReestimationIR
-    ):
-        fail(
-            "unsupported_claim",
-            "A re-estimated design has no power formula and no proved Type I error. Use "
-            "simulate(...), which judges both.",
-            claim.span,
-        )
+    if claim.value.kind in ("meets", "sample_size"):
+        # What the analysis's kind allows: see plan_kinds.KINDS.
+        kind = kind_of(planned_analysis(claim.value.subject))
+        if kind.calculate is None:
+            fail("unsupported_claim", kind.refuse_calculate, claim.span)
+        if kind.check_calculate is not None:
+            resolve(kind.check_calculate)(claim)
     if getattr(point, "cluster_size_cv", None):
         fail(
             "unsupported_claim",
@@ -5525,34 +5497,10 @@ def planned_analysis(subject: object) -> object:
 
 def _verification(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     claim = arguments["claim"]
-    if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject), PlannedIntervalIR
-    ):
-        fail(
-            "unsupported_claim",
-            "A planned interval's precision is calculated, not proved: Lean does not check "
-            "precision yet. Use calculate(...).",
-            claim.span,
-        )
-    if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject), SequentialIR
-    ):
-        fail(
-            "unsupported_claim",
-            "The power of a design with looks is calculated or simulated, not proved, so it "
-            "cannot be verified. Use calculate(...) for Fisher's test, simulate(...) for t-tests.",
-            claim.span,
-        )
-    if claim.value.kind in ("meets", "sample_size") and isinstance(
-        planned_analysis(claim.value.subject),
-        (CitedAnalysisIR, CitedAssociationIR, FamilyLikeIR, ReestimationIR),
-    ):
-        fail(
-            "unsupported_claim",
-            "The power of a cited test is an approximate calculation, with no proof or cited "
-            "theorem behind it, so it cannot be verified. Use calculate(...) instead.",
-            claim.span,
-        )
+    if claim.value.kind in ("meets", "sample_size"):
+        kind = kind_of(planned_analysis(claim.value.subject))
+        if kind.refuse_verify is not None:
+            fail("unsupported_claim", kind.refuse_verify, claim.span)
     return claim.value
 
 
@@ -5583,35 +5531,14 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
         )
     subject = claim.value.subject
     analysis = planned_analysis(subject)
-    if isinstance(analysis, PlannedIntervalIR):
-        fail(
-            "unsupported_claim",
-            "A planned interval's precision is summed exactly over the counts, so there is "
-            "nothing to simulate. Use calculate(...).",
-            claim.span,
-        )
-    if isinstance(analysis, CitedAssociationIR):
-        return _association_simulation(analysis, subject, arguments, claim)
-    if isinstance(analysis, SequentialIR):
-        return _sequential_simulation(analysis, subject, arguments, claim)
-    if isinstance(analysis, ReestimationIR):
-        if isinstance(subject, SizingIR):
-            fail(
-                "unsupported_claim",
-                "A re-estimated design chooses its own size; simulate meets(...) for it.",
-                claim.span,
-            )
-        simulation_settings(arguments)
-        return claim.value
-    if isinstance(analysis, FamilyLikeIR):
-        return _family_simulation(analysis, subject, arguments, claim)
-    if not isinstance(analysis, CitedAnalysisIR):
-        fail(
-            "unsupported_claim",
-            "This analysis has exact power, so there is nothing to simulate. "
-            "Use calculate(...) for the exact value, or verify(...) to prove it.",
-            claim.span,
-        )
+    kind = kind_of(analysis)
+    if kind.check_simulate is None:
+        fail("unsupported_claim", kind.refuse_simulate, claim.span)
+    return resolve(kind.check_simulate)(analysis, subject, arguments, claim)
+
+
+def check_cited_simulation(analysis, subject, arguments, claim) -> ClaimIR:
+    """A cited two-arm test is simulated by its method's model, at the model's point."""
     method = analysis.method
     if method.simulation is None:
         others = ", ".join(m.key for m in methods_for(method.outcome) if m.simulation) or "none"
@@ -5678,7 +5605,7 @@ def _simulation(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     return claim.value
 
 
-def _family_simulation(family, subject, arguments, claim) -> ClaimIR:
+def check_family_simulation(family, subject, arguments, claim) -> ClaimIR:
     """A family is simulated as declared; correlated endpoints draw every participant."""
     if isinstance(subject, SizingIR):
         fail(
@@ -5701,7 +5628,43 @@ def _family_simulation(family, subject, arguments, claim) -> ClaimIR:
     return claim.value
 
 
-def _sequential_simulation(analysis, subject, arguments, claim) -> ClaimIR:
+def check_looks_calculation(claim: LocatedValue) -> None:
+    """Fisher's test at looks is calculated as declared; t-test looks are simulated."""
+    analysis = planned_analysis(claim.value.subject)
+    if not exact_looks(analysis):
+        fail(
+            "unsupported_claim",
+            "A design with t-test looks has no power formula. Use simulate(...), which runs "
+            "the trial look by look.",
+            claim.span,
+        )
+    if claim.value.kind == "sample_size":
+        fail(
+            "unsupported_claim",
+            "A design with looks is calculated as declared; searching its sizes is not "
+            "supported yet.",
+            claim.span,
+        )
+
+
+def check_reestimation_simulation(analysis, subject, arguments, claim) -> ClaimIR:
+    """A re-estimated design chooses its own size, so it is simulated as declared."""
+    if isinstance(subject, SizingIR):
+        fail(
+            "unsupported_claim",
+            "A re-estimated design chooses its own size; simulate meets(...) for it.",
+            claim.span,
+        )
+    simulation_settings(arguments)
+    return claim.value
+
+
+def is_margin_test(analysis: object) -> bool:
+    """An exact two-arm test with a margin: the difference test."""
+    return isinstance(analysis, AnalysisIR) and analysis.alternative == "margin"
+
+
+def check_looks_simulation(analysis, subject, arguments, claim) -> ClaimIR:
     """A design with looks is simulated as declared, look by look."""
     if exact_looks(analysis):
         fail(
@@ -5730,7 +5693,7 @@ def _sequential_simulation(analysis, subject, arguments, claim) -> ClaimIR:
     return claim.value
 
 
-def _association_simulation(analysis, subject, arguments, claim) -> ClaimIR:
+def check_association_simulation(analysis, subject, arguments, claim) -> ClaimIR:
     """A cited test of an observational study is simulated in a scenario its formula cannot
     describe: skewed data, for the tests of a correlation or a slope."""
     method = analysis.method

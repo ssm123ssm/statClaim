@@ -29,5 +29,10 @@ A method whose guarantee Lean cannot prove yet is added as a
    explicitly. This is the [planning roadmap](study-planning.md), not an existing
    plugin API. Bayesian modules should also specify priors and decision criteria.
 
+   A new kind of planned analysis is one entry in `plan_kinds.KINDS`. The entry names
+   how `calculate`, `verify` and `simulate` are checked, how the claim is described,
+   run and derived, and which record it publishes. Then teach the independent checker
+   in `derivation_checker.py` to re-derive the new derivation from its JSON.
+
 Keep registry metadata, runtime behavior and formal statements aligned.
 A maintainer reviews mathematical meaning and assumptions before merging.
