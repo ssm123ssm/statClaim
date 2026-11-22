@@ -20,9 +20,13 @@ setup:
 
 check: python-check lean-check integration-check
 
+# Lint the files git tracks, so local scratch folders never fail the check.
+PYTHON_FILES = $$(git ls-files '*.py')
+
 python-check:
-	uv run --locked ruff check .
-	uv run --locked ruff format --check .
+	uv run --locked ruff check $(PYTHON_FILES)
+	uv run --locked ruff format --check $(PYTHON_FILES)
+	uv run --locked python scripts/tutorial.py check
 	uv run --locked pytest -m 'not lean'
 
 lean-check:
@@ -48,6 +52,26 @@ design-objects-demo:
 
 integration-check:
 	uv run --locked pytest -m lean
+
+# CI runs the Lean integration tests in three shards at once. The last shard takes every
+# file the first two do not name, so a new integration file is never left out.
+SHARD_A = tests/test_association_integration.py
+SHARD_B = tests/test_verification_integration.py tests/test_randomisation_integration.py \
+	tests/test_design_verification_integration.py
+.PHONY: integration-shard
+integration-shard:
+ifeq ($(SHARD),a)
+	uv run --locked pytest -m lean $(SHARD_A)
+else ifeq ($(SHARD),b)
+	uv run --locked pytest -m lean $(SHARD_B)
+else
+	uv run --locked pytest -m lean $(foreach file,$(SHARD_A) $(SHARD_B),--ignore=$(file))
+endif
+
+# Rerun the lessons that need no Lean and check the outputs the tutorial shows.
+.PHONY: tutorial-check
+tutorial-check:
+	uv run --locked python scripts/tutorial.py outputs
 
 reference-check:
 	uv run --locked python scripts/compare_with_r.py

@@ -213,5 +213,7 @@ A new test arrives complete. Before it is merged it has:
    fixture the tests read offline. Exact against exact to 1e-12, the same formula
    to 1e-6, different approximations within a documented bound, simulations
    within four Monte Carlo standard errors.
-6. An example in `examples/` and a lesson in the tutorial.
-7. Support in the studio: its reading, its type family and the wizard.
+6. An example in `examples/` and a lesson in the tutorial: add the lesson file, write
+   its section in `docs/tutorial.html`, then run `python scripts/tutorial.py sync` to
+   fill in the highlighted code and the contents.
+7. Support in the studio (maintainers: the studio is not in this repository yet).

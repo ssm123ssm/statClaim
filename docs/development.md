@@ -5,12 +5,19 @@ Use the README Codespaces button, or install uv, elan and Node.js 22+ locally.
 versions. Mathlib needs several GB; its cache download dominates first setup.
 
 ```sh
-make python-check             # lint and fast Python tests
+make python-check             # lint, tutorial page and fast Python tests
 make check                    # plus Lean, axioms and real backend/replay tests
 make editor-check             # JS unit tests and real VS Code integration
 make catalogue-check repository-check
+make tutorial-check           # rerun the lessons and check the outputs the page shows
 make editor-package           # distributable VSIX in extensions/vscode/dist
 ```
+
+CI runs the fast checks, the wheel on two systems and two Python versions, the R
+replication, the container, and the Lean integration tests in three parallel shards
+(`make integration-shard SHARD=a|b|c`; the last takes every file the first two do
+not name). A new push to a pull request cancels its running check; on `main` every
+commit is checked to the end.
 
 On headless Linux use `xvfb-run -a make editor-check`. The test runner downloads
 VS Code unless `VSCODE_EXECUTABLE_PATH` selects an installation. Keep Python and

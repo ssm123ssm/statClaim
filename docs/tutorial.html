@@ -357,7 +357,7 @@ Bonferroni method gives each test a share of the budget.</p>
 <span class="k">let</span> endpoints = <span class="f">bonferroni</span>(
     analyses=[response, remission, relapse],
     alpha=1/20,
-    joint_law=<span class="s">&quot;binomial_marginals&quot;</span>,
+    joint_law=&quot;binomial_marginals&quot;,
 )
 <span class="k">let</span> verification = <span class="f">verify</span>(<span class="f">familywise</span>(endpoints))</code></pre></div></figure>
 <dl class="lines">
@@ -782,7 +782,7 @@ would have stopped.</p>
 <p>You do not have to guess the numbers. Describe the search and use
 <code>sample_size</code>:</p>
 <figure class="code"><figcaption>examples/tutorial/10_stopping_early.stat</figcaption><div class="scroll"><pre><code><span class="c"># Or let StatClaim find one.</span>
-<span class="k">let</span> search = <span class="f">two_stage_designs</span>(null_rate=1/5, max_total=45, criterion=<span class="s">&quot;minimax&quot;</span>)
+<span class="k">let</span> search = <span class="f">two_stage_designs</span>(null_rate=1/5, max_total=45, criterion=&quot;minimax&quot;)
 <span class="k">let</span> found = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=search, target=target))</code></pre></div></figure>
 <div class="scroll output"><pre><code><span class="calc">calculated</span> [found]: sample_size(search)
   continue above 4 responses in stage one; reject above 10 in total (minimax design)
@@ -1366,7 +1366,7 @@ when the catalogue has nothing for it.</div>
   power ~ 0.9042 (normal approximation, not a bound); power target met = true
   rejects when the estimate is above -1.6; standard error ~ 1.225
   level 1/40; requested Type I bound 1/40; Type I target met = true
-  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 1)
+  Formula: Difference of two means, normal approximation with a known standard deviation (normal_two_means, version 2)
   Assumptions:
     [missing_at_random] Missing measurements are missing at random given the observed data and the model. (assumed)
     ...
@@ -1664,8 +1664,8 @@ participants, the two nulls ask different questions.</div>
     alpha=1/20,
 )
 
-<span class="k">let</span> main = <span class="f">verify</span>(typeI(primary))
-<span class="k">let</span> sensitivity = <span class="f">verify</span>(typeI(supportive))</code></pre></div></figure>
+<span class="k">let</span> main = <span class="f">verify</span>(<span class="f">typeI</span>(primary))
+<span class="k">let</span> sensitivity = <span class="f">verify</span>(<span class="f">typeI</span>(supportive))</code></pre></div></figure>
 <dl class="lines">
   <dt><code>population="randomised"</code></dt>
   <dd>Everyone randomised is analysed, in the arm they were assigned to, whatever happened
@@ -1767,9 +1767,9 @@ two copies of one outcome look like two outcomes.</div>
     alpha=1/20,
 )
 
-<span class="k">let</span> cohort_claim = <span class="f">verify</span>(typeI(by_cohort))
-<span class="k">let</span> case_control_claim = <span class="f">verify</span>(typeI(by_cases))
-<span class="k">let</span> survey_claim = <span class="f">verify</span>(typeI(by_survey))</code></pre></div></figure>
+<span class="k">let</span> cohort_claim = <span class="f">verify</span>(<span class="f">typeI</span>(by_cohort))
+<span class="k">let</span> case_control_claim = <span class="f">verify</span>(<span class="f">typeI</span>(by_cases))
+<span class="k">let</span> survey_claim = <span class="f">verify</span>(<span class="f">typeI</span>(by_survey))</code></pre></div></figure>
 <dl class="lines">
   <dt><code>cohort(exposed=200, unexposed=400, ...)</code></dt>
   <dd>Two groups sampled in fixed numbers and followed from exposure to outcome. When one
@@ -1937,7 +1937,7 @@ does. The design declaration is what lets StatClaim tell them apart.</div>
     neither_exposed=60,
 )
 
-<span class="k">let</span> design_claim = <span class="f">verify</span>(typeI(by_pairs))
+<span class="k">let</span> design_claim = <span class="f">verify</span>(<span class="f">typeI</span>(by_pairs))
 <span class="k">let</span> tested = <span class="f">verify</span>(<span class="f">matched_result</span>(analysis=by_pairs, pairs=seen))
 <span class="k">let</span> odds = <span class="f">verify</span>(<span class="f">conditional_odds_ratio</span>(pairs=seen, level=19/20))</code></pre></div></figure>
 <dl class="lines">
@@ -2111,10 +2111,10 @@ exactly. The rate ratio needs none, because given the total its law is binomial.
     adjusted_for=[&quot;age&quot;],
 )
 
-<span class="k">let</span> adjusted_claim = <span class="f">verify</span>(typeI(adjusted))
-<span class="k">let</span> slope_claim = <span class="f">verify</span>(typeI(slope))
-<span class="k">let</span> rho_claim = <span class="f">verify</span>(typeI(rho))
-<span class="k">let</span> survey_claim = <span class="f">verify</span>(typeI(weighted))</code></pre></div></figure>
+<span class="k">let</span> adjusted_claim = <span class="f">verify</span>(<span class="f">typeI</span>(adjusted))
+<span class="k">let</span> slope_claim = <span class="f">verify</span>(<span class="f">typeI</span>(slope))
+<span class="k">let</span> rho_claim = <span class="f">verify</span>(<span class="f">typeI</span>(rho))
+<span class="k">let</span> survey_claim = <span class="f">verify</span>(<span class="f">typeI</span>(weighted))</code></pre></div></figure>
 <dl class="lines">
   <dt><code>adjusted_for=[...]</code></dt>
   <dd>The covariates in the model, by name. Methods without covariates, such as
@@ -2206,7 +2206,7 @@ independent participants; its bound does not cover a cluster sample.</div>
   arm sizes = (65, 65); total = 130
   power ~ 0.8090 (95% interval 0.8012 to 0.8167); power target met = true
   candidates evaluated = 46; confirmation runs = 1
-  Simulation: Student&#x27;s t-test on simulated normal outcomes (normal_two_means_student, version 1); 10,000 runs, seed 2026; engine version 1; Clopper-Pearson, 95% intervals
+  Simulation: Student&#x27;s t-test on simulated outcomes (normal_two_means_student, version 4); 10,000 runs, seed 2026; engine version 1; Clopper-Pearson, 95% intervals
   Assumptions:
     ...
     [monte_carlo_error] Simulated power and Type I error are estimates with Monte Carlo error. ... (assumed)

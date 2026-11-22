@@ -30,13 +30,17 @@ make catalogue-check repository-check
 
 `make python-check` is the fast loop. `make check` also checks Lean and real
 certificate replay. Editor integration tests open VS Code; Linux needs Xvfb.
+Optional hooks run the same lint before each commit: `uvx pre-commit install`.
 See [development](docs/development.md) for details.
 
 ## Submit
 
 1. Branch from `main`; keep changes focused.
 2. Add meaningful tests, including rejected or unsupported inputs for new methods.
-3. Update the catalogue, examples and relevant short docs.
+   A new test meets the [checklist](docs/cited-methods.md#when-a-new-test-is-complete).
+3. Update the catalogue, examples and relevant short docs. After changing a lesson,
+   run `python scripts/tutorial.py sync`; `make tutorial-check` reruns the lessons
+   and checks the outputs the page shows.
 4. Open a PR explaining the problem, behavior and checks run.
 
 Never commit secrets, generated certificates, environments, agent instructions

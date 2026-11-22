@@ -1,0 +1,21 @@
+# Optional local hooks: uvx pre-commit install. CI runs the same checks with make python-check.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.5  # keep in step with ruff in uv.lock
+    hooks:
+      - id: ruff
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: tutorial
+        name: tutorial page in step with the lessons
+        entry: uv run --locked python scripts/tutorial.py check
+        language: system
+        pass_filenames: false
+        files: ^(docs/tutorial\.html|examples/tutorial/)
+      - id: repository-policy
+        name: repository policy
+        entry: uv run --locked python scripts/check_repository.py
+        language: system
+        pass_filenames: false
+        always_run: true

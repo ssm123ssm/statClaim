@@ -29,6 +29,20 @@ from `src/statclaim/language.py`, not arbitrary Python or `.stat` files.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `catalogue.py`: classified public inventory generated from those registries.
 
+Planning claims (`meets`, sample-size searches) are calculated or simulated, never
+proved here:
+
+- `planning.py`, `observational_planning.py`: exact power, checked in Lean.
+- `cited_planning.py`, `association_planning.py`: formula or exact power for cited
+  tests, from `methods/power.py` and `methods/association_power.py`.
+- `precision.py`, `precision_planning.py`: margins of error and assurance.
+- `looks_planning.py`: exact power of Fisher's test at interim looks.
+- `simulation.py` (the seeded engine), `methods/simulation.py` (the models) and
+  `simulated_planning.py`: power and Type I error by simulation.
+
+Every numerical method is cross-checked against R by a script in
+`replication/comparison/` that writes a fixture the tests read offline.
+
 A result is `verified` (proved in Lean), `conditional` (the combination is
 proved, the members are assumed) or `cited` (only the fit to a published
 method's contract is checked). Cited results never start Lean.
