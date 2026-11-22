@@ -196,6 +196,11 @@ OPERATIONS = {
     ),
 }
 
+# What each operation needs to run. "lean" builds a formal proof, so it needs a StatClaim
+# checkout with Lean; "python" runs wherever StatClaim runs, including the web studio,
+# which reports a "lean" operation as needing Lean. A test checks every operation is here.
+OPERATION_BACKENDS = {"verify": "lean", "calculate": "python", "simulate": "python"}
+
 
 FAMILYWISE = _constructor("familywise", (("family", FamilyLikeIR),), "FamilywiseClaim", _familywise)
 

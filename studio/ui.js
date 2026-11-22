@@ -42,6 +42,7 @@ const PATHS = {
   chevron: 'M6 8l4 4 4-4',
   up: 'M10 15V5m-4 4l4-4 4 4',
   link: 'M8.5 11.5l3-3M7 9L5.5 10.5a2.5 2.5 0 003.5 3.5L10.5 12.5M13 11l1.5-1.5a2.5 2.5 0 00-3.5-3.5L9.5 7.5',
+  lock: 'M6.5 9V6.5a3.5 3.5 0 017 0V9M4.5 9h11v8h-11zM10 12.5v1.5',
   play: 'M6 4l10 6-10 6z',
   code: 'M7 6l-4 4 4 4M13 6l4 4-4 4',
   book: 'M3 4.5c2.5-1 5-1 7 .5 2-1.5 4.5-1.5 7-.5v11c-2.5-1-5-1-7 .5-2-1.5-4.5-1.5-7-.5z M10 5v11',
@@ -294,6 +295,7 @@ const OUTCOMES = {
   unresolved_obligation: ['open', 'Not established', 'alert'],
   backend_error: ['error', 'The backend failed', 'x'],
   not_executed: ['open', 'Not run', 'info'],
+  needs_lean: ['open', 'Needs Lean to prove it', 'lock'],
   stale_source: ['open', 'Source changed during the run', 'alert'],
 };
 const STATUS_GRADE = {verified: 'proved', conditional: 'conditional', cited: 'cited', declared: 'declared'};
@@ -308,7 +310,7 @@ export function outcome(request) {
 }
 
 // Short labels for tight places, such as the tray under a block; the full label is the tooltip.
-const SHORT = {conditional: 'Combination proved', cited: 'Cited', declared: 'Declared', calculated: 'Calculated', simulated: 'Simulated', backend_error: 'Backend failed', stale_source: 'Source changed'};
+const SHORT = {conditional: 'Combination proved', cited: 'Cited', declared: 'Declared', calculated: 'Calculated', simulated: 'Simulated', backend_error: 'Backend failed', stale_source: 'Source changed', needs_lean: 'Needs Lean'};
 
 export function outcomeBadge(request, cls = 'outcome', short = false) {
   const info = outcome(request);

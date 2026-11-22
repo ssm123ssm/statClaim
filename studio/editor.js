@@ -12,6 +12,9 @@ const report = byId('report');
 const documents = new Map();
 let catalog;
 let palette;
+// What this studio can do. Without Lean, checks that build proofs say so and point the way.
+let capabilities = {where: 'server', lean: true, lean_operations: [], links: {}};
+const leanHelpKey = 'statclaim.studio.leanHelpSeen';
 let canvas;
 let active;
 let generation = 0;
@@ -892,6 +895,7 @@ function mount(current, {keepScroll = false} = {}) {
     layout: layouts[current.key] || null, onLayout: (map, extra) => layoutChanged(current, map, extra),
     trash: byId('library'), overlay: byId('overlay'), dock: byId('dock'),
     results: resultsFor(current), canRun: canRun(current), onRun: () => runChecks(), onShowResult: id => showResults(id),
+    lean: capabilities.lean, leanOperations: capabilities.lean_operations, onNeedsLean: () => openLeanHelp(),
     wires: showWires,
     onChange: (next, range, meta) => { if (version === generation) changeSource(next, true, range, meta); },
     onScrubbed: () => { if (current.run && !current.run.error) current.recalculate = true; },
@@ -1158,7 +1162,7 @@ function runButton() {
   if (glyph?.dataset.kind !== (guide ? 'guide' : 'run')) glyph?.replaceWith(icon(guide ? 'target' : 'play'));
   go.querySelector('svg')?.setAttribute('data-kind', guide ? 'guide' : 'run');
   go.title = active?.running ? 'Running the checks' : guide ? 'Go to the next problem (F8)' : !hasChecks(active) ? 'Add a check such as verify(typeI(analysis)) to run it' :
-    'Run every check in this study (⌘↵)';
+    'Run every check in this study (⌘↵)' + (capabilities.lean ? '' : '. Proofs need Lean, which this studio cannot run.');
 }
 // Visits the problems in file order: an empty input opens its chooser, anything else shows its block.
 function nextProblem(step = 1) {
@@ -1203,6 +1207,13 @@ async function runChecks() {
     counts[label] = (counts[label] || 0) + 1;
   }
   toast(doc.run.error ? 'The run failed: ' + doc.run.error : Object.entries(counts).map(([label, n]) => n + ' × ' + label.replace(/^./, ch => ch.toLowerCase())).join(' · ') || 'Nothing to run');
+  // The first run with a proof it could not build explains why, once per visit.
+  const unproved = doc.run.result.requests.filter(request => request.status === 'needs_lean').length;
+  if (unproved) {
+    let seen = false;
+    try { seen = Boolean(window.sessionStorage.getItem(leanHelpKey)); window.sessionStorage.setItem(leanHelpKey, '1'); } catch { /* optional */ }
+    if (!seen) openLeanHelp(unproved);
+  }
 }
 // After a number is dragged, the calculations rerun so values follow the edit. Proofs and cited
 // checks keep their last results, marked as from before the edit, until the next full run.
@@ -1382,6 +1393,11 @@ function renderResults(focus) {
       panel.append(weak);
     }
     if (request.message && !['verified', 'conditional', 'cited', 'declared', 'calculated', 'simulated'].includes(request.status)) panel.append(messageBlock(request.message, 'result-message'));
+    if (request.status === 'needs_lean') {
+      const way = button('', () => openLeanHelp(), 'btn small lean-help-btn');
+      way.append(icon('lock'), el('span', '', 'How to get a proof'));
+      panel.append(way);
+    }
     // The decision is already in the line above the numbers.
     const numeric = ['calculate', 'simulate'].includes(request.operation) || ['calculated', 'simulated'].includes(request.status);
     const lines = (numeric ? calculationLines(request.calculation, request.decision) : [])
@@ -1812,6 +1828,85 @@ byId('showLinks').addEventListener('click', () => {
 });
 byId('expandAll').addEventListener('click', () => canvas?.foldAll(false));
 // Command palette -----------------------------------------------------------------------
+// Lean help -----------------------------------------------------------------------
+// Where formal proofs can be built, for a studio without Lean: the full studio in a
+// Codespace, or StatClaim installed with Lean. `unproved` counts the checks a run left open.
+let leanBox = null;
+function closeLeanHelp() {
+  leanBox?.remove();
+  leanBox = null;
+}
+function openLeanHelp(unproved = 0) {
+  closeLeanHelp();
+  const links = capabilities.links || {};
+  const web = capabilities.where === 'browser';
+  const back = el('div', 'lean-back');
+  const box = el('section', 'lean-help');
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-modal', 'true');
+  box.setAttribute('aria-labelledby', 'leanHelpTitle');
+  const head = el('header', 'lean-head');
+  const heading = el('h2', '', 'Formal proofs need Lean');
+  heading.id = 'leanHelpTitle';
+  const close = button('', closeLeanHelp, 'icon-btn');
+  close.setAttribute('aria-label', 'Close');
+  close.append(icon('x'));
+  head.append(icon('lock', 'icon lean-mark'), heading, close);
+  const lead = el('p', 'lean-lead', (unproved ? plural(unproved, 'check') + ' in this study ' + (unproved === 1 ? 'needs' : 'need') + ' a proof. ' : '') +
+    (web ? 'This studio runs StatClaim in your browser: it checks studies as you edit, reads them in words, and runs calculations, simulations and cited checks. It cannot run Lean, which builds the formal proofs behind verify(...).'
+      : 'Lean is not installed in this checkout, so verify(...) checks cannot build their proofs. Everything else runs as usual.'));
+  const ways = el('div', 'lean-ways');
+  function way(titleText, steps, recommended) {
+    const card = setFamily(el('article', 'lean-way'), 'VerificationResult');
+    const hat = el('h3', 'lean-way-hat', titleText);
+    if (recommended) hat.append(el('span', 'lean-tag', 'Recommended'));
+    const list = el('ol', 'lean-steps');
+    for (const step of steps) {
+      const item = el('li');
+      item.append(...(Array.isArray(step) ? step : [step]));
+      list.append(item);
+    }
+    card.append(hat, list);
+    ways.append(card);
+  }
+  const link = (label, href) => {
+    const a = el('a', 'btn small', label);
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    return a;
+  };
+  if (links.codespaces) {
+    way('The full studio in Codespaces', [
+      [el('span', '', 'Save this study. '), button('Save .stat', () => save(), 'btn small')],
+      [el('span', '', 'Open StatClaim in a Codespace. The first setup takes a few minutes; then the studio opens in its own tab. '), link('Open Codespaces', links.codespaces)],
+      'In that studio, choose Open, pick the saved file and press Run checks.',
+    ], web);
+  }
+  way(web ? 'On your computer' : 'In this checkout', web ? [
+    [el('span', '', 'Install uv, elan and Node.js, clone StatClaim and run make setup. '), ...(links.install ? [link('Install steps', links.install)] : [])],
+    'Start the studio with uv run --locked python studio/server.py, open the saved file and run its checks.',
+  ] : [
+    'Run make setup here. It installs Lean and Mathlib, which take several GB.',
+    'Restart the studio, then press Run checks.',
+  ], !web);
+  box.append(head, lead, ways, el('p', 'lean-foot', 'Checks without proofs give the same results everywhere; only verify(...) needs Lean.'));
+  back.append(box);
+  back.addEventListener('click', event => { if (event.target === back) closeLeanHelp(); });
+  back.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); closeLeanHelp(); } });
+  document.body.append(back);
+  leanBox = back;
+  close.focus();
+}
+function showLeanChip() {
+  const chip = byId('leanChip');
+  if (!chip || capabilities.lean) return;
+  chip.hidden = false;
+  chip.replaceChildren(icon('lock'), el('span', 'lbl', capabilities.where === 'browser' ? 'Web studio: no proofs' : 'No Lean: no proofs'));
+  chip.title = capabilities.needs_lean || 'Proofs need Lean';
+  chip.addEventListener('click', () => openLeanHelp());
+}
+
 let commandBox = null;
 function commands() {
   const list = [];
@@ -1972,8 +2067,10 @@ try {
     const stored = window.localStorage.getItem(panelKey);
     setPanel(!drawer() && stored !== 'closed', false);
   } catch { setPanel(true); }
-  const [manifest, tutorials, examples] = await Promise.all([api('blocks'), api('tutorials'), api('examples')]);
+  const [manifest, tutorials, examples, found] = await Promise.all([api('blocks'), api('tutorials'), api('examples'), api('capabilities')]);
   catalog = manifest;
+  capabilities = found;
+  showLeanChip();
   for (const constructors of [...Object.values(catalog.modules), catalog.operations]) {
     for (const [name, sig] of Object.entries(constructors)) {
       callFamily.set(name, familyOf(sig.result));

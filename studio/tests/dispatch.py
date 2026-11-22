@@ -7,6 +7,8 @@ from io import BytesIO
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import api
+import server
 from server import Editor
 
 
@@ -27,6 +29,13 @@ class SilentEditor(Editor):
 
 
 request = json.load(sys.stdin)
+# The tests choose the studio they talk to, whatever this machine has installed: a checkout
+# with Lean (their runs are canned, so Lean never starts), or the web studio, without Lean.
+server.BACKEND = (
+    api.BROWSER
+    if request.get("backend") == "browser"
+    else api.Backend("server", api.ROOT.parent, True)
+)
 body = request.get("body", "").encode()
 method = request["method"]
 path = request["path"]

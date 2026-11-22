@@ -6,6 +6,7 @@ import math
 import os
 import platform
 import re
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -751,9 +752,21 @@ def _run(args: list[str], project: Path, timeout: float, logs: list[str], stage:
     return stdout + stderr
 
 
+# The files that make a folder a StatClaim checkout that can build Lean proofs.
+LEAN_PROJECT_FILES = ("lean-toolchain", "lakefile.toml", "lake-manifest.json", "StatClaim.lean")
+
+
+def lean_available(project: Path) -> bool:
+    """Whether verify(...) can build proofs here: a StatClaim checkout, with lake installed."""
+    return (
+        all((project / name).is_file() for name in LEAN_PROJECT_FILES)
+        and (project / "StatClaim").is_dir()
+        and shutil.which("lake") is not None
+    )
+
+
 def _source_hashes(project: Path) -> dict[str, str]:
-    required = ["lean-toolchain", "lakefile.toml", "lake-manifest.json", "StatClaim.lean"]
-    paths = [project / name for name in required]
+    paths = [project / name for name in LEAN_PROJECT_FILES]
     if not all(path.is_file() for path in paths) or not (project / "StatClaim").is_dir():
         raise VerificationError(
             "project",

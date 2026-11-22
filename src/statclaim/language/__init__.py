@@ -166,11 +166,13 @@ from statclaim.language.points import (
 from statclaim.language.registry import (
     DECLARED_MODULE_SUMMARY,
     MODULES,
+    OPERATION_BACKENDS,
     OPERATIONS,
 )
 
 # What other modules may import from statclaim.language.
 __all__ = [
+    "OPERATION_BACKENDS",
     "AnalysisIR",
     "AssignmentIR",
     "AssociationAnalysisIR",

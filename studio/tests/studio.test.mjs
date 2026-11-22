@@ -11,9 +11,9 @@ const tutorials = new URL('examples/tutorial/', root);
 const python = process.env.STATCLAIM_PYTHON || fileURLToPath(new URL('.venv/bin/python', root));
 const fixture = fileURLToPath(new URL('./dispatch.py', import.meta.url));
 
-function dispatch(path, { method = 'GET', body = '' } = {}) {
+function dispatch(path, { method = 'GET', body = '', backend = 'server' } = {}) {
   const reply = spawnSync(python, [fixture], {
-    input: JSON.stringify({ path, method, body }), encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
+    input: JSON.stringify({ path, method, body, backend }), encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
   });
   assert.equal(reply.status, 0, reply.error?.message || reply.stderr);
   const result = JSON.parse(reply.stdout);
@@ -1891,4 +1891,65 @@ test('every design the language supports can be built from the wizard, and found
   wizard = document.querySelector('.wizard');
   assert.deepEqual(visible(), D.DESIGNS.filter(d => d.family === 'observed').map(d => d.id));
   wizard.querySelector('.wizard-close').click();
+});
+
+test('a studio without Lean says what needs it and where proofs can be built', async t => {
+  const window = new Window({url: 'http://localhost/'});
+  const {document} = window;
+  t.after(() => window.happyDOM.close());
+  install(window);
+  globalThis.sessionStorage = window.sessionStorage;
+  // The real handlers, as the web studio runs them: no Lean, so proofs report that they need it.
+  globalThis.fetch = async (url, options = {}) => dispatch(url, {...options, backend: 'browser'});
+  document.body.innerHTML = shell();
+  await import(new URL('editor.js?nolean', platform));
+  const el = id => document.getElementById(id);
+  const event = type => new window.Event(type, {bubbles: true});
+  const host = el('lessonBlocks');
+  const picker = el('lesson');
+  const stack = name => host.querySelector('.stack[data-name="' + name + '"]');
+  const dialog = () => document.querySelector('.lean-help');
+  await until(() => !picker.disabled && host.querySelector('.stack'), 'editor never loaded');
+  picker.value = '01_first_claim.stat';
+  picker.dispatchEvent(event('change'));
+  await until(() => stack('verification'), 'lesson 1 did not open');
+  await until(() => !host.inert && el('report').dataset.state !== 'pending', 'editor stayed busy');
+
+  // Before anything runs, the top bar and the proof's block say that proofs need Lean.
+  assert.equal(el('leanChip').hidden, false);
+  assert.match(el('leanChip').textContent, /no proofs/);
+  const idle = stack('verification').querySelector('.result-tray');
+  assert.match(idle.textContent, /needs Lean/);
+  assert.ok(idle.querySelector('.lean-link'), 'the idle tray offers the way to a proof');
+  assert.match(el('runChecks').title, /Proofs need Lean/);
+
+  // A run calculates what it can; the proof says it needs Lean, and the first time a dialog explains.
+  el('runChecks').click();
+  await until(() => host.querySelector('.result-tray[data-state="done"]'), 'run results never appeared');
+  const done = stack('verification').querySelector('.result-tray');
+  assert.match(done.textContent, /Needs Lean/);
+  await until(() => dialog(), 'the first unproved run did not explain');
+  assert.match(dialog().textContent, /Formal proofs need Lean/);
+  assert.match(dialog().textContent, /1 check in this study needs a proof/);
+  const codespaces = [...dialog().querySelectorAll('a')].find(a => /Codespaces/.test(a.textContent));
+  assert.ok(codespaces && codespaces.href.startsWith('https://codespaces.new/'), 'a link to the full studio');
+  assert.equal(codespaces.target, '_blank');
+  assert.ok([...dialog().querySelectorAll('button')].some(b => /Save \.stat/.test(b.textContent)), 'the study can be saved first');
+  dialog().dispatchEvent(new window.KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+  assert.equal(dialog(), null, 'Escape closes it');
+
+  // Later runs do not interrupt; the tray, the Results entry and the chip all lead back to it.
+  el('runChecks').click();
+  await until(() => !el('runChecks').classList.contains('running') && host.querySelector('.result-tray[data-state="done"]'), 'second run never finished');
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(dialog(), null, 'shown once per visit');
+  stack('verification').querySelector('.lean-link').click();
+  assert.ok(dialog(), 'the tray opens it');
+  dialog().querySelector('.lean-head .icon-btn').click();
+  el('results').querySelector('.lean-help-btn').click();
+  assert.ok(dialog(), 'the Results entry opens it');
+  document.querySelector('.lean-back').click();
+  assert.equal(dialog(), null, 'clicking outside closes it');
+  el('leanChip').click();
+  assert.ok(dialog(), 'the chip opens it');
 });

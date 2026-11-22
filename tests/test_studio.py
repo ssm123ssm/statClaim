@@ -1,7 +1,7 @@
 """Round trips and socket contracts used by the browser against the Python engine."""
 
-import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,9 +11,9 @@ from statclaim.language_compiler import compile_source
 from statclaim.language_syntax import Source
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("visual_server", ROOT / "studio/server.py")
-editor = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(editor)
+sys.path.insert(0, str(ROOT / "studio"))
+import api as editor  # noqa: E402
+import server  # noqa: E402
 
 
 @pytest.mark.parametrize(
@@ -101,7 +101,7 @@ def test_invalid_source_stays_editable_with_diagnostics():
 def test_run_reports_each_request_with_its_span(tmp_path):
     text = (ROOT / "examples/tutorial/04_observed_data.stat").read_text()
     text = "\n".join(line for line in text.splitlines() if "verify(" not in line) + "\n"
-    result = editor.run_document(Source(text, "04.stat"), project=tmp_path)
+    result = editor.run_document(Source(text, "04.stat"), editor.Backend.local(tmp_path))
     (request,) = result["requests"]
     assert result["status"] == "calculated"
     assert (request["operation"], request["status"], request["decision"]) == (
@@ -118,16 +118,16 @@ def test_run_reports_each_request_with_its_span(tmp_path):
 def test_run_returns_the_values_it_fills_in(tmp_path):
     text = (ROOT / "examples/one_sample.stat").read_text()
     text = "\n".join(line for line in text.splitlines() if "verify(" not in line) + "\n"
-    result = editor.run_document(Source(text, "one_sample.stat"), project=tmp_path)
+    result = editor.run_document(Source(text, "one_sample.stat"), editor.Backend.local(tmp_path))
     # Only fields read from a check's result; declared values are known without a run.
     assert result["values"] == {"recommended_n": 35, "critical_value": 12}
 
 
 def test_a_recalculation_runs_no_proofs_and_leaves_nothing_behind(tmp_path):
     text = (ROOT / "examples/one_sample.stat").read_text()
-    result = editor.run_document(
-        Source(text, "one_sample.stat"), project=tmp_path, only="calculate"
-    )
+    # A checkout with Lean: the proof is not run now, and keeps its last result in the page.
+    with_lean = editor.Backend("server", tmp_path, True)
+    result = editor.run_document(Source(text, "one_sample.stat"), with_lean, only="calculate")
     statuses = [(r["name"], r["status"]) for r in result["requests"]]
     assert statuses == [
         ("calculation", "calculated"),
@@ -140,7 +140,9 @@ def test_a_recalculation_runs_no_proofs_and_leaves_nothing_behind(tmp_path):
 
 
 def test_run_does_nothing_for_an_invalid_file(tmp_path):
-    result = editor.run_document(Source("let broken = ?\n", "x.stat"), project=tmp_path)
+    result = editor.run_document(
+        Source("let broken = ?\n", "x.stat"), editor.Backend.local(tmp_path)
+    )
     assert result["status"] == "invalid"
     assert result["requests"] == []
     assert not list(tmp_path.iterdir())
@@ -373,7 +375,7 @@ def test_only_the_studio_page_may_call_the_api(headers, trusted):
 
     request = Request()
     request.headers = headers
-    assert editor.Editor.trusted(request) is trusted
+    assert server.Editor.trusted(request) is trusted
 
 
 def test_a_codespace_page_may_call_the_api(monkeypatch):
@@ -386,9 +388,59 @@ def test_a_codespace_page_may_call_the_api(monkeypatch):
     request = Request()
     forwarded = "https://studio-4180.app.github.dev"
     request.headers = {"Content-Type": "application/json", "Origin": forwarded}
-    assert not editor.Editor.trusted(request)
+    assert not server.Editor.trusted(request)
     monkeypatch.setenv("CODESPACE_NAME", "studio")
     monkeypatch.setenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN", "app.github.dev")
-    assert editor.Editor.trusted(request)
+    assert server.Editor.trusted(request)
     request.headers = {**request.headers, "Origin": "https://other-4180.app.github.dev"}
-    assert not editor.Editor.trusted(request)
+    assert not server.Editor.trusted(request)
+
+
+@pytest.mark.parametrize("backend", [editor.BROWSER, editor.Backend.local(Path("/nonexistent"))])
+def test_without_lean_a_proof_says_it_needs_lean_and_the_rest_runs(backend, tmp_path):
+    text = (ROOT / "examples/one_sample.stat").read_text()
+    result = editor.run_document(Source(text, "one_sample.stat"), backend)
+    statuses = {r["name"]: r["status"] for r in result["requests"]}
+    assert statuses == {
+        "calculation": "calculated",
+        "recommendation": "calculated",
+        "verification": "needs_lean",
+    }
+    (proof,) = [r for r in result["requests"] if r["status"] == "needs_lean"]
+    assert "Lean" in proof["message"]
+    assert ("Codespaces" in proof["message"]) == (backend.where == "browser")
+    assert result["values"]["recommended_n"] == 35
+    assert result["run_directory"] is None
+
+
+def test_the_capabilities_say_what_needs_lean_and_where_to_go():
+    found = editor.capabilities(editor.BROWSER)
+    assert found["where"] == "browser" and found["lean"] is False
+    assert found["lean_operations"] == ["verify"]
+    assert "Codespaces" in found["needs_lean"]
+    links = found["links"]
+    assert links["codespaces"].startswith("https://codespaces.new/")
+    assert links["install"].startswith(links["repository"])
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "payload", "status"),
+    [
+        ("GET", "nothing", None, 404),
+        ("POST", "nothing", {"source": ""}, 404),
+        ("POST", "compile", ["not", "an", "object"], 400),
+        ("POST", "compile", {"name": "x.stat"}, 400),
+        ("POST", "run", {"source": "", "only": "verify"}, 400),
+        ("POST", "compile", {"source": "#" * (editor.MAX_SOURCE + 1)}, 413),
+    ],
+)
+def test_every_transport_gets_the_same_refusals(method, path, payload, status):
+    assert editor.handle(method, path, payload, editor.BROWSER)[0] == status
+
+
+def test_json_requests_are_answered_as_json():
+    status, body = editor.handle_json(
+        "POST", "compile", json.dumps({"source": "use sampling\n"}), editor.BROWSER
+    )
+    assert status == 200 and json.loads(body)["status"]
+    assert editor.handle_json("POST", "compile", "{", editor.BROWSER)[0] == 400

@@ -1,6 +1,6 @@
 # StatClaim Studio
 
-A block editor for `.stat` studies, in the style of Scratch. From the repository root, run `.venv/bin/python studio/server.py` and open `http://127.0.0.1:4180/`. Restart the server after changes to `server.py`. Use `--port` to choose another port.
+A block editor for `.stat` studies, in the style of Scratch. From the repository root, run `.venv/bin/python studio/server.py` and open `http://127.0.0.1:4180/`. Restart the server after changes to `server.py` or `api.py`. Use `--port` to choose another port, and `--no-lean` to try it as the web studio runs, without Lean.
 
 ## Using it
 
@@ -27,7 +27,9 @@ In Chrome and Edge, **Save** (`⌘S`) writes to the file you opened, or asks whe
 
 ## How it works
 
-`server.py` serves the files and an API built on the StatClaim registry: modules, signatures, object fields, accepted input types and fixed choices. It compiles every edit, reads each value in words, explains contracts through `contract_reports.explain`, runs checks on request through `language_runner.check_source`, and answers completion and hover with the language server's features. It finds the blocks that take a value by building each one with it and simple numbers. Every edit patches the original source through the parser's spans, then the same compiler as the DSL checks it.
+`api.py` answers every request the page makes, and `server.py` serves the files and that API over HTTP. The API is built on the StatClaim registry: modules, signatures, object fields, accepted input types and fixed choices. It compiles every edit, reads each value in words, explains contracts through `contract_reports.explain`, runs checks on request through `language_runner.check_source`, and answers completion and hover with the language server's features. It finds the blocks that take a value by building each one with it and simple numbers. Every edit patches the original source through the parser's spans, then the same compiler as the DSL checks it.
+
+Where Lean is not available (the web studio, a checkout before `make setup`, or `--no-lean`), checks whose operation builds a proof, as `OPERATION_BACKENDS` in the language says, report **Needs Lean** and everything else runs as usual. The top bar says so before anything runs, and each such check offers **Get a proof**: the full studio in a Codespace, or StatClaim installed with Lean.
 
 - `editor.js` runs the shell: documents, drafts, saving, checking, problems, practice, code and help.
 - `palette.js` builds the categorised block palette.

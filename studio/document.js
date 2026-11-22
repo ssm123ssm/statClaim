@@ -1208,6 +1208,12 @@ export function mountDocument(host, options) {
     walk(s.expression, n => { if (n.kind === 'Call' && Object.hasOwn(operations, n.label)) found = true; });
     return found;
   };
+  // A check whose operation builds a proof, such as verify(...), which needs Lean.
+  const usesLean = s => {
+    let found = false;
+    walk(s.expression, n => { if (n.kind === 'Call' && (options.leanOperations || []).includes(n.label)) found = true; });
+    return found;
+  };
   const statementAt = span => {
     const position = offset(span.line, span.column);
     return statements.find(s => s.start <= position && position <= s.end);
@@ -1241,7 +1247,7 @@ export function mountDocument(host, options) {
     const box = el('div', 'result-tray');
     if (run?.running) {
       box.dataset.state = 'running';
-      box.append(el('span', 'run-spinner'), el('span', 'tray-text', 'Checking with StatClaim and Lean…'), el('span', 'run-bar'));
+      box.append(el('span', 'run-spinner'), el('span', 'tray-text', options.lean === false ? 'Checking with StatClaim…' : 'Checking with StatClaim and Lean…'), el('span', 'run-bar'));
       return box;
     }
     const mine = (run?.requests || []).filter(request => statementAt(request.source) === s);
@@ -1263,6 +1269,7 @@ export function mountDocument(host, options) {
         const more = button('Details', () => options.onShowResult?.(request.request_id), 'tray-link');
         more.setAttribute('aria-label', info.label + (info.scope ? ', ' + info.scope : '') + (old ? ', outdated' : '') + '. Show details');
         links.append(more);
+        if (request.status === 'needs_lean' && options.onNeedsLean) links.append(button('Get a proof', () => options.onNeedsLean(), 'tray-link lean-link'));
         if (request.subject && options.onExplain) {
           const why = button('Why?', () => whyPopover(why, request.subject), 'tray-link why-btn');
           why.title = 'Why ' + request.subject + ' fits its contract';
@@ -1288,7 +1295,10 @@ export function mountDocument(host, options) {
     go.append(icon('play'), run?.error ? 'Run again' : 'Run check');
     go.disabled = !options.canRun;
     go.title = options.canRun ? 'Run every check in this study' : 'Fix the errors in this study before running it';
-    box.append(go, el('span', 'tray-text', run?.error ? run.error : options.canRun ? 'Proves it in Lean, or reports how strong its evidence is.' : 'Fix the errors first.'));
+    const proof = options.lean === false && usesLean(s);
+    box.append(go, el('span', 'tray-text', run?.error ? run.error : !options.canRun ? 'Fix the errors first.' :
+      proof ? 'Its proof needs Lean, which this studio cannot run.' : options.lean === false ? 'Reports how strong its evidence is.' : 'Proves it in Lean, or reports how strong its evidence is.'));
+    if (proof && !run?.error && options.onNeedsLean) box.append(button('Get a proof', () => options.onNeedsLean(), 'tray-link lean-link'));
     return box;
   }
   function drawStack(s, index) {

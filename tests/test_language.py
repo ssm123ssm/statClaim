@@ -9,6 +9,8 @@ from statclaim.design import load_design
 from statclaim.family import load_family
 from statclaim.language import (
     MODULES,
+    OPERATION_BACKENDS,
+    OPERATIONS,
     AnalysisIR,
     AssignmentIR,
     Constructor,
@@ -402,3 +404,10 @@ def test_edited_archive_during_execution_is_detected(monkeypatch, tmp_path):
     report = check_source(Source(text), project=ROOT, output=tmp_path / "run")
     assert report["status"] == "stale_source"
     assert report["diagnostics"][-1]["code"] == "snapshot_changed"
+
+
+def test_every_operation_says_whether_it_needs_lean():
+    """The web studio runs what needs no Lean and says when a check needs it; a new
+    operation must say which it is."""
+    assert set(OPERATION_BACKENDS) == set(OPERATIONS)
+    assert set(OPERATION_BACKENDS.values()) <= {"lean", "python"}
