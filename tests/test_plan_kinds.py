@@ -36,9 +36,7 @@ def test_every_plannable_analysis_has_a_kind():
     plannable = [
         cls
         for cls in vars(ir).values()
-        if inspect.isclass(cls)
-        and issubclass(cls, ir.PlannableIR)
-        and cls.__name__ not in ABSTRACT
+        if inspect.isclass(cls) and issubclass(cls, ir.PlannableIR) and cls.__name__ not in ABSTRACT
     ]
     assert len(plannable) >= 10
     names = {name for kind in KINDS for name in kind.classes}
