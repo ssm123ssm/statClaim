@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v7
@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - run: uv build --wheel --out-dir dist
       - run: uv run --locked python scripts/check_install.py dist/statclaim-*.whl --python ${{ matrix.python }}
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: make replicate tutorial-check
@@ -57,10 +57,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - if: matrix.shard == 'b'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -68,7 +68,7 @@ jobs:
       - name: Install elan
         run: curl -sSf https://raw.githubusercontent.com/leanprover/elan/v4.2.3/elan-init.sh | sh -s -- -y --default-toolchain none
       - run: echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.elan/toolchains
@@ -83,7 +83,7 @@ jobs:
       - if: matrix.shard == 'b'
         run: xvfb-run -a make editor-check
       - if: matrix.shard == 'b'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: statclaim-vsix
           path: extensions/vscode/dist/statclaim.vsix
@@ -99,8 +99,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - run: npm install --global @devcontainers/cli@0.80.3
