@@ -1,6 +1,7 @@
 module
 
 public import StatClaim.Core.Objects
+public import Mathlib.MeasureTheory.Measure.Dirac.Basic
 
 /-!
 Two-arm models whose outcome law Lean does not fix, for continuous and survival
@@ -43,5 +44,15 @@ def TwoArmModel.null {Parameter : Type} {Outcome : Type} [MeasurableSpace Outcom
     (model : TwoArmModel Parameter Outcome) (shape : NullShape) (value : ℚ) :
     Core.Hypothesis Parameter :=
   fun parameter => shape.holds value (model.effect parameter)
+
+/-- A one-point model with no effect, used only to show that a program's
+premises can hold together. It states nothing about any study. -/
+noncomputable def TwoArmModel.trivial : TwoArmModel Unit Unit where
+  law := fun _ => Measure.dirac ()
+  probability := fun _ => inferInstance
+  admissible := Set.univ
+  admissible_measurable := MeasurableSet.univ
+  supported := fun _ => by simp
+  effect := fun _ => 0
 
 end StatClaim.Interface

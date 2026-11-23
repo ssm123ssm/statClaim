@@ -10,6 +10,15 @@ Progress:
   and `StatClaim/Generated/Methods.lean`, written from the registry by
   `scripts/update_lean_premises.py`; checked by `tests/lean/Interface.lean` and
   `tests/test_lean_translation.py`.
+- Milestone 3, part 1 done: `lean_translation/program.py` translates two-arm
+  models, fixed and unspecified sampling plans, nulls, cited and declared trial
+  tests, the two-sided Fisher test and their Type I claims. All 112 corpus
+  programs the compiler accepts translate and Lean accepts them, 33 claims in
+  all; everything not yet translated is listed with its reason.
+  `scripts/check_lean_translation.py` runs in `make lean-check`, and a Lean test
+  confirms that breaking a contract or overstating a claim is rejected. Part 2:
+  observational studies and cited tests of association, and the definitions and
+  contracts of the remaining exact tests.
 
 ## Goal
 

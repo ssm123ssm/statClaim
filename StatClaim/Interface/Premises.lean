@@ -76,4 +76,33 @@ theorem neverRejects_meets_level (scope : Scope) (law : Parameter → Measure Ou
   simp only [TestInterface.neverRejects, measureReal_empty, add_zero]
   exact_mod_cast nonnegative
 
+/-- The Type I claim of a test seen from outside, under the sampling law its
+design supplies. Without that law there is no claim to state. -/
+def typeIClaim {model : Core.Model Parameter Outcome} {design : Core.StudyDesign model}
+    (compatibility : Core.Compatibility design) (null : Core.Hypothesis Parameter)
+    (test : TestInterface Outcome) (bound : ℝ) : Prop :=
+  ∀ parameter, null parameter → (compatibility.samplingLaw.law parameter).real test.reject ≤ bound
+
+/-- A level premise gives the Type I claim, at the level plus the premise's slack. -/
+theorem typeI_of_premise {model : Core.Model Parameter Outcome} {design : Core.StudyDesign model}
+    (compatibility : Core.Compatibility design) {scope : Scope} {null : Core.Hypothesis Parameter}
+    {test : TestInterface Outcome} {level : ℚ} {slack : ℝ}
+    (premise : LevelPremise scope model.law null test level slack) :
+    typeIClaim compatibility null test (level + slack) := by
+  intro parameter holds
+  rw [compatibility.agrees]
+  exact premise.2 parameter holds
+
+/-- A finite-sample premise gives the Type I claim at the level itself. -/
+theorem typeI_of_finite_premise {model : Core.Model Parameter Outcome}
+    {design : Core.StudyDesign model} (compatibility : Core.Compatibility design) {scope : Scope}
+    (finite : scope = .finiteSample) {null : Core.Hypothesis Parameter}
+    {test : TestInterface Outcome} {level : ℚ} {slack : ℝ}
+    (premise : LevelPremise scope model.law null test level slack) :
+    typeIClaim compatibility null test level := by
+  subst finite
+  have zero : slack = 0 := premise.1
+  have claim := typeI_of_premise compatibility premise
+  rwa [zero, add_zero] at claim
+
 end StatClaim.Interface

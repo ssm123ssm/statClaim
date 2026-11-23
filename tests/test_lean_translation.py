@@ -3,6 +3,8 @@
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 from statclaim.language import MODULES, OPERATION_BACKENDS, OPERATIONS
 from statclaim.lean_translation.table import PLANNED, ROLES, TABLE, InLean, NotInLean, summary
 from statclaim.methods import METHODS, OBSERVATIONAL
@@ -65,3 +67,82 @@ def test_generated_method_premises_are_current():
     assert (ROOT / "StatClaim/Generated/Methods.lean").read_text() == generator.render(), (
         "Run uv run python scripts/update_lean_premises.py."
     )
+
+
+def corpus_checker():
+    path = ROOT / "scripts/check_lean_translation.py"
+    spec = importlib.util.spec_from_file_location("check_lean_translation", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_accepted_program_translates_and_says_what_it_leaves_out():
+    checker = corpus_checker()
+    translated = claims = 0
+    for path in checker.corpus():
+        result = checker.translation(path)
+        if result is None:
+            continue
+        translated += 1
+        claims += len(result.claims)
+        assert all(reason.endswith(".") for reason in result.skipped.values()), path
+        assert set(result.claims.values()) <= {"proved", "cited", "declared"}, path
+    assert translated >= 100 and claims >= 30
+
+
+def test_pinned_translations_are_current():
+    checker = corpus_checker()
+    for path in checker.PINNED:
+        result = checker.translation(ROOT / path)
+        assert checker.pinned(path).read_text() == result.lean, (
+            f"{path}: run scripts/check_lean_translation.py --update and review the diff."
+        )
+
+
+def test_claims_carry_their_grades_and_unresolved_claims_say_why():
+    checker = corpus_checker()
+    grades = {
+        path: checker.translation(ROOT / path).claims
+        for path in ("examples/paper/fisher_design.stat", "examples/t_test.stat")
+    }
+    assert grades["examples/paper/fisher_design.stat"] == {"verification_claim": "proved"}
+    assert grades["examples/t_test.stat"] == {
+        "checked_claim": "cited",
+        "approximate_claim": "cited",
+    }
+    declared = checker.translation(ROOT / "examples/declared_test.stat")
+    assert "declared" in declared.claims.values()
+    adaptive = checker.translation(ROOT / "examples/paper/fisher_adaptive.stat")
+    assert adaptive.claims == {}
+    assert "supplies no sampling law" in adaptive.skipped["verification"]
+
+
+@pytest.mark.lean
+def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim(tmp_path):
+    import subprocess
+
+    text = corpus_checker().translation(ROOT / "examples/t_test.stat").lean
+    welch = "(plan_compatible i) (margin i) i.welch_test"
+    mutations = {
+        "too few participants": ("t_test.minTotal ≤ 60 + 60", "t_test.minTotal ≤ 1 + 1"),
+        "an unsupported null": (
+            "NullKey.equal_means ∈ StatClaim.Generated.Methods.t_test.nulls",
+            "NullKey.mean_difference_at_least ∈ StatClaim.Generated.Methods.t_test.nulls",
+        ),
+        "a large-sample claim stated at the level": (
+            f"{welch} ((↑((1 : ℚ) / 40) : ℝ) + i.welch_slack) :=\n"
+            "  StatClaim.Interface.typeI_of_premise (plan_compatible i) premises.welch_level",
+            f"{welch} (↑((1 : ℚ) / 40) : ℝ) :=\n"
+            "  StatClaim.Interface.typeI_of_finite_premise (plan_compatible i) rfl "
+            "premises.welch_level",
+        ),
+    }
+    for label, (old, new) in mutations.items():
+        assert old in text, label
+        lean_file = tmp_path / "Mutated.lean"
+        lean_file.write_text(
+            f"import StatClaim\nnamespace Mutated\n{text.replace(old, new, 1)}end Mutated\n"
+        )
+        run = subprocess.run(["lake", "env", "lean", str(lean_file)], cwd=ROOT, capture_output=True)
+        assert run.returncode != 0, f"Lean accepted {label}"

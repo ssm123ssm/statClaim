@@ -30,7 +30,10 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   Lean checks.
 - `lean_translation/`: the translation of whole programs to Lean, in progress
   ([proposal](proposals/lean-translation.md)). `table.py` says what each
-  constructor and operation becomes in Lean.
+  constructor and operation becomes in Lean; `program.py` translates a compiled
+  program and lists what it does not translate yet; `emit.py` writes Lean names
+  and exact numbers. `scripts/check_lean_translation.py` translates every
+  example and replication study and checks them with Lean, in `make lean-check`.
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.
