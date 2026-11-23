@@ -23,7 +23,7 @@ A block editor for `.stat` studies, in the style of Scratch. From the repository
 
 ## Links
 
-Every shipped study has a link: the web studio's address with `?open=` and the study's name, such as <https://ssm123ssm.github.io/statClaim/?open=paper/simon_design>. Names are `tutorial/<file>`, `example/<file>`, `paper/<file>` for the programs in the StatClaim article ([`examples/paper/`](../examples/paper/README.md)), and `<case>/<file>` for a case study in `replication/<case>/`, such as `copd/power`. The file's path in the repository works too. The address bar shows the open study's link, and **Copy link to this study** in `⌘K` copies its web-studio link. A link opens your edited copy if you have one; **Restore original** shows the study as shipped.
+Every shipped study has a link: the web studio's address with `?open=` and the study's name, such as <https://ssm123ssm.github.io/statClaim/?open=paper/simon_design>. Names are `tutorial/<file>`, `example/<file>`, `paper/<file>` for the programs in the StatClaim article ([`examples/paper/`](../examples/paper/README.md)), and `<folder>/<file>` for a study in `replication/<folder>/`, such as the COPD case study's `copd/power`. The file's path in the repository works too. The address bar shows the open study's link, and **Copy link to this study** in `⌘K` copies its web-studio link. A link opens your edited copy if you have one; **Restore original** shows the study as shipped.
 
 ## Saving
 

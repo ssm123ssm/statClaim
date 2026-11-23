@@ -71,7 +71,7 @@ ASSETS = {
     "studio.css",
 }
 EXAMPLES = ROOT.parent / "examples"
-# Case studies: each folder of replication/ that holds .stat files.
+# Case studies and cross-checks: each folder of replication/ that holds .stat files.
 REPLICATION = ROOT.parent / "replication"
 # Runs build Lean proofs in the checkout; one at a time keeps lake builds from colliding.
 RUN_LOCK = threading.Lock()
@@ -1235,11 +1235,11 @@ GETS = {
         tutorial(path) for path in sorted((EXAMPLES / "tutorial").glob("*.stat"))
     ],
     "examples": lambda backend: [tutorial(path) for path in sorted(EXAMPLES.glob("*.stat"))],
-    # The programs the StatClaim article shows, and the case studies it reports.
+    # The programs the StatClaim article shows, and the studies in replication/.
     "paper": lambda backend: [
         tutorial(path) for path in sorted((EXAMPLES / "paper").glob("*.stat"))
     ],
-    "cases": lambda backend: [
+    "replication": lambda backend: [
         tutorial(path, f"{path.parent.name}/{path.name}")
         for path in sorted(REPLICATION.glob("*/*.stat"))
     ],

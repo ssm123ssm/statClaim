@@ -1973,19 +1973,19 @@ test('a link opens a shipped study, and the address follows the open study', asy
   const open = () => new URL(window.location.href).searchParams.get('open');
   await until(() => !picker.disabled && el('lessonBlocks').querySelector('.stack'), 'editor never loaded');
 
-  // The article's programs and the case studies have their own groups.
+  // The article's programs and the replication studies have their own groups.
   assert.equal(picker.value, 'paper/simon_design.stat');
   assert.equal(el('source').value, readFileSync(new URL('examples/paper/simon_design.stat', root), 'utf8'));
   const groups = [...picker.querySelectorAll('optgroup')].map(g => g.label);
-  assert.deepEqual(groups.slice(-2), ['Paper', 'Case studies']);
-  assert.ok([...picker.options].some(o => o.value === 'case/copd/power.stat' && o.textContent === 'copd power'));
+  assert.deepEqual(groups.slice(-2), ['Paper', 'Replication']);
+  assert.ok([...picker.options].some(o => o.value === 'replication/copd/power.stat' && o.textContent === 'copd power'));
   assert.equal(new URL(window.location.href).searchParams.get('view'), '1', 'other parameters stay');
 
   // Choosing a study puts its link in the address bar, unescaped.
   picker.value = '01_first_claim.stat';
   picker.dispatchEvent(event('change'));
   assert.match(window.location.search, /[?&]open=tutorial\/01_first_claim$/);
-  picker.value = 'case/copd/power.stat';
+  picker.value = 'replication/copd/power.stat';
   picker.dispatchEvent(event('change'));
   assert.equal(open(), 'copd/power');
 
@@ -2012,7 +2012,7 @@ test('a link opens a shipped study, and the address follows the open study', asy
 test('a link may name the file in the repository, and a stale link says so', async t => {
   for (const [address, expected, notice] of [
     ['?open=examples/tutorial/07_sample_size.stat', '07_sample_size.stat', null],
-    ['?open=replication%2Fcopd%2Fdesign_cited', 'case/copd/design_cited.stat', null],
+    ['?open=replication%2Fcopd%2Fdesign_cited', 'replication/copd/design_cited.stat', null],
     ['?open=paper/no_such_study', '01_first_claim.stat', /No study here has the link "paper\/no_such_study"/],
   ]) {
     const window = new Window({url: 'http://localhost/' + address});

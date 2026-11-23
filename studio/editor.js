@@ -354,8 +354,8 @@ function group(label) {
   return node;
 }
 // Shipped studies have links, which the address bar shows while one is open:
-// ?open=tutorial/01_first_claim, example/fisher, paper/simon_design, or copd/power for a case
-// study. The study's path in the repository works too, such as examples/paper/simon_design.
+// ?open=tutorial/01_first_claim, example/fisher, paper/simon_design, or copd/power for a study
+// in replication/copd/. The study's path in the repository works too, such as examples/paper/simon_design.
 const studyLinks = new Map();
 const linkOf = new Map();
 function linkStudy(key, link, path) {
@@ -2134,8 +2134,8 @@ try {
     const stored = window.localStorage.getItem(panelKey);
     setPanel(!drawer() && stored !== 'closed', false);
   } catch { setPanel(true); }
-  const [manifest, tutorials, examples, paper, cases, found] = await Promise.all(
-    ['blocks', 'tutorials', 'examples', 'paper', 'cases', 'capabilities'].map(name => api(name)));
+  const [manifest, tutorials, examples, paper, replication, found] = await Promise.all(
+    ['blocks', 'tutorials', 'examples', 'paper', 'replication', 'capabilities'].map(name => api(name)));
   catalog = manifest;
   capabilities = found;
   showLeanChip();
@@ -2156,7 +2156,7 @@ try {
   const tutorialGroup = group('Tutorials');
   const exampleGroup = group('Examples');
   const paperGroup = group('Paper');
-  const caseGroup = group('Case studies');
+  const replicationGroup = group('Replication');
   const stem = name => name.replace(/\.stat$/, '');
   for (const doc of tutorials) {
     register(doc.name, doc.name, doc.source, tutorialGroup);
@@ -2171,13 +2171,13 @@ try {
     register('paper/' + doc.name, doc.name, doc.source, paperGroup);
     linkStudy('paper/' + doc.name, 'paper/' + stem(doc.name), 'examples/paper/' + stem(doc.name));
   }
-  // Case studies, from replication/<case>/; each is named <case>/<file>.stat.
-  for (const doc of cases) {
-    register('case/' + doc.name, doc.name.replace('/', '_'), doc.source, caseGroup);
-    linkStudy('case/' + doc.name, stem(doc.name), 'replication/' + stem(doc.name));
+  // Case studies and cross-checks, from replication/<folder>/; each is named <folder>/<file>.stat.
+  for (const doc of replication) {
+    register('replication/' + doc.name, doc.name.replace('/', '_'), doc.source, replicationGroup);
+    linkStudy('replication/' + doc.name, stem(doc.name), 'replication/' + stem(doc.name));
   }
   if (!paper.length) paperGroup.remove();
-  if (!cases.length) caseGroup.remove();
+  if (!replication.length) replicationGroup.remove();
   byId('newDoc').addEventListener('click', () => newStudy());
   byId('openFile').addEventListener('change', async event => {
     const field = event.target;

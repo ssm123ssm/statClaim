@@ -435,11 +435,11 @@ def test_the_article_programs_and_case_studies_are_served():
         path.name for path in (ROOT / "examples/paper").glob("*.stat")
     )
     assert "simon_design.stat" in [doc["name"] for doc in paper]
-    cases = editor.handle("GET", "cases", None, editor.BROWSER)[1]
+    studies = editor.handle("GET", "replication", None, editor.BROWSER)[1]
     assert {"copd/design_cited.stat", "copd/design_declared.stat", "copd/power.stat"} <= {
-        doc["name"] for doc in cases
+        doc["name"] for doc in studies
     }
-    for doc in cases:
+    for doc in studies:
         assert doc["source"] == (ROOT / "replication" / doc["name"]).read_text()
         assert doc["parse_errors"] == []
 
