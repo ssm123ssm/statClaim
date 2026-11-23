@@ -157,3 +157,5 @@ jobs:
               sleep 2
             done
             grep -q "\"lean\": true" /tmp/capabilities.json || { cat .statclaim/studio.log; exit 1; }'
+      # Starting it again, as the editor's attach does, finds it running.
+      - run: devcontainer exec --workspace-folder . bash .devcontainer/studio.sh | grep -q "running at http://localhost:4180"

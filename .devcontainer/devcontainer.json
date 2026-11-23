@@ -13,6 +13,7 @@
   "onCreateCommand": "bash .devcontainer/bootstrap.sh",
   "postStartCommand": "bash .devcontainer/studio.sh",
   "postAttachCommand": "bash .devcontainer/attach.sh",
+  "forwardPorts": [4180],
   "portsAttributes": {
     "4180": {
       "label": "StatClaim Studio",
