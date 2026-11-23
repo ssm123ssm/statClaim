@@ -113,6 +113,8 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     }
     declared = checker.translation(ROOT / "examples/declared_test.stat")
     assert "declared" in declared.claims.values()
+    survey = checker.translation(ROOT / "examples/complex_survey.stat")
+    assert survey.claims == {"checked_claim": "cited"} and survey.skipped == {}
     adaptive = checker.translation(ROOT / "examples/paper/fisher_adaptive.stat")
     assert adaptive.claims == {}
     assert "supplies no sampling law" in adaptive.skipped["verification"]
@@ -138,11 +140,20 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
             "premises.welch_level",
         ),
     }
-    for label, (old, new) in mutations.items():
-        assert old in text, label
+    survey = corpus_checker().translation(ROOT / "examples/complex_survey.stat").lean
+    cases = [(text, label, change) for label, change in mutations.items()]
+    cases.append(
+        (
+            survey,
+            "a design the method does not fit",
+            ("ObservationalDesign.cross_sectional", "ObservationalDesign.case_control"),
+        )
+    )
+    for source, label, (old, new) in cases:
+        assert old in source, label
         lean_file = tmp_path / "Mutated.lean"
         lean_file.write_text(
-            f"import StatClaim\nnamespace Mutated\n{text.replace(old, new, 1)}end Mutated\n"
+            f"import StatClaim\nnamespace Mutated\n{source.replace(old, new, 1)}end Mutated\n"
         )
         run = subprocess.run(["lake", "env", "lean", str(lean_file)], cwd=ROOT, capture_output=True)
         assert run.returncode != 0, f"Lean accepted {label}"

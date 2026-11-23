@@ -23,12 +23,14 @@ from statclaim.lean_translation.program import Translation, translate
 ROOT = Path(__file__).resolve().parents[1]
 PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
 # Translations reviewed as diffs: an exact test, cited tests of both scopes, a declared
-# test, and a design whose stopping rule leaves its claim unresolved.
+# test, a design whose stopping rule leaves its claim unresolved, and a cited test of
+# association in a survey.
 PINNED = (
     "examples/paper/fisher_design.stat",
     "examples/t_test.stat",
     "examples/declared_test.stat",
     "examples/paper/fisher_adaptive.stat",
+    "examples/complex_survey.stat",
 )
 
 

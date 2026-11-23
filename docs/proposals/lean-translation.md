@@ -16,9 +16,15 @@ Progress:
   programs the compiler accepts translate and Lean accepts them, 33 claims in
   all; everything not yet translated is listed with its reason.
   `scripts/check_lean_translation.py` runs in `make lean-check`, and a Lean test
-  confirms that breaking a contract or overstating a claim is rejected. Part 2:
-  observational studies and cited tests of association, and the definitions and
-  contracts of the remaining exact tests.
+  confirms that breaking a contract or overstating a claim is rejected.
+- Milestone 3, part 2 done: observational studies as abstract models
+  (`ObservationalModel`, with no association as a zero association), and the
+  cited tests of association with their registry contracts: design, scales,
+  survey, minimum total, clusters and covariates. 41 claims in all. The remaining
+  exact tests (one-sided Fisher, the margin test, randomisation, one-sample,
+  two-stage, and the exact tests of association) move to milestone 5: each needs
+  its numerical certificate, and the association module first needs a bridge to
+  the core objects.
 
 ## Goal
 
@@ -426,8 +432,9 @@ Each milestone ends tested on the corpus, documented and pushed.
 4. **Compositions and grades.** The `statclaim` tactic and its rule set;
    Bonferroni, fixed sequence, graphical and alpha-spending families proved by
    it; the dependency collector and grades from premises; test 4.
-5. **Exact modules and templates.** Emitters for the exact modules; template
-   equivalence and retirement; test 5.
+5. **Exact modules and templates.** Emitters for the exact modules, with their
+   numerical certificates and, for association, a bridge from the module's
+   theorems to the core objects; template equivalence and retirement; test 5.
 6. **Rejection and reports.** Error-injection agreement (test 3); a
    compatibility certificate from `statclaim report`; the studio shows it where
    Lean is available.

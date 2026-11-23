@@ -17,10 +17,13 @@ from fractions import Fraction
 
 from statclaim.language import (
     AnalysisIR,
+    AssociationNullIR,
     CitedAnalysisIR,
+    CitedAssociationIR,
     ClaimIR,
     HypothesisIR,
     ModelIR,
+    ObservationalStudyIR,
     OutcomeNullIR,
     PlanIR,
     ProgramIR,
@@ -155,12 +158,38 @@ class Translator:
         return preferred
 
     # Values -----------------------------------------------------------------------------
+    def abstract(self, base: str, structure: str, kind: str) -> Model:
+        """A model whose law Lean does not fix: fields of the instance."""
+        parameter = self.namer.fresh(f"{base}_Parameter")
+        outcome = self.namer.fresh(f"{base}_Outcome")
+        space = self.namer.fresh(f"{base}_space")
+        self.fields += [
+            f"{lean(parameter)} : Type",
+            f"{lean(outcome)} : Type",
+            f"[{lean(space)} : MeasurableSpace {lean(outcome)}]",
+            f"{lean(base)} : {INTERFACE}.{structure} {lean(parameter)} {lean(outcome)}",
+        ]
+        self.instances.append(f"attribute [instance] Instance.{lean(space)}")
+        self.witness += [
+            f"{lean(parameter)} := Unit",
+            f"{lean(outcome)} := Unit",
+            f"{lean(base)} := {INTERFACE}.{structure}.trivial",
+        ]
+        return Model(base, True, kind, lean(parameter), lean(outcome))
+
     def model(self, ir: object, preferred: str | None = None) -> Model:
-        if not isinstance(ir, TwoArmModelIR):
+        if not isinstance(ir, (TwoArmModelIR, ObservationalStudyIR)):
             raise Untranslated(f"{type(ir).__name__} models are not translated yet.")
         k = key(ir)
         if k in self.memo:
             return self.memo[k]  # type: ignore[return-value]
+        if isinstance(ir, ObservationalStudyIR):
+            # Cited tests of association need no law; exact ones come with milestone 5.
+            observational = self.abstract(
+                self.own(preferred, "study"), "ObservationalModel", ir.design
+            )
+            self.memo[k] = observational
+            return observational
         assignment, measured = ir.assignment, ir.measured
         # A binomial law needs independent participants measured once; otherwise the law
         # is left abstract, as for continuous and survival outcomes.
@@ -179,22 +208,7 @@ class Translator:
                 base, False, "binary", f"{BINOMIAL}.Parameters", f"{BINOMIAL}.Counts", sizes
             )
         else:
-            parameter = self.namer.fresh(f"{base}_Parameter")
-            outcome = self.namer.fresh(f"{base}_Outcome")
-            space = self.namer.fresh(f"{base}_space")
-            self.fields += [
-                f"{lean(parameter)} : Type",
-                f"{lean(outcome)} : Type",
-                f"[{lean(space)} : MeasurableSpace {lean(outcome)}]",
-                f"{lean(base)} : {INTERFACE}.TwoArmModel {lean(parameter)} {lean(outcome)}",
-            ]
-            self.instances.append(f"attribute [instance] Instance.{lean(space)}")
-            self.witness += [
-                f"{lean(parameter)} := Unit",
-                f"{lean(outcome)} := Unit",
-                f"{lean(base)} := {INTERFACE}.TwoArmModel.trivial",
-            ]
-            result = Model(base, True, measured.kind, lean(parameter), lean(outcome))
+            result = self.abstract(base, "TwoArmModel", measured.kind)
         self.memo[k] = result
         return result
 
@@ -235,11 +249,13 @@ class Translator:
         k = key(ir)
         if k in self.memo:
             return self.memo[k]  # type: ignore[return-value]
-        if not isinstance(ir, (OutcomeNullIR, HypothesisIR)):
+        if not isinstance(ir, (OutcomeNullIR, HypothesisIR, AssociationNullIR)):
             raise Untranslated(f"{type(ir).__name__} nulls are not translated yet.")
         model = self.model(ir.model)
         base = self.own(preferred, "null")
-        if model.abstract:
+        if isinstance(ir, AssociationNullIR):
+            self.defs.append(f"def {lean(base)} (i : Instance) :=\n  {model.ref()}.noAssociation")
+        elif model.abstract:
             term = (
                 f"{model.ref()}.null {GENERATED}.NullKey.{ir.predicate}.shape {rational(ir.value)}"
             )
@@ -259,6 +275,8 @@ class Translator:
             return self.memo[k]  # type: ignore[return-value]
         if isinstance(ir, CitedAnalysisIR):
             result = self.cited(ir, preferred)
+        elif isinstance(ir, CitedAssociationIR):
+            result = self.cited_association(ir, preferred)
         elif isinstance(ir, AnalysisIR) and ir.alternative == "two_sided":
             result = self.fisher(ir, preferred)
         else:
@@ -277,16 +295,6 @@ class Translator:
         base = self.own(preferred, "analysis")
         method = ir.method
         declared = method.key not in METHODS
-        test = self.namer.fresh(f"{base}_test")
-        slack = self.namer.fresh(f"{base}_slack")
-        self.fields += [
-            f"{lean(test)} : {INTERFACE}.TestInterface {model.outcome}",
-            f"{lean(slack)} : ℝ",
-        ]
-        self.witness += [
-            f"{lean(test)} := {INTERFACE}.TestInterface.neverRejects _",
-            f"{lean(slack)} := 0",
-        ]
         values = [f"(0 : ℚ) < {rational(ir.alpha)}", f"{rational(ir.alpha)} < 1"]
         if declared:
             scope = f"{INTERFACE}.Scope.{SCOPES[method.scope]}"
@@ -326,17 +334,8 @@ class Translator:
             )
         # Unfold the method's entry only when a fact reads its rational null value.
         unfold = "" if len(values) == 2 else f" [{GENERATED}.Methods.{method.key}]"
-        self.contracts.append(
-            f"theorem {lean(self.namer.fresh(f'{base}_values'))} :\n    "
-            + " ∧\n    ".join(values)
-            + f" := by norm_num{unfold}"
-        )
-        premise = self.namer.fresh(f"{base}_level")
-        self.premises.append(
-            f"{lean(premise)} : {INTERFACE}.LevelPremise {scope} {model.law()} {null.ref()}\n"
-            f"    i.{lean(test)} {rational(ir.alpha)} i.{lean(slack)}"
-        )
-        self.premise_proofs.append(f"{INTERFACE}.neverRejects_meets_level _ _ _ _ (by norm_num)")
+        self.values(base, values, unfold)
+        test, slack, premise = self.tested(base, model, null, ir.alpha, scope)
         return Analysis(
             base,
             "declared" if declared else "cited",
@@ -348,6 +347,76 @@ class Translator:
             test,
             slack,
             premise,
+        )
+
+    def values(self, base: str, values: list[str], unfold: str = "") -> None:
+        """The rational facts of a contract, decided by norm_num."""
+        self.contracts.append(
+            f"theorem {lean(self.namer.fresh(f'{base}_values'))} :\n    "
+            + " ∧\n    ".join(values)
+            + f" := by norm_num{unfold}"
+        )
+
+    def tested(
+        self, base: str, model: Model, null: Null, alpha: Fraction, scope: str
+    ) -> tuple[str, str, str]:
+        """A test seen from outside: its rejection event and slack, and its premise."""
+        test = self.namer.fresh(f"{base}_test")
+        slack = self.namer.fresh(f"{base}_slack")
+        self.fields += [
+            f"{lean(test)} : {INTERFACE}.TestInterface {model.outcome}",
+            f"{lean(slack)} : ℝ",
+        ]
+        self.witness += [
+            f"{lean(test)} := {INTERFACE}.TestInterface.neverRejects _",
+            f"{lean(slack)} := 0",
+        ]
+        premise = self.namer.fresh(f"{base}_level")
+        self.premises.append(
+            f"{lean(premise)} : {INTERFACE}.LevelPremise {scope} {model.law()} {null.ref()}\n"
+            f"    i.{lean(test)} {rational(alpha)} i.{lean(slack)}"
+        )
+        self.premise_proofs.append(f"{INTERFACE}.neverRejects_meets_level _ _ _ _ (by norm_num)")
+        return test, slack, premise
+
+    def cited_association(self, ir: CitedAssociationIR, preferred: str | None) -> Analysis:
+        design = self.design(ir.plan)
+        null = self.null(ir.hypothesis)
+        model = design.model
+        study = ir.plan.model
+        assert isinstance(study, ObservationalStudyIR)
+        base = self.own(preferred, "analysis")
+        method = ir.method
+        entry = f"{GENERATED}.Methods.{method.key}"
+        facts = [
+            f"{GENERATED}.ObservationalDesign.{study.design} ∈ {entry}.designs",
+            f"{GENERATED}.Scale.{study.outcome_scale} ∈ {entry}.outcomeScales",
+            f"{GENERATED}.Scale.{study.exposure_scale} ∈ {entry}.exposureScales",
+            f"{GENERATED}.Survey.{study.survey} ∈ {entry}.surveys",
+        ]
+        total = (
+            getattr(study, "pairs", None)
+            if study.design == "matched_case_control"
+            else (None if study.design == "person_time_cohort" else study.total)
+        )
+        if total is not None:
+            facts.append(f"{entry}.minTotal ≤ {total}")
+        if method.min_clusters is not None and study.survey == "cluster":
+            facts += [
+                f"{entry}.minClusters = some {method.min_clusters}",
+                f"{method.min_clusters} ≤ {study.clusters}",
+            ]
+        if ir.covariates:
+            facts.append(f"{entry}.covariates = true")
+        self.contracts.append(
+            f"theorem {lean(self.namer.fresh(f'{base}_contract'))} :\n    "
+            + " ∧\n    ".join(facts)
+            + " := by decide"
+        )
+        self.values(base, [f"(0 : ℚ) < {rational(ir.alpha)}", f"{rational(ir.alpha)} < 1"])
+        test, slack, premise = self.tested(base, model, null, ir.alpha, f"{entry}.scope")
+        return Analysis(
+            base, "cited", model, design, null, ir.alpha, method.scope, test, slack, premise
         )
 
     def fisher(self, ir: AnalysisIR, preferred: str | None) -> Analysis:
@@ -441,13 +510,13 @@ class Translator:
         for binding in self.program.bindings:
             value = binding.value
             try:
-                if isinstance(value, TwoArmModelIR):
+                if isinstance(value, (TwoArmModelIR, ObservationalStudyIR)):
                     self.model(value, binding.name)
                 elif isinstance(value, PlanIR):
                     self.design(value, binding.name)
-                elif isinstance(value, (OutcomeNullIR, HypothesisIR)):
+                elif isinstance(value, (OutcomeNullIR, HypothesisIR, AssociationNullIR)):
                     self.null(value, binding.name)
-                elif isinstance(value, (CitedAnalysisIR, AnalysisIR)):
+                elif isinstance(value, (CitedAnalysisIR, AnalysisIR, CitedAssociationIR)):
                     self.analysis(value, binding.name)
                 elif (
                     type(value).__module__.startswith("statclaim")

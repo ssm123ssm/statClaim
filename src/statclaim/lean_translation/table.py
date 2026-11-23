@@ -87,7 +87,7 @@ TABLE: dict[str, InLean | NotInLean] = {
     "mean_difference_at_least": _in("null", OUTCOMES),
     "equal_survival": _in("null", OUTCOMES),
     "no_effect": _in("null", RANDOMISATION),
-    "no_association": _in("null", ASSOCIATION),
+    "no_association": _in("null", ASSOCIATION, OUTCOMES),
     # Sampling plans and stopping rules.
     "fixed": _in("design", CORE),
     "adaptive": _in("design", CORE),
@@ -143,12 +143,12 @@ TABLE: dict[str, InLean | NotInLean] = {
     "fixed_sequence": _in("composition", COMPOSITION),
     "alpha_spending": _in("composition", COMPOSITION),
     "graphical": _in("composition", PREMISES),
-    # Observational studies.
-    "cross_sectional": _in("model", ASSOCIATION),
-    "cohort": _in("model", ASSOCIATION),
-    "case_control": _in("model", ASSOCIATION),
-    "person_time_cohort": _in("model", INCIDENCE),
-    "matched_case_control": _in("model", MATCHED),
+    # Observational studies: concrete laws for exact tests, abstract ones for cited tests.
+    "cross_sectional": _in("model", ASSOCIATION, OUTCOMES),
+    "cohort": _in("model", ASSOCIATION, OUTCOMES),
+    "case_control": _in("model", ASSOCIATION, OUTCOMES),
+    "person_time_cohort": _in("model", INCIDENCE, OUTCOMES),
+    "matched_case_control": _in("model", MATCHED, OUTCOMES),
     # Single-arm models.
     "one_arm_binomial": _in("model", ONE_SAMPLE),
     # Observed data.
