@@ -335,6 +335,7 @@ button:disabled { cursor: default; }
   font-weight: 600; animation: drop-in .25s ease-out;
 }
 .banner[hidden] { display: none; }
+.banner[data-tone="info"] { background: var(--surface); border-color: var(--line-strong); color: var(--muted); }
 .banner span { flex: 1; }
 
 /* Side panel */

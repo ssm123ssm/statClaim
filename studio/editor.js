@@ -839,6 +839,9 @@ function setBanner(message, action, glyph = 'alert') {
   banner.replaceChildren();
   banner.hidden = !message;
   if (!message) return;
+  // A notice, such as StatClaim starting in the browser, is not an error.
+  banner.dataset.tone = glyph === 'info' ? 'info' : 'alert';
+  banner.setAttribute('role', glyph === 'info' ? 'status' : 'alert');
   banner.append(icon(glyph), el('span', '', message));
   if (action) banner.append(button(action[0], action[1], 'btn small'));
 }
