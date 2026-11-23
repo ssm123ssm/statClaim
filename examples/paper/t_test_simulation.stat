@@ -1,0 +1,15 @@
+# From the StatClaim article, "Simulation and its uncertainty": power of a pooled
+# two-sample t-test, by formula and by 10,000 simulated studies.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use planning
+
+let study = two_arm_continuous(n_control=40, n_treatment=40)
+let analysis = t_test(design=fixed(model=study),
+                      null=equal_means(model=study), alpha=1/20)
+let target = power_target(at=mean_difference(value=5, sd=10),
+                          minimum=4/5, maximum_typeI=1/20)
+let formula = calculate(meets(analysis=analysis, target=target))
+let estimate = simulate(meets(analysis=analysis, target=target),
+                         seed=2026, runs=10000)

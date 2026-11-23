@@ -79,9 +79,10 @@ def build(out: Path) -> None:
 
 
 def reference(path: Path) -> None:
-    """What CPython answers in the web studio's place, for every example and lesson."""
+    """What CPython answers in the web studio's place, for every example, lesson and case."""
     found = {}
-    for study in sorted((ROOT / "examples").rglob("*.stat")):
+    studies = [*(ROOT / "examples").rglob("*.stat"), *(ROOT / "replication").glob("*/*.stat")]
+    for study in sorted(studies):
         payload = {"source": study.read_text(encoding="utf-8"), "name": study.name}
         found[str(study.relative_to(ROOT))] = {
             **payload,

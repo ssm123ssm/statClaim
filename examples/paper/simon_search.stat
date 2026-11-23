@@ -1,0 +1,22 @@
+# From the StatClaim article, "Rechecking Simon's two-stage designs": search for
+# the optimal and minimax designs with at most 120 participants. The searches
+# find (9, 24, 0, 2) and (13, 20, 0, 2); the ranking is numerical.
+use designs.two_stage
+use planning
+
+let stages = two_stage_binomial(n_stage1=9, n_stage2=15)
+let rule = threshold_rule(continue_above=0, reject_above=2)
+let analysis = two_stage_test(design=stages, rule=rule,
+                              null_rate=1/20)
+let target = power_target(at=response_rate(value=1/4),
+                          minimum=9/10, maximum_typeI=1/10)
+let checked = verify(meets(analysis=analysis, target=target))
+
+let optimal_candidates = two_stage_designs(null_rate=1/20,
+                            max_total=120, criterion="optimal")
+let optimal = calculate(sample_size(candidates=optimal_candidates,
+                                    target=target))
+let minimax_candidates = two_stage_designs(null_rate=1/20,
+                            max_total=120, criterion="minimax")
+let minimax = calculate(sample_size(candidates=minimax_candidates,
+                                    target=target))

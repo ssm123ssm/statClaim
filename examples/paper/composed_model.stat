@@ -1,0 +1,7 @@
+# From the StatClaim article, "Composing models and naming claims": a two-arm
+# model built from an assignment and an outcome.
+use models.two_arm_continuous
+
+let arms = assignment(n_control=100, n_treatment=100)
+let score = continuous_outcome(better="lower")
+let study = two_arm(assignment=arms, outcome=score)

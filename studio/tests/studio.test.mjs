@@ -1955,3 +1955,77 @@ test('a studio without Lean says what needs it and where proofs can be built', a
   el('leanChip').click();
   assert.ok(dialog(), 'the chip opens it');
 });
+
+test('a link opens a shipped study, and the address follows the open study', async t => {
+  const window = new Window({url: 'http://localhost/?view=1&open=paper/simon_design'});
+  const {document} = window;
+  t.after(() => window.happyDOM.close());
+  install(window);
+  globalThis.sessionStorage = window.sessionStorage;
+  globalThis.fetch = async (url, options = {}) => dispatch(url, {...options, backend: 'browser'});
+  let copied;
+  Object.defineProperty(window.navigator, 'clipboard', {value: {writeText: async text => { copied = text; }}, configurable: true});
+  document.body.innerHTML = shell();
+  await import(new URL('editor.js?links', platform));
+  const el = id => document.getElementById(id);
+  const event = type => new window.Event(type, {bubbles: true});
+  const picker = el('lesson');
+  const open = () => new URL(window.location.href).searchParams.get('open');
+  await until(() => !picker.disabled && el('lessonBlocks').querySelector('.stack'), 'editor never loaded');
+
+  // The article's programs and the case studies have their own groups.
+  assert.equal(picker.value, 'paper/simon_design.stat');
+  assert.equal(el('source').value, readFileSync(new URL('examples/paper/simon_design.stat', root), 'utf8'));
+  const groups = [...picker.querySelectorAll('optgroup')].map(g => g.label);
+  assert.deepEqual(groups.slice(-2), ['Paper', 'Case studies']);
+  assert.ok([...picker.options].some(o => o.value === 'case/copd/power.stat' && o.textContent === 'copd power'));
+  assert.equal(new URL(window.location.href).searchParams.get('view'), '1', 'other parameters stay');
+
+  // Choosing a study puts its link in the address bar, unescaped.
+  picker.value = '01_first_claim.stat';
+  picker.dispatchEvent(event('change'));
+  assert.match(window.location.search, /[?&]open=tutorial\/01_first_claim$/);
+  picker.value = 'case/copd/power.stat';
+  picker.dispatchEvent(event('change'));
+  assert.equal(open(), 'copd/power');
+
+  // ⌘K copies the web studio's link, wherever this studio runs.
+  document.dispatchEvent(new window.KeyboardEvent('keydown', {key: 'k', metaKey: true, bubbles: true}));
+  const query = document.querySelector('.cmdk input');
+  query.value = 'link';
+  query.dispatchEvent(event('input'));
+  const row = [...document.querySelectorAll('.cmdk-item')].find(item => item.querySelector('.cmdk-label').textContent === 'Copy link to this study');
+  assert.ok(row, 'the palette offers the link');
+  row.click();
+  await until(() => copied, 'nothing was copied');
+  assert.equal(copied, 'https://ssm123ssm.github.io/statClaim/?open=copd/power');
+
+  // A study of one's own has no link.
+  const file = el('openFile');
+  Object.defineProperty(file, 'files', {value: [{name: 'mine.stat', text: async () => 'let x = 1\n'}]});
+  file.dispatchEvent(event('change'));
+  await until(() => el('filename').textContent === 'mine.stat', 'file import failed');
+  assert.equal(open(), null);
+  assert.equal(new URL(window.location.href).searchParams.get('view'), '1');
+});
+
+test('a link may name the file in the repository, and a stale link says so', async t => {
+  for (const [address, expected, notice] of [
+    ['?open=examples/tutorial/07_sample_size.stat', '07_sample_size.stat', null],
+    ['?open=replication%2Fcopd%2Fdesign_cited', 'case/copd/design_cited.stat', null],
+    ['?open=paper/no_such_study', '01_first_claim.stat', /No study here has the link "paper\/no_such_study"/],
+  ]) {
+    const window = new Window({url: 'http://localhost/' + address});
+    const {document} = window;
+    install(window);
+    globalThis.sessionStorage = window.sessionStorage;
+    globalThis.fetch = async (url, options = {}) => dispatch(url, {...options, backend: 'browser'});
+    document.body.innerHTML = shell();
+    await import(new URL('editor.js?link-' + expected, platform));
+    const picker = document.getElementById('lesson');
+    await until(() => !picker.disabled && document.getElementById('lessonBlocks').querySelector('.stack'), 'editor never loaded');
+    assert.equal(picker.value, expected, address);
+    if (notice) assert.match(document.getElementById('notice').textContent, notice);
+    window.happyDOM.close();
+  }
+});

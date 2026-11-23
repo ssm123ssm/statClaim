@@ -71,6 +71,8 @@ ASSETS = {
     "studio.css",
 }
 EXAMPLES = ROOT.parent / "examples"
+# Case studies: each folder of replication/ that holds .stat files.
+REPLICATION = ROOT.parent / "replication"
 # Runs build Lean proofs in the checkout; one at a time keeps lake builds from colliding.
 RUN_LOCK = threading.Lock()
 # The largest study a request may carry, the same for every transport.
@@ -106,10 +108,13 @@ def project_links() -> dict:
     if not repository or not repository.startswith("https://github.com/"):
         return {}
     slug = repository.removeprefix("https://github.com/").strip("/")
+    owner, name = slug.split("/", 1)
     return {
         "repository": repository,
         "codespaces": f"https://codespaces.new/{slug}?quickstart=1",
         "install": repository + "#try-it",
+        # The web studio, published on GitHub Pages; ?open=<link> opens a shipped study.
+        "studio": f"https://{owner}.github.io/{name}/",
     }
 
 
@@ -1041,8 +1046,8 @@ def explain_document(source, name=None):
     return {"entries": explain(compilation, name or None)}
 
 
-def tutorial(path):
-    return parse_document(Source(path.read_text(encoding="utf-8"), path.name))
+def tutorial(path, name=None):
+    return parse_document(Source(path.read_text(encoding="utf-8"), name or path.name))
 
 
 def parse_document(source):
@@ -1230,6 +1235,14 @@ GETS = {
         tutorial(path) for path in sorted((EXAMPLES / "tutorial").glob("*.stat"))
     ],
     "examples": lambda backend: [tutorial(path) for path in sorted(EXAMPLES.glob("*.stat"))],
+    # The programs the StatClaim article shows, and the case studies it reports.
+    "paper": lambda backend: [
+        tutorial(path) for path in sorted((EXAMPLES / "paper").glob("*.stat"))
+    ],
+    "cases": lambda backend: [
+        tutorial(path, f"{path.parent.name}/{path.name}")
+        for path in sorted(REPLICATION.glob("*/*.stat"))
+    ],
     "blocks": lambda backend: manifest(),
     "block-fits": lambda backend: block_fits(),
     "capabilities": capabilities,

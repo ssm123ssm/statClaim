@@ -47,7 +47,7 @@ function saveLayout(key, map) {
 const panelKey = 'statclaim.studio.panel.v1';
 
 // The app fills the window; the page itself never scrolls.
-if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
 document.scrollingElement?.scrollTo?.(0, 0);
 byId('undo').append(icon('undo'));
 byId('redo').append(icon('redo'));
@@ -353,6 +353,41 @@ function group(label) {
   picker.append(node);
   return node;
 }
+// Shipped studies have links, which the address bar shows while one is open:
+// ?open=tutorial/01_first_claim, example/fisher, paper/simon_design, or copd/power for a case
+// study. The study's path in the repository works too, such as examples/paper/simon_design.
+const studyLinks = new Map();
+const linkOf = new Map();
+function linkStudy(key, link, path) {
+  linkOf.set(key, link);
+  studyLinks.set(link, key);
+  studyLinks.set(path, key);
+}
+function requestedLink() {
+  try {
+    const link = new URL(window.location.href).searchParams.get('open');
+    return link && link.trim().replace(/^\/+|\/+$/g, '').replace(/\.stat$/i, '');
+  } catch { return null; }
+}
+function showLink(key) {
+  try {
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(url.search);
+    params.delete('open');
+    const link = linkOf.get(key);
+    url.search = [params.toString(), link && 'open=' + link].filter(Boolean).join('&');
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url.href);
+  } catch { /* the address is a convenience */ }
+}
+async function copyLink() {
+  const link = active && linkOf.get(active.key);
+  if (!link || !capabilities.links?.studio) return;
+  const url = capabilities.links.studio + '?open=' + link;
+  try {
+    await window.navigator.clipboard.writeText(url);
+    toast('Copied the link to ' + title(active.name) + ': ' + url);
+  } catch { toast('The link to ' + title(active.name) + ' is ' + url); }
+}
 function register(key, name, source, parent) {
   documents.set(key, {key, name, source, original: source, undo: [], redo: [], folded: new Set(), issues: 0, scroll: 0});
   const option = document.createElement('option');
@@ -507,6 +542,7 @@ function select(key) {
   paintCode();
   controls();
   saveDrafts();
+  showLink(key);
   schedule(0);
 }
 
@@ -1934,6 +1970,7 @@ function commands() {
     const family = DESIGN_FAMILIES.find(f => f.id === d.family);
     add('New study', d.label, () => newStudy({design: d.id}), {hint: family.label, family: family.family, words: d.words + ' new study design ' + d.detail});
   }
+  if (active && linkOf.has(active.key) && capabilities.links?.studio) add('Actions', 'Copy link to this study', copyLink, {hint: 'opens it in the web studio', words: 'share cite url address'});
   add('Actions', 'Open a .stat file…', () => typeof window.showOpenFilePicker === 'function' ? openWithPicker() : byId('openFile').click());
   add('Actions', 'Undo', () => history('undo', 'redo'), {keys: '⌘Z', hint: active?.undo.at(-1)?.label});
   add('Actions', 'Show recent edits', openHistory);
@@ -2097,7 +2134,8 @@ try {
     const stored = window.localStorage.getItem(panelKey);
     setPanel(!drawer() && stored !== 'closed', false);
   } catch { setPanel(true); }
-  const [manifest, tutorials, examples, found] = await Promise.all([api('blocks'), api('tutorials'), api('examples'), api('capabilities')]);
+  const [manifest, tutorials, examples, paper, cases, found] = await Promise.all(
+    ['blocks', 'tutorials', 'examples', 'paper', 'cases', 'capabilities'].map(name => api(name)));
   catalog = manifest;
   capabilities = found;
   showLeanChip();
@@ -2117,8 +2155,29 @@ try {
   const myStudiesGroup = group('My studies');
   const tutorialGroup = group('Tutorials');
   const exampleGroup = group('Examples');
-  for (const doc of tutorials) register(doc.name, doc.name, doc.source, tutorialGroup);
-  for (const doc of examples) register('example/' + doc.name, doc.name, doc.source, exampleGroup);
+  const paperGroup = group('Paper');
+  const caseGroup = group('Case studies');
+  const stem = name => name.replace(/\.stat$/, '');
+  for (const doc of tutorials) {
+    register(doc.name, doc.name, doc.source, tutorialGroup);
+    linkStudy(doc.name, 'tutorial/' + stem(doc.name), 'examples/tutorial/' + stem(doc.name));
+  }
+  for (const doc of examples) {
+    register('example/' + doc.name, doc.name, doc.source, exampleGroup);
+    linkStudy('example/' + doc.name, 'example/' + stem(doc.name), 'examples/' + stem(doc.name));
+  }
+  // The programs the StatClaim article shows, from examples/paper.
+  for (const doc of paper) {
+    register('paper/' + doc.name, doc.name, doc.source, paperGroup);
+    linkStudy('paper/' + doc.name, 'paper/' + stem(doc.name), 'examples/paper/' + stem(doc.name));
+  }
+  // Case studies, from replication/<case>/; each is named <case>/<file>.stat.
+  for (const doc of cases) {
+    register('case/' + doc.name, doc.name.replace('/', '_'), doc.source, caseGroup);
+    linkStudy('case/' + doc.name, stem(doc.name), 'replication/' + stem(doc.name));
+  }
+  if (!paper.length) paperGroup.remove();
+  if (!cases.length) caseGroup.remove();
   byId('newDoc').addEventListener('click', () => newStudy());
   byId('openFile').addEventListener('change', async event => {
     const field = event.target;
@@ -2141,9 +2200,15 @@ try {
   for (const id of ['lesson', 'newDoc', 'openFile', 'download', 'compile', 'source']) byId(id).disabled = false;
   byId('lesson').title = 'StatClaim ' + catalog.version;
   const recovered = recoverDrafts(myStudiesGroup);
-  if (documents.has(recovered.selected)) select(recovered.selected);
+  // A link opens its study, over the one open last time.
+  const wanted = requestedLink();
+  const linked = wanted && studyLinks.get(wanted);
+  if (linked) select(linked);
+  else if (documents.has(recovered.selected)) select(recovered.selected);
   else if (tutorials.length) select(tutorials[0].name);
   else addLocal('study.stat', '');
+  if (wanted && !linked) toast('No study here has the link ' + JSON.stringify(wanted) + '; it may have been renamed.');
+  else if (linked && active.source !== active.original) toast('This is your edited copy of ' + title(active.name) + '. Restore original shows it as published.');
   // A new visit, not a reload, says that unsaved edits came back.
   let returning = false;
   try { returning = !window.sessionStorage.getItem(visitKey); window.sessionStorage.setItem(visitKey, '1'); } catch { /* optional */ }

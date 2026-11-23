@@ -1,0 +1,13 @@
+# From the StatClaim article, "Rechecking Simon's two-stage designs": the first
+# optimal design in Simon (1989), with n1 = 9, n = 24, r1 = 0 and r = 2. Lean
+# checks its error bound for every p <= 0.05 and its power at p = 0.25.
+use designs.two_stage
+use planning
+
+let stages = two_stage_binomial(n_stage1=9, n_stage2=15)
+let rule = threshold_rule(continue_above=0, reject_above=2)
+let analysis = two_stage_test(design=stages, rule=rule,
+                              null_rate=1/20)
+let target = power_target(at=response_rate(value=1/4),
+                          minimum=9/10, maximum_typeI=1/10)
+let checked = verify(meets(analysis=analysis, target=target))

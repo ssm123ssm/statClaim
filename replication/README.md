@@ -87,7 +87,8 @@ with `Rscript tests/fixtures/power_r.R`. R is not needed to replicate.
 | `examples/cited_power.stat` | Approximate power for three cited tests | no |
 
 `examples.py` runs each and compares the file's status and every request's status
-with those it records. Run `statclaim report <file>` on any of them for its
+with those it records. It does the same for the programs the StatClaim article
+shows, in [`examples/paper/`](../examples/paper/README.md). Run `statclaim report <file>` on any of them for its
 assumption table.
 
 ## Case study: a confirmatory COPD trial

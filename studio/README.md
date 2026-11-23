@@ -21,6 +21,10 @@ A block editor for `.stat` studies, in the style of Scratch. From the repository
 - **Code, Help** (right). Code shows the source with highlighting, completion as you type (or `Ctrl+Space`), hover help, and marks lines changed since the original or the last save. Help describes the block under the pointer.
 - **Keyboard.** `⌘K` opens the command palette. Tab to a stack, then use the arrows to move between stacks, `⌥` and arrows to move it, `Enter` for its menu, `F2` to rename and `Delete` to remove it. `⌘Z`/`⇧⌘Z` undo and redo edits and moves; the clock button lists recent edits by name.
 
+## Links
+
+Every shipped study has a link: the web studio's address with `?open=` and the study's name, such as <https://ssm123ssm.github.io/statClaim/?open=paper/simon_design>. Names are `tutorial/<file>`, `example/<file>`, `paper/<file>` for the programs in the StatClaim article ([`examples/paper/`](../examples/paper/README.md)), and `<case>/<file>` for a case study in `replication/<case>/`, such as `copd/power`. The file's path in the repository works too. The address bar shows the open study's link, and **Copy link to this study** in `⌘K` copies its web-studio link. A link opens your edited copy if you have one; **Restore original** shows the study as shipped.
+
 ## Saving
 
 In Chrome and Edge, **Save** (`⌘S`) writes to the file you opened, or asks where to save the first time; `⇧⌘S` saves as a new file. A tutorial saved to a file moves to **My studies**, and the tutorial keeps its original. Other browsers download the file. Unsaved edits are kept in this browser, even after closing the tab. **Restore original** discards edits to a tutorial or example.

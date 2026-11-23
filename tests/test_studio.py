@@ -425,6 +425,23 @@ def test_the_capabilities_say_what_needs_lean_and_where_to_go():
     links = found["links"]
     assert links["codespaces"].startswith("https://codespaces.new/")
     assert links["install"].startswith(links["repository"])
+    assert links["studio"] == "https://ssm123ssm.github.io/statClaim/"
+
+
+def test_the_article_programs_and_case_studies_are_served():
+    """The studio lists them, so ?open=paper/<file> and ?open=copd/<file> can open them."""
+    paper = editor.handle("GET", "paper", None, editor.BROWSER)[1]
+    assert [doc["name"] for doc in paper] == sorted(
+        path.name for path in (ROOT / "examples/paper").glob("*.stat")
+    )
+    assert "simon_design.stat" in [doc["name"] for doc in paper]
+    cases = editor.handle("GET", "cases", None, editor.BROWSER)[1]
+    assert {"copd/design_cited.stat", "copd/design_declared.stat", "copd/power.stat"} <= {
+        doc["name"] for doc in cases
+    }
+    for doc in cases:
+        assert doc["source"] == (ROOT / "replication" / doc["name"]).read_text()
+        assert doc["parse_errors"] == []
 
 
 @pytest.mark.parametrize(

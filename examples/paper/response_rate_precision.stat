@@ -1,0 +1,13 @@
+# From the StatClaim article, "Precision targets": the sample size for a 95%
+# interval for a response rate near 0.3 with a margin of error of at most 0.1.
+use tests.binomial
+use planning
+
+let arm = one_arm_binomial(n=60)
+let interval = planned_interval(model=arm, measure="response_rate")
+let target = precision_target(at=response_rate(value=3/10),
+                              level=19/20, margin_of_error=1/10)
+let sizes = interval_sizes(interval=interval,
+                           min_size=10, max_size=2000)
+let needed = calculate(smallest_sample_size(candidates=sizes,
+                                           target=target))

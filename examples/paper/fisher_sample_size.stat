@@ -1,0 +1,22 @@
+# From the StatClaim article, "Targets and candidate designs": the smallest
+# equal-arm size with 80% power at rates 0.1 and 0.4. Verification checks that
+# 36 per arm meets the target and that every smaller size in the range fails.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use planning
+
+let study = two_arm_binomial(n_control=50, n_treatment=50)
+let design = fixed(model=study)
+let null = equal_proportions(model=study)
+let analysis = fisher(design=design, null=null, alpha=1/20)
+
+let alternative = binomial_rates(p_control=1/10, p_treatment=2/5)
+let target = power_target(at=alternative, minimum=4/5,
+                          maximum_typeI=1/20)
+let candidates = equal_arm_sizes(analysis=analysis,
+                                 min_per_arm=2, max_per_arm=40)
+let sizing = smallest_sample_size(candidates=candidates,
+                                  target=target)
+let recommendation = calculate(sizing)
+let sizing_verification = verify(sizing)

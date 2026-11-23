@@ -28,10 +28,35 @@ EXAMPLES = (
     ("examples/mixed_endpoints.stat", True, "cited", ("conditional", "verified")),
     ("examples/tutorial/11_bayesian_rule.stat", True, "verified", ("calculated", "verified")),
     ("examples/randomisation.stat", True, "verified", ("verified", "verified")),
-    ("examples/cluster_trial.stat", True, "cited", ("cited", "verified")),
+    (
+        "examples/cluster_trial.stat",
+        True,
+        "cited",
+        ("cited", "verified", "calculated", "calculated", "simulated"),
+    ),
     ("examples/stratified_randomisation.stat", True, "verified", ("verified", "verified")),
     ("examples/randomisation_family.stat", True, "conditional", ("conditional", "verified")),
     ("examples/analysis_population.stat", True, "verified", ("verified", "verified")),
+    # The programs the StatClaim article shows.
+    ("examples/paper/composed_model.stat", False, "elaborated", ()),
+    (
+        "examples/paper/fisher_adaptive.stat",
+        False,
+        "unresolved_obligation",
+        ("unresolved_obligation",),
+    ),
+    ("examples/paper/t_test_simulation.stat", False, "simulated", ("calculated", "simulated")),
+    ("examples/paper/response_rate_precision.stat", False, "calculated", ("calculated",)),
+    ("examples/paper/fisher_design.stat", True, "verified", ("verified",)),
+    ("examples/paper/fisher_observed.stat", True, "verified", ("calculated", "verified")),
+    ("examples/paper/fisher_sample_size.stat", True, "verified", ("calculated", "verified")),
+    ("examples/paper/simon_design.stat", True, "verified", ("verified",)),
+    (
+        "examples/paper/simon_search.stat",
+        True,
+        "verified",
+        ("verified", "calculated", "calculated"),
+    ),
 )
 
 
