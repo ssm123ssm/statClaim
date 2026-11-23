@@ -30,16 +30,18 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   Lean checks.
 - `lean_translation/`: the translation of whole programs to Lean, in progress
   ([proposal](proposals/lean-translation.md)). `table.py` says what each
-  constructor and operation becomes in Lean; `program.py` translates a compiled
-  program and lists what it does not translate yet; `emit.py` writes Lean names
-  and exact numbers. `scripts/check_lean_translation.py` translates every
+  constructor and operation becomes in Lean; `denote.py` decides what a compiled
+  program states, `prove.py` how each statement is proved, and `grades.py` how a
+  claim's grade follows from the premises its proof uses; `program.py` writes
+  the file and lists what it does not translate yet. `scripts/check_lean_translation.py` translates every
   example and replication study and checks them with Lean, in `make lean-check`.
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.
   `StatClaim/Interface/` holds the objects translated programs are stated in:
-  abstract two-arm models, tests seen from outside and their level premises,
-  and the shape of a program's theorem. `StatClaim/Generated/Methods.lean` is
+  abstract two-arm and observational models, tests seen from outside and their
+  level premises, families over joint studies, the shape of a program's
+  theorem, and the `statclaim` tactic. `StatClaim/Generated/Methods.lean` is
   the cited-method registry in Lean, written by `scripts/update_lean_premises.py`.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `studio/`: the block editor. `api.py` answers its requests on the same compiler,

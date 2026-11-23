@@ -55,3 +55,35 @@ noncomputable def witness : Instance := ⟨⟩
 theorem program : StatClaim.Interface.ProgramTheorem Premises Claims where
   implies := fun i premises => verification_claim i premises
   satisfiable := ⟨witness, ⟨⟩⟩
+
+-- The premises each claim's proof uses, following this program's own constants.
+open Lean Elab Command in
+run_cmd do
+  let env ← getEnv
+  let structureName := ``Premises
+  let fields := getStructureFields env structureName
+  for (short, claim) in [("verification_claim", ``verification_claim)] do
+    let found ← IO.mkRef ({} : NameSet)
+    let mut seen : NameSet := {}
+    let mut stack := [claim]
+    while !stack.isEmpty do
+      let current := stack.head!
+      stack := stack.tail!
+      if seen.contains current then continue
+      seen := seen.insert current
+      let some info := env.find? current | continue
+      let value := match info with
+        | .thmInfo theorem_ => some theorem_.value
+        | .defnInfo definition => some definition.value
+        | _ => none
+      for e in info.type :: value.toList do
+        discard <| liftCoreM <| Core.transform e (pre := fun e => do
+          if let .proj name index _ := e then
+            if name == structureName then
+              if let some field := fields[index]? then found.modify (·.insert field)
+          return .continue)
+        for constant in e.getUsedConstants do
+          if claim.getPrefix.isPrefixOf constant && !seen.contains constant then
+            stack := constant :: stack
+    let used := (← found.get).toList.map toString |>.mergeSort (· < ·)
+    logInfo m!"STATCLAIM_PREMISES examples/paper/fisher_design.stat {short}: {String.intercalate "," used}"

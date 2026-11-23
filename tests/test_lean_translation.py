@@ -87,7 +87,7 @@ def test_every_accepted_program_translates_and_says_what_it_leaves_out():
         translated += 1
         claims += len(result.claims)
         assert all(reason.endswith(".") for reason in result.skipped.values()), path
-        assert set(result.claims.values()) <= {"proved", "cited", "declared"}, path
+        assert set(result.claims.values()) <= {"proved", "conditional", "cited", "declared"}, path
     assert translated >= 100 and claims >= 30
 
 
@@ -117,7 +117,42 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     assert survey.claims == {"checked_claim": "cited"} and survey.skipped == {}
     adaptive = checker.translation(ROOT / "examples/paper/fisher_adaptive.stat")
     assert adaptive.claims == {}
-    assert "supplies no sampling law" in adaptive.skipped["verification"]
+    assert "needs a justified sampling law" in adaptive.skipped["verification"]
+    family = checker.translation(ROOT / "examples/mixed_endpoints.stat")
+    assert family.claims == {"family_claim": "conditional", "primary_claim": "proved"}
+    assert family.skipped == {}
+    assert checker.translation(ROOT / "examples/two_outcomes.stat").claims == {
+        "request_1_claim": "proved"
+    }
+
+
+def test_a_grade_follows_from_the_premises_a_proof_uses():
+    from statclaim.lean_translation.grades import grade
+
+    own_cited, own_declared = "cited_test_level", "declared_test_level"
+    assert grade(None, []) == "proved"
+    assert grade(own_cited, [own_cited]) == "cited"
+    assert grade(own_declared, [own_declared]) == "declared"
+    # A combination resting on its members' premises is conditional, whichever kind.
+    assert grade(None, ["cited_first_level"]) == "conditional"
+    assert grade(None, ["declared_first_level", "cited_second_level"]) == "conditional"
+    # A claim whose proof uses no cited or declared premise is proved, even if it has one.
+    assert grade(own_cited, []) == "proved"
+    # Its own premise decides, even beside members' premises.
+    assert grade(own_cited, [own_cited, "declared_other_level"]) == "cited"
+
+
+def test_the_checker_reports_a_grade_the_proof_does_not_support():
+    checker = corpus_checker()
+    path = ROOT / "examples/two_outcomes.stat"
+    result = checker.translation(path)
+    name = checker.label(path)
+    honest = f"STATCLAIM_PREMISES {name} request_1_claim: \n"
+    assert checker.grade_problems({name: (path, result)}, honest) == []
+    # A proof of the proved family that used a cited premise would be conditional.
+    overstated = f"STATCLAIM_PREMISES {name} request_1_claim: cited_other_level\n"
+    assert checker.grade_problems({name: (path, result)}, overstated)
+    assert checker.grade_problems({name: (path, result)}, "")  # no premises listed
 
 
 @pytest.mark.lean
@@ -126,6 +161,7 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
 
     text = corpus_checker().translation(ROOT / "examples/t_test.stat").lean
     welch = "(plan_compatible i) (margin i) i.welch_test"
+    premise = "premises.cited_welch_level"
     mutations = {
         "too few participants": ("t_test.minTotal ≤ 60 + 60", "t_test.minTotal ≤ 1 + 1"),
         "an unsupported null": (
@@ -134,14 +170,21 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
         ),
         "a large-sample claim stated at the level": (
             f"{welch} ((↑((1 : ℚ) / 40) : ℝ) + i.welch_slack) :=\n"
-            "  StatClaim.Interface.typeI_of_premise (plan_compatible i) premises.welch_level",
+            f"  StatClaim.Interface.typeI_of_premise (plan_compatible i) {premise}",
             f"{welch} (↑((1 : ℚ) / 40) : ℝ) :=\n"
-            "  StatClaim.Interface.typeI_of_finite_premise (plan_compatible i) rfl "
-            "premises.welch_level",
+            f"  StatClaim.Interface.typeI_of_finite_premise (plan_compatible i) rfl {premise}",
         ),
     }
     survey = corpus_checker().translation(ROOT / "examples/complex_survey.stat").lean
+    family = corpus_checker().translation(ROOT / "examples/mixed_endpoints.stat").lean
     cases = [(text, label, change) for label, change in mutations.items()]
+    cases.append(
+        (
+            family,
+            "a family claimed at less than its members' levels sum to",
+            ("((↑((1 : ℚ) / 20) : ℝ) + ∑ k", "((↑((1 : ℚ) / 40) : ℝ) + ∑ k"),
+        )
+    )
     cases.append(
         (
             survey,

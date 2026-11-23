@@ -32,3 +32,5 @@ public import StatClaim.Interface.Outcomes
 public import StatClaim.Interface.Premises
 public import StatClaim.Interface.Program
 public import StatClaim.Generated.Methods
+public import StatClaim.Interface.Families
+public import StatClaim.Interface.Tactic

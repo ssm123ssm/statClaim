@@ -25,6 +25,15 @@ Progress:
   two-stage, and the exact tests of association) move to milestone 5: each needs
   its numerical certificate, and the association module first needs a bridge to
   the core objects.
+- Milestone 4, part 1 done: the translator is split into `denote.py` (what is
+  stated; trusted), `prove.py` (how it is proved; untrusted) and `grades.py`
+  (the dependency collector and the grade rule; trusted).
+  `StatClaim/Interface/Families.lean` states family claims over every joint
+  study whose marginals are the members' declared laws, and
+  `StatClaim/Interface/Tactic.lean` defines the `statclaim` tactic. Bonferroni
+  families of translated tests are proved, 50 claims in all, and every claim's
+  grade from the premises its proof uses agrees with Python's status. Part 2:
+  fixed sequences, alpha spending, graphical procedures and nested members.
 
 ## Goal
 
@@ -183,9 +192,13 @@ hold for the study's actual tests.
   `language.OPERATIONS`, mapped to an emitter or to "not in Lean" with a
   reason. Searches, calculations, simulations and precision targets are "not
   in Lean: calculated or simulated".
+- `denote.py` (trusted): walks the bindings in order and decides every
+  statement: abstract parts, definitions, contract facts, premises and claims.
+- `prove.py` (untrusted): the proof of each statement.
+- `grades.py` (trusted): the dependency collector, and the grade rule that
+  reads its output.
+- `program.py`: puts them together into the file.
 - `emit.py`: Lean text with stable names, exact rationals and escaping.
-- `program.py`: walks the bindings in dependency order, collects each
-  emitter's definition, decidable facts and premises, and writes the file.
 
 An emitter receives one compiled value and returns a Lean term, the decidable
 facts it requires and the premises it introduces. A single claim is proved
@@ -231,6 +244,17 @@ premises, the module theorems and the composition lemmas tagged with a
 `@[statclaim]` attribute. A new composition rule is then one tagged lemma, a
 table entry and an emitter that states its goal; it needs no proof code in
 Python.
+
+**As built (milestone 4, part 1).** Python names the composition rule and the
+members' levels, as the program states them, because the levels are not
+determined by the claim's goal and a search would leave them open. The
+`statclaim` tactic then discharges everything else: it rewrites statements about
+every member into one statement per member, and Aesop closes them from the
+members' bounds in context, with `norm_num` for the arithmetic on levels. A
+composition rule whose arguments the goal does determine can instead be tagged
+and found by search. A family's claim quantifies over every joint study whose
+marginals are the members' declared laws, as `FisherFamilyN.strong_control` does,
+so no joint law has to be constructed for the satisfiability witness.
 
 **What search does.** It applies composition lemmas recursively, so a fixed
 sequence containing a graph containing a family needs no special case. It
@@ -362,9 +386,9 @@ Trusted, kept small and reviewed line by line:
 | Definitions behind statements | `StatClaim/Core/`, and the definitions (not the proofs) in `StatClaim/Modules/`: laws, rejection events, policies, null predicates, claim propositions | They fix what every theorem means | Statistical and formal review |
 | Interface library | `StatClaim/Interface/` | `LevelPremise`, its slack and the program-theorem shape: one wrong inequality empties every cited composition | Size budget, review, instances checked in known cases |
 | Premise data and generator | The registry fields that state guarantees (relation, scope, bound, null form), `scripts/update_lean_premises.py`, `StatClaim/Generated/Methods.lean` | They decide what each cited guarantee says in Lean | Method version fixture, `--check`, reviewed diffs of the generated file |
-| Translator denotation | `lean_translation/table.py`: the Lean term each declaration denotes and the proposition each claim becomes | A wrong entry gives a proof of the wrong statement | Table-driven, golden files, template equivalence |
+| Translator denotation | `lean_translation/denote.py`: the Lean term each declaration denotes and the proposition each claim becomes; `table.py` says which constructors have one | A wrong entry gives a proof of the wrong statement | Table-driven, golden files, template equivalence |
 | Values from source | The parser, elaboration of values and `language.normalize` | The statement must be about the study the source describes | Source and canonical input kept in each certificate; readings show each value in words; round-trip tests |
-| Grade from premises | One function, and the dependency collector that lists the premises each claim's proof uses | Together they decide the evidence grade shown | Exhaustive tests over premise kinds, with proofs that use and avoid each one |
+| Grade from premises | `lean_translation/grades.py`: the grade rule, and the dependency collector that lists the premises each claim's proof uses | Together they decide the evidence grade shown | Exhaustive tests over premise kinds, with proofs that use and avoid each one |
 | Certificate checks | The audit, completion marker, input binding and replay in `verification.py` | They decide whether a build counts | Existing tests, including tampered bundles |
 | Result binding | The translator's map from Lean names to declarations, and the report | A proof must be shown against the claim it proves | A test that every result maps to its own declaration |
 

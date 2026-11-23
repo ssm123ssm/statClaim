@@ -52,3 +52,12 @@ example : ¬ LevelPremise .finiteSample (fun _ : Unit => Measure.dirac ()) (fun 
   have bound := premise.2 () trivial
   simp at bound
   norm_num at bound
+
+-- A family of two members: the `statclaim` tactic discharges what the union bound needs.
+example (Θ Ω : Type) [MeasurableSpace Ω] (σ : JointStudy Θ Ω) (n₀ n₁ : Θ → Prop)
+    (r₀ r₁ : Set Ω) (s₀ : ℝ) (nonnegative : 0 ≤ s₀)
+    (b₀ : ∀ θ, n₀ θ → (σ.law θ).real r₀ ≤ ((1 / 40 : ℚ) : ℝ) + s₀)
+    (b₁ : ∀ θ, n₁ θ → (σ.law θ).real r₁ ≤ ((1 / 40 : ℚ) : ℝ)) :
+    familywiseClaim σ.law ![n₀, n₁] ![r₀, r₁] (((1 / 20 : ℚ) : ℝ) + ∑ k, ![s₀, 0] k) := by
+  apply familywise_of_members σ _ _ ![(1 / 40 : ℚ), 1 / 40]
+  all_goals statclaim

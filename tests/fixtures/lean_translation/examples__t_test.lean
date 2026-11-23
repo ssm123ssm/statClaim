@@ -53,11 +53,13 @@ theorem analysis_contract :
     StatClaim.Generated.Methods.t_test.minPerArm ≤ 60 ∧
     StatClaim.Generated.Methods.t_test.minPerArm ≤ 60 ∧
     StatClaim.Generated.Methods.t_test.minTotal ≤ 60 + 60 ∧
-    StatClaim.Generated.Methods.t_test.nullValue = none := by decide
+    StatClaim.Generated.Methods.t_test.nullValue = none :=
+  by decide
 
 theorem analysis_values :
     (0 : ℚ) < ((1 : ℚ) / 20) ∧
-    ((1 : ℚ) / 20) < 1 := by norm_num
+    ((1 : ℚ) / 20) < 1 :=
+  by norm_num
 
 theorem welch_contract :
     StatClaim.Generated.NullKey.mean_difference_at_most ∈ StatClaim.Generated.Methods.welch_test_one_sided.nulls ∧
@@ -67,11 +69,13 @@ theorem welch_contract :
     StatClaim.Generated.Methods.welch_test_one_sided.minPerArm ≤ 60 ∧
     StatClaim.Generated.Methods.welch_test_one_sided.minPerArm ≤ 60 ∧
     StatClaim.Generated.Methods.welch_test_one_sided.minTotal ≤ 60 + 60 ∧
-    StatClaim.Generated.Methods.welch_test_one_sided.nullValue = none := by decide
+    StatClaim.Generated.Methods.welch_test_one_sided.nullValue = none :=
+  by decide
 
 theorem welch_values :
     (0 : ℚ) < ((1 : ℚ) / 40) ∧
-    ((1 : ℚ) / 40) < 1 := by norm_num
+    ((1 : ℚ) / 40) < 1 :=
+  by norm_num
 
 theorem student_contract :
     StatClaim.Generated.NullKey.equal_means ∈ StatClaim.Generated.Methods.t_test.nulls ∧
@@ -81,28 +85,30 @@ theorem student_contract :
     StatClaim.Generated.Methods.t_test.minPerArm ≤ 20 ∧
     StatClaim.Generated.Methods.t_test.minPerArm ≤ 40 ∧
     StatClaim.Generated.Methods.t_test.minTotal ≤ 20 + 40 ∧
-    StatClaim.Generated.Methods.t_test.nullValue = none := by decide
+    StatClaim.Generated.Methods.t_test.nullValue = none :=
+  by decide
 
 theorem student_values :
     (0 : ℚ) < ((1 : ℚ) / 20) ∧
-    ((1 : ℚ) / 20) < 1 := by norm_num
+    ((1 : ℚ) / 20) < 1 :=
+  by norm_num
 
 /-- The premises the claims rest on: cited and declared guarantees. -/
 structure Premises (i : Instance) : Prop where
-  analysis_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.t_test.scope i.study.law (null i)
+  cited_analysis_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.t_test.scope i.study.law (null i)
     i.analysis_test ((1 : ℚ) / 20) i.analysis_slack
-  welch_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.welch_test_one_sided.scope i.study.law (margin i)
+  cited_welch_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.welch_test_one_sided.scope i.study.law (margin i)
     i.welch_test ((1 : ℚ) / 40) i.welch_slack
-  student_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.t_test.scope i.small_arm.law (null_1 i)
+  cited_student_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.t_test.scope i.small_arm.law (null_1 i)
     i.student_test ((1 : ℚ) / 20) i.student_slack
 
 theorem checked_claim (i : Instance) (premises : Premises i) :
     StatClaim.Interface.typeIClaim (plan_compatible i) (null i) i.analysis_test (↑((1 : ℚ) / 20) : ℝ) :=
-  StatClaim.Interface.typeI_of_finite_premise (plan_compatible i) rfl premises.analysis_level
+  StatClaim.Interface.typeI_of_finite_premise (plan_compatible i) rfl premises.cited_analysis_level
 
 theorem approximate_claim (i : Instance) (premises : Premises i) :
     StatClaim.Interface.typeIClaim (plan_compatible i) (margin i) i.welch_test ((↑((1 : ℚ) / 40) : ℝ) + i.welch_slack) :=
-  StatClaim.Interface.typeI_of_premise (plan_compatible i) premises.welch_level
+  StatClaim.Interface.typeI_of_premise (plan_compatible i) premises.cited_welch_level
 
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
@@ -127,3 +133,35 @@ noncomputable def witness : Instance where
 theorem program : StatClaim.Interface.ProgramTheorem Premises Claims where
   implies := fun i premises => ⟨checked_claim i premises, approximate_claim i premises⟩
   satisfiable := ⟨witness, ⟨StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num), StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num), StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num)⟩⟩
+
+-- The premises each claim's proof uses, following this program's own constants.
+open Lean Elab Command in
+run_cmd do
+  let env ← getEnv
+  let structureName := ``Premises
+  let fields := getStructureFields env structureName
+  for (short, claim) in [("checked_claim", ``checked_claim), ("approximate_claim", ``approximate_claim)] do
+    let found ← IO.mkRef ({} : NameSet)
+    let mut seen : NameSet := {}
+    let mut stack := [claim]
+    while !stack.isEmpty do
+      let current := stack.head!
+      stack := stack.tail!
+      if seen.contains current then continue
+      seen := seen.insert current
+      let some info := env.find? current | continue
+      let value := match info with
+        | .thmInfo theorem_ => some theorem_.value
+        | .defnInfo definition => some definition.value
+        | _ => none
+      for e in info.type :: value.toList do
+        discard <| liftCoreM <| Core.transform e (pre := fun e => do
+          if let .proj name index _ := e then
+            if name == structureName then
+              if let some field := fields[index]? then found.modify (·.insert field)
+          return .continue)
+        for constant in e.getUsedConstants do
+          if claim.getPrefix.isPrefixOf constant && !seen.contains constant then
+            stack := constant :: stack
+    let used := (← found.get).toList.map toString |>.mergeSort (· < ·)
+    logInfo m!"STATCLAIM_PREMISES examples/t_test.stat {short}: {String.intercalate "," used}"

@@ -29,20 +29,22 @@ theorem weighted_contract :
     StatClaim.Generated.Scale.binary ∈ StatClaim.Generated.Methods.survey_linear.exposureScales ∧
     StatClaim.Generated.Survey.weighted ∈ StatClaim.Generated.Methods.survey_linear.surveys ∧
     StatClaim.Generated.Methods.survey_linear.minTotal ≤ 8000 ∧
-    StatClaim.Generated.Methods.survey_linear.covariates = true := by decide
+    StatClaim.Generated.Methods.survey_linear.covariates = true :=
+  by decide
 
 theorem weighted_values :
     (0 : ℚ) < ((1 : ℚ) / 20) ∧
-    ((1 : ℚ) / 20) < 1 := by norm_num
+    ((1 : ℚ) / 20) < 1 :=
+  by norm_num
 
 /-- The premises the claims rest on: cited and declared guarantees. -/
 structure Premises (i : Instance) : Prop where
-  weighted_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.survey_linear.scope i.survey.law (null i)
+  cited_weighted_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.survey_linear.scope i.survey.law (null i)
     i.weighted_test ((1 : ℚ) / 20) i.weighted_slack
 
 theorem checked_claim (i : Instance) (premises : Premises i) :
     StatClaim.Interface.typeIClaim (design_compatible i) (null i) i.weighted_test ((↑((1 : ℚ) / 20) : ℝ) + i.weighted_slack) :=
-  StatClaim.Interface.typeI_of_premise (design_compatible i) premises.weighted_level
+  StatClaim.Interface.typeI_of_premise (design_compatible i) premises.cited_weighted_level
 
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
@@ -59,3 +61,35 @@ noncomputable def witness : Instance where
 theorem program : StatClaim.Interface.ProgramTheorem Premises Claims where
   implies := fun i premises => checked_claim i premises
   satisfiable := ⟨witness, ⟨StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num)⟩⟩
+
+-- The premises each claim's proof uses, following this program's own constants.
+open Lean Elab Command in
+run_cmd do
+  let env ← getEnv
+  let structureName := ``Premises
+  let fields := getStructureFields env structureName
+  for (short, claim) in [("checked_claim", ``checked_claim)] do
+    let found ← IO.mkRef ({} : NameSet)
+    let mut seen : NameSet := {}
+    let mut stack := [claim]
+    while !stack.isEmpty do
+      let current := stack.head!
+      stack := stack.tail!
+      if seen.contains current then continue
+      seen := seen.insert current
+      let some info := env.find? current | continue
+      let value := match info with
+        | .thmInfo theorem_ => some theorem_.value
+        | .defnInfo definition => some definition.value
+        | _ => none
+      for e in info.type :: value.toList do
+        discard <| liftCoreM <| Core.transform e (pre := fun e => do
+          if let .proj name index _ := e then
+            if name == structureName then
+              if let some field := fields[index]? then found.modify (·.insert field)
+          return .continue)
+        for constant in e.getUsedConstants do
+          if claim.getPrefix.isPrefixOf constant && !seen.contains constant then
+            stack := constant :: stack
+    let used := (← found.get).toList.map toString |>.mergeSort (· < ·)
+    logInfo m!"STATCLAIM_PREMISES examples/complex_survey.stat {short}: {String.intercalate "," used}"
