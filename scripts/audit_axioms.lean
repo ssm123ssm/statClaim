@@ -123,7 +123,11 @@ run_cmd do
     ``StatClaim.Modules.BinomialPower.pairs_power_of_check,
     ``StatClaim.Modules.BinomialPower.pairs_power_lt_of_check,
     ``StatClaim.Modules.AssociationPower.total_real_ratPoint,
-    ``StatClaim.Modules.AssociationPower.total_power_of_check]
+    ``StatClaim.Modules.AssociationPower.total_power_of_check,
+    ``StatClaim.Interface.Scope.permits_zero,
+    ``StatClaim.Interface.Scope.permits_nonnegative,
+    ``StatClaim.Interface.neverRejects_meets_level,
+    ``StatClaim.Interface.ProgramTheorem.claims_of_trivial]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

@@ -6,6 +6,10 @@ Progress:
 
 - Milestone 1 done: `src/statclaim/lean_translation/table.py` classifies every
   constructor and operation, checked by `tests/test_lean_translation.py`.
+- Milestone 2 done: `StatClaim/Interface/` (`Outcomes`, `Premises`, `Program`)
+  and `StatClaim/Generated/Methods.lean`, written from the registry by
+  `scripts/update_lean_premises.py`; checked by `tests/lean/Interface.lean` and
+  `tests/test_lean_translation.py`.
 
 ## Goal
 

@@ -28,3 +28,7 @@ public import StatClaim.Modules.Matched
 public import StatClaim.Modules.Incidence
 public import StatClaim.Modules.AssociationPower
 public import StatClaim.Modules.BinomialPower
+public import StatClaim.Interface.Outcomes
+public import StatClaim.Interface.Premises
+public import StatClaim.Interface.Program
+public import StatClaim.Generated.Methods

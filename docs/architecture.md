@@ -34,6 +34,10 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.
+  `StatClaim/Interface/` holds the objects translated programs are stated in:
+  abstract two-arm models, tests seen from outside and their level premises,
+  and the shape of a program's theorem. `StatClaim/Generated/Methods.lean` is
+  the cited-method registry in Lean, written by `scripts/update_lean_premises.py`.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `studio/`: the block editor. `api.py` answers its requests on the same compiler,
   runner and language-server features; `server.py` serves it on this machine, and

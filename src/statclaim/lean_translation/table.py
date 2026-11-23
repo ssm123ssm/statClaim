@@ -21,13 +21,8 @@ ROLES = {
     "operation": "A request for evidence.",
 }
 
-# Lean files the table may name before they exist; milestone 2 creates them.
-PLANNED = (
-    "StatClaim/Interface/Outcomes.lean",
-    "StatClaim/Interface/Premises.lean",
-    "StatClaim/Interface/Program.lean",
-    "StatClaim/Generated/Methods.lean",
-)
+# Lean files the table may name before they exist.
+PLANNED: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

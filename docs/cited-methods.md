@@ -171,8 +171,11 @@ To add a test over an existing model and null:
    existing file. State the null it supports, whether the error rate `equals`
    alpha or is `at_most` alpha, the scope, the assumptions and the references.
 2. List a new file in `methods/__init__.py`.
-3. Run `uv run python scripts/update_method_versions.py` and
-   `uv run python scripts/update_catalogue.py`.
+3. Run `uv run python scripts/update_method_versions.py`,
+   `uv run python scripts/update_catalogue.py` and
+   `uv run python scripts/update_lean_premises.py`. The last writes the method's
+   Lean entry in `StatClaim/Generated/Methods.lean`, from which its guarantee
+   enters a translated program as a premise; a test fails until it is current.
 4. Add an example, and a test for a null the method must reject.
 
 The constructor, its contract and guidance, editor support, catalogue entry,

@@ -1,5 +1,6 @@
 """The Lean translation covers the whole language. See docs/proposals/lean-translation.md."""
 
+import importlib.util
 from pathlib import Path
 
 from statclaim.language import MODULES, OPERATION_BACKENDS, OPERATIONS
@@ -53,3 +54,14 @@ def test_cited_and_declared_tests_are_premises():
 def test_only_operations_that_build_proofs_are_in_lean():
     for name, backend in OPERATION_BACKENDS.items():
         assert isinstance(TABLE[name], InLean) == (backend == "lean"), name
+
+
+def test_generated_method_premises_are_current():
+    """StatClaim/Generated/Methods.lean is the method registry, regenerated."""
+    path = ROOT / "scripts/update_lean_premises.py"
+    spec = importlib.util.spec_from_file_location("update_lean_premises", path)
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    assert (ROOT / "StatClaim/Generated/Methods.lean").read_text() == generator.render(), (
+        "Run uv run python scripts/update_lean_premises.py."
+    )
