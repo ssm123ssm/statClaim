@@ -28,6 +28,9 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   The language builds their constructors and contracts from this registry.
 - `composition.py`: families whose members are assumed and whose combination
   Lean checks.
+- `lean_translation/`: the translation of whole programs to Lean, in progress
+  ([proposal](proposals/lean-translation.md)). `table.py` says what each
+  constructor and operation becomes in Lean.
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.

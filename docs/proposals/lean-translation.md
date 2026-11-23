@@ -1,6 +1,11 @@
 # Proposal: translating StatClaim programs to Lean
 
-Status: draft for review, 2026-11-23.
+Status: approved 2026-11-23; in progress.
+
+Progress:
+
+- Milestone 1 done: `src/statclaim/lean_translation/table.py` classifies every
+  constructor and operation, checked by `tests/test_lean_translation.py`.
 
 ## Goal
 

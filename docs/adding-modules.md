@@ -20,7 +20,9 @@ A method whose guarantee Lean cannot prove yet is added as a
    Add any new diagnostic code, status or limit to `reference.py`; a test fails
    if a code is raised but not documented.
 5. Classify new modules and field-bearing types in `catalogue.py`. Run
-   `uv run python scripts/update_catalogue.py` to refresh the reference.
+   `uv run python scripts/update_catalogue.py` to refresh the reference. Give each
+   new constructor an entry in `lean_translation/table.py`: its role and the Lean
+   files that give it meaning, or why it has none. A test fails otherwise.
 6. Add tests: valid and mismatched nulls/models, invalid inputs, missing adapters,
    exact calculations, real Lean checks, certificate replay/tampering and LSP
    diagnostics. Add UI tests when result/evidence behavior changes.
