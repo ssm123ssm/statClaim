@@ -77,8 +77,15 @@ theorem family_claim (i : Instance) (premises : Premises i) :
   have b₁ := v₁.bound m₁ i.function_test.measurable o₁
   have s₁ : 0 ≤ i.function_slack :=
     StatClaim.Interface.Scope.permits_nonnegative premises.cited_function_level.1
-  apply StatClaim.Interface.familywise_of_members σ _ _ ![((1 : ℚ) / 40), ((1 : ℚ) / 40)]
-  all_goals statclaim
+  have c₀ : StatClaim.Interface.familywiseClaim σ.law
+        ![fun θ => (null i) (v₀.parameter θ),
+        fun θ => (null i) (v₁.parameter θ)]
+        ![v₀.outcome ⁻¹' i.pain_test.reject,
+        v₁.outcome ⁻¹' i.function_test.reject]
+        ((↑((1 : ℚ) / 20) : ℝ) + ∑ k, ![i.pain_slack, i.function_slack] k) := by
+    apply StatClaim.Interface.familywise_of_members σ _ _ ![((1 : ℚ) / 40), ((1 : ℚ) / 40)]
+    all_goals statclaim
+  exact c₀
 
 theorem alone_claim (i : Instance) (premises : Premises i) :
     StatClaim.Interface.typeIClaim (plan_compatible i) (null i) i.pain_test ((↑((1 : ℚ) / 40) : ℝ) + i.pain_slack) :=

@@ -101,8 +101,15 @@ theorem overall_claim (i : Instance) (premises : Premises i) :
   have b₁ := v₁.bound m₁ i.response_test.measurable o₁
   have s₁ : 0 ≤ i.response_slack :=
     StatClaim.Interface.Scope.permits_nonnegative premises.cited_response_level.1
-  apply StatClaim.Interface.sequence_of_members σ _ _ ((1 : ℚ) / 40)
-  all_goals statclaim
+  have c₀ : StatClaim.Interface.sequenceClaim σ.law
+        ![fun θ => (null i) (v₀.parameter θ),
+        fun θ => null_1 (v₁.parameter θ)]
+        ![v₀.outcome ⁻¹' i.lung_function_test.reject,
+        v₁.outcome ⁻¹' i.response_test.reject]
+        ((↑((1 : ℚ) / 40) : ℝ) + ∑ k, ![i.lung_function_slack, i.response_slack] k) := by
+    apply StatClaim.Interface.sequence_of_members σ _ _ ((1 : ℚ) / 40)
+    all_goals statclaim
+  exact c₀
 
 theorem first_claim (i : Instance) (premises : Premises i) :
     StatClaim.Interface.typeIClaim (design_compatible i) (null i) i.lung_function_test ((↑((1 : ℚ) / 40) : ℝ) + i.lung_function_slack) :=

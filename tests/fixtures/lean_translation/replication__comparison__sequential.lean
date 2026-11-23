@@ -101,8 +101,15 @@ theorem error_claim (i : Instance) (premises : Premises i) :
   have b₁ := v₁.bound m₁ i.final_test.measurable o₁
   have s₁ : 0 ≤ i.final_slack :=
     StatClaim.Interface.Scope.permits_nonnegative premises.cited_final_level.1
-  apply StatClaim.Interface.familywise_of_members σ _ _ ![((3 : ℚ) / 2000), ((47 : ℚ) / 2000)]
-  all_goals statclaim
+  have c₀ : StatClaim.Interface.familywiseClaim σ.law
+        ![fun θ => (null i) (v₀.parameter θ),
+        fun θ => (null_1 i) (v₁.parameter θ)]
+        ![v₀.outcome ⁻¹' i.interim_test.reject,
+        v₁.outcome ⁻¹' i.final_test.reject]
+        ((↑((1 : ℚ) / 40) : ℝ) + ∑ k, ![i.interim_slack, i.final_slack] k) := by
+    apply StatClaim.Interface.familywise_of_members σ _ _ ![((3 : ℚ) / 2000), ((47 : ℚ) / 2000)]
+    all_goals statclaim
+  exact c₀
 
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=

@@ -35,8 +35,29 @@ Progress:
   grade from the premises its proof uses agrees with Python's status.
 - Milestone 4, part 2a done: fixed sequences (`sequenceClaim`,
   `sequence_of_members`) and designs with looks, whose levels are split by the
-  union bound like a family's. 56 claims in all. Part 2b, graphical procedures
-  and combinations nested in combinations, waits on the open questions below.
+  union bound like a family's. 56 claims in all.
+- Milestone 4 done: graphical procedures and combinations nested in
+  combinations, on the decisions below. A test is now one Lean declaration per
+  `.stat` declaration, as Python's combinations count them. 65 claims in all,
+  including the whole COPD plan, and every grade agrees with Python's status.
+
+Decisions taken in milestone 4 (2026-11-23):
+
+- **Combinations whose members are all proved** are translated as proved, and
+  Python will report them as proved once `verify` issues certificates from
+  translated programs (milestone 6). Until then Python reports them as
+  conditional, which never overstates; the corpus checker allows exactly this
+  difference, and only for such combinations.
+- **Graphical procedures** are an abstract procedure in the instance: for any
+  joint study, the events on which the declared graph rejects each member. A
+  cited premise states its familywise bound for every joint study with the
+  members' marginals; Lean decides the graph's facts (starting weights,
+  transitions, levels). A graph's claim rests on its own premise, so it is cited.
+- **Combinations as members**: a design with looks rejects when any look
+  rejects, under its null at every look; a family, graph or sequence in a fixed
+  sequence passes only when every member rejects, whenever one of its nulls is
+  true (`looks_member`, `family_member`, `sequence_member`). A family or graph is
+  translated as a member only of a fixed sequence.
 
 ## Goal
 
@@ -474,26 +495,6 @@ Each milestone ends tested on the corpus, documented and pushed.
   stay calculations.
 
 ## Open questions
-
-- **Combinations whose members are all proved.** Lean proves such a claim
-  outright, as for a Bonferroni family of Fisher tests, but Python reports every
-  combination built by `composition` as conditional, even when its members are
-  proved, as for Fisher's test at interim looks. Should Python report these as
-  proved, or should the translation cap them at conditional? Until this is
-  settled they are not translated, so the grades still agree.
-- **Graphical procedures.** Their rejections come from the graph's recycling of
-  levels, which Lean does not model. Proposed: the procedure's rejection events
-  stay abstract in a cited premise stating its familywise bound for every joint
-  study with the members' marginals, and Lean decides the graph's facts (starting
-  weights, transitions, levels). The claim then rests on its own cited premise,
-  so its grade is cited, as in Python.
-- **Combinations as members.** A member that is itself a combination, such as a
-  design with looks inside a sequence or a graph first in a hierarchy, needs a
-  statement of what it rejects. Proposed: a design with looks rejects when any
-  look rejects, and a family in a sequence passes when all its members reject,
-  each with a lemma deriving its bound from its own claim. This follows how
-  `composition.py` counts such a member: one test of its null at its overall
-  level.
 
 - Should `statclaim check` always produce the compatibility certificate, or
   only on request? It costs a Lean build.

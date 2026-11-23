@@ -124,4 +124,55 @@ theorem sequence_of_members {m : ℕ} (joint : JointStudy Parameter Outcome)
     Finset.single_le_sum (fun j _ => slacks_nonnegative j) (Finset.mem_univ k)
   linarith
 
+/-- A design with looks as one member: under its question's null at every look, it
+rejects at some look with probability at most its familywise bound. -/
+theorem looks_member {m : ℕ} {law : Parameter → Measure Outcome}
+    {nulls : Fin m → Core.Hypothesis Parameter} {rejects : Fin m → Set Outcome} {bound : ℝ}
+    (claim : familywiseClaim law nulls rejects bound) :
+    ∀ parameter, (∀ k, nulls k parameter) → (law parameter).real (⋃ k, rejects k) ≤ bound := by
+  intro parameter all
+  have rejection := claim parameter
+  have same : StatClaim.Modules.Composition.falseRejection (fun k => nulls k parameter) rejects
+      = ⋃ k, rejects k := by
+    ext outcome
+    simp [StatClaim.Modules.Composition.falseRejection, all]
+  rwa [same] at rejection
+
+/-- A family as one member of a sequence: it passes only if every member rejects, so
+when one of its nulls is true it passes with probability at most its familywise bound. -/
+theorem family_member {m : ℕ} (joint : JointStudy Parameter Outcome)
+    {nulls : Fin m → Core.Hypothesis Parameter} {rejects : Fin m → Set Outcome} {bound : ℝ}
+    (claim : familywiseClaim joint.law nulls rejects bound) :
+    ∀ parameter, (∃ k, nulls k parameter) →
+      (joint.law parameter).real (⋂ k, rejects k) ≤ bound := by
+  rintro parameter ⟨k, true_null⟩
+  have := joint.probability parameter
+  refine le_trans (measureReal_mono fun outcome passed => ?_) (claim parameter)
+  simp only [StatClaim.Modules.Composition.falseRejection, Set.mem_iUnion, Set.mem_ofPred_eq]
+  exact ⟨k, true_null, Set.mem_iInter.1 passed k⟩
+
+/-- A fixed sequence as one member of another: the same, for its sequence bound. -/
+theorem sequence_member {m : ℕ} (joint : JointStudy Parameter Outcome)
+    {nulls : Fin m → Core.Hypothesis Parameter} {rejects : Fin m → Set Outcome} {bound : ℝ}
+    (claim : sequenceClaim joint.law nulls rejects bound) :
+    ∀ parameter, (∃ k, nulls k parameter) →
+      (joint.law parameter).real (⋂ k, rejects k) ≤ bound := by
+  rintro parameter ⟨k, true_null⟩
+  have := joint.probability parameter
+  refine le_trans (measureReal_mono fun outcome passed => ?_) (claim parameter)
+  exact ⟨k, true_null, fun i _ => Set.mem_iInter.1 passed i⟩
+
+/-- A procedure that rejects nothing meets any nonnegative familywise bound. This is how
+a program's premise about a graphical procedure is shown satisfiable. -/
+theorem familywise_of_nothing {m : ℕ} (law : Parameter → Measure Outcome)
+    (nulls : Fin m → Core.Hypothesis Parameter) {bound : ℝ} (nonnegative : 0 ≤ bound) :
+    familywiseClaim law nulls (fun _ => ∅) bound := by
+  intro parameter
+  have empty : StatClaim.Modules.Composition.falseRejection (fun k => nulls k parameter)
+      (fun _ => (∅ : Set Outcome)) = ∅ := by
+    ext outcome
+    simp [StatClaim.Modules.Composition.falseRejection]
+  rw [empty, measureReal_empty]
+  exact nonnegative
+
 end StatClaim.Interface

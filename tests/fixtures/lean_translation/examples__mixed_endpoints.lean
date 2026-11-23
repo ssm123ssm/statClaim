@@ -95,8 +95,15 @@ theorem family_claim (i : Instance) (premises : Premises i) :
   have b₁ := v₁.bound m₁ i.symptoms_test.measurable o₁
   have s₁ : 0 ≤ i.symptoms_slack :=
     StatClaim.Interface.Scope.permits_nonnegative premises.cited_symptoms_level.1
-  apply StatClaim.Interface.familywise_of_members σ _ _ ![((1 : ℚ) / 40), ((1 : ℚ) / 40)]
-  all_goals statclaim
+  have c₀ : StatClaim.Interface.familywiseClaim σ.law
+        ![fun θ => response.hypothesis (v₀.parameter θ),
+        fun θ => (null_1 i) (v₁.parameter θ)]
+        ![v₀.outcome ⁻¹' response.procedure.rejectionEvent,
+        v₁.outcome ⁻¹' i.symptoms_test.reject]
+        ((↑((1 : ℚ) / 20) : ℝ) + ∑ k, ![0, i.symptoms_slack] k) := by
+    apply StatClaim.Interface.familywise_of_members σ _ _ ![((1 : ℚ) / 40), ((1 : ℚ) / 40)]
+    all_goals statclaim
+  exact c₀
 
 theorem primary_claim (i : Instance) (premises : Premises i) :
     (response.typeIClaim design_compatible

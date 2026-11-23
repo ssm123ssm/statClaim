@@ -15,8 +15,12 @@ from statclaim.lean_translation.denote import (
     Abstract,
     Analysis,
     Claim,
+    Combination,
     Contract,
+    Graph,
+    Part,
     Premise,
+    combination_claim,
     subscript,
 )
 from statclaim.lean_translation.emit import name as lean
@@ -37,8 +41,17 @@ def contract(fact: Contract) -> str:
     raise ValueError(f"No proof for a {fact.check} contract.")
 
 
-def premise(_: Premise) -> str:
-    """The witness meets every level premise with a test that never rejects."""
+def premise(given: Premise) -> str:
+    """How the witness meets a premise: a test or a procedure that never rejects."""
+    if given.kind == "graph":
+        marks = [subscript(k) for k in range(given.members)]
+        views = " ".join(f"v{m}" for m in marks)
+        marginals = " ".join(f"m{m}" for m in marks)
+        return (
+            f"⟨{INTERFACE}.Scope.permits_zero _, by\n"
+            f"      intro Θ Ω _ σ {views} {marginals}\n"
+            f"      exact {INTERFACE}.familywise_of_nothing σ.law _ (by norm_num [witness])⟩"
+        )
     return f"{INTERFACE}.neverRejects_meets_level _ _ _ _ (by norm_num)"
 
 
@@ -53,6 +66,8 @@ def witness(abstracts: list[Abstract]) -> list[str]:
             ]
         elif part.kind == "test":
             values.append(f"{part.name} := {INTERFACE}.TestInterface.neverRejects _")
+        elif part.kind == "procedure":
+            values.append(f"{part.name} := fun {' '.join(['_'] * part.arity)} => ∅")
         else:
             values.append(f"{part.name} := 0")
     return values
@@ -82,9 +97,70 @@ def measurable(member: Analysis) -> str:
     return f"i.{lean(member.test)}.measurable"
 
 
+def bounded_leaves(combination: Combination) -> list[Part]:
+    """The single tests whose own bounds a proof needs: those not inside a graph, whose
+    guarantee covers its members."""
+    found = []
+    for part in combination.parts:
+        if part.leaf is not None and combination.rule != "graph":
+            found.append(part)
+        elif part.combination is not None:
+            found += bounded_leaves(part.combination)
+    return found
+
+
+def graphs_within(combination: Combination) -> list[Graph]:
+    """The graphs that are members somewhere inside a combination."""
+    found = []
+    for part in combination.parts:
+        if part.combination is not None:
+            if part.combination.graph is not None:
+                found.append(part.combination.graph)
+            found += graphs_within(part.combination)
+    return found
+
+
+def prove_combination(combination: Combination, lines: list[str], counter: list[int]) -> str:
+    """Lines proving a combination's claim about σ; returns the hypothesis holding it."""
+    index = counter[0]
+    counter[0] += 1
+    name = f"c{subscript(index)}"
+    if combination.graph is not None:
+        views = " ".join(f"v{subscript(part.view)}" for part in combination.parts)
+        marginals = " ".join(f"m{subscript(part.view)}" for part in combination.parts)
+        lines += [
+            f"  have {name} : {combination_claim(combination)} :=",
+            f"    premises.{lean(combination.graph.premise)}.2 Θ Ω σ {views} {marginals}",
+        ]
+        return name
+    for part in combination.parts:
+        if part.combination is None:
+            continue
+        inner = prove_combination(part.combination, lines, counter)
+        if part.kind == "looks":
+            lemma = f"{INTERFACE}.looks_member {inner}"
+        elif part.combination.rule == "sequence":
+            lemma = f"{INTERFACE}.sequence_member σ {inner}"
+        else:
+            lemma = f"{INTERFACE}.family_member σ {inner}"
+        lines.append(f"  have n{subscript(counter[0])} := {lemma}")
+        counter[0] += 1
+    if combination.rule == "sequence":
+        rule = f"{INTERFACE}.sequence_of_members σ _ _ {rational(combination.alpha)}"
+    else:
+        levels = ", ".join(rational(part.level) for part in combination.parts)
+        rule = f"{INTERFACE}.familywise_of_members σ _ _ ![{levels}]"
+    lines += [
+        f"  have {name} : {combination_claim(combination)} := by",
+        f"    apply {rule}",
+        "    all_goals statclaim",
+    ]
+    return name
+
+
 def claim(statement: Claim) -> str:
     analysis = statement.analysis
-    if statement.kind == "typeI":
+    if statement.kind == "typeI" and statement.combination is None:
         assert analysis is not None and analysis.design.compatible is not None
         compatible = analysis.design.compatible.ref()
         if analysis.kind == "fisher":
@@ -96,13 +172,16 @@ def claim(statement: Claim) -> str:
         if analysis.scope == "finite_sample":
             return f"{INTERFACE}.typeI_of_finite_premise {compatible} rfl {given}"
         return f"{INTERFACE}.typeI_of_premise {compatible} {given}"
-    members = statement.members
-    marks = [subscript(k) for k in range(len(members))]
+    combination = statement.combination
+    assert combination is not None
+    marks = [subscript(k) for k in range(len(statement.leaves))]
     lines = [
         "by",
         f"  intro Θ Ω _ σ {' '.join(f'v{m}' for m in marks)} {' '.join(f'm{m}' for m in marks)}",
     ]
-    for mark, member in zip(marks, members, strict=True):
+    for part in bounded_leaves(combination):
+        member, mark = part.leaf, subscript(part.view)
+        assert member is not None
         bound, proof = member_bound(member)
         lines += [
             f"  have o{mark} : {bound} :=",
@@ -114,10 +193,11 @@ def claim(statement: Claim) -> str:
                 f"  have s{mark} : 0 ≤ i.{lean(member.slack)} :=\n"
                 f"    {INTERFACE}.Scope.permits_nonnegative premises.{lean(member.premise)}.1"
             )
-    if statement.rule == "sequence":
-        rule = f"{INTERFACE}.sequence_of_members σ _ _ {rational(statement.alpha)}"
-    else:
-        levels = ", ".join(rational(member.alpha) for member in members)
-        rule = f"{INTERFACE}.familywise_of_members σ _ _ ![{levels}]"
-    lines += [f"  apply {rule}", "  all_goals statclaim"]
+    for index, graph in enumerate(graphs_within(combination)):
+        lines.append(
+            f"  have g{subscript(index)} : 0 ≤ i.{lean(graph.slack)} :=\n"
+            f"    {INTERFACE}.Scope.permits_nonnegative premises.{lean(graph.premise)}.1"
+        )
+    final = prove_combination(combination, lines, [0])
+    lines.append(f"  exact {final}")
     return "\n".join(lines)

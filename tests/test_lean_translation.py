@@ -129,6 +129,17 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     assert "sequenceClaim" in sequence.lean
     looks = checker.translation(ROOT / "replication/comparison/sequential.stat")
     assert looks.claims == {"error_claim": "conditional"} and looks.skipped == {}
+    # A graph rests on its own cited premise; a hierarchy that nests it is conditional.
+    copd = checker.translation(ROOT / "replication/copd/design_cited.stat")
+    assert copd.claims == {
+        "primary_error_claim": "cited",
+        "overall_error_claim": "conditional",
+        "onset_error_claim": "cited",
+    }
+    assert copd.owns["primary_error_claim"] == "cited_graph_rule" and copd.skipped == {}
+    assert "inspiratory_capacity_ni_test" in copd.lean  # one declaration, one test
+    trial = checker.translation(ROOT / "examples/confirmatory_trial.stat")
+    assert trial.claims["overall_claim"] == "conditional"  # looks nested in a sequence
 
 
 def test_a_grade_follows_from_the_premises_a_proof_uses():
@@ -183,6 +194,17 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
     survey = corpus_checker().translation(ROOT / "examples/complex_survey.stat").lean
     family = corpus_checker().translation(ROOT / "examples/mixed_endpoints.stat").lean
     cases = [(text, label, change) for label, change in mutations.items()]
+    graph = corpus_checker().translation(ROOT / "examples/recycling.stat").lean
+    cases.append(
+        (
+            graph,
+            "a graph whose starting weights sum to more than one",
+            (
+                "((1 : ℚ) / 2) + ((1 : ℚ) / 2) + (0 : ℚ) ≤ 1",
+                "((3 : ℚ) / 5) + ((1 : ℚ) / 2) + (0 : ℚ) ≤ 1",
+            ),
+        )
+    )
     sequence = corpus_checker().translation(ROOT / "examples/trial_models.stat").lean
     cases.append(
         (

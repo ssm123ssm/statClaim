@@ -67,8 +67,16 @@ STRUCTURAL = frozenset(
         "MeasurableSpace",
     }
 )
-# Values that are not study objects: results, fields read from them, and plain numbers.
-IGNORED = {"VerificationResultIR", "CalculationResultIR", "FieldIR"}
+# Values that are not study objects of their own: results, fields read from them, and
+# the parts of a model, which are stated with the model that uses them.
+IGNORED = {
+    "VerificationResultIR",
+    "CalculationResultIR",
+    "FieldIR",
+    "AssignmentIR",
+    "OutcomeIR",
+    "StratumIR",
+}
 
 
 class Untranslated(Exception):
@@ -81,6 +89,76 @@ def subscript(number: int) -> str:
 
 def key(value: object) -> str:
     return json.dumps(normalize(value), sort_keys=True)
+
+
+def view(index: int) -> str:
+    return f"v{subscript(index)}"
+
+
+def vector(items: list[str], separator: str = ", ") -> str:
+    return f"![{separator.join(items)}]"
+
+
+def graph_events(combination: "Combination") -> str:
+    """The events on which a graph rejects its members, in the claim's joint study."""
+    assert combination.graph is not None
+    views = " ".join(view(part.view) for part in combination.parts)
+    return f"(i.{lean(combination.graph.procedure)} Θ Ω σ {views})"
+
+
+def combination_claim(combination: "Combination") -> str:
+    """What a combination claims about the joint study σ."""
+    nulls = vector([part_null(part) for part in combination.parts], ",\n        ")
+    if combination.rule == "graph":
+        assert combination.graph is not None
+        return (
+            f"{INTERFACE}.familywiseClaim σ.law\n        {nulls}\n        "
+            f"{graph_events(combination)}\n        "
+            f"({real(combination.alpha)} + i.{lean(combination.graph.slack)})"
+        )
+    events = vector([part_event(part) for part in combination.parts], ",\n        ")
+    slacks = vector([part_slack(part) for part in combination.parts])
+    claimed = "sequenceClaim" if combination.rule == "sequence" else "familywiseClaim"
+    return (
+        f"{INTERFACE}.{claimed} σ.law\n        {nulls}\n        {events}\n        "
+        f"({real(combination.alpha)} + ∑ k, {slacks} k)"
+    )
+
+
+def part_null(part: "Part") -> str:
+    """A member's null at the joint parameter θ. A design with looks is under its null
+    when every look is; a family in a sequence when any of its members is."""
+    if part.leaf is not None:
+        return f"fun θ => {part.leaf.null_ref()} ({view(part.view)}.parameter θ)"
+    assert part.combination is not None
+    nulls = vector([part_null(inner) for inner in part.combination.parts])
+    quantifier = "∀" if part.kind == "looks" else "∃"
+    return f"fun θ => {quantifier} k, {nulls} k θ"
+
+
+def part_event(part: "Part") -> str:
+    """A member's rejection, on the joint outcome. A design with looks rejects when any
+    look rejects; a family in a sequence passes only when every member rejects."""
+    if part.leaf is not None:
+        return f"{view(part.view)}.outcome ⁻¹' {part.leaf.reject()}"
+    combination = part.combination
+    assert combination is not None
+    if combination.rule == "graph":
+        events = graph_events(combination)
+    else:
+        events = vector([part_event(inner) for inner in combination.parts])
+    operation = "⋃" if part.kind == "looks" else "⋂"
+    return f"({operation} k, {events} k)"
+
+
+def part_slack(part: "Part") -> str:
+    if part.leaf is not None:
+        return part.leaf.slack_ref()
+    combination = part.combination
+    assert combination is not None
+    if combination.graph is not None:
+        return f"i.{lean(combination.graph.slack)}"
+    return f"(∑ k, {vector([part_slack(inner) for inner in combination.parts])} k)"
 
 
 @dataclass
@@ -162,10 +240,11 @@ class Abstract:
     """An abstract part of the instance, which the witness gives a value."""
 
     name: str
-    kind: str  # model, test or slack
+    kind: str  # model, test, slack or procedure
     structure: str = ""
     parameter: str = ""
     outcome: str = ""
+    arity: int = 0  # a procedure's explicit arguments
 
 
 @dataclass
@@ -183,6 +262,39 @@ class Premise:
     name: str
     statement: str
     level: Fraction
+    kind: str = "level"  # level, or graph: a graphical procedure's guarantee
+    members: int = 0  # a graph's members
+
+
+@dataclass
+class Graph:
+    """A graphical procedure: an abstract function giving, for any joint study, the events
+    on which the declared graph rejects each member, with a cited premise about it."""
+
+    name: str
+    procedure: str  # the instance field holding the procedure
+    slack: str
+    premise: str
+    scope: str
+
+
+@dataclass
+class Part:
+    """A member of a combination, as the combination's statement reads it."""
+
+    kind: str  # leaf, looks, family, sequence or graph
+    level: Fraction
+    leaf: Analysis | None = None
+    view: int = -1  # a leaf's view among the claim's leaves
+    combination: "Combination | None" = None
+
+
+@dataclass
+class Combination:
+    rule: str  # union (a family, or a design with looks), sequence or graph
+    alpha: Fraction
+    parts: list[Part]
+    graph: Graph | None = None
 
 
 @dataclass
@@ -192,11 +304,10 @@ class Claim:
     kind: str  # typeI or familywise
     request_id: int
     grade: str  # the grade the translator expects Lean's dependencies to give
-    own: str | None = None  # the claim's own premise, for a single cited or declared test
+    own: str | None = None  # the claim's own premise: a single cited or declared test, or a graph
     analysis: Analysis | None = None
-    members: list[Analysis] = field(default_factory=list)
-    alpha: Fraction = Fraction(0)
-    rule: str = ""  # a combination's rule: union (a family, or looks) or sequence
+    combination: Combination | None = None
+    leaves: list[Analysis] = field(default_factory=list)
 
 
 @dataclass
@@ -340,7 +451,9 @@ class Denoter:
         return result
 
     def analysis(self, ir: object, preferred: str | None = None) -> Analysis:
-        k = key(ir)
+        # One declaration, one test: two identical declarations are two endpoints, as
+        # Python's combinations count them, so tests are told apart by declaration.
+        k = f"analysis:{id(ir)}"
         if k in self.memo:
             return self.memo[k]  # type: ignore[return-value]
         if isinstance(ir, CitedAnalysisIR):
@@ -559,74 +672,171 @@ class Denoter:
             )
         )
 
-    def members(self, family: object) -> list[Analysis]:
-        """A combination's members, translated; it is stated only where it is claimed."""
+    def combination(self, family: object, leaves: list[Analysis], within: str = "") -> Combination:
+        """A combination's parts, with its leaves added to the claim's list in order.
+
+        `within` is the rule of the combination this one is a member of: a family,
+        sequence or graph can be a member only of a fixed sequence, where it passes when
+        every member rejects; a design with looks can be a member of any combination.
+        """
         if not isinstance(family, (FamilyIR, ComposedFamilyIR)):
             raise Untranslated(f"{type(family).__name__} combinations are not translated yet.")
-        if isinstance(family, ComposedFamilyIR) and family.mode == "graphical":
+        looks = isinstance(family, SequentialIR)
+        mode = "family" if isinstance(family, FamilyIR) else family.mode
+        if within and not looks and within != "sequence":
             raise Untranslated(
-                "Graphical procedures are not translated yet: their cited guarantee needs a "
-                "statement of the graph's rejections."
+                "A family or graph is translated as a member only of a fixed sequence."
             )
-        if any(isinstance(member, ComposedFamilyIR) for _, member in family.analyses):
-            raise Untranslated("A combination with combinations as members is not translated yet.")
-        return [self.analysis(member) for _, member in family.analyses]
+        rule = {
+            "family": "union",
+            "sequential": "union",
+            "fixed_sequence": "sequence",
+            "graphical": "graph",
+        }.get(mode)
+        if rule is None:
+            raise Untranslated(f"{mode} combinations are not translated yet.")
+        parts = []
+        for _, member in family.analyses:
+            if isinstance(member, ComposedFamilyIR):
+                kind = (
+                    "looks"
+                    if isinstance(member, SequentialIR)
+                    else (
+                        "sequence"
+                        if member.mode == "fixed_sequence"
+                        else "graph"
+                        if member.mode == "graphical"
+                        else "family"
+                    )
+                )
+                inner = self.combination(member, leaves, rule)
+                parts.append(Part(kind, member.alpha, combination=inner))
+                continue
+            analysis = self.analysis(member)
+            if analysis.design.compatible is None:
+                raise Untranslated(f"Member {analysis.name} has no sampling law to combine.")
+            parts.append(Part("leaf", member.alpha, analysis, len(leaves)))
+            leaves.append(analysis)
+        graph = None
+        if rule == "graph":
+            assert isinstance(family, ComposedFamilyIR)
+            graph = self.graph(family, parts)
+        return Combination(rule, family.alpha, parts, graph)
 
-    def familywise(self, name: str, request_id: int, family: object) -> None:
-        """A family, a fixed sequence or a design with looks, combined over its members."""
-        members = self.members(family)
-        assert isinstance(family, (FamilyIR, ComposedFamilyIR))  # members() accepts no other
-        assumed = any(member.kind in ("cited", "declared") for member in members)
-        if isinstance(family, ComposedFamilyIR) and not assumed:
-            raise Untranslated(
-                "Every member is proved here, which Lean would prove outright, but Python "
-                "reports such a combination as conditional; this is an open question in the "
-                "proposal."
+    def graph(self, family: ComposedFamilyIR, parts: list[Part]) -> Graph:
+        """A graphical procedure: its facts, decided by Lean, and its cited guarantee."""
+        k = f"graph:{id(family)}"
+        if k in self.memo:
+            return self.memo[k]  # type: ignore[return-value]
+        leaves = [part.leaf for part in parts]
+        if any(leaf is None for leaf in leaves):
+            raise Untranslated("A graph's members are translated only when each is one test.")
+        base = self.namer.fresh("graph")
+        weights, rows = list(family.weights), [list(row) for row in family.transitions]
+        # The starting shares of the level: none negative, and at most the whole level.
+        shares = [f"(0 : ℚ) ≤ {rational(w)}" for w in weights]
+        shares.append(" + ".join(rational(w) for w in weights) + " ≤ 1")
+        # Each row: what a rejected test passes on. None to itself, none negative, at most all.
+        passes = []
+        for index, row in enumerate(rows):
+            passes.append(f"{rational(row[index])} = 0")
+            passes += [f"(0 : ℚ) ≤ {rational(t)}" for t in row]
+            passes.append(" + ".join(rational(t) for t in row) + " ≤ 1")
+        # Every test is declared at the graph's level; the weights say what share it starts with.
+        levels = [f"{rational(part.level)} = {rational(family.alpha)}" for part in parts]
+        for suffix, facts in (("weights", shares), ("transitions", passes), ("levels", levels)):
+            self.out.contracts.append(
+                Contract(self.namer.fresh(f"{base}_{suffix}"), facts, "norm_num")
             )
-        sequence = isinstance(family, ComposedFamilyIR) and family.mode == "fixed_sequence"
-        for member in members:
-            if member.design.compatible is None:
-                raise Untranslated(f"Member {member.name} has no sampling law to combine.")
-        views = [f"v{subscript(k)}" for k in range(len(members))]
+        procedure = self.namer.fresh(f"{base}_procedure")
+        slack = self.namer.fresh(f"{base}_slack")
+        views = " → ".join(
+            f"{INTERFACE}.MemberView Θ Ω {leaf.model.parameter} {leaf.model.outcome}"
+            for leaf in leaves
+            if leaf is not None
+        )
+        self.out.fields += [
+            f"{lean(procedure)} : ∀ (Θ Ω : Type) [MeasurableSpace Ω], "
+            f"{INTERFACE}.JointStudy Θ Ω → {views} → Fin {len(parts)} → Set Ω",
+            f"{lean(slack)} : ℝ",
+        ]
+        self.out.abstracts += [
+            # Θ, Ω, the measurable space, σ, each member's view, and the member asked about.
+            Abstract(lean(procedure), "procedure", arity=4 + len(parts) + 1),
+            Abstract(lean(slack), "slack"),
+        ]
+        large = any(leaf.scope != "finite_sample" for leaf in leaves if leaf is not None)
+        scope = f"{INTERFACE}.Scope.{'largeSample' if large else 'finiteSample'}"
+        premise = self.namer.fresh(f"cited_{base}_rule")
+        result = Graph(base, procedure, slack, premise, scope)
+        self.memo[k] = result
+        # The premise quantifies over the graph's own members, so their views count from zero.
+        own = [Part("leaf", part.level, part.leaf, index) for index, part in enumerate(parts)]
+        combination = Combination("graph", family.alpha, own, result)
+        members = [leaf for leaf in leaves if leaf is not None]
+        self.out.premises.append(
+            Premise(
+                premise,
+                f"{scope}.permits i.{lean(slack)} ∧\n    " + self.joint(combination, members),
+                family.alpha,
+                "graph",
+                len(parts),
+            )
+        )
+        return result
+
+    def joint(self, combination: Combination, leaves: list[Analysis]) -> str:
+        """A claim over every joint study whose marginals are the leaves' declared laws."""
         binders = " ".join(
-            f"({view} : {INTERFACE}.MemberView Θ Ω {member.model.parameter_type()} "
-            f"{member.model.outcome_type()})"
-            for view, member in zip(views, members, strict=True)
+            f"({view(index)} : {INTERFACE}.MemberView Θ Ω {leaf.model.parameter_type()} "
+            f"{leaf.model.outcome_type()})"
+            for index, leaf in enumerate(leaves)
         )
         marginals = " →\n      ".join(
-            f"{view}.Marginal σ {member.model.law()}"
-            for view, member in zip(views, members, strict=True)
+            f"{view(index)}.Marginal σ {leaf.model.law()}" for index, leaf in enumerate(leaves)
         )
-        nulls = ",\n        ".join(
-            f"fun θ => {member.null_ref()} ({view}.parameter θ)"
-            for view, member in zip(views, members, strict=True)
-        )
-        rejects = ",\n        ".join(
-            f"{view}.outcome ⁻¹' {member.reject()}"
-            for view, member in zip(views, members, strict=True)
-        )
-        slacks = ", ".join(member.slack_ref() for member in members)
-        statement = (
+        return (
             f"∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : {INTERFACE}.JointStudy Θ Ω)\n"
             f"      {binders},\n"
             f"      {marginals} →\n"
-            f"      {INTERFACE}.{'sequenceClaim' if sequence else 'familywiseClaim'} σ.law\n"
-            f"        ![{nulls}]\n"
-            f"        ![{rejects}]\n"
-            f"        ({real(family.alpha)} + ∑ k, ![{slacks}] k)"
+            f"      {combination_claim(combination)}"
         )
+
+    def familywise(self, name: str, request_id: int, family: object) -> None:
+        """A family, a fixed sequence, a graph or a design with looks, over its members."""
+        leaves: list[Analysis] = []
+        combination = self.combination(family, leaves)
+        assumed = any(leaf.kind in ("cited", "declared") for leaf in leaves)
+        graphs = self.graphs(combination)
+        own = None
+        if combination.graph is not None:
+            own, grade = combination.graph.premise, "cited"
+        elif assumed or graphs:
+            grade = "conditional"
+        else:
+            grade = "proved"
         self.out.claims.append(
             Claim(
                 name,
-                statement,
+                self.joint(combination, leaves),
                 "familywise",
                 request_id,
-                "conditional" if assumed else "proved",
-                members=members,
-                alpha=family.alpha,
-                rule="sequence" if sequence else "union",
+                grade,
+                own=own,
+                combination=combination,
+                leaves=leaves,
             )
         )
+
+    def graphs(self, combination: Combination) -> list[Graph]:
+        """The graphs inside a combination, whose cited guarantees its claim rests on."""
+        found = []
+        for part in combination.parts:
+            if part.combination is not None:
+                if part.combination.graph is not None:
+                    found.append(part.combination.graph)
+                found += self.graphs(part.combination)
+        return found
 
     # The program ------------------------------------------------------------------------
     def run(self) -> Denotation:
@@ -646,7 +856,7 @@ class Denoter:
                 elif isinstance(value, (CitedAnalysisIR, AnalysisIR, CitedAssociationIR)):
                     self.analysis(value, binding.name)
                 elif isinstance(value, (FamilyIR, ComposedFamilyIR)):
-                    self.members(value)
+                    self.combination(value, [])
                 elif (
                     type(value).__module__.startswith("statclaim")
                     and not isinstance(value, ClaimIR)

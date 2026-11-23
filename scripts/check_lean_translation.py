@@ -19,6 +19,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from statclaim.language import ComposedFamilyIR
 from statclaim.language_compiler import compile_source
 from statclaim.language_inspection import best_status
 from statclaim.language_syntax import Source
@@ -30,8 +31,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
 # Translations reviewed as diffs: an exact test, cited tests of both scopes, a declared
 # test, a design whose stopping rule leaves its claim unresolved, a cited test of
-# association in a survey, a family of a proved and a cited test, a fixed sequence and
-# a design with two looks.
+# association in a survey, a family of a proved and a cited test, a fixed sequence, a
+# design with two looks, a graphical procedure, and the COPD hierarchy, which nests a graph
+# in a sequence.
 PINNED = (
     "examples/paper/fisher_design.stat",
     "examples/t_test.stat",
@@ -41,6 +43,8 @@ PINNED = (
     "examples/mixed_endpoints.stat",
     "examples/trial_models.stat",
     "replication/comparison/sequential.stat",
+    "examples/recycling.stat",
+    "replication/copd/design_cited.stat",
 )
 
 
@@ -76,6 +80,15 @@ def python_grade(path: Path, request_id: int) -> str:
     return STATUS_GRADES[best_status(program.requests[request_id - 1].claim)]
 
 
+def python_catches_up(path: Path, request_id: int) -> bool:
+    """A combination whose members are all proved: Lean proves it outright, and Python will
+    report it as proved once verify issues certificates from translated programs
+    (milestone 6). Until then Python reports it as conditional, which never overstates."""
+    program = compiled(path)
+    assert program is not None
+    return isinstance(program.requests[request_id - 1].claim.subject, ComposedFamilyIR)
+
+
 def grade_problems(results: dict[str, tuple[Path, Translation]], output: str) -> list[str]:
     """Claims whose grade from Lean's dependencies differs from what is expected."""
     used: dict[tuple[str, str], list[str]] = {}
@@ -92,7 +105,10 @@ def grade_problems(results: dict[str, tuple[Path, Translation]], output: str) ->
                 continue
             from_lean = grade(result.owns[claim], used[(name, claim)])
             from_python = python_grade(path, result.requests[claim])
-            if not from_lean == expected == from_python:
+            catching_up = (from_lean, from_python) == ("proved", "conditional") and (
+                python_catches_up(path, result.requests[claim])
+            )
+            if not (from_lean == expected and (from_python == from_lean or catching_up)):
                 problems.append(
                     f"{name} {claim}: Lean's premises give {from_lean}, the translator "
                     f"expects {expected}, Python reports {from_python}"
