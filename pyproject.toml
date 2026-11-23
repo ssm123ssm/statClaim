@@ -69,6 +69,11 @@ content-type = "text/markdown"
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
 path = "README.md"
 
+# Images first, as raw files; a blob page would not display on PyPI.
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '!\[([^\]]*)\]\((?!https?://)([^)]+)\)'
+replacement = '![\1](https://raw.githubusercontent.com/ssm123ssm/statClaim/main/\2)'
+
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = '\]\((?!https?://)(?!#)([^)]+)\)'
 replacement = '](https://github.com/ssm123ssm/statClaim/blob/main/\1)'
