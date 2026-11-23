@@ -3,8 +3,8 @@
 #
 # Each result is approximate power from a normal formula, with status
 # calculated. The plan's continuous endpoints are analysed with a mixed model
-# for repeated measures, so the standard deviations are the plan's effective
-# SDs of the 24-week contrast.
+# for repeated measures. For FEV1 the standard deviations are the plan's
+# effective SDs of the 24-week contrast; for TDI the plan gives an SD of 3.
 use models.two_arm_continuous
 use sampling
 use tests.mixed_model
