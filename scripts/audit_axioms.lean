@@ -132,7 +132,8 @@ run_cmd do
     ``StatClaim.Interface.typeI_of_finite_premise,
     ``StatClaim.Interface.MemberView.bound,
     ``StatClaim.Interface.model_bound,
-    ``StatClaim.Interface.familywise_of_members]
+    ``StatClaim.Interface.familywise_of_members,
+    ``StatClaim.Interface.sequence_of_members]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

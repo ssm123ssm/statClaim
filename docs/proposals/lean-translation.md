@@ -32,8 +32,11 @@ Progress:
   study whose marginals are the members' declared laws, and
   `StatClaim/Interface/Tactic.lean` defines the `statclaim` tactic. Bonferroni
   families of translated tests are proved, 50 claims in all, and every claim's
-  grade from the premises its proof uses agrees with Python's status. Part 2:
-  fixed sequences, alpha spending, graphical procedures and nested members.
+  grade from the premises its proof uses agrees with Python's status.
+- Milestone 4, part 2a done: fixed sequences (`sequenceClaim`,
+  `sequence_of_members`) and designs with looks, whose levels are split by the
+  union bound like a family's. 56 claims in all. Part 2b, graphical procedures
+  and combinations nested in combinations, waits on the open questions below.
 
 ## Goal
 
@@ -471,6 +474,26 @@ Each milestone ends tested on the corpus, documented and pushed.
   stay calculations.
 
 ## Open questions
+
+- **Combinations whose members are all proved.** Lean proves such a claim
+  outright, as for a Bonferroni family of Fisher tests, but Python reports every
+  combination built by `composition` as conditional, even when its members are
+  proved, as for Fisher's test at interim looks. Should Python report these as
+  proved, or should the translation cap them at conditional? Until this is
+  settled they are not translated, so the grades still agree.
+- **Graphical procedures.** Their rejections come from the graph's recycling of
+  levels, which Lean does not model. Proposed: the procedure's rejection events
+  stay abstract in a cited premise stating its familywise bound for every joint
+  study with the members' marginals, and Lean decides the graph's facts (starting
+  weights, transitions, levels). The claim then rests on its own cited premise,
+  so its grade is cited, as in Python.
+- **Combinations as members.** A member that is itself a combination, such as a
+  design with looks inside a sequence or a graph first in a hierarchy, needs a
+  statement of what it rejects. Proposed: a design with looks rejects when any
+  look rejects, and a family in a sequence passes when all its members reject,
+  each with a lemma deriving its bound from its own claim. This follows how
+  `composition.py` counts such a member: one test of its null at its overall
+  level.
 
 - Should `statclaim check` always produce the compatibility certificate, or
   only on request? It costs a Lean build.

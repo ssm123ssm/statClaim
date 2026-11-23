@@ -196,6 +196,7 @@ class Claim:
     analysis: Analysis | None = None
     members: list[Analysis] = field(default_factory=list)
     alpha: Fraction = Fraction(0)
+    rule: str = ""  # a combination's rule: union (a family, or looks) or sequence
 
 
 @dataclass
@@ -559,19 +560,30 @@ class Denoter:
         )
 
     def members(self, family: object) -> list[Analysis]:
-        """A family's members, translated; a family is stated only where it is claimed."""
-        if isinstance(family, FamilyIR) or (
-            isinstance(family, ComposedFamilyIR)
-            and not isinstance(family, SequentialIR)
-            and family.mode == "family"
-        ):
-            return [self.analysis(member) for _, member in family.analyses]
-        mode = getattr(family, "mode", type(family).__name__)
-        raise Untranslated(f"{mode} combinations are not translated yet.")
+        """A combination's members, translated; it is stated only where it is claimed."""
+        if not isinstance(family, (FamilyIR, ComposedFamilyIR)):
+            raise Untranslated(f"{type(family).__name__} combinations are not translated yet.")
+        if isinstance(family, ComposedFamilyIR) and family.mode == "graphical":
+            raise Untranslated(
+                "Graphical procedures are not translated yet: their cited guarantee needs a "
+                "statement of the graph's rejections."
+            )
+        if any(isinstance(member, ComposedFamilyIR) for _, member in family.analyses):
+            raise Untranslated("A combination with combinations as members is not translated yet.")
+        return [self.analysis(member) for _, member in family.analyses]
 
     def familywise(self, name: str, request_id: int, family: object) -> None:
+        """A family, a fixed sequence or a design with looks, combined over its members."""
         members = self.members(family)
         assert isinstance(family, (FamilyIR, ComposedFamilyIR))  # members() accepts no other
+        assumed = any(member.kind in ("cited", "declared") for member in members)
+        if isinstance(family, ComposedFamilyIR) and not assumed:
+            raise Untranslated(
+                "Every member is proved here, which Lean would prove outright, but Python "
+                "reports such a combination as conditional; this is an open question in the "
+                "proposal."
+            )
+        sequence = isinstance(family, ComposedFamilyIR) and family.mode == "fixed_sequence"
         for member in members:
             if member.design.compatible is None:
                 raise Untranslated(f"Member {member.name} has no sampling law to combine.")
@@ -598,12 +610,11 @@ class Denoter:
             f"∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : {INTERFACE}.JointStudy Θ Ω)\n"
             f"      {binders},\n"
             f"      {marginals} →\n"
-            f"      {INTERFACE}.familywiseClaim σ.law\n"
+            f"      {INTERFACE}.{'sequenceClaim' if sequence else 'familywiseClaim'} σ.law\n"
             f"        ![{nulls}]\n"
             f"        ![{rejects}]\n"
             f"        ({real(family.alpha)} + ∑ k, ![{slacks}] k)"
         )
-        assumed = any(member.kind in ("cited", "declared") for member in members)
         self.out.claims.append(
             Claim(
                 name,
@@ -613,6 +624,7 @@ class Denoter:
                 "conditional" if assumed else "proved",
                 members=members,
                 alpha=family.alpha,
+                rule="sequence" if sequence else "union",
             )
         )
 
@@ -655,8 +667,12 @@ class Denoter:
                 if open_requirements:
                     raise Untranslated(open_requirements[0].message)
                 name = self.namer.fresh(f"{holder}_claim")
-                if request.claim.kind == "typeI":
-                    self.type_i(name, request_id, self.analysis(request.claim.subject))
+                subject = request.claim.subject
+                if request.claim.kind == "typeI" and isinstance(subject, SequentialIR):
+                    # One question at several looks: the union bound over the looks.
+                    self.familywise(name, request_id, subject)
+                elif request.claim.kind == "typeI":
+                    self.type_i(name, request_id, self.analysis(subject))
                 elif request.claim.kind == "familywise":
                     self.familywise(name, request_id, request.claim.subject)
                 else:

@@ -30,7 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
 # Translations reviewed as diffs: an exact test, cited tests of both scopes, a declared
 # test, a design whose stopping rule leaves its claim unresolved, a cited test of
-# association in a survey, and a family of a proved and a cited test.
+# association in a survey, a family of a proved and a cited test, a fixed sequence and
+# a design with two looks.
 PINNED = (
     "examples/paper/fisher_design.stat",
     "examples/t_test.stat",
@@ -38,6 +39,8 @@ PINNED = (
     "examples/paper/fisher_adaptive.stat",
     "examples/complex_survey.stat",
     "examples/mixed_endpoints.stat",
+    "examples/trial_models.stat",
+    "replication/comparison/sequential.stat",
 )
 
 

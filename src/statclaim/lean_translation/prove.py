@@ -114,9 +114,10 @@ def claim(statement: Claim) -> str:
                 f"  have s{mark} : 0 ≤ i.{lean(member.slack)} :=\n"
                 f"    {INTERFACE}.Scope.permits_nonnegative premises.{lean(member.premise)}.1"
             )
-    levels = ", ".join(rational(member.alpha) for member in members)
-    lines += [
-        f"  apply {INTERFACE}.familywise_of_members σ _ _ ![{levels}]",
-        "  all_goals statclaim",
-    ]
+    if statement.rule == "sequence":
+        rule = f"{INTERFACE}.sequence_of_members σ _ _ {rational(statement.alpha)}"
+    else:
+        levels = ", ".join(rational(member.alpha) for member in members)
+        rule = f"{INTERFACE}.familywise_of_members σ _ _ ![{levels}]"
+    lines += [f"  apply {rule}", "  all_goals statclaim"]
     return "\n".join(lines)

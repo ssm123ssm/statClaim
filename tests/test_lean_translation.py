@@ -124,6 +124,11 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     assert checker.translation(ROOT / "examples/two_outcomes.stat").claims == {
         "request_1_claim": "proved"
     }
+    sequence = checker.translation(ROOT / "examples/trial_models.stat")
+    assert sequence.claims["overall_claim"] == "conditional"
+    assert "sequenceClaim" in sequence.lean
+    looks = checker.translation(ROOT / "replication/comparison/sequential.stat")
+    assert looks.claims == {"error_claim": "conditional"} and looks.skipped == {}
 
 
 def test_a_grade_follows_from_the_premises_a_proof_uses():
@@ -178,6 +183,17 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
     survey = corpus_checker().translation(ROOT / "examples/complex_survey.stat").lean
     family = corpus_checker().translation(ROOT / "examples/mixed_endpoints.stat").lean
     cases = [(text, label, change) for label, change in mutations.items()]
+    sequence = corpus_checker().translation(ROOT / "examples/trial_models.stat").lean
+    cases.append(
+        (
+            sequence,
+            "a fixed sequence claimed below its members' level",
+            (
+                "((↑((1 : ℚ) / 40) : ℝ) + ∑ k, ![i.lung_function_slack",
+                "((↑((1 : ℚ) / 80) : ℝ) + ∑ k, ![i.lung_function_slack",
+            ),
+        )
+    )
     cases.append(
         (
             family,

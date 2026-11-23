@@ -2,6 +2,7 @@ module
 
 public import StatClaim.Core.Objects
 public import StatClaim.Modules.Composition
+public import Mathlib.Tactic.Linarith
 
 /-!
 Families of tests in translated programs.
@@ -93,5 +94,34 @@ theorem familywise_of_members {m : ℕ} (joint : JointStudy Parameter Outcome)
     (fun k => nulls k parameter) rejects (fun k => (levels k : ℝ)) slacks
     (fun k => by exact_mod_cast levels_nonnegative k) slacks_nonnegative
     (fun k holds => members k parameter holds) alpha total
+
+/-- The fixed-sequence claim: testing in order, each test only after every earlier
+test rejected, some true null is rejected with probability at most the bound. -/
+def sequenceClaim {m : ℕ} (law : Parameter → Measure Outcome)
+    (nulls : Fin m → Core.Hypothesis Parameter) (rejects : Fin m → Set Outcome) (bound : ℝ) :
+    Prop :=
+  ∀ parameter, (law parameter).real
+    (StatClaim.Modules.Composition.sequenceFalseRejection (fun k => nulls k parameter) rejects)
+      ≤ bound
+
+/-- A fixed sequence of members, each at the full level: some true null is rejected
+with probability at most that level plus the members' slacks. -/
+theorem sequence_of_members {m : ℕ} (joint : JointStudy Parameter Outcome)
+    (nulls : Fin m → Core.Hypothesis Parameter) (rejects : Fin m → Set Outcome)
+    (alpha : ℚ) (slacks : Fin m → ℝ) (alpha_nonnegative : 0 ≤ alpha)
+    (slacks_nonnegative : ∀ k, 0 ≤ slacks k)
+    (members : ∀ k parameter, nulls k parameter →
+      (joint.law parameter).real (rejects k) ≤ alpha + slacks k) :
+    sequenceClaim joint.law nulls rejects (alpha + ∑ k, slacks k) := by
+  intro parameter
+  have := joint.probability parameter
+  apply StatClaim.Modules.Composition.fixed_sequence_le (joint.law parameter) _ rejects alpha
+    (∑ k, slacks k) (by exact_mod_cast alpha_nonnegative)
+    (Finset.sum_nonneg fun k _ => slacks_nonnegative k)
+  intro k holds
+  have bound := members k parameter holds
+  have within : slacks k ≤ ∑ j, slacks j :=
+    Finset.single_le_sum (fun j _ => slacks_nonnegative j) (Finset.mem_univ k)
+  linarith
 
 end StatClaim.Interface
