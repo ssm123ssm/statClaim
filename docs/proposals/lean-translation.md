@@ -122,10 +122,13 @@ the natural first candidate. Every other method stays at Level A.
 
 ### Input and output
 
-The input is the compiled program in its canonical JSON form
-(`language.normalize`), the form certificates already bind. The translator
-never reads source text, so names are resolved and types checked before it
-runs.
+The input is the compiled program: its typed objects, with their canonical
+JSON form (`language.normalize`, the form certificates already bind) deciding
+when two values are the same. The Python contracts compare models by value, so
+two identical declarations become one Lean definition. The translator never
+reads source text, so names are resolved and types checked before it runs.
+Nested values in the canonical JSON carry no type, so the translator dispatches
+on the typed objects rather than on JSON shapes.
 
 The output is one Lean file per program. Sketch:
 
@@ -170,13 +173,19 @@ hold for the study's actual tests.
   emitter's definition, decidable facts and premises, and writes the file.
 
 An emitter receives one compiled value and returns a Lean term, the decidable
-facts it requires and the premises it introduces. Proofs are assembled from
-library lemmas named by the emitters, such as `familywise_le` for a family, not
-found by search. An exact method's emitter calls its existing module theorem.
+facts it requires and the premises it introduces. A single claim is proved
+directly, from its premise or from its module's existing theorem. From
+milestone 4, compositions are proved by a StatClaim tactic that searches the
+library's composition lemmas; see [proof search](#proof-search). Emitters then
+state goals rather than assemble proofs.
 
 ### Grades from premises
 
-For each claim, the premises in its theorem determine the grade:
+For each claim, the premises its proof term actually depends on determine the
+grade, not the premises the translator meant it to use. Premises are fields of
+the generated `Premises` structure, so a proof that uses one contains its
+projection as a named constant; a collector built like the axiom audit lists
+them per claim:
 
 | Premises left | Grade |
 | --- | --- |
@@ -193,6 +202,52 @@ canonical input so the translation can be audited. A later step can move the
 decidable contract checks into Lean itself: the program as a Lean data type, a
 checker written in Lean and proved sound once, and each check a computation the
 kernel trusts.
+
+## Proof search
+
+Single claims are proved directly, and the heavy numerical certificates stay
+explicit. Compositions are where hand-assembled proofs would multiply, so from
+milestone 4 a StatClaim tactic finds them.
+
+**The hybrid.** Python states each claim's goal and may name lemmas worth
+trying. A `statclaim` tactic, an `aesop` rule set (Aesop ships with Mathlib)
+together with `decide`, `norm_num` and `simp`, finds a proof from the program's
+premises, the module theorems and the composition lemmas tagged with a
+`@[statclaim]` attribute. A new composition rule is then one tagged lemma, a
+table entry and an emitter that states its goal; it needs no proof code in
+Python.
+
+**What search does.** It applies composition lemmas recursively, so a fixed
+sequence containing a graph containing a family needs no special case. It
+matches each member's guarantee to a premise or a module theorem, and it
+discharges side conditions: levels summing to at most the family level, a null
+form a method supports, sizes above a method's minimum.
+
+**What stays explicit.** Exact power sums, the failure of each smaller candidate
+in a search and other checks by kernel computation stay as today, split per
+candidate. Generic search over them would exhaust memory, as a single proof over
+all candidates once did. Search cannot discover a statistical theorem the
+library lacks; it only connects theorems that exist.
+
+**Guardrails.**
+
+- The kernel stays the only judge. `native_decide` stays out; the axiom audit
+  already rejects the extra axiom it adds.
+- Each claim is its own theorem, with a fixed heartbeat budget, so a failure
+  names the claim or member that failed.
+- A search that fails or exhausts its budget leaves the claim unresolved and
+  says so. That differs from a contract fact that `decide` evaluates to false,
+  which is a violation; reports keep the two apart.
+- Grades come from the dependency collector, never from how a proof was found,
+  so a proof that uses a cited premise cannot be reported as proved.
+- The corpus build time is tracked. A claim kind for which search proves too
+  slow can return to an explicit proof from its emitter.
+
+**Effect on trust.** Proof assembly was already untrusted, since the kernel
+checks it; moving it from Python into a Lean tactic leaves soundness unchanged.
+The dependency collector is new trusted code, because it decides grades. It is
+small and tested exhaustively with proofs that use and avoid each kind of
+premise.
 
 ## Roles after translation
 
@@ -294,14 +349,15 @@ Trusted, kept small and reviewed line by line:
 | Premise data and generator | The registry fields that state guarantees (relation, scope, bound, null form), `scripts/update_lean_premises.py`, `StatClaim/Generated/Methods.lean` | They decide what each cited guarantee says in Lean | Method version fixture, `--check`, reviewed diffs of the generated file |
 | Translator denotation | `lean_translation/table.py`: the Lean term each declaration denotes and the proposition each claim becomes | A wrong entry gives a proof of the wrong statement | Table-driven, golden files, template equivalence |
 | Values from source | The parser, elaboration of values and `language.normalize` | The statement must be about the study the source describes | Source and canonical input kept in each certificate; readings show each value in words; round-trip tests |
-| Grade from premises | One function | It decides the evidence grade shown | Exhaustive test over premise kinds |
+| Grade from premises | One function, and the dependency collector that lists the premises each claim's proof uses | Together they decide the evidence grade shown | Exhaustive tests over premise kinds, with proofs that use and avoid each one |
 | Certificate checks | The audit, completion marker, input binding and replay in `verification.py` | They decide whether a build counts | Existing tests, including tampered bundles |
 | Result binding | The translator's map from Lean names to declarations, and the report | A proof must be shown against the claim it proves | A test that every result maps to its own declaration |
 
 Not trusted: a bug here causes a failed build, a missed result or a poor
 message, never a false certificate.
 
-- Proofs in the Lean library, and the emitters' proof assembly and tactics.
+- Proofs in the Lean library, the emitters' proof assembly, and the
+  `statclaim` tactic with its lemma sets.
 - Python contracts once Lean is the authority, and the explanations in
   `derivations.py`.
 - Calculations and simulations, which never carry evidence.
@@ -358,8 +414,9 @@ Each milestone ends tested on the corpus, documented and pushed.
    abstract outcome models and null forms.
 3. **Single analyses.** Translation of models, designs, nulls, analyses (exact,
    cited, declared) and claims; the corpus Lean build; tests 1 and 2.
-4. **Compositions and grades.** Bonferroni, fixed sequence, graphical and
-   alpha-spending families; grades from premises; test 4.
+4. **Compositions and grades.** The `statclaim` tactic and its rule set;
+   Bonferroni, fixed sequence, graphical and alpha-spending families proved by
+   it; the dependency collector and grades from premises; test 4.
 5. **Exact modules and templates.** Emitters for the exact modules; template
    equivalence and retirement; test 5.
 6. **Rejection and reports.** Error-injection agreement (test 3); a
@@ -400,5 +457,8 @@ Each milestone ends tested on the corpus, documented and pushed.
   satisfiability witness in each generated file rules this out mechanically.
 - **Build time and memory.** Mitigated by one shared build, contract facts by
   `decide`, and numerical checks split per candidate.
+- **Proof search is slow or brittle.** Lemma sets change with Mathlib versions,
+  and search can stall. Mitigated by the pinned toolchain, heartbeat budgets per
+  claim, corpus tests on every change, and explicit proofs as a fallback.
 - **Scope creep.** Mitigated by the table: anything not translated says so, and
   Level B stays selective.
