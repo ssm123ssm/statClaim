@@ -23,6 +23,8 @@ or run `statclaim check` on the file.
 The tutorial lessons have links too, such as
 [tutorial/07_sample_size](https://ssm123ssm.github.io/statClaim/?open=tutorial/07_sample_size).
 
-These names are cited in the article, so do not rename the files.
+Each file's comments explain it; the studio shows them as the study's description
+and as notes beside its blocks. These names are cited in the article, so do not
+rename the files.
 `tests/test_paper.py` checks the numbers the article reports, and
 `replication/examples.py` checks every file's status, with `--lean` for the proofs.

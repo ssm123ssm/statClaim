@@ -385,7 +385,25 @@ export function mountDocument(host, options) {
     const text = slice(0, headerEnd).split('\n').filter(line => line.trim()).map(line => line.trim().replace(/^#\s?/, '')).join('\n');
     return {start: 0, end: headerEnd, text};
   }
-  const commentText = text => text.split('\n').map(line => line.trim()).filter(Boolean).map(line => '# ' + line + '\n').join('');
+  // Each line of a note becomes a # comment; a blank line stays, as a bare #, between paragraphs.
+  const commentText = text => {
+    const lines = text.split('\n').map(line => line.trim());
+    while (lines.length && !lines[0]) lines.shift();
+    while (lines.length && !lines.at(-1)) lines.pop();
+    return lines.map(line => (line ? '# ' + line : '#') + '\n').join('');
+  };
+  // Comments are wrapped to suit a text editor; a note reads them as paragraphs. A blank
+  // comment line starts a paragraph, and a list item ("- ", "1. ") starts a line.
+  const prose = text => {
+    const out = [];
+    for (const line of text.split('\n').map(part => part.trim())) {
+      if (!line) { if (out.length && out.at(-1)) out.push(''); }
+      else if (!out.length || !out.at(-1) || /^([-*•]|\d+[.)])\s/.test(line)) out.push(line);
+      else out[out.length - 1] += ' ' + line;
+    }
+    while (out.length && !out.at(-1)) out.pop();
+    return out.join('\n');
+  };
   function editNote(anchor, range, heading) {
     const body = open(anchor, heading, {cls: 'note-pop', subtitle: 'Saved as # comments in the .stat file'});
     const form = el('form', 'note-form');
@@ -1315,7 +1333,7 @@ export function mountDocument(host, options) {
     const note = noteRange(s);
     if (note.text) {
       const aside = button('', () => editNote(aside, note, 'Note for ' + (s.name || 'this check')), 'stack-note');
-      aside.append(icon('note'), el('span', 'stack-note-text', note.text));
+      aside.append(icon('note'), el('span', 'stack-note-text', prose(note.text)));
       aside.title = 'Edit note';
       card.append(aside);
     }
@@ -2335,7 +2353,7 @@ export function mountDocument(host, options) {
     const intro = headerNote();
     if (intro.text) {
       const card = button('', () => editNote(card, intro, 'Study description'), 'doc-intro');
-      card.append(icon('note'), el('span', '', intro.text));
+      card.append(icon('note'), el('span', '', prose(intro.text)));
       card.title = 'Edit the study description';
       host.append(card);
     }

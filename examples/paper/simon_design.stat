@@ -1,13 +1,25 @@
-# From the StatClaim article, "Rechecking Simon's two-stage designs": the first
-# optimal design in Simon (1989), with n1 = 9, n = 24, r1 = 0 and r = 2. Lean
-# checks its error bound for every p <= 0.05 and its power at p = 0.25.
+# From the StatClaim article, "Rechecking Simon's two-stage designs". The first
+# optimal design in Simon (1989): a single-arm trial with a binary response that
+# can stop early for futility.
+#
+# Lean proves the complete two-stage policy's error bound for every response
+# rate up to 5%, and its power at 25%. In the web studio verify says Needs
+# Lean; open the study in Codespaces or run statclaim check.
 use designs.two_stage
 use planning
 
+# Stage one enrols 9; stage two adds 15, for 24 in all (n1 = 9, n = 24).
 let stages = two_stage_binomial(n_stage1=9, n_stage2=15)
+# Stop after stage one if no one responds (r1 = 0). Otherwise reject the null
+# when more than 2 of the 24 respond (r = 2).
 let rule = threshold_rule(continue_above=0, reject_above=2)
+# The null: a response rate of 5% or less.
 let analysis = two_stage_test(design=stages, rule=rule,
                               null_rate=1/20)
+# The target: power at least 90% at a response rate of 25%, Type I error at
+# most 10%.
 let target = power_target(at=response_rate(value=1/4),
                           minimum=9/10, maximum_typeI=1/10)
+# Verified: Type I error 0.0931 at 5% and power 0.9028 at 25%. The expected
+# size under the null is 14.5.
 let checked = verify(meets(analysis=analysis, target=target))

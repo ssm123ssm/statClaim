@@ -26,37 +26,37 @@ Program status: cited
 These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.
 
 == graph.stat, a row of transitions summing to 1.3
-graph.stat:18:9: error [graph_definition]: Row 1 of transitions sums to 13/10, more than 1.
+graph.stat:28:9: error [graph_definition]: Row 1 of transitions sums to 13/10, more than 1.
           [0, 7/10, 6/10],
           ^^^^^^^^^^^^^^^
-graph.stat:24:31: error [dependency]: 'procedure' depends on an invalid declaration.
+graph.stat:36:31: error [dependency]: 'procedure' depends on an invalid declaration.
   let error = verify(familywise(procedure))
                                 ^^^^^^^^^
 Program status: invalid
 
 == graph.stat, weights summing to 1.1
-graph.stat:16:13: error [graph_definition]: The weights sum to 11/10, more than 1.
+graph.stat:26:13: error [graph_definition]: The weights sum to 11/10, more than 1.
       weights=[3/5, 1/2, 0],
               ^^^^^^^^^^^^^
-graph.stat:24:31: error [dependency]: 'procedure' depends on an invalid declaration.
+graph.stat:36:31: error [dependency]: 'procedure' depends on an invalid declaration.
   let error = verify(familywise(procedure))
                                 ^^^^^^^^^
 Program status: invalid
 
 == graph.stat, a test passing level to itself
-graph.stat:18:9: error [graph_definition]: A test cannot pass its level to itself.
+graph.stat:28:9: error [graph_definition]: A test cannot pass its level to itself.
           [1/5, 4/5, 0],
           ^^^^^^^^^^^^^
-graph.stat:24:31: error [dependency]: 'procedure' depends on an invalid declaration.
+graph.stat:36:31: error [dependency]: 'procedure' depends on an invalid declaration.
   let error = verify(familywise(procedure))
                                 ^^^^^^^^^
 Program status: invalid
 
 == graph.stat, one test declared at half the level
-graph.stat:15:14: error [sequence_level]: third has alpha 1/80. In a graph, declare every test at the overall level 1/40; the weights say what share each starts with.
+graph.stat:25:14: error [sequence_level]: third has alpha 1/80. In a graph, declare every test at the overall level 1/40; the weights say what share each starts with.
       analyses=[first, second, third],
                ^^^^^^^^^^^^^^^^^^^^^^
-graph.stat:24:31: error [dependency]: 'procedure' depends on an invalid declaration.
+graph.stat:36:31: error [dependency]: 'procedure' depends on an invalid declaration.
   let error = verify(familywise(procedure))
                                 ^^^^^^^^^
 Program status: invalid

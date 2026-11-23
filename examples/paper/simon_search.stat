@@ -1,22 +1,35 @@
-# From the StatClaim article, "Rechecking Simon's two-stage designs": search for
-# the optimal and minimax designs with at most 120 participants. The searches
-# find (9, 24, 0, 2) and (13, 20, 0, 2); the ranking is numerical.
+# From the StatClaim article, "Rechecking Simon's two-stage designs". Instead of
+# checking a given design, search for one: the optimal and minimax designs with
+# at most 120 participants.
+#
+# The searches return Simon's tabulated designs. The ranking is calculated, not
+# proved. In the web studio verify says Needs Lean; the searches run.
 use designs.two_stage
 use planning
 
+# The design from simon_design: 9 + 15 participants, r1 = 0, r = 2.
 let stages = two_stage_binomial(n_stage1=9, n_stage2=15)
 let rule = threshold_rule(continue_above=0, reject_above=2)
 let analysis = two_stage_test(design=stages, rule=rule,
                               null_rate=1/20)
+# Power at least 90% at a response rate of 25%, Type I error at most 10%.
 let target = power_target(at=response_rate(value=1/4),
                           minimum=9/10, maximum_typeI=1/10)
+# Verified, as in simon_design.
 let checked = verify(meets(analysis=analysis, target=target))
 
+# Every design with at most 120 participants, ranked by expected size under the
+# null (optimal).
 let optimal_candidates = two_stage_designs(null_rate=1/20,
                             max_total=120, criterion="optimal")
+# Simon's optimal design: 9 + 15, r1 = 0, r = 2, expected size 14.55.
 let optimal = calculate(sample_size(candidates=optimal_candidates,
                                     target=target))
+# The same designs, ranked by their largest total size (minimax).
 let minimax_candidates = two_stage_designs(null_rate=1/20,
                             max_total=120, criterion="minimax")
+# Simon's minimax design: 13 + 7, r1 = 0, r = 2, expected size 16.41. Replace
+# calculate with verify to prove that a chosen design meets its targets; the
+# ranking stays a calculation.
 let minimax = calculate(sample_size(candidates=minimax_candidates,
                                     target=target))

@@ -1,5 +1,10 @@
-# From the StatClaim article, "Composing models and naming claims": an observed
-# result. calculate proposes the p-value and decision; verify checks them in Lean.
+# From the StatClaim article, "Composing models and naming claims". Analysing
+# observed counts: 12 of 50 successes in the control arm, 24 of 50 in the
+# treatment arm.
+#
+# calculate proposes the p-value and the decision. verify has Lean check that
+# this p-value is exactly the one Fisher's test defines for these counts. In
+# the web studio verify says Needs Lean; the calculation runs.
 use models.two_arm_binomial
 use sampling
 use tests.fisher
@@ -9,11 +14,21 @@ let design = fixed(model=study)
 let null = equal_proportions(model=study)
 let analysis = fisher(design=design, null=null, alpha=1/20)
 
+# The observed counts, checked against the design: each lies between 0 and its
+# arm size.
 let data = observe(analysis=analysis,
                    control_successes=12, treatment_successes=24)
+# The claim that a result is correct for these counts.
 let observed = result(data)
+# p-value about 0.0213, so the null is rejected at 5%. A calculation, not a
+# proof, and it does not show that the null is false.
 let computation = calculate(observed)
+# Verified: Lean checks the exact p-value and the decision against their
+# definitions, and issues a certificate.
 let checked_result = verify(observed)
+# Another name for the same result; verification does not run again.
 let saved = checked_result
+# Read from the calculation once checks run: 1255807221238/58971773773923.
 let p_value = computation.calculation.p_value
+# The certificate's file, present only once verify has succeeded.
 let certificate = checked_result.evidence.certificate.file

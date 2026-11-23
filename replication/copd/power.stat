@@ -5,6 +5,10 @@
 # calculated. The plan's continuous endpoints are analysed with a mixed model
 # for repeated measures. For FEV1 the standard deviations are the plan's
 # effective SDs of the 24-week contrast; for TDI the plan gives an SD of 3.
+#
+# All four calculated powers agree with the plan: 0.944, 0.905, 0.975 and
+# 0.960. They are for each test on its own, not the joint power of the
+# hierarchy. Nothing here needs Lean, so the web studio runs all of it.
 use models.two_arm_continuous
 use sampling
 use tests.mixed_model
@@ -22,7 +26,9 @@ let trough_ni_2_5 = mmrm_test_one_sided(
     null=mean_difference_at_most(model=per_protocol, value=-50),
     alpha=1/40,
 )
+# The planning point: a true difference of -10 mL, effective SD 167 mL.
 let trough_point = mean_difference(value=-10, sd=167)
+# Power 0.944; the estimate must exceed -27.93 mL, as the plan's "above -28 mL".
 let trough_2_5 = calculate(meets(
     analysis=trough_ni_2_5,
     target=power_target(at=trough_point, minimum=94/100, maximum_typeI=1/40),
@@ -35,6 +41,9 @@ let trough_ni_1_25 = mmrm_test_one_sided(
     null=mean_difference_at_most(model=per_protocol, value=-50),
     alpha=1/80,
 )
+# Power 0.905; the estimate must exceed -24.76 mL. The plan says -24.5 mL, about
+# 0.26 mL away; a t quantile with 878 degrees of freedom gives -24.72, so the
+# gap does not come from the t distribution.
 let trough_1_25 = calculate(meets(
     analysis=trough_ni_1_25,
     target=power_target(at=trough_point, minimum=9/10, maximum_typeI=1/80),
@@ -48,6 +57,7 @@ let peak_sup = mmrm_test_one_sided(
     null=mean_difference_at_most(model=full_set, value=0),
     alpha=1/80,
 )
+# Power 0.975, meeting "at least 97%".
 let peak = calculate(meets(
     analysis=peak_sup,
     target=power_target(
@@ -66,6 +76,7 @@ let tdi_ni = mmrm_test_one_sided(
     null=mean_difference_at_most(model=per_protocol, value=-3/4),
     alpha=1/40,
 )
+# Power 0.960 at one-sided 2.5%, meeting "at least 90%".
 let tdi = calculate(meets(
     analysis=tdi_ni,
     target=power_target(

@@ -5,6 +5,11 @@
 # The plan analyses continuous endpoints with a mixed model for repeated measures
 # and the binary endpoint with logistic regression (sections 4.2.6 and 4.2.7).
 # Both are cited tests here.
+#
+# Running it gives cited for the co-primary family, conditional for the whole
+# sequence and cited for the onset test; the file reports cited, its weakest
+# part. In the web studio these checks say Needs Lean; open the study in
+# Codespaces or run statclaim check.
 use models.two_arm_continuous
 use models.two_arm_binomial
 use sampling
@@ -65,6 +70,9 @@ let tdi_ni = mmrm_test_one_sided(
     null=mean_difference_at_most(model=per_protocol, value=-1),
     alpha=1/40,
 )
+# EMSCI severity score, margin -0.1, encoded as written: higher scores count
+# as better. The plan does not say which direction is better, so the report
+# lists higher_is_better as an assumption.
 let emsci_ni = mmrm_test_one_sided(
     design=fixed(model=per_protocol),
     null=mean_difference_at_most(model=per_protocol, value=-1/10),
@@ -78,6 +86,12 @@ let trial = fixed_sequence(
     alpha=1/40,
 )
 
+# Cited: the graphical procedure's familywise bound comes from the literature,
+# and its tests are cited mixed models, so the bound is a large-sample one.
 let primary_error = verify(familywise(co_primary))
+# Conditional: Lean proves that the sequence keeps the familywise error at 2.5%
+# if each member keeps its own. The members' guarantees are assumed, so the
+# scope stays large-sample.
 let overall_error = verify(familywise(trial))
+# Cited: the logistic regression's error bound is a large-sample result.
 let onset_error = verify(typeI(onset_of_action_sup))

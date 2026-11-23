@@ -1,5 +1,10 @@
 # One test at two looks: half the participants, then all. The level is split
 # 0.0015 at the first look and 0.0235 at the end, close to O'Brien-Fleming spending.
+#
+# StatClaim's side of group_sequential_gsDesign.R. The check gives conditional:
+# Lean proves the union bound over the two looks, and each look's own bound is
+# assumed. The split is conservative: its true Type I error is 0.0240 against
+# the bound of 0.025. In the web studio the check says Needs Lean.
 use models.two_arm_continuous
 use sampling
 use tests.t
@@ -10,5 +15,8 @@ let complete = two_arm_continuous(n_control=200, n_treatment=200)
 let interim = t_test_one_sided(design=fixed(model=halfway), null=mean_difference_at_most(model=halfway, value=0), alpha=3/2000)
 let final = t_test_one_sided(design=fixed(model=complete), null=mean_difference_at_most(model=complete, value=0), alpha=47/2000)
 
+# The study stops at the first look that rejects. The look levels sum to 1/40.
 let trial = alpha_spending(looks=[interim, final], alpha=1/40)
+# Conditional: at most 2.5% at any look, whatever the dependence between looks,
+# if each look keeps its own level.
 let error = verify(typeI(trial))

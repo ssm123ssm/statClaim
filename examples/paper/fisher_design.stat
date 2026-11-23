@@ -1,13 +1,27 @@
-# From the StatClaim article, introduction: the Type I error bound of a
-# two-sided Fisher test, verified in Lean. No observed data are needed.
+# From the StatClaim article, introduction. Two arms of 50 with a binary
+# outcome, compared by a two-sided Fisher exact test at the 5% level.
+#
+# The check asks Lean to prove the Type I error bound: at most 5% under the
+# null, for every common success probability. No data are needed. In the web
+# studio the proof says Needs Lean; open the study in Codespaces or run
+# statclaim check to build it.
 use models.two_arm_binomial
 use sampling
 use tests.fisher
 
+# Two independent binomial samples of 50.
 let study = two_arm_binomial(n_control=50, n_treatment=50)
+# Arm sizes fixed before any outcome is seen, which the guarantee needs.
+# fisher_adaptive shows what happens without it.
 let design = fixed(model=study)
+# The null: both arms have the same success probability.
 let null = equal_proportions(model=study)
+# Fisher's exact test, two-sided, at level 1/20.
 let analysis = fisher(design=design, null=null, alpha=1/20)
 
+# The claim: Type I error at most the level. Naming it lets you inspect it
+# before anything runs.
 let claim = typeI(analysis)
+# Verified: proved in Lean for every success probability from 0 to 1, with a
+# certificate that can be replayed.
 let verification = verify(claim)

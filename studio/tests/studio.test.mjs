@@ -2029,3 +2029,37 @@ test('a link may name the file in the repository, and a stale link says so', asy
     window.happyDOM.close();
   }
 });
+
+test('comments read as paragraphs in notes, and editing a note keeps its paragraphs', async t => {
+  const window = new Window({url: 'http://localhost/?open=paper/t_test_simulation'});
+  const {document} = window;
+  t.after(() => window.happyDOM.close());
+  install(window);
+  globalThis.sessionStorage = window.sessionStorage;
+  globalThis.fetch = async (url, options = {}) => dispatch(url, {...options, backend: 'browser'});
+  document.body.innerHTML = shell();
+  await import(new URL('editor.js?notes', platform));
+  const el = id => document.getElementById(id);
+  const host = el('lessonBlocks');
+  const stack = name => host.querySelector('.stack[data-name="' + name + '"]');
+  await until(() => !el('lesson').disabled && stack('formula'), 'the study never opened');
+  await until(() => !host.inert && el('report').dataset.state !== 'pending', 'editor stayed busy');
+
+  // The description: wrapped lines join, and a bare # starts a paragraph.
+  const intro = host.querySelector('.doc-intro span').textContent;
+  const paragraphs = intro.split('\n\n');
+  assert.equal(paragraphs.length, 2, intro);
+  assert.ok(paragraphs.every(text => !text.includes('\n')), intro);
+  assert.match(paragraphs[1], /^Both checks report that the 80% power target is not met\. That is the expected answer, not an error:/);
+  // A stack's note says the missed target is expected.
+  assert.equal(stack('formula').querySelector('.stack-note-text').textContent,
+    'By a normal formula: power about 0.609, so "target not met". This is expected; see the description above.');
+
+  // Editing a note writes a bare # between its paragraphs, so they survive.
+  stack('formula').querySelector('.stack-note').click();
+  const pop = host.querySelector('.pop');
+  pop.querySelector('textarea').value = 'First paragraph,\nwrapped.\n\nSecond paragraph.\n';
+  pop.querySelector('form').dispatchEvent(new window.Event('submit', {bubbles: true}));
+  await until(() => el('source').value.includes('# First paragraph,\n# wrapped.\n#\n# Second paragraph.\nlet formula = '), 'the note was not saved as comments');
+  await until(() => stack('formula')?.querySelector('.stack-note-text')?.textContent === 'First paragraph, wrapped.\n\nSecond paragraph.', 'the edited note did not read as two paragraphs');
+});

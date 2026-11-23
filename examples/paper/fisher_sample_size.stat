@@ -1,22 +1,35 @@
-# From the StatClaim article, "Targets and candidate designs": the smallest
-# equal-arm size with 80% power at rates 0.1 and 0.4. Verification checks that
-# 36 per arm meets the target and that every smaller size in the range fails.
+# From the StatClaim article, "Targets and candidate designs". How many per arm
+# does the Fisher test need for 80% power when the response rates are 10% and
+# 40%?
+#
+# The search answers 36 per arm, with power 80.04%. verify then proves in Lean
+# that 36 meets the target and that every size from 2 to 35 falls short. In the
+# web studio verify says Needs Lean; the search runs.
 use models.two_arm_binomial
 use sampling
 use tests.fisher
 use planning
 
+# 50 per arm is only a starting point; the search below tries other sizes.
 let study = two_arm_binomial(n_control=50, n_treatment=50)
 let design = fixed(model=study)
 let null = equal_proportions(model=study)
 let analysis = fisher(design=design, null=null, alpha=1/20)
 
+# The planning point: response rates of 10% (control) and 40% (treatment). An
+# input for planning, not a fact about the treatment.
 let alternative = binomial_rates(p_control=1/10, p_treatment=2/5)
+# The target: power at least 80% at that point, Type I error at most 5%.
 let target = power_target(at=alternative, minimum=4/5,
                           maximum_typeI=1/20)
+# Candidates: equal arms of 2 to 40. "Smallest" holds only within this range.
 let candidates = equal_arm_sizes(analysis=analysis,
                                  min_per_arm=2, max_per_arm=40)
+# The smallest candidate that meets the target. Each smaller size is checked on
+# its own, because a discrete test's power need not rise with size.
 let sizing = smallest_sample_size(candidates=candidates,
                                   target=target)
+# 36 per arm, with power 0.8004.
 let recommendation = calculate(sizing)
+# Verified: 36 per arm meets the target, and no smaller size in the range does.
 let sizing_verification = verify(sizing)

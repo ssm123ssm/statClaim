@@ -1,14 +1,22 @@
-# From the StatClaim article, introduction: the same study with unspecified
-# data-dependent stopping. The guarantee stays unresolved; this is missing
-# justification, not evidence of inflated error.
+# From the StatClaim article, introduction. The Fisher study again, but now the
+# data may decide when to stop, and the file does not say how.
+#
+# The proof is refused: Problems lists a sampling_scope obligation and the check
+# stays unresolved. This is missing justification, not evidence of inflated
+# error. Change adaptive to fixed and the proof goes through, as in
+# fisher_design.
 use models.two_arm_binomial
 use sampling
 use tests.fisher
 
 let study = two_arm_binomial(n_control=50, n_treatment=50)
+# The only change from fisher_design. A guarantee for data-dependent stopping
+# needs the whole stopping rule, through a design such as two_stage_binomial.
 let design = adaptive(model=study)
 let null = equal_proportions(model=study)
 let analysis = fisher(design=design, null=null, alpha=1/20)
 
 let claim = typeI(analysis)
+# Unresolved: the fixed-sample theorem does not cover this sampling plan, so no
+# proof is attempted.
 let verification = verify(claim)

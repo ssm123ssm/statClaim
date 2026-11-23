@@ -1,5 +1,11 @@
 # Three one-sided tests. Two start with half the level and none with the rest; a
 # rejected test passes its whole level on, in the cycle first -> second -> third -> first.
+#
+# StatClaim's side of graph_graphicalMCP.R. The check gives cited: StatClaim
+# checks the declared graph before any data exist and cites the procedure's
+# familywise bound. statclaim_side.py also runs four broken copies of this
+# graph, and StatClaim refuses each. In the web studio the check says Needs
+# Lean; run statclaim check for its result.
 use models.two_arm_continuous
 use sampling
 use tests.t
@@ -7,10 +13,14 @@ use multiplicity.graphical
 
 let study = two_arm_continuous(n_control=300, n_treatment=300)
 let plan = fixed(model=study)
+# Three one-sided t-tests, each at 2.5%: two non-inferiority tests with a
+# margin of -5 and one superiority test.
 let first = t_test_one_sided(design=plan, null=mean_difference_at_most(model=study, value=-5), alpha=1/40)
 let second = t_test_one_sided(design=plan, null=mean_difference_at_most(model=study, value=-5), alpha=1/40)
 let third = t_test_one_sided(design=plan, null=mean_difference_at_most(model=study, value=0), alpha=1/40)
 
+# Weights are each test's starting share of the level; row i of transitions
+# says where test i's level goes once it is rejected.
 let procedure = graphical(
     analyses=[first, second, third],
     weights=[1/2, 1/2, 0],
@@ -21,4 +31,6 @@ let procedure = graphical(
     ],
     alpha=1/40,
 )
+# Cited: the familywise error is at most 2.5% whichever nulls are true, as long
+# as each test keeps its own level.
 let error = verify(familywise(procedure))

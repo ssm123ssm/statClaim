@@ -4,6 +4,12 @@
 #
 # Each analysis is declared by name, with the plan's section as its reference.
 # StatClaim checks nothing about these tests themselves.
+#
+# Running it gives cited for the co-primary family, whose graphical procedure
+# is a cited method over declared tests, and conditional for the whole
+# sequence; the file reports declared, its weakest part. In the web studio
+# these checks say Needs Lean; open the study in Codespaces or run statclaim
+# check.
 use models.two_arm_continuous
 use models.two_arm_binomial
 use sampling
@@ -75,6 +81,9 @@ let tdi_ni = declared_test(
     method="Mixed model for repeated measures, treatment contrast over 24 weeks",
     reference="Statistical analysis plan edition 2.0, section 4.2.7.4",
 )
+# EMSCI severity score, margin -0.1, encoded as written: higher scores count
+# as better. The plan does not say which direction is better, so the report
+# lists higher_is_better as an assumption.
 let emsci_ni = declared_test(
     design=fixed(model=per_protocol),
     null=mean_difference_at_most(model=per_protocol, value=-1/10),
@@ -90,5 +99,9 @@ let trial = fixed_sequence(
     alpha=1/40,
 )
 
+# Cited: the graphical procedure's familywise bound comes from the literature;
+# it assumes the declared tests' own bounds.
 let primary_error = verify(familywise(co_primary))
+# Conditional: Lean proves that the sequence keeps the familywise error at 2.5%
+# if each member keeps its own; those guarantees are assumed.
 let overall_error = verify(familywise(trial))

@@ -1,7 +1,15 @@
-# From the StatClaim article, "Composing models and naming claims": a two-arm
-# model built from an assignment and an outcome.
+# From the StatClaim article, "Composing models and naming claims". A two-arm
+# model built from two parts: how participants reach the arms, and what is
+# measured on each.
+#
+# There is nothing to run; the file shows how a model is put together. Several
+# outcomes can share one assignment, as tutorial lesson 19 shows.
 use models.two_arm_continuous
 
+# 100 participants per arm.
 let arms = assignment(n_control=100, n_treatment=100)
+# A continuous score where lower is better. A declared direction is checked
+# against any one-sided null tested on it.
 let score = continuous_outcome(better="lower")
+# The study model: these arms, measured on this score.
 let study = two_arm(assignment=arms, outcome=score)
