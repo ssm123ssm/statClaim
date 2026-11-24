@@ -3,8 +3,8 @@ import StatClaim
 /-!
 The semantics of `StatClaim.Semantics` on two programs, as data written by
 `lean_translation/data.py`: `examples/mixed_endpoints.stat` and
-`replication/copd/design_cited.stat`, and the observational study of
-`examples/complex_survey.stat`. Their claims are proved by the soundness theorem alone. Changed copies of the first show what the contracts and the meaning refuse.
+`replication/copd/design_cited.stat`, the observational study of
+`examples/complex_survey.stat` and the design with looks of `examples/interim_look.stat`. Their claims are proved by the soundness theorem alone. Changed copies of the first show what the contracts and the meaning refuse.
 `scripts/check_lean_semantics.py` checks every program the semantics covers against
 today's translation.
 -/
@@ -24,7 +24,7 @@ def program : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none),
   .typeI (.fisher "response"
       { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
@@ -47,7 +47,7 @@ def program : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none]
 
 theorem contracts : program.Contracts := by decide +kernel
 
@@ -61,7 +61,8 @@ example : [program.grade 0, program.grade 1] = [.conditional, .proved] := by dec
 /-- The premises can hold together: proved once, for every program. -/
 example : Premise.AllHold Instance.trivial (program.premisesAt 0) := Program.satisfiable _ _
 
-/-- The family's level below its members' sum. -/
+/-- The family's level below its members' sum: its declarations meet their contracts, but
+the claim is not ready, as Python leaves it open, so soundness does not apply to it. -/
 def overallocated : StatClaim.Semantics.Program where
   requests := [
   .familywise (.bonferroni "endpoints"
@@ -73,7 +74,7 @@ def overallocated : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩),
+    ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩ none),
   .typeI (.fisher "response"
       { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
@@ -96,9 +97,10 @@ def overallocated : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none]
 
-example : ¬ overallocated.Contracts := by decide +kernel
+example : overallocated.Contracts := by decide +kernel
+example : overallocated.readyAt 0 = false := by decide +kernel
 
 /-- A null the t-test does not support. -/
 def unsupported : StatClaim.Semantics.Program where
@@ -112,7 +114,7 @@ def unsupported : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_least, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, value := some (0 : ℚ) }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none),
   .typeI (.fisher "response"
       { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
@@ -135,7 +137,7 @@ def unsupported : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none]
 
 example : ¬ unsupported.Contracts := by decide +kernel
 
@@ -151,7 +153,7 @@ def tooFew : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨1, 1, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨1, 1, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none),
   .typeI (.fisher "response"
       { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
@@ -174,7 +176,7 @@ def tooFew : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none]
 
 example : ¬ tooFew.Contracts := by decide +kernel
 
@@ -190,7 +192,7 @@ def otherModel : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨121, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none),
   .typeI (.fisher "response"
       { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
@@ -213,7 +215,7 @@ def otherModel : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none]
 
 example : ¬ otherModel.Contracts := by decide +kernel
 
@@ -229,7 +231,7 @@ def typeIOfFamily : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none),
   .typeI (.fisher "response"
       { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
@@ -252,7 +254,7 @@ def typeIOfFamily : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none]
 
 example : ¬ typeIOfFamily.Contracts := by decide +kernel
 
@@ -269,7 +271,7 @@ def adaptive : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none),
   .typeI (.fisher "response"
       { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .data_dependent }
       { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
@@ -292,10 +294,10 @@ def adaptive : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
       { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ none]
 
 example (i : Instance) : ¬ adaptive.claimAt 1 i := id
-example : adaptive.fixedAt 1 = false := by decide +kernel
+example : adaptive.readyAt 1 = false := by decide +kernel
 
 end MixedEndpoints
 
@@ -510,3 +512,116 @@ def unadjustable : StatClaim.Semantics.Program where
 example : ¬ unadjustable.Contracts := by decide +kernel
 
 end Survey
+
+namespace Looks
+
+def program : StatClaim.Semantics.Program where
+  requests := [
+  .typeI (.looks "trial"
+    [.assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+    .assumed "final" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩)]
+  declarations := [
+  .assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+  .assumed "final" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩,
+  .looks "trial"
+    [.assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+    .assumed "final" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+
+theorem contracts : program.Contracts := by decide +kernel
+
+theorem claim_0 : program.Claim 0 :=
+  StatClaim.Semantics.Program.sound program contracts 0 (by decide +kernel)
+
+example : [program.grade 0] = [.conditional] := by decide +kernel
+
+/-- A second look that asks another question: a different test. -/
+def otherTest : StatClaim.Semantics.Program where
+  requests := [
+  .typeI (.looks "trial"
+    [.assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+    .assumed "final" (.cited StatClaim.Generated.Methods.welch_test)
+      { model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩)]
+  declarations := [
+  .assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+  .assumed "final" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩,
+  .looks "trial"
+    [.assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+    .assumed "final" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+
+example : ¬ otherTest.Contracts := by decide +kernel
+
+/-- A second look taken at fewer participants than the first. -/
+def shrinking : StatClaim.Semantics.Program where
+  requests := [
+  .typeI (.looks "trial"
+    [.assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+    .assumed "final" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨40, 40, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨40, 40, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩)]
+  declarations := [
+  .assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+  .assumed "final" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩,
+  .looks "trial"
+    [.assumed "interim" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨50, 50, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 200), by norm_num, by norm_num⟩,
+    .assumed "final" (.cited StatClaim.Generated.Methods.t_test)
+      { model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨100, 100, by decide, by decide⟩ } }
+      ⟨((9 : ℚ) / 200), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩]
+
+example : ¬ shrinking.Contracts := by decide +kernel
+
+end Looks

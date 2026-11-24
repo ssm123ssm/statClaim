@@ -112,7 +112,13 @@ inductive Test where
   covariates. -/
   | associated (name : String) (method : Generated.AssociationMethod) (design : StudyDesign)
       (null : StudyNull) (alpha : SignificanceLevel) (adjusted : List String)
+  /-- A family at shares of the level. A family of Fisher tests records the joint law it
+  declares (`binomial_marginals`); its claim holds whatever the joint law, so the
+  meaning reads nothing from it. -/
   | bonferroni (name : String) (members : List Test) (alpha : SignificanceLevel)
+      (joint : Option String)
+  /-- A design with looks: one question asked at growing sizes, each look at its share. -/
+  | looks (name : String) (members : List Test) (alpha : SignificanceLevel)
   | graphical (name : String) (members : List Test) (weights : List ℚ)
       (transitions : List (List ℚ)) (alpha : SignificanceLevel)
   | sequence (name : String) (members : List Test) (alpha : SignificanceLevel)
@@ -136,6 +142,7 @@ def Test.name : Test → String
   | .assumed name .. => name
   | .associated name .. => name
   | .bonferroni name .. => name
+  | .looks name .. => name
   | .graphical name .. => name
   | .sequence name .. => name
 
@@ -143,7 +150,8 @@ def Test.alpha : Test → ℚ
   | .fisher _ _ _ alpha => alpha.value
   | .assumed _ _ _ _ alpha => alpha.value
   | .associated _ _ _ _ alpha _ => alpha.value
-  | .bonferroni _ _ alpha => alpha.value
+  | .bonferroni _ _ alpha _ => alpha.value
+  | .looks _ _ alpha => alpha.value
   | .graphical _ _ _ _ alpha => alpha.value
   | .sequence _ _ alpha => alpha.value
 

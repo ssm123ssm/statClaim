@@ -38,9 +38,9 @@ from statclaim.lean_translation.data import (  # noqa: E402
     Outside,
     binding_problem,
     claims,
-    fixed,
     printed_grades,
     program_data,
+    ready,
     report,
     verify_claims,
 )
@@ -177,7 +177,7 @@ def grade_problems(name: str, path: Path, program: dict, output: str) -> list[st
     problems = []
     requests = [r for r in program["requests"] if r["operation"] == "verify"]
     for request, grade in zip(requests, grades, strict=True):
-        if not fixed(request["claim"]["subject"]):
+        if not ready(request["claim"]):
             continue
         expected = python_grade(path, request["request_id"])
         catching_up = (grade, expected) == ("proved", "conditional") and python_catches_up(
@@ -222,17 +222,14 @@ def main() -> int:
     if problems:
         print("\n".join(problems))
         return 1
-    stated = [
-        fixed(claim["subject"])
-        for _, program, _ in found.values()
-        for claim in verify_claims(program)
-    ]
+    stated = [ready(claim) for _, program, _ in found.values() for claim in verify_claims(program)]
     agreed = sum(len(denote(compiled(path)).claims) for path, _, _ in found.values())
     print(
         f"Lean's contracts hold for all {len(found)}, and each one's data encodes to its "
         f"canonical program. The soundness theorem proves {sum(stated)} claims, each with "
-        f"Python's grade; {len(stated) - sum(stated)} have no sampling law, so Lean states "
-        f"them as False. Each of the {agreed} claims today's translation states is the "
+        f"Python's grade; {len(stated) - sum(stated)} are not ready (no sampling law, or "
+        f"levels over budget) and stay unproved, as in Python. Each of the {agreed} claims "
+        "today's translation states is the "
         "semantics' claim, by definition, and its premises give the semantic claim's."
     )
     return 0

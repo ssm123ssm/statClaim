@@ -18,8 +18,8 @@ from statclaim.lean_translation.data import (
     Outside,
     binding_problem,
     declarations,
-    fixed,
     program_data,
+    ready,
     report,
     verify_claims,
 )
@@ -57,7 +57,7 @@ def test_todays_translation_of_every_covered_program_can_be_restated():
     for path, program, _ in found.values():
         text = checker.agreement(path, program)
         assert text.startswith("namespace Old")
-        stated = any(fixed(claim["subject"]) for claim in verify_claims(program))
+        stated = any(ready(claim) for claim in verify_claims(program))
         assert ("Old.Claims i ↔" in text) == stated
 
 
@@ -77,7 +77,7 @@ def test_the_writer_refuses_what_it_does_not_read():
         subject["analyses"][1]["analysis"]["design"]["model"]["visits"] = 3
 
     def other_combination(subject):
-        subject["method"] = "alpha_spending"
+        subject["method"] = "gatekeeping"
 
     def no_alpha(subject):
         del subject["alpha"]

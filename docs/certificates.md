@@ -17,18 +17,21 @@ The certificate's inputs are the source and the canonical program it compiles to
 **Programs the semantics covers**
 ([proposal](proposals/lean-semantics.md)): two-sided Fisher tests, cited and declared
 tests of two-arm models, cited tests of association in observational studies,
-Bonferroni families, graphical procedures and fixed sequences. `Proof.lean` writes the program as Lean data and proves:
+Bonferroni families (including Fisher families with a joint law), designs with looks,
+graphical procedures and fixed sequences. `Proof.lean` writes the program as Lean data and proves:
 
 - `contracts`: every declared test and combination meets its contracts, and every
   claim has its shape, decided by `decide +kernel`;
-- one theorem `program.Claim r` per claim whose designs stop at fixed sizes: the claim,
+- one theorem `program.Claim r` per claim that is ready, whose designs stop at fixed sizes
+  and whose levels add up to at most each combination's own: the claim,
   as `StatClaim/Semantics` defines it, holds for every instance meeting the premises of
   the tests it involves. Each is proved by the soundness theorem, `Program.sound`.
 
 Lean also prints the data's canonical form and each claim's grade. The canonical form
 must be the certificate's program, and each grade the one the certificate records,
 when issued and on replay. A claim whose design stops by a rule that depends on the
-data has no sampling law: the semantics states it as false, and nothing proves it.
+data has no sampling law: the semantics states it as false, and nothing proves it. A
+claim whose levels exceed their budget stays unresolved, as Python leaves it.
 
 **Other programs.** `Proof.lean` is the program's translation to Lean
 ([proposal](proposals/lean-translation.md)):

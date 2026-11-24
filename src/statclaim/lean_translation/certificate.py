@@ -204,13 +204,13 @@ def check_grades(inputs: dict, output: str) -> None:
 
 
 def semantic_claims(inputs: dict) -> list[dict]:
-    """Each claim the semantics states and the certificate proves: those with a sampling
-    law, numbered by their place among the `verify` requests."""
+    """Each claim the semantics states and the certificate proves: those that are ready,
+    numbered by their place among the `verify` requests."""
     found = []
     requests = [r for r in inputs["program"]["requests"] if r["operation"] == "verify"]
     for index, request in enumerate(requests):
         claim = request["claim"]
-        if not data.fixed(claim["subject"]):
+        if not data.ready(claim):
             continue
         own = data.premise_keys(claim["subject_name"], claim["subject"])
         mine = [key for key in own if key[1] == claim["subject_name"]]
@@ -350,6 +350,13 @@ def summary(inputs: dict) -> dict:
                 for r in requests
                 if not data.fixed(r["claim"]["subject"])
             },
+            # Claims whose levels add up to more than their own: Python leaves them open,
+            # and the certificate does not prove them.
+            "unproved": [
+                f"{r['claim']['kind']}({r['claim']['subject_name']})"
+                for r in requests
+                if data.fixed(r["claim"]["subject"]) and not data.allocated(r["claim"]["subject"])
+            ],
         }
     stated = denotation(inputs)
     return {

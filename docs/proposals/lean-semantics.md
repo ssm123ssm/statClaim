@@ -91,6 +91,16 @@ What the spike changed in the design:
   claims, so they wait for phase 2. 47 corpus programs switch, with 45 claims, each
   agreeing with today's translation. Trusted Lean: 865 lines.
 
+- Milestone 3 done: designs with looks (`Test.looks`: one question asked at growing
+  sizes, its Type I claim the union bound over the looks, and inside another combination
+  under its null at every look and rejecting at any) and Fisher families with a joint
+  law (`Test.bonferroni` with the law it declares, which the claim does not need: it
+  holds for every joint study). Contracts check that every look asks the same question
+  at growing sizes. Over-allocated levels are no longer a contract: Python leaves such a
+  claim open, so `Test.allocated`, with fixed designs, decides whether a claim is ready
+  (`Program.readyAt`), and the soundness theorem needs it. 60 corpus programs switch, with
+  57 claims; 5 are not ready and stay unproved, as in Python. Trusted Lean: 928 lines.
+
 What milestone 1 changed:
 
 - **Laws are keyed by the whole model.** The spike keyed them by arm sizes, so two

@@ -130,7 +130,10 @@ def test_a_family_of_proved_tests_is_proved(language_runs, tmp_path):
     bundle = Path(value["evidence"]["certificate"]["directory"])
     certificate = json.loads((bundle / "certificate.json").read_text())
     assert certificate["assumptions"] == []  # no premise: every member is proved
-    assert "familywise_of_members" in (bundle / "Proof.lean").read_text()
+    # A Fisher family records its joint law; the claim holds for every joint study.
+    proof = (bundle / "Proof.lean").read_text()
+    assert '(some "binomial_marginals")' in proof
+    assert "StatClaim.Semantics.Program.sound program contracts" in proof
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
 
 

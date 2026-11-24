@@ -356,7 +356,14 @@ def lean_markdown(lean: dict) -> list[str]:
             for claim in lean["refuted"]
         ]
         lines.append("")
-    elif lean["refuted"]:
+    if lean.get("unproved"):
+        lines += [
+            f"- `{claim}`: its members' levels add up to more than its own, so no bound "
+            "follows; it stays unresolved."
+            for claim in lean["unproved"]
+        ]
+        lines.append("")
+    if lean["refuted"] and not lean.get("semantics"):
         lines += [
             f"- `{holder}`: Lean proves its design supplies no sampling law (`{theorem}`), "
             "so no claim is stated."

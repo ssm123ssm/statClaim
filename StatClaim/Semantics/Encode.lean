@@ -126,7 +126,13 @@ def Test.encode : Test → Json
         ("alpha", ratJson alpha.value)] ++
       (if adjusted.isEmpty then [] else
         [("adjusted_for", Json.arr (adjusted.map Json.str).toArray)])
-  | .bonferroni _ members alpha => combination "bonferroni" alpha (Json.arr (Test.encodeMembers members).toArray)
+  | .bonferroni _ members alpha none =>
+    combination "bonferroni" alpha (Json.arr (Test.encodeMembers members).toArray)
+  | .bonferroni _ members alpha (some joint) =>
+    Json.mkObj [("method", Json.str "bonferroni"), ("alpha", ratJson alpha.value),
+      ("joint_law", Json.str joint), ("analyses", Json.arr (Test.encodeMembers members).toArray)]
+  | .looks _ members alpha =>
+    combination "alpha_spending" alpha (Json.arr (Test.encodeMembers members).toArray)
   | .graphical _ members weights rows alpha =>
     combination "graphical" alpha (Json.arr (Test.encodeMembers members).toArray)
       [("weights", Json.arr (weights.map ratJson).toArray),
@@ -155,6 +161,8 @@ def Test.binding : Test → String
   | .fisher .. => "AnalysisIR"
   | .assumed .. => "CitedAnalysisIR"
   | .associated .. => "CitedAssociationIR"
+  | .bonferroni _ _ _ (some _) => "FamilyIR"
+  | .looks .. => "SequentialIR"
   | _ => "ComposedFamilyIR"
 
 /-- The claims of a program's `verify` requests, in order, and its declarations. -/

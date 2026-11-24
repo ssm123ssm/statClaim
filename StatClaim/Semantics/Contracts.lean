@@ -63,6 +63,30 @@ def Study.total (study : Study) : Option ℕ :=
     | _, _ => study.n
   | .cross_sectional => study.n
 
+/-- A design with looks. -/
+def Test.isLooks : Test → Bool
+  | .looks .. => true
+  | _ => false
+
+/-- The question a look asks: its test, and its null's form and value. -/
+def Test.question : Test → Option (String × Generated.NullKey × Option ℚ)
+  | .fisher _ _ null _ => some ("fisher", null.key, null.value)
+  | .assumed _ (.cited method) _ null _ => some (method.key, null.key, null.value)
+  | .assumed _ (.declared method ..) _ null _ => some (method, null.key, null.value)
+  | _ => none
+
+/-- The arm sizes a look is taken at. -/
+def Test.sizes : Test → Option (ℕ × ℕ)
+  | .fisher _ design .. => some (design.model.sizes.nControl, design.model.sizes.nTreatment)
+  | .assumed _ _ design .. => some (design.model.sizes.nControl, design.model.sizes.nTreatment)
+  | _ => none
+
+/-- Each look is taken at no fewer participants in either arm, and more in all. -/
+def growing : List (ℕ × ℕ) → Bool
+  | a :: b :: rest =>
+    decide (a.1 ≤ b.1 ∧ a.2 ≤ b.2 ∧ a.1 + a.2 < b.1 + b.2) && growing (b :: rest)
+  | _ => true
+
 mutual
 def Test.check : Test → Bool
   | .fisher _ design null _ =>
@@ -97,9 +121,17 @@ def Test.check : Test → Bool
       | none => true) &&
     (adjusted.isEmpty || method.covariates) &&
     decide (0 < alpha.value) && decide (alpha.value < 1)
-  | .bonferroni _ members alpha =>
+  | .bonferroni _ members _ _ =>
+    Test.checkAll members && members.all (fun t => t.single || t.isLooks)
+  | .looks _ members _ =>
     Test.checkAll members && members.all Test.single &&
-    decide ((members.map Test.alpha).sum ≤ alpha.value)
+    (match members with
+      | [] => false
+      | first :: rest =>
+        first.question.isSome && rest.all (fun look => look.question == first.question)) &&
+    (match members.mapM Test.sizes with
+      | some sizes => growing sizes
+      | none => false)
   | .graphical _ members weights rows alpha =>
     Test.checkAll members && members.all Test.single &&
     decide (weights.length = members.length) &&
@@ -117,10 +149,11 @@ def Test.checkAll : List Test → Bool
 termination_by structural ts => ts
 end
 
-/-- A Type I claim is about a single test, and a familywise claim about a combination. -/
+/-- A Type I claim is about a single test or a design with looks, and a familywise claim
+about another combination. -/
 def Request.check : Request → Bool
-  | .typeI t => t.single && t.check
-  | .familywise t => !t.single && t.check
+  | .typeI t => (t.single || t.isLooks) && t.check
+  | .familywise t => !t.single && !t.isLooks && t.check
 
 /-- Every declared test and combination meets its contracts, and every request has its
 shape. -/

@@ -146,7 +146,9 @@ run_cmd do
     ``StatClaim.Semantics.Test.outside_bound,
     ``StatClaim.Semantics.Test.members_bound,
     ``StatClaim.Semantics.Request.sound,
-    ``StatClaim.Semantics.Program.sound]
+    ``StatClaim.Semantics.Program.sound,
+    ``StatClaim.Semantics.Test.union_sound,
+    ``StatClaim.Semantics.Request.check_test]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

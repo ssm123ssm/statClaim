@@ -93,6 +93,28 @@ theorem Test.alphas_eq (alpha : ℚ) :
     exact Fin.cases (by simpa [Test.alphas] using h.1)
       (fun k => by simpa [Test.alphas] using Test.alphas_eq alpha ts h.2 k) k
 
+/-! ## Levels within budget -/
+
+mutual
+/-- The shares of every family and design with looks within a test add up to at most its
+level. Python leaves a claim without this open, so the semantics proves only claims that
+have it; a definition too permissive here would make the proofs below fail. -/
+def Test.allocated : Test → Bool
+  | .bonferroni _ members alpha _ =>
+    decide ((members.map Test.alpha).sum ≤ alpha.value) && Test.allAllocated members
+  | .looks _ members alpha =>
+    decide ((members.map Test.alpha).sum ≤ alpha.value) && Test.allAllocated members
+  | .graphical _ members _ _ _ => Test.allAllocated members
+  | .sequence _ members _ => Test.allAllocated members
+  | _ => true
+termination_by structural t => t
+
+def Test.allAllocated : List Test → Bool
+  | [] => true
+  | t :: ts => Test.allocated t && Test.allAllocated ts
+termination_by structural ts => ts
+end
+
 /-! ## Every test, seen as a member -/
 
 /-- A member's guarantee: its slack is nonnegative, and under its null it rejects with
@@ -114,35 +136,46 @@ theorem fisher_bound (sizes : FixedSampleDesign) (alpha : SignificanceLevel)
 
 mutual
 theorem Test.outside_bound (i : Instance) (σ : JointStudy Θ Ω) :
-    ∀ (t : Test) (ws : Views Θ Ω (t.leaves i)), t.check = true →
+    ∀ (t : Test) (ws : Views Θ Ω (t.leaves i)), t.check = true → t.allocated = true →
       Premise.AllHold i t.premises → AllMarginals σ _ ws → Bound σ (t.outside i σ ws) t.alpha
-  | .fisher _ design _ alpha, ws, _, _, marginals => by
+  | .fisher _ design _ alpha, ws, _, _, _, marginals => by
     refine ⟨le_refl 0, fun θ holds => ?_⟩
     simpa [Test.outside, Test.alpha] using
       fisher_bound design.model.sizes alpha σ ws.1 marginals.1 θ holds
-  | .assumed name _ design _ alpha, ws, _, premises, marginals => by
+  | .assumed name _ design _ alpha, ws, _, _, premises, marginals => by
     have premise := premises.1
     exact ⟨Scope.permits_nonnegative premise.1,
       MemberView.bound ws.1 marginals.1 (i.test name design.model).measurable premise.2⟩
-  | .associated name _ design _ alpha _, ws, _, premises, marginals => by
+  | .associated name _ design _ alpha _, ws, _, _, premises, marginals => by
     have premise := premises.1
     exact ⟨Scope.permits_nonnegative premise.1,
       MemberView.bound ws.1 marginals.1 (i.studyTest name design.model).measurable premise.2⟩
-  | .bonferroni _ members alpha, ws, contracts, premises, marginals => by
-    simp only [Test.check, Bool.and_eq_true, decide_eq_true_eq] at contracts
-    have each := Test.members_bound i σ members ws contracts.1.1 premises marginals
+  | .bonferroni _ members alpha _, ws, contracts, allocated, premises, marginals => by
+    simp only [Test.check, Bool.and_eq_true] at contracts
+    simp only [Test.allocated, Bool.and_eq_true, decide_eq_true_eq] at allocated
+    have each := Test.members_bound i σ members ws contracts.1 allocated.2 premises marginals
     have family := familywise_of_members σ _ _ (Test.alphas members) _
       (Test.alphas_nonnegative members) (fun k => (each k).1) (fun k => (each k).2) alpha.value
-      (by rw [Test.sum_alphas]; exact contracts.2)
+      (by rw [Test.sum_alphas]; exact allocated.1)
     exact ⟨(Finset.sum_nonneg fun k _ => (each k).1 :
       0 ≤ ∑ k, (Test.members i σ members ws).slacks k), family_member σ family⟩
-  | .graphical name members _ _ alpha, ws, _, premises, marginals => by
+  | .looks _ members alpha, ws, contracts, allocated, premises, marginals => by
+    simp only [Test.check, Bool.and_eq_true] at contracts
+    simp only [Test.allocated, Bool.and_eq_true, decide_eq_true_eq] at allocated
+    have each := Test.members_bound i σ members ws contracts.1.1.1 allocated.2 premises marginals
+    have family := familywise_of_members σ _ _ (Test.alphas members) _
+      (Test.alphas_nonnegative members) (fun k => (each k).1) (fun k => (each k).2) alpha.value
+      (by rw [Test.sum_alphas]; exact allocated.1)
+    exact ⟨(Finset.sum_nonneg fun k _ => (each k).1 :
+      0 ≤ ∑ k, (Test.members i σ members ws).slacks k), looks_member family⟩
+  | .graphical name members _ _ alpha, ws, _, _, premises, marginals => by
     have graph := ((Premise.allHold_append i _ _).1 premises).2.1
     have family := (joint_iff _ _).1 graph.2 Θ Ω σ ws marginals
     exact ⟨Scope.permits_nonnegative graph.1, family_member σ family⟩
-  | .sequence _ members alpha, ws, contracts, premises, marginals => by
+  | .sequence _ members alpha, ws, contracts, allocated, premises, marginals => by
     simp only [Test.check, Bool.and_eq_true] at contracts
-    have each := Test.members_bound i σ members ws contracts.1 premises marginals
+    simp only [Test.allocated] at allocated
+    have each := Test.members_bound i σ members ws contracts.1 allocated premises marginals
     have levels := Test.alphas_eq alpha.value members contracts.2
     have sequence := sequence_of_members σ _ _ alpha.value _ alpha.nonnegative
       (fun k => (each k).1) (fun k θ holds => by simpa [levels k] using (each k).2 θ holds)
@@ -152,17 +185,19 @@ termination_by structural t => t
 
 theorem Test.members_bound (i : Instance) (σ : JointStudy Θ Ω) :
     ∀ (ts : List Test) (ws : Views Θ Ω (Test.leavesOf i ts)), Test.checkAll ts = true →
+      Test.allAllocated ts = true →
       Premise.AllHold i (Test.premisesOf ts) → AllMarginals σ _ ws → ∀ k,
         0 ≤ (Test.members i σ ts ws).slacks k ∧ ∀ θ, (Test.members i σ ts ws).nulls k θ →
           (σ.law θ).real ((Test.members i σ ts ws).rejects k) ≤
             Test.alphas ts k + (Test.members i σ ts ws).slacks k
-  | [], _, _, _, _, k => k.elim0
-  | t :: ts, ws, contracts, premises, marginals, k => by
+  | [], _, _, _, _, _, k => k.elim0
+  | t :: ts, ws, contracts, allocated, premises, marginals, k => by
     simp only [Test.checkAll, Bool.and_eq_true] at contracts
+    simp only [Test.allAllocated, Bool.and_eq_true] at allocated
     have parts := (Premise.allHold_append i _ _).1 premises
     have split := AllMarginals.split σ _ _ ws marginals
-    have head := Test.outside_bound i σ t _ contracts.1 parts.1 split.1
-    have tail := Test.members_bound i σ ts _ contracts.2 parts.2 split.2
+    have head := Test.outside_bound i σ t _ contracts.1 allocated.1 parts.1 split.1
+    have tail := Test.members_bound i σ ts _ contracts.2 allocated.2 parts.2 split.2
     refine Fin.cases ?_ (fun k => ?_) k
     · simpa [Test.members, Test.alphas, Bound] using head
     · simpa [Test.members, Test.alphas] using tail k
@@ -171,8 +206,27 @@ end
 
 /-! ## Requests and programs -/
 
+/-- A family or a design with looks: the union bound over its members, at shares of the
+level that add up to at most the whole. -/
+theorem Test.union_sound (i : Instance) (members : List Test) (alpha : SignificanceLevel)
+    (checked : Test.checkAll members = true) (inner : Test.allAllocated members = true)
+    (allocation : (members.map Test.alpha).sum ≤ alpha.value)
+    (premises : Premise.AllHold i (Test.premisesOf members)) : Test.union i members alpha := by
+  unfold Test.union
+  refine (joint_iff _ _).2 fun Θ Ω _ σ ws marginals => ?_
+  have each := Test.members_bound i σ members ws checked inner premises marginals
+  exact familywise_of_members σ _ _ (Test.alphas members) _ (Test.alphas_nonnegative members)
+    (fun k => (each k).1) (fun k => (each k).2) alpha.value
+    (by rw [Test.sum_alphas]; exact allocation)
+
+theorem Request.check_test {q : Request} (checked : q.check = true) : q.test.check = true := by
+  cases q <;> simp only [Request.check, Request.test, Bool.and_eq_true] at checked ⊢ <;>
+    exact checked.2
+
 theorem Request.sound (q : Request) (contracts : q.check = true) (fixed : q.test.fixed = true)
-    (i : Instance) (premises : Premise.AllHold i q.test.premises) : q.Holds i := by
+    (allocated : q.test.allocated = true) (i : Instance)
+    (premises : Premise.AllHold i q.test.premises) : q.Holds i := by
+  have checked := Request.check_test contracts
   unfold Request.Holds
   rw [fixed]
   cases q with
@@ -192,53 +246,55 @@ theorem Request.sound (q : Request) (contracts : q.check = true) (fixed : q.test
       split
       · next finite => exact typeI_of_finite_premise _ finite premise
       · exact typeI_of_premise _ premise
-    | _ => simp [Request.check, Test.single] at contracts
+    | looks _ members alpha =>
+      simp only [Request.test, Test.check, Bool.and_eq_true] at checked
+      simp only [Request.test, Test.allocated, Bool.and_eq_true, decide_eq_true_eq] at allocated
+      exact Test.union_sound i members alpha checked.1.1.1 allocated.2 allocated.1 premises
+    | _ => simp [Request.check, Test.single, Test.isLooks] at contracts
   | familywise t =>
     cases t with
-    | bonferroni _ members alpha =>
-      simp only [Request.check, Test.single, Test.check, Bool.and_eq_true, decide_eq_true_eq]
-        at contracts
-      refine (joint_iff _ _).2 fun Θ Ω _ σ ws marginals => ?_
-      have each := Test.members_bound i σ members ws contracts.2.1.1 premises marginals
-      exact familywise_of_members σ _ _ (Test.alphas members) _
-        (Test.alphas_nonnegative members) (fun k => (each k).1) (fun k => (each k).2)
-        alpha.value (by rw [Test.sum_alphas]; exact contracts.2.2)
+    | bonferroni _ members alpha _ =>
+      simp only [Request.test, Test.check, Bool.and_eq_true] at checked
+      simp only [Request.test, Test.allocated, Bool.and_eq_true, decide_eq_true_eq] at allocated
+      exact Test.union_sound i members alpha checked.1 allocated.2 allocated.1 premises
     | graphical name members _ _ alpha =>
       exact ((Premise.allHold_append i _ _).1 premises).2.1.2
     | sequence _ members alpha =>
-      simp only [Request.check, Test.single, Test.check, Bool.and_eq_true] at contracts
+      simp only [Request.test, Test.check, Bool.and_eq_true] at checked
+      simp only [Request.test, Test.allocated] at allocated
       refine (joint_iff _ _).2 fun Θ Ω _ σ ws marginals => ?_
-      have each := Test.members_bound i σ members ws contracts.2.1 premises marginals
-      have levels := Test.alphas_eq alpha.value members contracts.2.2
+      have each := Test.members_bound i σ members ws checked.1 allocated premises marginals
+      have levels := Test.alphas_eq alpha.value members checked.2
       exact sequence_of_members σ _ _ alpha.value _ alpha.nonnegative
         (fun k => (each k).1) (fun k θ holds => by simpa [levels k] using (each k).2 θ holds)
-    | _ => simp [Request.check, Test.single] at contracts
+    | _ => simp [Request.check, Test.single, Test.isLooks] at contracts
 
-/-- Whether request `r` exists and every design it involves stops at fixed sizes. -/
-def Program.fixedAt (p : Program) (r : ℕ) : Bool :=
+/-- Whether request `r` exists, every design it involves stops at fixed sizes, and its
+levels are within budget: what Python requires before a claim can be proved. -/
+def Program.readyAt (p : Program) (r : ℕ) : Bool :=
   match p.requests[r]? with
-  | some q => q.test.fixed
+  | some q => q.test.fixed && q.test.allocated
   | none => false
 
-/-- Soundness: when the contracts hold, every request whose designs stop at fixed sizes
-follows from the premises of the tests it involves. -/
+/-- Soundness: when the contracts hold, every request whose designs stop at fixed sizes and
+whose levels are within budget follows from the premises of the tests it involves. -/
 theorem Program.sound (p : Program) (contracts : p.Contracts) (r : ℕ)
-    (fixed : p.fixedAt r = true) : p.Claim r := by
+    (ready : p.readyAt r = true) : p.Claim r := by
   intro i premises
   unfold Program.claimAt
   unfold Program.premisesAt at premises
-  unfold Program.fixedAt at fixed
+  unfold Program.readyAt at ready
   cases found : p.requests[r]? with
-  | none => simp [found] at fixed
+  | none => simp [found] at ready
   | some q =>
-    simp only [found] at premises fixed ⊢
+    simp only [found, Bool.and_eq_true] at premises ready ⊢
     have member : q ∈ p.requests := List.mem_of_getElem? found
     have requests : p.requests.all Request.check = true := by
       unfold Program.Contracts at contracts
       simp only [Bool.and_eq_true] at contracts
       exact contracts.2
     have checked : q.check = true := List.all_eq_true.1 requests q member
-    exact Request.sound q checked fixed i premises
+    exact Request.sound q checked ready.1 ready.2 i premises
 
 end
 

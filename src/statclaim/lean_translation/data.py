@@ -22,7 +22,12 @@ GRADES = "STATCLAIM_GRADES"
 # The model constructor each outcome kind's module names, as the canonical program writes it.
 MODULES = {outcome.constructor: key for key, outcome in OUTCOMES.items()}
 STOPPING = ("fixed", "data_dependent")
-COMBINATIONS = {"bonferroni": "bonferroni", "graphical": "graphical", "fixed_sequence": "sequence"}
+COMBINATIONS = {
+    "bonferroni": "bonferroni",
+    "graphical": "graphical",
+    "fixed_sequence": "sequence",
+    "alpha_spending": "looks",
+}
 # What a model may declare beyond its outcome and sizes.
 MODEL_EXTRAS = (
     "clusters_control",
@@ -41,7 +46,14 @@ DECLARED = "declared_test"
 DECLARED_FIELDS = {"method", "scope", "references"}
 SCOPES = {"finite_sample": "finiteSample", "asymptotic": "largeSample"}
 # Bindings the semantics declares: tests and combinations, whose contracts it checks.
-DECLARATIONS = ("AnalysisIR", "CitedAnalysisIR", "CitedAssociationIR", "ComposedFamilyIR")
+DECLARATIONS = (
+    "AnalysisIR",
+    "CitedAnalysisIR",
+    "CitedAssociationIR",
+    "ComposedFamilyIR",
+    "SequentialIR",
+    "FamilyIR",
+)
 # Bindings with no contract of their own: two-arm models, designs and nulls (read inside
 # the tests that use them), claims, and every value the translator gives no meaning of its
 # own (results, observed data, planning inputs). A binding of any other typed kind keeps
@@ -221,12 +233,15 @@ def test(name: object, value: object) -> str:
         method = value["method"]
         if method not in COMBINATIONS:
             raise Outside(f"The combination {method!r} is not in the semantics yet.")
+        # A family of Fisher tests records its joint law instead of a composition.
+        joint = method == "bonferroni" and "joint_law" in value
         extra = {"weights", "transitions"} if method == "graphical" else set()
-        record = fields(
-            value, {"method", "composition", "alpha", "analyses", *extra}, "A combination"
-        )
-        if record["composition"] != "conditional" or not isinstance(record["analyses"], list):
+        kind = {"joint_law"} if joint else {"composition"}
+        record = fields(value, {"method", "alpha", "analyses", *kind, *extra}, "A combination")
+        if not joint and record["composition"] != "conditional":
             raise Outside("A combination is not a conditional combination of analyses.")
+        if not isinstance(record["analyses"], list):
+            raise Outside("A combination's members are not a list.")
         members = []
         for entry in record["analyses"]:
             member = fields(entry, {"name", "analysis"}, "A member")
@@ -243,7 +258,11 @@ def test(name: object, value: object) -> str:
                 + "]"
             )
             return f".graphical {label}\n    {listed}\n    {shares} {level(record['alpha'])}"
-        return f".{COMBINATIONS[method]} {label}\n    {listed}\n    {level(record['alpha'])}"
+        stated = f".{COMBINATIONS[method]} {label}\n    {listed}\n    {level(record['alpha'])}"
+        if method == "bonferroni":
+            law = f"(some {string(record['joint_law'], 'A joint law')})" if joint else "none"
+            return f"{stated} {law}"
+        return stated
     declared = isinstance(value, dict) and value.get("test") == DECLARED
     association = isinstance(value, dict) and value.get("test") in OBSERVATIONAL
     if association:
@@ -339,6 +358,24 @@ def fixed(value: object) -> bool:
     return True
 
 
+def allocated(value: dict) -> bool:
+    """Whether the shares of every family and design with looks in a claim's subject add up
+    to at most its level (`Test.allocated`). Python leaves a claim without this open."""
+    if "analyses" not in value:
+        return True
+    members = [member["analysis"] for member in value["analyses"]]
+    within = value["method"] not in ("bonferroni", "alpha_spending") or sum(
+        Fraction(member["alpha"]) for member in members
+    ) <= Fraction(value["alpha"])
+    return within and all(allocated(member) for member in members)
+
+
+def ready(claim: dict) -> bool:
+    """Whether the semantics proves a claim (`Program.readyAt`): its designs stop at fixed
+    sizes and its levels are within budget."""
+    return fixed(claim["subject"]) and allocated(claim["subject"])
+
+
 def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
     """The premises the semantics gives a test, in its order (`Test.premises`): the level
     of each assumed test, and the familywise bound of each graph after its members'."""
@@ -370,11 +407,11 @@ def grade(claim: dict) -> str:
 
 
 def claims(program: dict) -> str:
-    """The theorems proving each claim that has a sampling law, by the semantics'
-    soundness theorem and the program's contracts."""
+    """The theorems proving each claim that is ready, by the semantics' soundness theorem
+    and the program's contracts."""
     lines = ["theorem contracts : program.Contracts := by decide +kernel", ""]
     for index, claim in enumerate(verify_claims(program)):
-        if fixed(claim["subject"]):
+        if ready(claim):
             lines.append(
                 f"theorem claim_{index} : program.Claim {index} :=\n"
                 f"  {SEMANTICS}.Program.sound program contracts {index} (by decide +kernel)"

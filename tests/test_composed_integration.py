@@ -113,9 +113,12 @@ def test_interim_look_design_gets_a_conditional_overall_error_bound(tmp_path):
     assert value["status"] == "conditional"
     assert value["evidence"]["guarantee"]["quantity"] == "type_I_error"
     bundle = Path(value["evidence"]["certificate"]["directory"])
-    # Lean decides that the looks ask one question at growing sizes.
+    # Lean's contracts decide that the looks ask one question at growing sizes, and the
+    # soundness theorem proves the union bound over them.
     proof = (bundle / "Proof.lean").read_text()
-    assert "theorem looks_question" in proof and "theorem looks_order" in proof
+    assert '.typeI (.looks "trial"' in proof
+    assert "theorem contracts : program.Contracts := by decide +kernel" in proof
+    assert "StatClaim.Semantics.Program.sound program contracts 0" in proof
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
 
 
@@ -133,7 +136,8 @@ def test_confirmatory_trial_with_looks_and_a_fixed_sequence(tmp_path):
     assert report["status"] == "cited"
     bundle = Path(values["overall"]["evidence"]["certificate"]["directory"])
     proof = (bundle / "Proof.lean").read_text()
-    assert "sequence_of_members" in proof and "theorem sequence_levels" in proof
+    assert ".familywise (.sequence" in proof and ".looks" in proof
+    assert "StatClaim.Semantics.Program.sound program contracts" in proof
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
 
 

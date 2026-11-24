@@ -128,7 +128,8 @@ def Test.leaves (i : Instance) : Test → List View
   | .fisher _ design _ _ => [binomialView design.model.sizes]
   | .assumed _ _ design _ _ => [design.model.view i.laws]
   | .associated _ _ design _ _ _ => [(i.studies design.model).view]
-  | .bonferroni _ members _ => Test.leavesOf i members
+  | .bonferroni _ members _ _ => Test.leavesOf i members
+  | .looks _ members _ => Test.leavesOf i members
   | .graphical _ members _ _ _ => Test.leavesOf i members
   | .sequence _ members _ => Test.leavesOf i members
 termination_by structural t => t
@@ -172,9 +173,13 @@ def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
     { null := fun θ => (i.studies design.model).model.noAssociation (ws.1.parameter θ)
       reject := ws.1.outcome ⁻¹' (i.studyTest name design.model).reject
       slack := i.slack name }
-  | .bonferroni _ members _, ws =>
+  | .bonferroni _ members _ _, ws =>
     { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
       reject := ⋂ k, (Test.members i σ members ws).rejects k
+      slack := ∑ k, (Test.members i σ members ws).slacks k }
+  | .looks _ members _, ws =>
+    { null := fun θ => ∀ k, (Test.members i σ members ws).nulls k θ
+      reject := ⋃ k, (Test.members i σ members ws).rejects k
       slack := ∑ k, (Test.members i σ members ws).slacks k }
   | .graphical name members _ _ _, ws =>
     { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
@@ -220,7 +225,17 @@ def Joint (vs : List View)
   ∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : JointStudy Θ Ω),
     ForallViews Θ Ω vs fun ws => Marginals σ vs ws (claim σ ws)
 
-/-- The Type I claim of a single test, under its design's sampling law. A cited test
+/-- Over every joint study whose marginals are the members' laws, some true null is
+rejected with probability at most the level plus the members' slacks. -/
+def Test.union (i : Instance) (members : List Test) (alpha : SignificanceLevel) : Prop :=
+  Joint (Test.leavesOf i members) fun σ ws =>
+    familywiseClaim σ.law ((Test.members i σ members ws).nulls)
+      ((Test.members i σ members ws).rejects)
+      ((alpha.value : ℝ) + ∑ k, (Test.members i σ members ws).slacks k)
+
+/-- The Type I claim of a single test, under its design's sampling law. A design with
+looks is under its null at every look and rejects at some look: its claim is the union
+bound over the looks. A cited test
 with a large-sample guarantee carries its slack. -/
 def Test.typeI (i : Instance) : Test → Prop
   | .fisher _ design _ alpha =>
@@ -238,16 +253,13 @@ def Test.typeI (i : Instance) : Test → Prop
       (match method.scope with
         | .finiteSample => (alpha.value : ℝ)
         | .largeSample => (alpha.value : ℝ) + i.slack name)
+  | .looks _ members alpha => Test.union i members alpha
   | _ => False
 
 /-- The familywise claim of a combination, over every joint study whose marginals are
 its members' laws. -/
 def Test.familywise (i : Instance) : Test → Prop
-  | .bonferroni _ members alpha =>
-    Joint (Test.leavesOf i members) fun σ ws =>
-      familywiseClaim σ.law ((Test.members i σ members ws).nulls)
-        ((Test.members i σ members ws).rejects)
-        ((alpha.value : ℝ) + ∑ k, (Test.members i σ members ws).slacks k)
+  | .bonferroni _ members alpha _ => Test.union i members alpha
   | .graphical name members _ _ alpha =>
     Joint (Test.leavesOf i members) fun σ ws =>
       familywiseClaim σ.law ((Test.members i σ members ws).nulls)
@@ -267,7 +279,8 @@ def Test.fixed : Test → Bool
   | .fisher _ design .. => design.stopping == .fixed
   | .assumed _ _ design .. => design.stopping == .fixed
   | .associated _ _ design .. => design.stopping == .fixed
-  | .bonferroni _ members _ => Test.allFixed members
+  | .bonferroni _ members _ _ => Test.allFixed members
+  | .looks _ members _ => Test.allFixed members
   | .graphical _ members _ _ _ => Test.allFixed members
   | .sequence _ members _ => Test.allFixed members
 termination_by structural t => t
@@ -328,7 +341,8 @@ def Test.premises : Test → List Premise
   | .fisher .. => []
   | .assumed name guarantee design null alpha => [.level name guarantee design.model null alpha]
   | .associated name method design _ alpha _ => [.association name method design.model alpha]
-  | .bonferroni _ members _ => Test.premisesOf members
+  | .bonferroni _ members _ _ => Test.premisesOf members
+  | .looks _ members _ => Test.premisesOf members
   | .graphical name members _ _ alpha => Test.premisesOf members ++ [.graph name members alpha]
   | .sequence _ members _ => Test.premisesOf members
 termination_by structural t => t

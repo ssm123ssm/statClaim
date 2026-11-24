@@ -24,8 +24,9 @@ from statclaim.verification import (
 ROOT = Path(__file__).resolve().parents[1]
 # Stated through the semantics of compiled programs.
 MIXED = ROOT / "examples/mixed_endpoints.stat"
-# Stated by the translation: interim looks, and exact one-sided tests with a result.
-LOOKS = ROOT / "examples/interim_look.stat"
+# Stated by the translation: a cited cluster test beside a randomisation test, and exact
+# one-sided tests with a result.
+CLUSTERS = ROOT / "examples/cluster_trial.stat"
 ONE_SIDED = ROOT / "examples/one_sided.stat"
 
 
@@ -49,10 +50,10 @@ def test_a_covered_program_is_its_data_and_the_soundness_theorem():
 
 
 def test_another_program_is_its_translation_then_an_audit():
-    proof = _proof_for_payload(PROGRAM_KIND, inputs(LOOKS))
+    proof = _proof_for_payload(PROGRAM_KIND, inputs(CLUSTERS))
     assert "StatClaim.Semantics" not in proof
     # Every contract fact, every claim and the program theorem are audited.
-    for name in ("interim_contract", "overall_claim", "program"):
+    for name in ("summaries_contract", "cited_claim", "proved_claim", "program"):
         assert f"``StatClaimProgram.{name}" in proof
 
 
@@ -66,8 +67,11 @@ def test_the_profile_lists_each_claim_with_its_grade_and_line():
     assert profile["assumptions"] == ["cited_symptoms_level"]
     assert profile["general_theorem"] == "StatClaim.Semantics.Program.sound"
     assert "StatClaim/Semantics" in profile["trusted_components"][-1]
-    translated = _profile(PROGRAM_KIND, inputs(LOOKS))
-    assert translated["claims"][1:] == ["typeI(trial), line 16: conditional"]
+    translated = _profile(PROGRAM_KIND, inputs(CLUSTERS))
+    assert translated["claims"][1:] == [
+        "typeI(summaries), line 33: cited",
+        "typeI(permuted), line 34: proved",
+    ]
     assert translated["general_theorem"] == "StatClaimProgram.program"
 
 
@@ -85,13 +89,17 @@ def test_inputs_that_no_longer_match_their_source_are_refused():
 
 
 def test_a_grade_the_proof_does_not_support_is_refused():
-    payload = inputs(LOOKS)
-    honest = "STATCLAIM_PREMISES program overall_claim: cited_final_level,cited_interim_level\n"
+    payload = inputs(CLUSTERS)
+    honest = (
+        "STATCLAIM_PREMISES program cited_claim: cited_summaries_level\n"
+        "STATCLAIM_PREMISES program proved_claim: \n"
+    )
     certificate.check_grades(payload, honest)
-    with pytest.raises(certificate.Unchecked, match="overall_claim"):
-        certificate.check_grades(payload, "STATCLAIM_PREMISES program overall_claim: \n")
+    overstated = honest.replace("proved_claim: ", "proved_claim: cited_summaries_level")
+    with pytest.raises(certificate.Unchecked, match="proved_claim"):
+        certificate.check_grades(payload, overstated)
     with pytest.raises(certificate.Unchecked, match="listed no premises"):
-        certificate.check_grades(payload, "")
+        certificate.check_grades(payload, honest.splitlines()[0])
 
 
 def test_semantic_grades_and_binding_must_be_what_lean_prints():
