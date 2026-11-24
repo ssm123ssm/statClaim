@@ -12,6 +12,7 @@ import json
 import re
 from fractions import Fraction
 
+from statclaim.lean_translation.denote import IGNORED
 from statclaim.lean_translation.emit import rational
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
 
@@ -39,6 +40,15 @@ ANALYSIS = {"test", "design", "null", "alpha"}
 DECLARED = "declared_test"
 DECLARED_FIELDS = {"method", "scope", "references"}
 SCOPES = {"finite_sample": "finiteSample", "asymptotic": "largeSample"}
+# Bindings the semantics declares: tests and combinations, whose contracts it checks.
+DECLARATIONS = ("AnalysisIR", "CitedAnalysisIR", "ComposedFamilyIR")
+# Bindings with no contract of their own: two-arm models, designs and nulls (read inside
+# the tests that use them), claims, and every value the translator gives no meaning of its
+# own (results, observed data, planning inputs). A binding of any other typed kind keeps
+# the program out of the semantics, so no contract today's certificate checks is left out.
+PASSIVE = frozenset(
+    {"ModelIR", "OutcomeModelIR", "PlanIR", "HypothesisIR", "OutcomeNullIR", "ClaimIR", *IGNORED}
+)
 
 
 class Outside(Exception):
@@ -199,6 +209,18 @@ def verify_claims(program: dict) -> list:
     return [request["claim"] for request in program["requests"] if request["operation"] == "verify"]
 
 
+def declarations(program: dict) -> list[dict]:
+    """The tests and combinations the program declares, as Lean prints them back."""
+    found = []
+    for binding in program["bindings"]:
+        kind = binding["type"]
+        if kind in DECLARATIONS:
+            found.append({"name": binding["name"], "type": kind, "value": binding["value"]})
+        elif kind.endswith("IR") and kind not in PASSIVE:
+            raise Outside(f"Declarations of kind {kind} are not in the semantics yet.")
+    return found
+
+
 def program_data(program: dict) -> str:
     """The Lean definition of `program`, or `Outside` when the semantics does not cover it."""
     requests = []
@@ -207,10 +229,16 @@ def program_data(program: dict) -> str:
         if record["kind"] not in ("typeI", "familywise"):
             raise Outside(f"Claims of kind {record['kind']!r} are not in the semantics yet.")
         requests.append(f".{record['kind']} ({test(record['subject_name'], record['subject'])})")
-    if not requests:
-        raise Outside("The program asks Lean for no claim.")
-    body = ",\n  ".join(requests)
-    return f"def program : {SEMANTICS}.Program := ⟨[\n  {body}]⟩\n"
+    declared = [test(entry["name"], entry["value"]) for entry in declarations(program)]
+    if not requests and not declared:
+        raise Outside("The program declares no test and asks Lean for no claim.")
+    listed = ",\n  ".join(requests)
+    tests = ",\n  ".join(declared)
+    return (
+        f"def program : {SEMANTICS}.Program where\n"
+        f"  requests := [\n  {listed}]\n"
+        f"  declarations := [\n  {tests}]\n"
+    )
 
 
 def fixed(value: object) -> bool:
@@ -223,6 +251,36 @@ def fixed(value: object) -> bool:
     if isinstance(value, list):
         return all(fixed(item) for item in value)
     return True
+
+
+def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
+    """The premises the semantics gives a test, in its order (`Test.premises`): the level
+    of each assumed test, and the familywise bound of each graph after its members'."""
+    if "analyses" in subject:
+        keys = [k for m in subject["analyses"] for k in premise_keys(m["name"], m["analysis"])]
+        return keys + ([("graph", name)] if subject["method"] == "graphical" else [])
+    return [] if subject["test"] == "fisher" else [("level", name)]
+
+
+def premise_label(key: tuple[str, str], subject: dict | None = None) -> str:
+    """A premise's name in reports, as the translator names its premises."""
+    kind, name = key
+    if kind == "graph":
+        return f"cited_{name}_rule"
+    declared = subject is not None and subject.get("test") == DECLARED
+    return f"{'declared' if declared else 'cited'}_{name}_level"
+
+
+def grade(claim: dict) -> str:
+    """The grade `Program.grade` gives a claim: its own premise makes it cited, or declared
+    when the author declared it; only its members' premises make it conditional; none
+    makes it proved. The audit requires Lean's grade to be this one."""
+    name, subject = claim["subject_name"], claim["subject"]
+    keys = premise_keys(name, subject)
+    own = ("graph", name) if "analyses" in subject else ("level", name)
+    if own in keys:
+        return "declared" if subject.get("test") == DECLARED else "cited"
+    return "conditional" if keys else "proved"
 
 
 def claims(program: dict) -> str:
@@ -251,7 +309,7 @@ def report(label: str) -> str:
     )
 
 
-def printed(output: str, label: str) -> list | None:
+def printed(output: str, label: str) -> dict | None:
     """The canonical form Lean printed for a program, if it printed one."""
     prefix = f"{MARKER} {label} "
     for line in output.splitlines():
@@ -277,7 +335,7 @@ def binding_problem(output: str, label: str, program: dict) -> str | None:
     found = printed(output, label)
     if found is None:
         return f"Lean printed no canonical form for {label}."
-    expected = verify_claims(program)
+    expected = {"claims": verify_claims(program), "declarations": declarations(program)}
     if found != expected:
         return f"The data Lean read for {label} is not its canonical program."
     return None

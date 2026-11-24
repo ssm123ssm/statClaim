@@ -314,13 +314,25 @@ def lean_markdown(lean: dict) -> list[str]:
     if lean["status"] != "checked":
         return [*lines, lean["message"], ""]
     facts, claims = len(lean["contract_facts"]), lean["claims"]
-    lines += [
-        f"Lean checked this program: its {facts} contract facts hold, and each claim below "
-        "follows from the premises its proof uses. Lean's grade comes from those premises. "
+    where = (
         f"Certificate `{lean['certificate_id'][:12]}` is in "
-        f"`{lean['certificate_directory']}`; `statclaim check-certificate` replays it.",
-        "",
-    ]
+        f"`{lean['certificate_directory']}`; `statclaim check-certificate` replays it."
+    )
+    if lean.get("semantics"):
+        lines += [
+            "Lean checked this program through the StatClaim semantics: the contracts of its "
+            f"{facts} declared tests and combinations hold, and each claim below follows, by "
+            "the soundness theorem, from the premises of the tests it involves. Lean's grade "
+            f"comes from those premises. {where}",
+            "",
+        ]
+    else:
+        lines += [
+            f"Lean checked this program: its {facts} contract facts hold, and each claim "
+            "below follows from the premises its proof uses. Lean's grade comes from those "
+            f"premises. {where}",
+            "",
+        ]
     if claims:
         lines += ["| Claim | Line | Lean | Python |", "| --- | --- | --- | --- |"]
         lines += [
@@ -337,7 +349,14 @@ def lean_markdown(lean: dict) -> list[str]:
             ]
     if lean["premises"]:
         lines += ["Premises: " + ", ".join(f"`{name}`" for name in lean["premises"]) + ".", ""]
-    if lean["refuted"]:
+    if lean["refuted"] and lean.get("semantics"):
+        lines += [
+            f"- `{claim}`: its design stops by a rule that depends on the data, so it supplies "
+            "no sampling law; the semantics states the claim as False, and nothing proves it."
+            for claim in lean["refuted"]
+        ]
+        lines.append("")
+    elif lean["refuted"]:
         lines += [
             f"- `{holder}`: Lean proves its design supplies no sampling law (`{theorem}`), "
             "so no claim is stated."

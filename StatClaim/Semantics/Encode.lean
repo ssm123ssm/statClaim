@@ -124,8 +124,17 @@ def Request.encode (request : Request) : Json :=
   Json.mkObj [("kind", Json.str kind), ("subject_name", Json.str request.test.name),
     ("subject", request.test.encode)]
 
-/-- The claims of a program's `verify` requests, in order. -/
+/-- The type of the binding that declares a test. -/
+def Test.binding : Test → String
+  | .fisher .. => "AnalysisIR"
+  | .assumed .. => "CitedAnalysisIR"
+  | _ => "ComposedFamilyIR"
+
+/-- The claims of a program's `verify` requests, in order, and its declarations. -/
 def Program.encode (program : Program) : Json :=
-  Json.arr (program.requests.map Request.encode).toArray
+  Json.mkObj [("claims", Json.arr (program.requests.map Request.encode).toArray),
+    ("declarations", Json.arr (program.declarations.map fun t =>
+      Json.mkObj [("name", Json.str t.name), ("type", Json.str t.binding),
+        ("value", t.encode)]).toArray)]
 
 end StatClaim.Semantics

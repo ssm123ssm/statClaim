@@ -72,6 +72,16 @@ What the spike changed in the design:
   plan is proved in about 0.1 s beyond the import. Part 2: certificates switch; part 3:
   observational studies and their cited tests.
 
+- Milestone 2, part 2 done: certificates switch. A program the semantics covers gets a
+  certificate stated through it (`lean_translation/certificate.py`): its data, its
+  contracts, one `program.Claim r` per claim proved by `Program.sound`, and the
+  printed encoding and grades, which the audit compares with the canonical program and
+  the grades it records, at issue and on replay. The data also lists every declared
+  test and combination, whose contracts Lean checks and whose encoding is bound; a
+  program with any other kind of declaration keeps today's certificate, so no contract
+  fact is dropped. 40 corpus programs switch; `TRANSLATION_VERSION` is 2. Other
+  programs keep the translation, with the premise collector.
+
 What milestone 1 changed:
 
 - **Laws are keyed by the whole model.** The spike keyed them by arm sizes, so two

@@ -181,6 +181,8 @@ def test_zero_difference_alias_issues_only_the_existing_equality_guarantee(langu
     assert value["claim"]["subject"]["null"]["predicate"] == "equal_proportions"
     bundle = Path(value["evidence"]["certificate"]["directory"])
     proof = (bundle / "Proof.lean").read_text()
-    # The declared null is Fisher's, which Lean decides: equality of the two proportions.
-    assert "∀ parameter, null parameter ↔ analysis.hypothesis parameter" in proof
+    # The declared null is Fisher's, which Lean's contracts decide: equality of the two
+    # proportions.
+    assert "key := .equal_proportions" in proof
+    assert "theorem contracts : program.Contracts := by decide +kernel" in proof
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"

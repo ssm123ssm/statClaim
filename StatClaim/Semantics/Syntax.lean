@@ -88,9 +88,11 @@ inductive Request where
   | typeI (test : Test)
   | familywise (test : Test)
 
-/-- A program's `verify` requests, in order. -/
+/-- A program's `verify` requests, in order, and every test and combination it declares,
+in the order of its bindings. -/
 structure Program where
   requests : List Request
+  declarations : List Test
 
 def Request.test : Request → Test
   | .typeI t => t

@@ -95,8 +95,10 @@ def Request.check : Request → Bool
   | .typeI t => t.single && t.check
   | .familywise t => !t.single && t.check
 
+/-- Every declared test and combination meets its contracts, and every request has its
+shape. -/
 def Program.Contracts (p : Program) : Prop :=
-  p.requests.all Request.check = true
+  (p.declarations.all Test.check && p.requests.all Request.check) = true
 
 instance (p : Program) : Decidable p.Contracts :=
   inferInstanceAs (Decidable (_ = true))

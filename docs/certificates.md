@@ -13,7 +13,24 @@ uv run --locked statclaim check-certificate .statclaim/my-run/lean
 ## What it proves
 
 The certificate's inputs are the source and the canonical program it compiles to.
-Its proof, `Proof.lean`, is the program's translation to Lean
+
+**Programs the semantics covers**
+([proposal](proposals/lean-semantics.md)): two-sided Fisher tests, cited and declared
+tests of two-arm models, Bonferroni families, graphical procedures and fixed
+sequences. `Proof.lean` writes the program as Lean data and proves:
+
+- `contracts`: every declared test and combination meets its contracts, and every
+  claim has its shape, decided by `decide +kernel`;
+- one theorem `program.Claim r` per claim whose designs stop at fixed sizes: the claim,
+  as `StatClaim/Semantics` defines it, holds for every instance meeting the premises of
+  the tests it involves. Each is proved by the soundness theorem, `Program.sound`.
+
+Lean also prints the data's canonical form and each claim's grade. The canonical form
+must be the certificate's program, and each grade the one the certificate records,
+when issued and on replay. A claim whose design stops by a rule that depends on the
+data has no sampling law: the semantics states it as false, and nothing proves it.
+
+**Other programs.** `Proof.lean` is the program's translation to Lean
 ([proposal](proposals/lean-translation.md)):
 
 - a definition for each declaration, and each contract fact Python checks,
@@ -43,7 +60,7 @@ itself is insufficient. There is no `native_decide`.
 | File | Purpose |
 | --- | --- |
 | `inputs.json` | The source, the canonical program, and any claims left out |
-| `Proof.lean` | The translation and the audit, for review |
+| `Proof.lean` | The program's data or translation, and the audit, for review |
 | `Proof.olean` | The compiled, checked proof |
 | `transcript.log` | Build, environment, dependency and Lean transcript |
 | `certificate.json` | Claims with their grades, premises, trust boundary, versions and hashes |
@@ -66,8 +83,9 @@ Certificates of the earlier, per-claim kinds replay with the StatClaim version t
 issued them.
 
 The bundles are not signed and do not establish authorship. The local toolchain,
-the statistical meaning of the Lean definitions, the translator's statements and
-the application binding code are trusted; see the proposal's trusted base.
+the statistical meaning of the Lean definitions, the semantics (or, for other
+programs, the translator's statements) and the application binding code are
+trusted; see the proposals' trusted bases.
 
 ## Assumptions and failures
 

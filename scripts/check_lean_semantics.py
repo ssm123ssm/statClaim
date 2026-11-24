@@ -126,14 +126,6 @@ def statements(denotation: Denotation) -> str:
     return "\n".join(out) + "\n"
 
 
-def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
-    """The premises the semantics gives a test, in its order (`Test.premises`)."""
-    if "analyses" in subject:
-        keys = [k for m in subject["analyses"] for k in premise_keys(m["name"], m["analysis"])]
-        return keys + ([("graph", name)] if subject["method"] == "graphical" else [])
-    return [] if subject["test"] == "fisher" else [("level", name)]
-
-
 def agreement(path: Path, program: dict) -> str:
     """Lean must accept that each claim the translation states is the semantics' claim,
     by definition, and that its premises give the premises each semantic claim assumes."""
@@ -149,7 +141,7 @@ def agreement(path: Path, program: dict) -> str:
         r = index[c.request_id]
         claim = requests[r]["claim"]
         given = [
-            f"h.{fields[key]}" for key in premise_keys(claim["subject_name"], claim["subject"])
+            f"h.{fields[key]}" for key in data.premise_keys(claim["subject_name"], claim["subject"])
         ]
         proof = f"⟨{', '.join([*given, 'trivial'])}⟩" if given else "trivial"
         lines.append(

@@ -70,7 +70,10 @@ def test_the_combination_is_certified_with_its_members_premises_listed(mixed):
     assert certificate["status"] == "program_checked_under_premises"
     # The cited member's level is a premise the combination rests on.
     assert certificate["assumptions"] == ["cited_symptoms_level"]
-    assert "familywise_of_members" in (bundle / "Proof.lean").read_text()
+    # The combination is proved by the semantics' soundness theorem, from that premise.
+    proof = (bundle / "Proof.lean").read_text()
+    assert "theorem claim_0 : program.Claim 0 :=" in proof
+    assert "StatClaim.Semantics.Program.sound program contracts 0" in proof
     checked = recheck_certificate(bundle, project=ROOT)
     assert checked["certificate_status"] == "program_checked_under_premises"
 

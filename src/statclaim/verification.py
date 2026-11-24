@@ -47,11 +47,7 @@ def _program_profile(payload: dict) -> dict:
         # Each claim keeps its own grade: a cited claim in a checked program stays cited.
         "status": "program_checked_under_premises",
         **stated,
-        "trusted_components": [
-            *TRUSTED_COMPONENTS,
-            "The translator's statement of each declaration and claim "
-            "(lean_translation/denote.py, exact.py, statements.py) and the grade rule.",
-        ],
+        "trusted_components": [*TRUSTED_COMPONENTS, certificate.trusted_statement(payload)],
         "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
     }
 

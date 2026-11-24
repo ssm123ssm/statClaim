@@ -17,6 +17,7 @@ from statclaim.lean_translation.data import (
     MARKER,
     Outside,
     binding_problem,
+    declarations,
     fixed,
     program_data,
     report,
@@ -89,12 +90,12 @@ def test_the_writer_refuses_what_it_does_not_read():
 
 def test_binding_compares_the_printed_form_with_the_canonical_claims():
     program = canonical("examples/mixed_endpoints.stat")
-    claims = verify_claims(program)
+    claims = {"claims": verify_claims(program), "declarations": declarations(program)}
     name = "examples/mixed_endpoints.stat"
     line = f"x.lean:1:0: info: {MARKER} {name} {json.dumps(claims)}"
     assert binding_problem(line, name, program) is None
     tampered = copy.deepcopy(claims)
-    tampered[0]["subject"]["alpha"] = "1/40"
+    tampered["claims"][0]["subject"]["alpha"] = "1/40"
     assert binding_problem(f"{MARKER} {name} {json.dumps(tampered)}", name, program)
     assert binding_problem("", name, program)
     with pytest.raises(ValueError):

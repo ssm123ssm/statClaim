@@ -223,7 +223,11 @@ theorem Program.sound (p : Program) (contracts : p.Contracts) (r : ℕ)
   | some q =>
     simp only [found] at premises fixed ⊢
     have member : q ∈ p.requests := List.mem_of_getElem? found
-    have checked : q.check = true := List.all_eq_true.1 contracts q member
+    have requests : p.requests.all Request.check = true := by
+      unfold Program.Contracts at contracts
+      simp only [Bool.and_eq_true] at contracts
+      exact contracts.2
+    have checked : q.check = true := List.all_eq_true.1 requests q member
     exact Request.sound q checked fixed i premises
 
 end
