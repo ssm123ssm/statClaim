@@ -1292,6 +1292,29 @@ test('a run shows what its one Lean build of the whole study checked', async t =
   el('runChecks').click();
   await until(() => section()?.querySelector('.results-lean-python'), 'the disagreement was not shown');
   assert.match(section().querySelector('.results-lean-python').textContent, /verification Lean grades it proved, but StatClaim's contract check grades it conditional/);
+  // A study that only calculates is built in Lean too, and its values are not proved there.
+  const calculated = {...run([]).requests[0], operation: 'calculate', claim: 'meets', status: 'calculated', evidence: null,
+    weakest_link: null, certificate: null, decision: 'target_met',
+    calculation: {n_control: 36, n_treatment: 36, power: '0.8', minimum_power: '0.8', power_target_met: true, typeI_target_met: true}};
+  canned = {...run([]), status: 'calculated', certificate_issued: false, requests: [calculated]};
+  el('runChecks').click();
+  await until(() => /not proved in Lean/.test(section()?.textContent || ''), 'the calculations were not said to be unproved');
+  assert.match(section().textContent, /One Lean build checked the whole study: 2 contract facts hold\. Calculated and simulated values are not proved in Lean\./);
+  // A build Lean rejects says so, with what Lean said.
+  canned = {...run([]), lean: {status: 'failed', stage: 'proof', error: 'analysis_contract: decide failed'}};
+  el('runChecks').click();
+  await until(() => section()?.dataset.state === 'failed', 'the failed build was not shown');
+  assert.match(section().textContent, /Lean did not check this study, though StatClaim's contract check accepts it\. This disagreement is a defect/);
+  assert.equal(section().querySelector('.results-lean-error').textContent, 'analysis_contract: decide failed');
+  assert.equal(section().querySelector('.entry-cert'), null, 'no certificate is offered');
+  // Lean that is not set up says what to do instead, and is no defect.
+  canned = {...run([]), lean: {status: 'failed', stage: 'project', error: 'Lean is not set up in this checkout.'}};
+  el('runChecks').click();
+  await until(() => section()?.textContent.includes('not set up'), 'the setup message was not shown');
+  assert.doesNotMatch(section().textContent, /defect/);
+  canned = run(lean.claims);
+  el('runChecks').click();
+  await until(() => section()?.dataset.state === 'checked', 'the run never showed its Lean build again');
   // An edit leaves it in place, marked as about the earlier version.
   const size = host.querySelector('.stack[data-name="study"] input[aria-label="n control"]');
   size.value = '60';

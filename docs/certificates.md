@@ -1,9 +1,9 @@
 # Certificate and replay guide
 
 Every Lean certificate StatClaim issues is a certificate of a whole program,
-`statclaim_program_certificate`. `statclaim check` builds one for each run that
-verifies a claim; `statclaim report --lean` builds one on request. Replay either
-with `check-certificate`.
+`statclaim_program_certificate`. `statclaim check` builds one for each run, even
+one that only calculates; `statclaim report --lean` builds one on request. Replay
+either with `check-certificate`. Calculated and simulated values are not proved.
 
 ```sh
 uv run --locked statclaim check examples/fisher_result.stat --output .statclaim/my-run

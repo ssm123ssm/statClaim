@@ -163,6 +163,12 @@ Decisions taken in milestone 4 (2026-11-23):
   what is not translated, any grade Python gives otherwise), and `/api/lean` is
   removed. `report --lean` stays for the command line.
 
+- `check` builds every program it runs in Lean, not only those with a `verify`
+  claim, so a program that only calculates gets its declarations' contract facts
+  decided too; its values stay calculated. A run left to calculations builds
+  nothing, and a failed build without claims is reported, not silent. Tests not
+  marked `lean` never start Lean (`tests/conftest.py`).
+
 ## Goal
 
 Every `.stat` program translates to a Lean file whose final theorem states that

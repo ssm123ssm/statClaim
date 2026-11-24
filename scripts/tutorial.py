@@ -148,7 +148,10 @@ def outputs() -> int:
         rendered = []
         for source in sources:
             with tempfile.TemporaryDirectory() as directory:
-                report = check_source(source, project=ROOT, output=Path(directory) / "run")
+                # Outside the checkout, so the lesson runs without a Lean build.
+                report = check_source(
+                    source, project=Path(directory), output=Path(directory) / "run"
+                )
             rendered.append(render_report(report, source))
         # Long messages wrap on the page, and "..." stands for text left out.
         fresh = " ".join(" ".join(rendered).split())

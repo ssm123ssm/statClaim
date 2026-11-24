@@ -1209,17 +1209,21 @@ def run_document(source, backend, only=None):
         "diagnostics": report["diagnostics"],
         "run_directory": report.get("run_directory"),
         "certificate_issued": report["certificate_issued"],
-        "lean": whole_study(report.get("lean_certificate"), program, holder),
+        "lean": whole_study(report.get("lean"), program, holder),
     }
 
 
-def whole_study(bundle, program, holder):
+def whole_study(lean, program, holder):
     """What the run's one Lean build of the study shows, as `statclaim report --lean` says
-    it, with each claim named by its block; None when the run built nothing in Lean."""
-    if not bundle:
+    it, with each claim named by its block; why Lean checked nothing when the build failed;
+    None when the run built nothing in Lean."""
+    if not lean:
         return None
-    issued = json.loads((Path(bundle) / "certificate.json").read_text())
-    shown = described(issued, Path(bundle), program)
+    if lean["status"] == "failed":
+        return {"status": "failed", "stage": lean["stage"], "error": lean["error"]}
+    bundle = Path(lean["certificate_directory"])
+    issued = json.loads((bundle / "certificate.json").read_text())
+    shown = described(issued, bundle, program)
     for claim in shown["claims"]:
         claim["name"] = holder(claim["source"])
     return shown

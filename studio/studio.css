@@ -688,6 +688,7 @@ button:disabled { cursor: default; }
 /* What the run's one Lean build of the whole study shows. */
 .results-lean { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); align-self: stretch; }
 .results-lean.stale { opacity: .62; }
+.results-lean-error { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 11.5px/1.5 var(--mono); color: var(--muted); }
 .results-lean-summary { margin: 0; color: var(--text); }
 .results-sub { margin: 0; font: 750 11px var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
 .value-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

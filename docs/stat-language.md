@@ -399,11 +399,12 @@ under `.statclaim/programs/`. A run retains:
 - `Source.stat`: the UTF-8 source snapshot used for this execution.
 - `run.json`: the source hash, normalized typed objects, source locations,
   dependencies, per-request statuses, diagnostics, and certificate references.
-- `lean/`: the program's certificate. Every `verify` claim the translation
-  states is checked in one Lean build of the whole program
-  (`statclaim_program_certificate`), and each request takes its claim's evidence
-  from it. A claim Lean does not prove is left out and stays unresolved; the rest
-  is then built again in `lean-proved/`. Calculations make no certificate.
+- `lean/`: the program's certificate. Every program a check runs is built in
+  Lean once (`statclaim_program_certificate`), even one that only calculates:
+  Lean decides the declarations' contract facts and proves each `verify` claim
+  the translation states, and each request takes its claim's evidence from it. A
+  claim Lean does not prove is left out and stays unresolved; the rest is then
+  built again in `lean-proved/`. Calculated and simulated values are not proved.
 
 `run.json` is a provenance/reporting record, not a mathematical certificate.
 Its `program` records static objects and typed execution slots. Its `values` map

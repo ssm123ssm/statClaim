@@ -425,6 +425,13 @@ def test_without_lean_a_run_shows_no_whole_study_check(tmp_path):
     assert status == 404
 
 
+def test_a_lean_build_that_failed_is_shown_with_what_lean_said():
+    failed = {"status": "failed", "stage": "proof", "message": "Python accepts…", "error": "e"}
+    shown = {"status": "failed", "stage": "proof", "error": "e"}
+    assert editor.whole_study(failed, None, None) == shown
+    assert editor.whole_study(None, None, None) is None
+
+
 @pytest.mark.lean
 def test_a_run_shows_its_lean_build_with_each_claim_named_by_its_block():
     text = (ROOT / "examples/mixed_endpoints.stat").read_text()

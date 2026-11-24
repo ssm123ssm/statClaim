@@ -218,3 +218,82 @@ def test_a_claim_lean_does_not_prove_stays_open_and_the_rest_is_certified(tmp_pa
     assert set(run.claims) == {1} and set(run.failures) == {2}
     assert "Lean did not prove this claim" in run.failures[2]
     assert run.bundle == tmp_path / "lean-proved"
+
+
+COPD_POWER = ROOT / "replication/copd/power.stat"
+
+
+def test_a_check_that_only_calculates_still_builds_the_program_in_lean(tmp_path, monkeypatch):
+    from statclaim.language_runner import check_source, render_report
+
+    built = []
+
+    def issue(inputs, *, project, output, timeout):
+        built.append(output)
+        return {"certificate_id": "issued", "claims": []}, output
+
+    monkeypatch.setattr("statclaim.language_runner.lean_available", lambda project: True)
+    monkeypatch.setattr("statclaim.program_evidence.certify_program", issue)
+    source = Source(COPD_POWER.read_text(), "power.stat")
+    report = check_source(source, project=ROOT, output=tmp_path / "run")
+    assert built == [tmp_path / "run/lean"]
+    assert report["lean"] == {
+        "status": "checked",
+        "certificate_directory": str(tmp_path / "run/lean"),
+        "contract_facts": 8,
+    }
+    # Lean checked the declarations; the values are still only calculated.
+    assert report["status"] == "calculated" and report["backend_invoked"]
+    text = render_report(report, source)
+    assert (
+        "Whole program in Lean: the declarations meet 8 contract facts, each decided by Lean.\n"
+        "  Calculated and simulated values are not proved in Lean.\n"
+        f"  Certificate: {tmp_path / 'run/lean'}\n"
+        "Program status: calculated"
+    ) in text
+    # Recalculating alone builds nothing.
+    again = check_source(source, project=ROOT, output=tmp_path / "again", operations={"calculate"})
+    assert built == [tmp_path / "run/lean"] and "lean" not in again
+
+
+def test_a_build_lean_rejects_is_reported_once_with_or_without_claims(tmp_path, monkeypatch):
+    from statclaim.language_runner import check_source, render_report
+
+    def fail(*args, **kwargs):
+        raise VerificationError("proof", "tdi_ni_contract: decide failed")
+
+    monkeypatch.setattr("statclaim.language_runner.lean_available", lambda project: True)
+    monkeypatch.setattr("statclaim.program_evidence.certify_program", fail)
+    source = Source(COPD_POWER.read_text(), "power.stat")
+    report = check_source(source, project=ROOT, output=tmp_path / "power")
+    lean = report["lean"]
+    assert (lean["status"], lean["stage"], lean["error"]) == (
+        "failed",
+        "proof",
+        "tdi_ni_contract: decide failed",
+    )
+    assert "This disagreement is a defect" in lean["message"]
+    assert report["status"] == "calculated"
+    assert render_report(report, source).count(lean["message"]) == 1
+    # With claims, each unresolved claim already carries the message.
+    mixed = Source(MIXED.read_text(), "mixed.stat")
+    report = check_source(mixed, project=ROOT, output=tmp_path / "mixed")
+    assert report["lean"]["status"] == "failed"
+    assert report["status"] == "unresolved_obligation"
+    assert render_report(report, mixed).count(report["lean"]["message"]) == 2
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_lean_checks_the_declarations_of_a_program_that_only_calculates(tmp_path):
+    from statclaim.language_runner import check_source
+
+    source = Source(COPD_POWER.read_text(), str(COPD_POWER))
+    report = check_source(source, project=ROOT, output=tmp_path / "run")
+    assert report["status"] == "calculated"
+    assert report["lean"]["status"] == "checked" and report["lean"]["contract_facts"] == 8
+    issued = json.loads((tmp_path / "run/lean/certificate.json").read_text())
+    assert issued["claims"] == [
+        "The program's declarations meet 8 contract facts, each decided by Lean."
+    ]
+    assert recheck_certificate(tmp_path / "run/lean", project=ROOT)["status"] == "verified"

@@ -41,5 +41,6 @@ conditional [overall_error]: familywise(trial)
     Statistical analysis plan edition 2.0, section 4.2.7.3
     Statistical analysis plan edition 2.0, section 4.2.7.4
     Statistical analysis plan edition 2.0, section 4.2.7.5
+Whole program in Lean: the declarations meet 11 contract facts, each decided by Lean.
 Program status: declared
 These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.

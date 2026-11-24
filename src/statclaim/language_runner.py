@@ -453,22 +453,34 @@ def check_source(
             directory.mkdir(parents=True, exist_ok=False)
         (directory / "Source.stat").write_bytes(source.text.encode("utf-8"))
         report["run_directory"] = str(directory)
-    # Every verified claim the translation states is checked in one Lean build of the
-    # whole program; each request then takes its claim's evidence from it.
+    # Every program a check runs is built in Lean once, even one that only calculates:
+    # Lean decides its declarations' contract facts and proves each claim the translation
+    # states, and each verify request takes its claim's evidence from the build. A run
+    # left to calculations and simulations, as when recalculating, builds nothing.
     program_run = None
-    verifying = any(
-        request.operation == "verify" and not blockers and wanted(request)
-        for request, blockers in zip(program.requests, obligations, strict=True)
-    )
-    if verifying and directory is not None and lean_available(project.resolve()):
+    building = operations is None or "verify" in operations
+    if building and directory is not None and lean_available(project.resolve()):
         try:
             program_run = program_evidence.build(
                 source, project=project, output=directory / "lean", timeout=timeout
             )
-        except (ValueError, KeyError, OSError):
+        except (ValueError, KeyError, OSError) as error:
             program_run = None  # every claim is left unresolved
+            report["lean"] = {
+                "status": "failed",
+                "stage": "translation",
+                "message": "StatClaim accepts this program, but could not translate it into "
+                f"Lean. This is a defect; please report it. ({error})",
+                "error": str(error),
+            }
         if program_run is not None and program_run.bundle is not None:
-            report["lean_certificate"] = str(program_run.bundle)
+            report["lean"] = {
+                "status": "checked",
+                "certificate_directory": str(program_run.bundle),
+                "contract_facts": program_run.contract_facts,
+            }
+        elif program_run is not None and program_run.failure is not None:
+            report["lean"] = {"status": "failed", **program_run.failure}
     for index, (request, blockers) in enumerate(zip(program.requests, obligations, strict=True), 1):
         request_diagnostics = list(blockers)
         if blockers:
@@ -519,7 +531,9 @@ def check_source(
     report["values"] = {
         binding.name: serialize(resolve(binding.value, values)) for binding in program.bindings
     }
-    report["backend_invoked"] = any(r["report"]["backend_invoked"] for r in report["requests"])
+    report["backend_invoked"] = program_run is not None or any(
+        r["report"]["backend_invoked"] for r in report["requests"]
+    )
     report["certificate_issued"] = any(
         r["report"]["certificate_issued"] for r in report["requests"]
     )
@@ -1102,6 +1116,26 @@ def calculate_exact(report: dict, subject, request: RequestIR, options: dict) ->
     )
 
 
+def _lean_lines(report: dict) -> list[str]:
+    """What the run's one Lean build of the whole program checked, or why it did not."""
+    lean = report.get("lean")
+    if lean is None:
+        return []
+    if lean["status"] == "failed":
+        # A failed build leaves each claim unresolved with the same message; say it once.
+        shown = {diagnostic["message"] for diagnostic in report["diagnostics"]}
+        return [] if lean["message"] in shown else [lean["message"]]
+    facts = lean["contract_facts"]
+    lines = [
+        f"Whole program in Lean: the declarations meet {facts} contract "
+        f"fact{'' if facts == 1 else 's'}, each decided by Lean."
+    ]
+    if any(request["status"] in ("calculated", "simulated") for request in report["requests"]):
+        lines.append("  Calculated and simulated values are not proved in Lean.")
+    lines.append(f"  Certificate: {lean['certificate_directory']}")
+    return lines
+
+
 def render_report(report: dict, source: Source) -> str:
     lines = []
     for diagnostic in report["diagnostics"]:
@@ -1251,6 +1285,7 @@ def render_report(report: dict, source: Source) -> str:
                 f"  p-value = {details['calculation']['p_value']['fraction']}; "
                 f"decision = {details['decision']}; no formal certificate issued."
             )
+    lines.extend(_lean_lines(report))
     lines.append(f"Program status: {report['status']}")
     if any(request["status"] in STATUS_GRADES for request in report["requests"]):
         lines.append(SCOPE_NOTE)

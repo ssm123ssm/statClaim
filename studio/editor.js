@@ -1266,15 +1266,29 @@ function leanSection(run, stale) {
   const result = run.result?.lean;
   if (!result) return null;
   const section = el('section', 'results-lean');
-  section.dataset.state = 'checked';
+  section.dataset.state = result.status === 'failed' ? 'failed' : 'checked';
   if (stale || result.outdated) section.classList.add('stale');
   section.append(el('h3', 'results-sub', 'Whole study in Lean'));
+  if (result.status === 'failed') {
+    // Lean not set up says what to do; any other failure is a disagreement with StatClaim.
+    if (result.stage === 'project') {
+      section.append(el('p', 'results-lean-summary', result.error));
+      return section;
+    }
+    section.append(el('p', 'results-lean-summary', 'Lean did not check this study, though StatClaim\'s contract check accepts it. This disagreement is a defect; please report it.'));
+    const said = disclosure('What Lean said');
+    said.append(el('pre', 'results-lean-error', result.error));
+    section.append(said);
+    return section;
+  }
   const claims = result.claims || [];
   const facts = result.contract_facts.length;
   const omitted = result.omitted || [];
+  const computed = (run.result.requests || []).some(request => request.status === 'calculated' || request.status === 'simulated');
   section.append(el('p', 'results-lean-summary', 'One Lean build checked the whole study: ' + plural(facts, 'contract fact') +
     (facts === 1 ? ' holds' : ' hold') + (claims.length ? ', and ' + plural(claims.length, 'claim') + (claims.length === 1 ? ' follows from the premises its proof uses.' : ' follow from the premises their proofs use.') : '.') +
-    (omitted.length ? ' Lean did not prove ' + plural(omitted.length, 'claim') + ', so ' + (omitted.length === 1 ? 'it stays' : 'they stay') + ' open.' : '')));
+    (omitted.length ? ' Lean did not prove ' + plural(omitted.length, 'claim') + ', so ' + (omitted.length === 1 ? 'it stays' : 'they stay') + ' open.' : '') +
+    (computed ? ' Calculated and simulated values are not proved in Lean.' : '')));
   for (const claim of claims.filter(claim => claim.python !== claim.grade)) {
     const row = el('p', 'results-note results-lean-python');
     const chip = button(claim.name || claim.claim, () => reveal(claim.source), 'use-chip');

@@ -70,9 +70,10 @@ def run() -> list[dict]:
     rows = []
     with tempfile.TemporaryDirectory() as directory:
         for index, case in enumerate(FIXTURE["cases"]):
+            # Outside the checkout, so the calculations run without a Lean build.
             report = check_source(
                 Source(source(case), "power.stat"),
-                project=ROOT,
+                project=Path(directory),
                 output=Path(directory) / f"case-{index}",
             )
             calculation = report["requests"][0]["report"]["calculation"]

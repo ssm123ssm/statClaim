@@ -62,5 +62,6 @@ cited [onset_error]: typeI(onset_of_action_sup)
     Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal Statistical Society B 20(2), 215-242.
     Hosmer, D. W., Lemeshow, S. and Sturdivant, R. X. (2013). Applied Logistic Regression, 3rd ed. Wiley.
   Checked in Lean: the declarations' contract facts hold, and the claim rests on its own premise.
+Whole program in Lean: the declarations meet 18 contract facts, each decided by Lean.
 Program status: cited
 These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.

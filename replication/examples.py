@@ -68,9 +68,10 @@ def main() -> int:
             if needs_lean != lean:
                 continue
             path = ROOT / name
+            # Without --lean the checks run outside the checkout, so Lean builds nothing.
             report = check_source(
                 Source(path.read_text(), str(path)),
-                project=ROOT,
+                project=ROOT if lean else Path(directory),
                 output=Path(directory) / f"example-{index}",
             )
             found = tuple(request["value"]["status"] for request in report["requests"])

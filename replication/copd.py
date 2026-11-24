@@ -30,10 +30,12 @@ def source(name: str) -> Source:
     return Source(path.read_text(), f"replication/copd/{name}.stat")
 
 
-def checked(name: str) -> str:
-    """The rendered check, without run folders and certificate paths, which differ by machine."""
+def checked(name: str, lean: bool) -> str:
+    """The rendered check, without run folders and certificate paths, which differ by machine.
+    Without Lean the check runs outside the checkout, so it builds nothing in Lean."""
     with tempfile.TemporaryDirectory() as directory:
-        report = check_source(source(name), project=ROOT, output=Path(directory) / name)
+        project = ROOT if lean else Path(directory)
+        report = check_source(source(name), project=project, output=Path(directory) / name)
     lines = render_report(report, source(name)).splitlines()
     kept = [line for line in lines if not line.startswith(("Source snapshot", "  Certificate:"))]
     return "\n".join(kept) + "\n"
@@ -46,10 +48,10 @@ def reported(name: str) -> str:
 
 def outputs(lean: bool) -> dict[str, str]:
     if lean:
-        return {f"{name}_check.txt": checked(name) for name in ENCODINGS}
+        return {f"{name}_check.txt": checked(name, lean=True) for name in ENCODINGS}
     return {
         **{f"{name}_report.md": reported(name) for name in ENCODINGS},
-        "power_check.txt": checked("power"),
+        "power_check.txt": checked("power", lean=False),
     }
 
 

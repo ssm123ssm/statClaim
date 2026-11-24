@@ -1,12 +1,14 @@
 """The program certificate a run builds once, and the evidence each verified claim takes
 from it. See docs/proposals/lean-translation.md.
 
-`statclaim check` translates the whole program and builds it in Lean once
-(`lean_translation/certificate.py`). Each `verify` request then runs as before, computing
-what it reports, and where it would have built a certificate of its own it takes the
-program certificate's evidence for its claim instead (`attach`): its status follows the
-grade Lean's proof gives it. A claim Lean does not prove is left out of the certificate
-and stays unresolved, with Lean's message; the rest is still certified.
+`statclaim check` translates every program it runs and builds it in Lean once
+(`lean_translation/certificate.py`), even one that only calculates: Lean decides the
+declarations' contract facts and proves each claim the translation states. Each `verify`
+request then runs as before, computing what it reports, and where it would have built a
+certificate of its own it takes the program certificate's evidence for its claim instead
+(`attach`): its status follows the grade Lean's proof gives it. A claim Lean does not
+prove is left out of the certificate and stays unresolved, with Lean's message; the rest
+is still certified. Calculated and simulated values are not proved.
 
 Result binding (trusted): a request takes only the evidence of the claim the translation
 states for that request.
@@ -63,6 +65,8 @@ class ProgramRun:
     claims: dict  # request id → the claim the certificate proves for it
     failures: dict  # request id → why Lean did not prove its claim
     request: int = 0
+    contract_facts: int = 0  # how many contract facts of the declarations Lean decided
+    failure: dict | None = None  # why Lean checked nothing: its stage, message and error
 
 
 # The program run of the request `check_source` is running; unset outside a run.
@@ -70,14 +74,14 @@ CURRENT: ContextVar[ProgramRun | None] = ContextVar("statclaim_program_run", def
 
 
 def build(source: Source, *, project: Path, output: Path, timeout: float) -> ProgramRun:
-    """Translate the program and build it in Lean once. A claim whose proof Lean rejects
-    is left out and the rest built again; an error in the declarations leaves every claim
-    unresolved, with Lean's message naming the disagreement."""
+    """Translate the program and build it in Lean once, with or without claims. A claim
+    whose proof Lean rejects is left out and the rest built again; an error in the
+    declarations leaves the program unchecked and every claim unresolved, with Lean's
+    message naming the disagreement."""
     inputs = certificate.payload(source)
     stated = certificate.denotation(inputs)
     requests = {claim.request_id: claim for claim in stated.claims}
-    if not requests:
-        return ProgramRun(None, None, {}, {})
+    facts = sum(fact.check != "comment" for fact in stated.contracts)
     failures: dict = {}
     for attempt in (1, 2):
         try:
@@ -102,13 +106,16 @@ def build(source: Source, *, project: Path, output: Path, timeout: float) -> Pro
                 )
                 if error.stage == "project":
                     message = str(error)
-                return ProgramRun(None, None, {}, {rid: message for rid in requests})
+                failure = {"stage": error.stage, "message": message, "error": str(error)}
+                return ProgramRun(
+                    None, None, {}, {rid: message for rid in requests}, failure=failure
+                )
             for claim in stated.claims:
                 if claim.name in failing:
                     failures[claim.request_id] = f"Lean did not prove this claim: {error}"
             inputs = {**inputs, "omitted": sorted(failing)}
     listed = {claim["request_id"]: claim for claim in certificate.claims(inputs)}
-    return ProgramRun(issued, bundle, listed, failures)
+    return ProgramRun(issued, bundle, listed, failures, contract_facts=facts)
 
 
 def attach(report: dict) -> dict | None:
