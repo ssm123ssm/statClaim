@@ -34,3 +34,8 @@ public import StatClaim.Interface.Program
 public import StatClaim.Generated.Methods
 public import StatClaim.Interface.Families
 public import StatClaim.Interface.Tactic
+public import StatClaim.Semantics.Syntax
+public import StatClaim.Semantics.Meaning
+public import StatClaim.Semantics.Contracts
+public import StatClaim.Semantics.Grades
+public import StatClaim.Semantics.Theorems

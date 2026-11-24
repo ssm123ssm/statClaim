@@ -61,6 +61,7 @@ lean-check:
 	lake env lean tests/lean/Composition.lean
 	lake env lean tests/lean/Policies.lean
 	lake env lean tests/lean/Interface.lean
+	lake env lean tests/lean/Semantics.lean
 	uv run --locked python scripts/check_lean_translation.py
 	uv run --locked python scripts/check_lean_rejections.py
 	lake env lean examples/FisherObjects.lean

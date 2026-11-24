@@ -47,6 +47,9 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   level premises, families over joint studies, the shape of a program's
   theorem, and the `statclaim` tactic. `StatClaim/Generated/Methods.lean` is
   the cited-method registry in Lean, written by `scripts/update_lean_premises.py`.
+  `StatClaim/Semantics/` defines what a compiled program means, as Lean functions of
+  the program as data ([proposal](proposals/lean-semantics.md)); certificates do not
+  use it yet.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `studio/`: the block editor. `api.py` answers its requests on the same compiler,
   runner and language-server features; `server.py` serves it on this machine, and

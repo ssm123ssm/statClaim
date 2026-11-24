@@ -3,6 +3,48 @@
 Status: approved 2026-11-24. Open questions 1 and 2 are decided as proposed; how
 the paper describes this waits until the spike and phase 1 show how it goes.
 
+Progress:
+
+- Milestone 0 done: go. `StatClaim/Semantics/` defines, for two-sided Fisher tests,
+  cited trial tests, Bonferroni families, graphical procedures and fixed sequences:
+  the program as data (`Syntax`), its instance, premises and claims (`Meaning`), its
+  contract checks (`Contracts`) and grades (`Grades`), 469 trusted lines, and proves
+  once that every program's premises hold together (`Theorems`).
+  `tests/lean/Semantics.lean` states `examples/mixed_endpoints.stat` and
+  `replication/copd/design_cited.stat` this way. Lean accepts `Iff.rfl` between each
+  semantic claim and today's statement, so today's proofs prove the new claims
+  unchanged. Wrong levels, an unsupported null, too few participants, an overstated
+  grade and a missing premise are each refused where expected. No new axioms.
+
+  | Program, CPU seconds | Today | Semantics | Peak memory |
+  | --- | --- | --- | --- |
+  | `import StatClaim` alone | 1.03 | | 2.96 GB |
+  | `mixed_endpoints` | 1.83 | 1.82 | 3.02 GB both |
+  | COPD plan | 2.05 | 2.70 | 3.03 GB both |
+
+  The COPD plan costs 1.3 times today's build, inside the 2× limit. Contract checks
+  and grades by `decide +kernel` cost nothing measurable; the extra time is Lean
+  comparing the semantic claim of the sequence with its proof.
+
+What the spike changed in the design:
+
+- **One instance type for every program.** `Instance` gives a law for each pair of
+  arm sizes, and a rejection event and slack for each test name, so the trivial
+  instance meets every program's premises and non-vacuity is one theorem.
+- **Data carries its proofs.** Sizes are `FixedSampleDesign`s and levels
+  `SignificanceLevel`s, written with `by decide` and `by norm_num`, so positive
+  sizes and levels in [0, 1] are checked by typing.
+- **Positions name premises.** `p.premises` lists each request's premises in order;
+  a claim's `uses` are positions in that list.
+- **Contracts belong to the certified statement.** A null form a model has no
+  reading for is read as `True`, the strongest claim; the contracts refuse such
+  programs, so the audit requires them.
+- **Structural recursion only.** Lean silently compiled a mutual definition by
+  well-founded recursion, which does not unfold, when its two motives lived in
+  different universes. Every mutual definition now says `termination_by structural`.
+- **`decide +kernel` for contracts.** Plain `decide` cannot reduce rational
+  arithmetic; the kernel can.
+
 ## Goal
 
 Today Python decides what each certified claim says: the translator writes every
@@ -68,20 +110,22 @@ model.
 `StatClaim/Semantics/Meaning.lean` defines, once for every program:
 
 ```lean
-/-- The abstract parts: a law for each continuous or survival model, and a
-rejection event and slack for each cited or declared test. -/
-structure Program.Instance (p : Program) : Type 1 where
-  model : Fin p.abstractModels.length → AbstractModel
-  test : (k : Fin p.assumedTests.length) → TestInterface (model (p.modelOf k)).Outcome
-  slack : Fin p.assumedTests.length → ℝ
+/-- Everything a program leaves open, the same type for every program: a law for
+each pair of arm sizes, and a rejection event and slack for each test name. -/
+structure Instance where
+  laws : ℕ → ℕ → AbstractModel
+  test : String → (model : Model) → TestInterface (model.view laws).Outcome
+  slack : String → ℝ
+  graph : String → (vs : List View) → (m : ℕ) → ∀ (Θ Ω : Type) [MeasurableSpace Ω],
+    JointStudy Θ Ω → Views Θ Ω vs → Fin m → Set Ω
 
-def Program.Contracts (p : Program) : Prop            -- decidable
-def Program.premise (p : Program) (k : Fin p.premiseCount) : p.Instance → Prop
-def Request.Holds (p : Program) (i : p.Instance) : Request → Prop
+def Program.Contracts (p : Program) : Prop             -- decidable
+def Program.premises (p : Program) : List Premise
+def Request.Holds (i : Instance) : Request → Prop
 
-/-- Request `r` follows from the premises listed in `uses`, and from no others. -/
-def Program.ClaimFrom (p : Program) (r : Fin p.requests.length) (uses : List (Fin p.premiseCount)) : Prop :=
-  ∀ i, (∀ k ∈ uses, p.premise k i) → (p.requests.get r).Holds p i
+/-- Request `r` holds for every instance meeting the premises at positions `uses`. -/
+def Program.ClaimFrom (p : Program) (r : ℕ) (uses : List ℕ) : Prop :=
+  ∀ i, p.Using i uses → p.claimAt r i
 ```
 
 The definitions use the objects that translated files already use: the
@@ -99,12 +143,13 @@ claim can never be certified, and such a premise can never make a claim vacuous.
 ```lean
 def program : StatClaim.Semantics.Program := { requests := [ ... ] }  -- data, from Python
 
-theorem contracts : program.Contracts := by decide
+theorem contracts : program.Contracts := by decide +kernel
 
 theorem claim_0 : program.ClaimFrom 0 [0] := by ...   -- untrusted proof, from Python
 theorem claim_1 : program.ClaimFrom 1 [] := by ...
 
-theorem grades : program.grades [[0], []] = [.conditional, .proved] := by decide
+theorem grades : [program.grade 0 [0], program.grade 1 []] = [.conditional, .proved] := by
+  decide +kernel
 ```
 
 The audit checks three things beyond what it checks today:
@@ -130,17 +175,18 @@ test catches. The collector and its trusted meta-code are deleted.
 
 `StatClaim/Semantics/Theorems.lean` proves, for every program:
 
-- **The premises can hold together**: `p.Contracts → ∃ i, ∀ k, p.premise k i`,
-  witnessed by tests that never reject. This replaces the witness in each file.
+- **The premises can hold together** (`Program.satisfiable`, done): the trivial
+  instance, whose tests never reject, meets every premise of every program, without
+  any contract. This replaces the witness in each file.
 - **Grades never overstate**: adding premises to `uses` never gives a stronger
   grade, and a claim whose `uses` includes a cited or declared premise is never
   graded proved.
 - **Large-sample claims keep their slack**: a claim that rests on a
   large-sample premise states its bound with that premise's slack.
 
-These are the general results suggestion 2 asked for. Contracts become decidable
-propositions that the kernel evaluates, so a separate verified checker is not
-needed.
+These are the general guarantees a separately verified contract checker would give.
+Contracts are computed from the data and evaluated by the kernel, so no such checker
+is needed.
 
 ## Scope
 
@@ -154,7 +200,7 @@ procedures and their nesting, including the whole COPD plan.
 **Phase 2: exact claims.** This covers the Type I claims of the other exact
 tests, results, intervals and planning claims, which are today the job of
 `exact.py` and `statements.py`. It waits for a common Lean interface for exact
-modules (suggestion 4, proposed separately). With that interface, one function
+modules, proposed separately. With that interface, one function
 states every exact claim. Without it, phase 2 would copy `statements.py` into
 Lean case by case.
 
@@ -197,15 +243,19 @@ pushed.
    `lean_translation/data.py` writes `program`; the audit checks that the
    encoding equals the canonical program. Nothing is stated through the semantics
    yet.
-2. **Single tests.** `Meaning.lean` for models, designs, nulls and tests;
-   agreement examples for every single-test claim in the corpus; such programs
-   switch.
-3. **Combinations.** Families, sequences, looks, graphs and nesting; agreement
+2. **Single tests.** Extend `Meaning.lean` to phase 1's other single tests:
+   declared tests, survival models, observational studies and their cited tests,
+   and designs without a sampling law. The corpus checker writes the agreement
+   examples for every single-test claim; such programs switch.
+3. **Combinations.** Interim looks and the remaining nesting rules (Bonferroni
+   families, graphs and fixed sequences are in since milestone 0); agreement
    examples; the COPD plan switches.
-4. **Grades and theorems.** `ClaimFrom` with `uses`, grades proved by `decide`,
-   the collector deleted, `Theorems.lean`. The rejection-agreement table (test 3)
-   is re-run; a changed outcome, such as an ill-typed null becoming a contract
-   failure, is reviewed and recorded.
+4. **Grades and theorems.** The grade function and the non-vacuity theorem exist
+   since milestone 0. What remains: the certified statement (contracts and every
+   claim with its `uses`), the audit's check of its type, grades proved by
+   `decide +kernel`, and the collector deleted. The rejection-agreement table
+   (test 3) is re-run; a changed outcome, such as an ill-typed null becoming a
+   contract failure, is reviewed and recorded.
 5. **Phase 2**, after the common module interface: exact Type I, results,
    intervals and plans, by the same steps. `exact.py` and `statements.py` then
    leave the trusted base.

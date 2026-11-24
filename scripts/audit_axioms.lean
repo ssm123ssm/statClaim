@@ -137,7 +137,11 @@ run_cmd do
     ``StatClaim.Interface.looks_member,
     ``StatClaim.Interface.family_member,
     ``StatClaim.Interface.sequence_member,
-    ``StatClaim.Interface.familywise_of_nothing]
+    ``StatClaim.Interface.familywise_of_nothing,
+    ``StatClaim.Semantics.ForallViews.intro,
+    ``StatClaim.Semantics.Marginals.intro,
+    ``StatClaim.Semantics.Premise.trivial_holds,
+    ``StatClaim.Semantics.Program.satisfiable]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()
