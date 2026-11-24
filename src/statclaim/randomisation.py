@@ -17,6 +17,8 @@ from fractions import Fraction
 from math import comb, prod
 
 from statclaim.fisher import parse_alpha, validate_alpha
+from statclaim.lean_translation import statements as S
+from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.planning import _audit
 
 RANDOMISATION_KIND = "statclaim_randomisation_certificate"
@@ -380,27 +382,16 @@ def render_randomisation_proof(test: RandomisationTest, input_sha256: str) -> st
     numerator, denominator = test.alpha.as_integer_ratio()
     units, treated, splits = test.units, test.treated, test.splits
     if test.draws:
-        tail = _drawn_tail(
-            test.draws,
-            "Randomisation.Assignment units → (Fin units → Value) → Statistic",
-            "Randomisation.PotentialOutcomes units Value",
-            "Randomisation.SharpNull outcomes",
-            "Randomisation.law units treatedUnits",
-            "Randomisation.splits units treatedUnits",
-            "Value",
+        claimed = S.randomisation_typeI(
+            C, "declaredLevel.value", "draws", units="units", treated="treatedUnits"
         )
+        tail = _drawn_tail(test.draws, claimed, "Randomisation.splits units treatedUnits")
     else:
         tail = f"""-- No p-value is below one over the number of splits (Randomisation.pValue_ge).
 theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
   norm_num [declaredLevel]
 
-theorem checked_typeI {{Value : Type}} {{Statistic : Type}} [LinearOrder Statistic]
-    (statistic : Randomisation.Assignment units → (Fin units → Value) → Statistic)
-    (outcomes : Randomisation.PotentialOutcomes units Value)
-    (sharp : Randomisation.SharpNull outcomes) :
-    (Randomisation.law units treatedUnits).real
-        (Randomisation.rejection units treatedUnits statistic outcomes declaredLevel.value) ≤
-      (declaredLevel.value : ℝ) :=
+{S.randomisation_typeI(C, "declaredLevel.value", units="units", treated="treatedUnits").header()} :=
   Randomisation.typeI_of_level units treatedUnits statistic outcomes sharp
     declaredLevel.value declaredLevel.nonnegative
 """
@@ -440,15 +431,8 @@ def _render_grouped_proof(test: RandomisationTest, input_sha256: str) -> str:
     groups = ", ".join(f"({size}, {treated})" for size, treated in test.groups)
     splits = test.splits
     if test.draws:
-        tail = _drawn_tail(
-            test.draws,
-            "Randomisation.GroupedAssignment groups → Record → Statistic",
-            "Randomisation.GroupedAssignment groups → Record",
-            "∀ first second, outcomes first = outcomes second",
-            "Randomisation.groupedLaw groups",
-            "Randomisation.groupedSplits groups",
-            "Record",
-        )
+        claimed = S.randomisation_typeI(C, "declaredLevel.value", "draws", groups="groups")
+        tail = _drawn_tail(test.draws, claimed, "Randomisation.groupedSplits groups")
     else:
         tail = (
             (
@@ -458,13 +442,7 @@ def _render_grouped_proof(test: RandomisationTest, input_sha256: str) -> str:
             + f"""theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
   norm_num [declaredLevel]
 
-theorem checked_typeI {{Record : Type}} {{Statistic : Type}} [LinearOrder Statistic]
-    (statistic : Randomisation.GroupedAssignment groups → Record → Statistic)
-    (outcomes : Randomisation.GroupedAssignment groups → Record)
-    (sharp : ∀ first second, outcomes first = outcomes second) :
-    (Randomisation.groupedLaw groups).real
-        (Randomisation.uniformRejection (Randomisation.groupedSplits groups) statistic outcomes
-          declaredLevel.value) ≤ (declaredLevel.value : ℝ) :=
+{S.randomisation_typeI(C, "declaredLevel.value", groups="groups").header()} :=
   Randomisation.groupedTypeI_of_level groups statistic outcomes sharp declaredLevel.value
     declaredLevel.nonnegative
 """
@@ -499,9 +477,7 @@ end StatClaimCertificate
 {_audit(GROUPED_THEOREMS, input_sha256)}"""
 
 
-def _drawn_tail(
-    draws: int, statistic: str, outcomes: str, sharp: str, law: str, support: str, record: str
-) -> str:
+def _drawn_tail(draws: int, claimed: S.Theorem, support: str) -> str:
     """The attainable-level and Type I theorems of a Monte Carlo p-value with `draws` draws.
     The law is the product of independent uniform draws (Randomisation.pi_uniform)."""
     return f"""def draws : ℕ := {draws}
@@ -511,13 +487,7 @@ theorem checked_attainable : (1 : ℚ) / (draws + 1) ≤ declaredLevel.value := 
   norm_num [draws, declaredLevel]
 
 -- The observed assignment and the draws are independent, each with the design's law.
-theorem checked_typeI {{{record} : Type}} {{Statistic : Type}} [LinearOrder Statistic]
-    (statistic : {statistic})
-    (outcomes : {outcomes})
-    (sharp : {sharp}) :
-    (MeasureTheory.Measure.pi (fun _ : Fin (draws + 1) => {law})).real
-        (Randomisation.drawnRejection draws statistic outcomes declaredLevel.value) ≤
-      (declaredLevel.value : ℝ) :=
+{claimed.header()} :=
   Randomisation.drawnRejection_le_of_level ({support}) draws statistic outcomes sharp
     declaredLevel.value declaredLevel.nonnegative
 """

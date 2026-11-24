@@ -78,6 +78,12 @@ Decisions taken in milestone 4 (2026-11-23):
   claims in all: results of association, rate, matched, one-sample and
   two-stage tests, and exact binomial, difference, effect, rate-ratio and
   matched intervals. Families whose members include exact tests wait for part 3.
+- Milestone 5, part 3a done: `lean_translation/statements.py` states every
+  theorem the result, interval and randomisation certificates claim, once.
+  `verify`'s templates and `exact.py` both take their statements from it, so
+  the duplication of part 2 is gone; the templates keep only their definitions
+  and proofs. Every certificate the test suite and the corpus render is
+  unchanged, byte for byte.
 
 ## Goal
 
@@ -432,6 +438,7 @@ Trusted, kept small and reviewed line by line:
 | Interface library | `StatClaim/Interface/` | `LevelPremise`, its slack and the program-theorem shape: one wrong inequality empties every cited composition | Size budget, review, instances checked in known cases |
 | Premise data and generator | The registry fields that state guarantees (relation, scope, bound, null form), `scripts/update_lean_premises.py`, `StatClaim/Generated/Methods.lean` | They decide what each cited guarantee says in Lean | Method version fixture, `--check`, reviewed diffs of the generated file |
 | Translator denotation | `lean_translation/denote.py` and `exact.py`: the Lean term each declaration denotes and the proposition each claim becomes; `table.py` says which constructors have one | A wrong entry gives a proof of the wrong statement | Table-driven, golden files, template equivalence |
+| Certificate statements | `lean_translation/statements.py`: every theorem an exact certificate claims, shared by `verify`'s templates and the translator | One function states a theorem in both places | Golden files, template equivalence, byte-for-byte certificate comparison when changed |
 | Values from source | The parser, elaboration of values and `language.normalize` | The statement must be about the study the source describes | Source and canonical input kept in each certificate; readings show each value in words; round-trip tests |
 | Grade from premises | `lean_translation/grades.py`: the grade rule, and the dependency collector that lists the premises each claim's proof uses | Together they decide the evidence grade shown | Exhaustive tests over premise kinds, with proofs that use and avoid each one |
 | Certificate checks | The audit, completion marker, input binding and replay in `verification.py` | They decide whether a build counts | Existing tests, including tampered bundles |

@@ -45,6 +45,7 @@ from statclaim.language import (
 from statclaim.language.ir import TwoArmModelIR
 from statclaim.language_compiler import requirements
 from statclaim.lean_translation import exact
+from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.emit import Namer, comment, rational, real
 from statclaim.lean_translation.emit import name as lean
 from statclaim.lean_translation.exact import ExactAnalysis, ExactResult
@@ -539,7 +540,7 @@ class Denoter:
                     "same_null",
                 )
             )
-            statement = f"({lean(base)}.typeIClaim {bound}).statement"
+            statement = S.analysis_typeI(lean(base), bound).proposition()
         elif isinstance(ir, AssociationAnalysisIR) and test.groups is not None:
             kind = "groups"
             first, second = test.groups
@@ -564,32 +565,19 @@ class Denoter:
         elif isinstance(ir, AssociationAnalysisIR):
             kind = "mixture"
             # Only the total is fixed: the number exposed is binomial too.
-            statement = (
-                f"∀ q p : unitInterval, ({modules}.Association.mixtureLaw {test.n} q p).real\n"
-                f"      ({modules}.Association.mixtureRejection {test.n} {lean(level)}.value) ≤ "
-                f"{bound}"
-            )
+            claimed = S.mixture_typeI(S.PROGRAM, str(test.n), f"{lean(level)}.value")
+            statement = claimed.proposition()
         elif isinstance(ir, RandomisationAnalysisIR):
             kind = "randomisation"
             self.randomisation_contracts(base, test)
-            statement = exact.randomisation(test, lean(level))
+            statement = exact.randomisation(test, f"{lean(level)}.value").proposition()
         elif isinstance(ir, RateAnalysisIR):
             kind = "rate"
-            # For every total rate and every share of person-time, under equal rates.
-            statement = (
-                f"∀ (total : NNReal) (share : unitInterval),\n"
-                f"      ({modules}.Incidence.ratesLaw total share).real\n"
-                f"        ({modules}.Incidence.given (fun n =>\n"
-                f"          {modules}.Incidence.rejectionAt share n {bound})) ≤ {bound}"
-            )
+            statement = S.rate_typeI(S.PROGRAM, f"{lean(level)}.value").proposition()
         else:
             kind = "matched"
-            # For every probability that a pair is discordant, under no association.
-            statement = (
-                f"∀ δ : unitInterval,\n"
-                f"      ({modules}.Matched.pairsLaw {test.pairs} δ {modules}.Matched.half).real\n"
-                f"        ({modules}.Matched.pairsRejection {test.pairs} {bound}) ≤ {bound}"
-            )
+            claimed = S.pairs_typeI(S.PROGRAM, str(test.pairs), f"{lean(level)}.value")
+            statement = claimed.proposition()
         return ExactAnalysis(base, kind, lean(level), statement, test, names)
 
     def randomisation_contracts(self, base: str, test) -> None:

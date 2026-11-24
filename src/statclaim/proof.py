@@ -10,6 +10,8 @@ from fractions import Fraction
 from statclaim.design import Design
 from statclaim.family import FisherFamily
 from statclaim.fisher import FisherResult, validate_alpha
+from statclaim.lean_translation import statements as S
+from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.planning import _audit, _lean_list, fisher_bounds
 
 CHECKED_THEOREMS = [
@@ -58,8 +60,7 @@ theorem checked_sections : FisherOneSided.HintSections declaredSizes.nControl
     declaredSizes.nTreatment bounds := by
   decide +kernel
 
-theorem checked_typeI :
-    (declaredAnalysis.typeIClaim (declaredLevel.value : ℝ)).statement :=
+{S.analysis_typeI("declaredAnalysis", "(declaredLevel.value : ℝ)").header()} :=
   FisherOneSided.typeI_of_hints declaredSizes declaredLevel {an} {ad} (by decide)
     (by norm_num [declaredLevel]) bounds checked_region checked_sections"""
 
@@ -105,16 +106,14 @@ open StatClaim StatClaim.Modules
 
 {_one_sided_preamble(design)}
 
-theorem checked_counts : 0 < {nc} ∧ 0 < {nt} ∧ {xc} ≤ {nc} ∧ {xt} ≤ {nt} := by decide
+{S.counts(nc, nt, xc, xt).header()} := by decide
 
-theorem checked_p_value : FisherOneSided.lowerPValue {nc} {nt} {xc + xt} {xc} =
-    ({numerator} : ℚ) / {denominator} := by
+{S.one_sided_p_value(C, nc, nt, xc + xt, xc, (numerator, denominator)).header()} := by
   apply FisherOneSided.lowerPValue_eq_of_cross_product {nc} {nt} {xc + xt} {xc}
     {numerator} {denominator} (by decide) (by decide)
   decide +kernel
 
-theorem checked_decision :
-    (FisherOneSided.lowerPValue {nc} {nt} {xc + xt} {xc} ≤ ({an} : ℚ) / {ad}) ↔ {truth} := by
+{S.one_sided_decision(C, nc, nt, xc + xt, xc, (an, ad), truth).header()} := by
   rw [checked_p_value]
   norm_num
 
@@ -317,37 +316,30 @@ set_option maxHeartbeats 2000000
 namespace StatClaimCertificate
 open StatClaim
 
-theorem checked_counts : 0 < {nc} ∧ 0 < {nt} ∧ {xc} ≤ {nc} ∧ {xt} ≤ {nt} := by decide
+{S.counts(nc, nt, xc, xt).header()} := by decide
 
-theorem checked_support (k : ℕ) :
-    k ∈ hypergeometricSupport {nc} {nt} {total} ↔
-      {result.support_min} ≤ k ∧ k ≤ {result.support_max} := by
+{S.support(C, nc, nt, total, result.support_min, result.support_max).header()} := by
   simpa only [show {total} - {nt} = {result.support_min} from by decide,
     show min {nc} {total} = {result.support_max} from by decide] using
     mem_hypergeometricSupport_iff {nc} {nt} {total} k
 
-theorem checked_p_value : hypergeometricPValue {nc} {nt} {total} {xc} =
-    ({numerator} : ℚ) / {denominator} := by
+{S.p_value(C, nc, nt, total, xc, (numerator, denominator)).header()} := by
   apply hypergeometricPValue_eq_of_cross_product {nc} {nt} {total} {xc}
     {numerator} {denominator} (by decide) (by decide)
   decide +kernel
 
-theorem checked_table_probability : hypergeometricMass {nc} {nt} {total} {xc} =
-    ({observed_num} : ℚ) / {observed_den} := by
+{S.table_probability(C, nc, nt, total, xc, (observed_num, observed_den)).header()} := by
   apply hypergeometricMass_eq_of_cross_product {nc} {nt} {total} {xc}
     {observed_num} {observed_den} (by decide) (by decide)
   decide +kernel
 
-theorem checked_decision :
-    (({xc}, {xt}) ∈ fisherRejectionRegionAt {nc} {nt} (({an} : ℚ) / {ad})) ↔ {truth} := by
+{S.fisher_decision(C, nc, nt, xc, xt, (an, ad), truth).header()} := by
   simp only [fisherRejectionRegionAt, Finset.mem_filter, binomialCountSupport,
     Finset.mem_product, Finset.mem_range]
   rw [checked_p_value]
   norm_num
 
-theorem checked_typeI (p : unitInterval) :
-    (fisherNullLaw {nc} {nt} p).real (fisherRejectionRegionAt {nc} {nt} (( {an} : ℚ) / {ad})) ≤
-      (({an} : ℝ) / {ad}) :=
+{S.fisher_typeI(C, nc, nt, (an, ad)).header()} :=
   by
     have bound := fisher_typeI_error_le_alpha {nc} {nt} p (({an} : ℚ) / {ad}) (by norm_num)
     convert bound using 1 <;> norm_num

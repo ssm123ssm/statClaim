@@ -85,24 +85,32 @@ end request_2_claim_checks
 set_option maxRecDepth 100000 in
 theorem request_2_claim (i : Instance) (premises : Premises i) :
     (0 < 100 ∧ 0 < 100 ∧ 10 ≤ 100 ∧ 25 ≤ 100) ∧
-    (∀ (k : ℕ), k ∈ StatClaim.hypergeometricSupport 100 100 35 ↔
+    (∀ (k : ℕ),
+      k ∈ StatClaim.hypergeometricSupport 100 100 35 ↔
       0 ≤ k ∧ k ≤ 35) ∧
-    (StatClaim.hypergeometricPValue 100 100 35 10 = (19912805355158606332329 : ℚ) / 2341699062001756564467919) ∧
-    (StatClaim.hypergeometricMass 100 100 35 10 = (537397138428741731448 : ℚ) / 180130697077058197266763) ∧
+    (StatClaim.hypergeometricPValue 100 100 35 10 =
+    (19912805355158606332329 : ℚ) / 2341699062001756564467919) ∧
+    (StatClaim.hypergeometricMass 100 100 35 10 =
+    (537397138428741731448 : ℚ) / 180130697077058197266763) ∧
     (((10, 25) ∈ StatClaim.fisherRejectionRegionAt 100 100 ((1 : ℚ) / 20)) ↔ True) ∧
-    (∀ (p : unitInterval), (StatClaim.fisherNullLaw 100 100 p).real (StatClaim.fisherRejectionRegionAt 100 100 ((1 : ℚ) / 20)) ≤
+    (∀ (p : unitInterval),
+      (StatClaim.fisherNullLaw 100 100 p).real (StatClaim.fisherRejectionRegionAt 100 100 (( 1 : ℚ) / 20)) ≤
       ((1 : ℝ) / 20)) :=
   ⟨request_2_claim_checks.checked_counts, request_2_claim_checks.checked_support, request_2_claim_checks.checked_p_value, request_2_claim_checks.checked_table_probability, request_2_claim_checks.checked_decision, request_2_claim_checks.checked_typeI⟩
 
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
   (0 < 100 ∧ 0 < 100 ∧ 10 ≤ 100 ∧ 25 ≤ 100) ∧
-    (∀ (k : ℕ), k ∈ StatClaim.hypergeometricSupport 100 100 35 ↔
+    (∀ (k : ℕ),
+      k ∈ StatClaim.hypergeometricSupport 100 100 35 ↔
       0 ≤ k ∧ k ≤ 35) ∧
-    (StatClaim.hypergeometricPValue 100 100 35 10 = (19912805355158606332329 : ℚ) / 2341699062001756564467919) ∧
-    (StatClaim.hypergeometricMass 100 100 35 10 = (537397138428741731448 : ℚ) / 180130697077058197266763) ∧
+    (StatClaim.hypergeometricPValue 100 100 35 10 =
+    (19912805355158606332329 : ℚ) / 2341699062001756564467919) ∧
+    (StatClaim.hypergeometricMass 100 100 35 10 =
+    (537397138428741731448 : ℚ) / 180130697077058197266763) ∧
     (((10, 25) ∈ StatClaim.fisherRejectionRegionAt 100 100 ((1 : ℚ) / 20)) ↔ True) ∧
-    (∀ (p : unitInterval), (StatClaim.fisherNullLaw 100 100 p).real (StatClaim.fisherRejectionRegionAt 100 100 ((1 : ℚ) / 20)) ≤
+    (∀ (p : unitInterval),
+      (StatClaim.fisherNullLaw 100 100 p).real (StatClaim.fisherRejectionRegionAt 100 100 (( 1 : ℚ) / 20)) ≤
       ((1 : ℝ) / 20))
 
 /-- One instance meeting every premise, so the claims are not vacuous. -/

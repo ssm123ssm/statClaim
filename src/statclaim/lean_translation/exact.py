@@ -42,6 +42,7 @@ from statclaim.language import (
     RateResultIR,
     TwoStageObservationIR,
 )
+from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.emit import rational
 from statclaim.matched import tails
 from statclaim.planning import _lean_design as lean_design
@@ -83,61 +84,39 @@ def bound(level_name: str) -> str:
     return f"({level_name}.value : ℝ)"
 
 
-def randomisation(test, level_name: str) -> str:
+def randomisation(test: Any, level: str) -> S.Theorem:
     """Every statistic and all outcomes under the sharp null, at the declared assignment."""
-    value = f"({level_name}.value : ℚ)"
+    draws = str(test.draws) if test.draws else ""
     if test.grouped:
         groups = "[" + ", ".join(f"({size}, {treated})" for size, treated in test.groups) + "]"
-        assignment = (
-            f"{MODULES}.Randomisation.GroupedAssignment ({groups} : {MODULES}.Randomisation.Groups)"
-        )
-        record, outcomes = "Record", f"{assignment} → Record"
-        sharp = "∀ first second, outcomes first = outcomes second"
-        law = f"{MODULES}.Randomisation.groupedLaw {groups}"
-        rejection = (
-            f"{MODULES}.Randomisation.uniformRejection ({MODULES}.Randomisation.groupedSplits "
-            f"{groups}) statistic outcomes {value}"
-        )
-    else:
-        units, treated = test.units, test.treated
-        assignment = f"{MODULES}.Randomisation.Assignment {units}"
-        record = "Value"
-        outcomes = f"{MODULES}.Randomisation.PotentialOutcomes {units} Value"
-        sharp = f"{MODULES}.Randomisation.SharpNull outcomes"
-        law = f"{MODULES}.Randomisation.law {units} {treated}"
-        rejection = (
-            f"{MODULES}.Randomisation.rejection {units} {treated} statistic outcomes {value}"
-        )
-    observed = "Record" if test.grouped else f"(Fin {test.units} → Value)"
-    statistic = f"{assignment} → {observed} → Statistic"
-    if test.draws:
-        # The observed assignment and the draws are independent, each with the design's law.
-        law = f"MeasureTheory.Measure.pi (fun _ : Fin ({test.draws} + 1) => {law})"
-        rejection = (
-            f"{MODULES}.Randomisation.drawnRejection {test.draws} statistic outcomes {value}"
-        )
-    return (
-        f"∀ {{{record} : Type}} {{Statistic : Type}} [LinearOrder Statistic]\n"
-        f"      (statistic : {statistic})\n"
-        f"      (outcomes : {outcomes}),\n"
-        f"      ({sharp}) →\n"
-        f"      ({law}).real\n"
-        f"        ({rejection}) ≤ {bound(level_name)}"
-    )
+        return S.randomisation_typeI(P, level, draws, groups=groups)
+    return S.randomisation_typeI(P, level, draws, units=str(test.units), treated=str(test.treated))
 
 
-# Results ----------------------------------------------------------------------------------
+# Results and intervals -------------------------------------------------------------------
 @dataclass
 class ExactResult:
-    """A result for observed data: its parts, each named after the theorem its template
-    checks today, and what the proof renders."""
+    """A result or interval for observed data, in parts: the theorems its certificate
+    claims, from statements.py, and what the proof renders."""
 
-    kind: str  # fisher_result or margin_result
-    parts: list[tuple[str, str]]  # (name, statement)
+    kind: str  # the template whose proofs prove it
+    theorems: list[S.Theorem]
     source: Any  # what the template renders: the proof's material, not trusted
+
+    @property
+    def parts(self) -> list[tuple[str, str]]:
+        return [(theorem.part, theorem.proposition()) for theorem in self.theorems]
 
     def statement(self) -> str:
         return " ∧\n    ".join(f"({statement})" for _, statement in self.parts)
+
+
+# Within a translated program, names in StatClaim are written in full.
+P = S.PROGRAM
+
+
+def program_point(value: Fraction) -> str:
+    return f"({S.point(P, *value.as_integer_ratio())})"
 
 
 def result(subject: ObservationIR, analysis: Any) -> ExactResult:
@@ -145,7 +124,7 @@ def result(subject: ObservationIR, analysis: Any) -> ExactResult:
     Python reports, and the test's guarantee."""
     ir = subject.analysis
     xc, xt = subject.control_successes, subject.treatment_successes
-    numerator, denominator = ir.alpha.as_integer_ratio()
+    level = ir.alpha.as_integer_ratio()
     if ir.alternative == "margin":
         test: Any = ir.margin_test(observed=(xc, xt))
         sizes, thresholds = analysis.names["sizes"], analysis.names["thresholds"]
@@ -155,44 +134,19 @@ def result(subject: ObservationIR, analysis: Any) -> ExactResult:
         # The margin as a whole number of grid steps, as the margin module counts it.
         stated = f"(((({up} : ℕ) : ℚ) - (({down} : ℕ) : ℚ)) / (({grid} : ℕ) : ℚ))"
         module = f"({MODULES}.DifferenceTest.analysis {sizes} {thresholds} {stated})"
-        bound_n, bound_d = (
-            test.maximum_typeI if test.has_target else test.alpha
-        ).as_integer_ratio()
-        parts = [
-            (
-                "sizes",
-                f"{sizes}.nControl = {test.n_control} ∧ {sizes}.nTreatment = {test.n_treatment} ∧ "
-                f"0 < {sizes}.nControl ∧ 0 < {sizes}.nTreatment",
-            ),
-            (
-                "typeI",
-                f"({module}.typeIClaim ((({bound_n} : ℕ) : ℝ) / (({bound_d} : ℕ) : ℝ))).statement",
-            ),
+        error = test.maximum_typeI if test.has_target else test.alpha
+        theorems = [
+            S.analysis_sizes(sizes, test.n_control, test.n_treatment),
+            S.analysis_typeI(module, S.ratio(*error.as_integer_ratio())),
         ]
         if test.has_target:
-            power_n, power_d = test.minimum_power.as_integer_ratio()
-            (a, d), (b, e) = (
-                test.p_control.as_integer_ratio(),
-                test.p_treatment.as_integer_ratio(),
-            )
-            point = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
-            parts.append(
-                (
-                    "power",
-                    f"({module}.powerClaim\n      (fun parameter => parameter = "
-                    f"{MODULES}.FisherPower.ratePoint {point})\n"
-                    f"      ((({power_n} : ℕ) : ℝ) / (({power_d} : ℕ) : ℝ))).statement",
-                )
-            )
+            (a, d), (b, e) = test.p_control.as_integer_ratio(), test.p_treatment.as_integer_ratio()
+            rates = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
+            power = test.minimum_power.as_integer_ratio()
+            theorems.append(S.margin_power(P, module, rates, power))
         verdict = "true" if test.reject_null else "false"
-        parts.append(
-            (
-                "decision",
-                f"{MODULES}.DifferenceTest.rejects {test.n_treatment} {thresholds} {xc} {xt} = "
-                f"{verdict}",
-            )
-        )
-        return ExactResult("margin_result", parts, test)
+        theorems.append(S.margin_decision(P, test.n_treatment, thresholds, xc, xt, verdict))
+        return ExactResult("margin_result", theorems, test)
     design = ir.lower()
     found = fisher_exact(
         n_control=design.n_control,
@@ -203,66 +157,31 @@ def result(subject: ObservationIR, analysis: Any) -> ExactResult:
         alternative=design.alternative,
     )
     nc, nt, total = design.n_control, design.n_treatment, xc + xt
-    p_n, p_d = found.p_value.as_integer_ratio()
+    value = found.p_value.as_integer_ratio()
     truth = "True" if found.reject_null else "False"
-    counts = ("counts", f"0 < {nc} ∧ 0 < {nt} ∧ {xc} ≤ {nc} ∧ {xt} ≤ {nt}")
-    level = f"(({numerator} : ℚ) / {denominator})"
     if ir.alternative == "greater":
-        lower = f"{MODULES}.FisherOneSided.lowerPValue {nc} {nt} {total} {xc}"
-        parts = [
-            counts,
-            ("p_value", f"{lower} = ({p_n} : ℚ) / {p_d}"),
-            ("decision", f"({lower} ≤ ({numerator} : ℚ) / {denominator}) ↔ {truth}"),
-            ("typeI", f"({analysis.name}.typeIClaim ({analysis.level}.value : ℝ)).statement"),
+        theorems = [
+            S.counts(nc, nt, xc, xt),
+            S.one_sided_p_value(P, nc, nt, total, xc, value),
+            S.one_sided_decision(P, nc, nt, total, xc, level, truth),
+            S.analysis_typeI(analysis.name, f"({analysis.level}.value : ℝ)"),
         ]
     else:
-        t_n, t_d = found.observed_table_probability.as_integer_ratio()
-        region = f"StatClaim.fisherRejectionRegionAt {nc} {nt} {level}"
-        parts = [
-            counts,
-            (
-                "support",
-                f"∀ (k : ℕ), k ∈ StatClaim.hypergeometricSupport {nc} {nt} {total} ↔\n"
-                f"      {found.support_min} ≤ k ∧ k ≤ {found.support_max}",
+        theorems = [
+            S.counts(nc, nt, xc, xt),
+            S.support(P, nc, nt, total, found.support_min, found.support_max),
+            S.p_value(P, nc, nt, total, xc, value),
+            S.table_probability(
+                P, nc, nt, total, xc, found.observed_table_probability.as_integer_ratio()
             ),
-            (
-                "p_value",
-                f"StatClaim.hypergeometricPValue {nc} {nt} {total} {xc} = ({p_n} : ℚ) / {p_d}",
-            ),
-            (
-                "table_probability",
-                f"StatClaim.hypergeometricMass {nc} {nt} {total} {xc} = ({t_n} : ℚ) / {t_d}",
-            ),
-            ("decision", f"(({xc}, {xt}) ∈ {region}) ↔ {truth}"),
-            (
-                "typeI",
-                f"∀ (p : unitInterval), (StatClaim.fisherNullLaw {nc} {nt} p).real ({region}) ≤\n"
-                f"      (({numerator} : ℝ) / {denominator})",
-            ),
+            S.fisher_decision(P, nc, nt, xc, xt, level, truth),
+            S.fisher_typeI(P, nc, nt, level),
         ]
-    return ExactResult("fisher_result", parts, (design, found))
-
-
-def ratio(numerator: int, denominator: int) -> str:
-    """A rational as the templates write it in ℝ."""
-    return f"((({numerator} : ℕ) : ℝ) / (({denominator} : ℕ) : ℝ))"
-
-
-def point(value: Fraction) -> str:
-    numerator, denominator = value.as_integer_ratio()
-    return f"(StatClaim.ratPoint {numerator} {denominator} (by decide) (by decide))"
-
-
-def confidence(n: object, tail: str, count: object) -> str:
-    return f"{MODULES}.BinomialInterval.confidenceSet {n} {tail} {count}"
-
-
-def odds(value: str) -> str:
-    return f"{MODULES}.Association.odds {value}"
+    return ExactResult("fisher_result", theorems, (design, found))
 
 
 def other_result(subject: object, analysis: Any) -> ExactResult:
-    """The other results and the intervals: each part as its template states it."""
+    """The other results and the intervals."""
     found: Any = subject.lower()  # type: ignore[attr-defined]
     if isinstance(subject, AssociationResultIR):
         return association_result(found, analysis)
@@ -305,312 +224,156 @@ INTERVALS = (
 
 
 def association_result(found: Any, analysis: Any) -> ExactResult:
-    test, fisher, level = found.test, found.fisher, analysis.level
+    test, fisher, value = found.test, found.fisher, f"{analysis.level}.value"
     first, second, x, y = found.table.conditional
-    p_n, p_d = fisher.p_value.as_integer_ratio()
-    t_n, t_d = fisher.observed_table_probability.as_integer_ratio()
     an, ad = test.alpha.as_integer_ratio()
     truth = "True" if fisher.reject_null else "False"
-    parts: list[tuple[str, str]]
     if test.groups is not None:
         groups = analysis.names["groups"]
-        g1, g2 = test.groups
-        parts = [
-            (
-                "sizes",
-                f"{groups}.nControl = {g1} ∧ {groups}.nTreatment = {g2} ∧ "
-                f"0 < {groups}.nControl ∧ 0 < {groups}.nTreatment",
-            ),
-            (
-                "typeI",
-                f"∀ (p : unitInterval), (StatClaim.fisherNullLaw {groups}.nControl "
-                f"{groups}.nTreatment p).real\n      (StatClaim.fisherRejectionRegionAt "
-                f"{groups}.nControl {groups}.nTreatment {level}.value) ≤ ({level}.value : ℝ)",
-            ),
-        ]
+        g1, g2 = f"{groups}.nControl", f"{groups}.nTreatment"
+        theorems = [S.groups_sizes(g1, g2, test.groups), S.groups_typeI(P, g1, g2, value)]
     else:
-        n = test.n
-        parts = [
-            ("size", f"{n} = {n} ∧ 0 < {n}"),
-            (
-                "law",
-                f"∀ (q p : unitInterval), {MODULES}.Association.mixtureLaw {n} q p Set.univ = 1",
-            ),
-            ("typeI", analysis.statement),
+        n = str(test.n)
+        theorems = [
+            S.total_size(n, test.n),
+            S.mixture_law(P, n),
+            S.mixture_typeI(P, n, value),
         ]
     if found.table.fixed_groups:
-        membership = (
-            f"(({x}, {y}) ∈ StatClaim.fisherRejectionRegionAt {first} {second} (({an} : ℚ) / {ad}))"
-        )
+        table = f"({x}, {y})"
+        region = f"{P.root}fisherRejectionRegionAt {first} {second} (({an} : ℚ) / {ad})"
     else:
-        membership = (
-            f"(({found.table.exposed}, ({x}, {y})) ∈ {MODULES}.Association.mixtureRejection "
-            f"{test.n} (({an} : ℚ) / {ad}))"
-        )
-    parts += [
-        (
-            "p_value",
-            f"StatClaim.hypergeometricPValue {first} {second} {x + y} {x} = ({p_n} : ℚ) / {p_d}",
+        table = f"({found.table.exposed}, ({x}, {y}))"
+        region = f"{P.modules}Association.mixtureRejection {test.n} (({an} : ℚ) / {ad})"
+    theorems += [
+        S.p_value(P, first, second, x + y, x, fisher.p_value.as_integer_ratio()),
+        S.table_probability(
+            P, first, second, x + y, x, fisher.observed_table_probability.as_integer_ratio()
         ),
-        (
-            "table_probability",
-            f"StatClaim.hypergeometricMass {first} {second} {x + y} {x} = ({t_n} : ℚ) / {t_d}",
-        ),
-        ("decision", f"{membership} ↔ {truth}"),
+        S.association_decision(P, table, region, truth),
     ]
-    return ExactResult("association_result", parts, found)
+    return ExactResult("association_result", theorems, found)
 
 
 def rate_result(found: Any, analysis: Any) -> ExactResult:
-    events, level = found.events, analysis.level
+    events, value = found.events, f"{analysis.level}.value"
     n, x = events.total, events.exposed_events
-    a, d = events.share.as_integer_ratio()
     upper, lower, _ = tails_at(n, x, events.share)
     truth = "True" if found.reject_null else "False"
-    parts = [
-        ("typeI", analysis.statement),
-        (
-            "tails",
-            f"{MODULES}.OneSampleBinomial.tailNumerator {n} {a} {d} {x} = {upper} ∧\n"
-            f"      {MODULES}.BinomialInterval.lowerNumerator {n} {a} {d} {x} = {lower}",
-        ),
-        (
-            "decision",
-            f"(({n}, {x}) ∈ {MODULES}.Incidence.given (fun n => {MODULES}.Incidence.rejectionAt "
-            f"{point(events.share)} n\n      ({level}.value : ℝ))) ↔ {truth}",
-        ),
+    theorems = [
+        S.rate_typeI(P, value),
+        S.tails(P, n, events.share.as_integer_ratio(), x, upper, lower),
+        S.rate_decision(P, n, x, program_point(events.share), value, truth),
     ]
-    return ExactResult("rate_result", parts, found)
+    return ExactResult("rate_result", theorems, found)
 
 
 def matched_result(found: Any, analysis: Any) -> ExactResult:
-    pairs, level = found.test.pairs, analysis.level
+    pairs, value = str(found.test.pairs), f"{analysis.level}.value"
     d, x = found.observed.discordant, found.observed.case_exposed
     upper, lower = tails(d, x)
     truth = "True" if found.reject_null else "False"
-    parts = [
-        ("size", f"{pairs} = {pairs} ∧ 0 < {pairs}"),
-        ("law", f"∀ (δ π : unitInterval), {MODULES}.Matched.pairsLaw {pairs} δ π Set.univ = 1"),
-        ("typeI", analysis.statement),
-        (
-            "tails",
-            f"{MODULES}.OneSampleBinomial.tailNumerator {d} 1 2 {x} = {upper} ∧\n"
-            f"      {MODULES}.BinomialInterval.lowerNumerator {d} 1 2 {x} = {lower}",
-        ),
-        (
-            "decision",
-            f"(({d}, {x}) ∈ {MODULES}.Matched.pairsRejection {pairs} ({level}.value : ℝ)) ↔ "
-            f"{truth}",
-        ),
+    theorems = [
+        S.pairs_size(pairs, found.test.pairs),
+        S.pairs_law(P, pairs),
+        S.pairs_typeI(P, pairs, value),
+        S.tails(P, d, (1, 2), x, upper, lower),
+        S.pairs_decision(P, d, x, pairs, value, truth),
     ]
-    return ExactResult("matched_result", parts, found)
+    return ExactResult("matched_result", theorems, found)
 
 
 def one_sample_result(found: Any) -> ExactResult:
     n, k, c = found.n, found.responses, found.critical
-    a, d = found.null_rate.as_integer_ratio()
-    an, ad = found.alpha.as_integer_ratio()
-    p_n, p_d = found.p_value.as_integer_ratio()
-    rate = point(found.null_rate)
-    parts = [
-        (
-            "p_value",
-            f"(({MODULES}.OneSampleBinomial.policy ⟨{n}, {k}⟩).law {rate}).real\n"
-            f"      {{count | {k} ≤ count}} = {ratio(p_n, p_d)}",
-        ),
-        ("critical", f"{MODULES}.OneSampleBinomial.criticalValue {n} {a} {d} {an} {ad} = {c}"),
-        ("decision", f"{c} ≤ {k}" if found.reject_null else f"¬ {c} ≤ {k}"),
-        (
-            "typeI",
-            f"(({MODULES}.OneSampleBinomial.analysis ⟨{n}, {c}⟩ {rate}).typeIClaim\n"
-            f"      {ratio(an, ad)}).statement",
-        ),
+    rate, level = found.null_rate.as_integer_ratio(), found.alpha.as_integer_ratio()
+    theorems = [
+        S.one_sample_p_value(P, n, k, rate, found.p_value.as_integer_ratio()),
+        S.one_sample_critical(P, n, rate, level, c),
+        S.one_sample_decision(c, k, found.reject_null),
+        S.one_sample_typeI(P, n, c, rate, level),
     ]
-    return ExactResult("one_sample_result", parts, found)
+    return ExactResult("one_sample_result", theorems, found)
 
 
 def stage_result(found: Any) -> ExactResult:
     design = f"({MODULES}.{lean_design(found.design)})"
-    b_n, b_d = found.error_bound.as_integer_ratio()
-    stages = f"{MODULES}.TwoStageBinomial.Design"
-    continued = "true" if found.continued else "false"
-    parts = [("interim", f"{stages}.continues {design} {found.first} = {continued}")]
+    theorems = [S.stage_interim(design, found.first, found.continued)]
     if found.second is not None:
-        rejected = "true" if found.decision == "reject_null" else "false"
-        parts.append(
-            ("decision", f"{stages}.rejects {design} {found.first} {found.second} = {rejected}")
-        )
-    parts.append(
-        (
-            "typeI",
-            f"(({MODULES}.TwoStageBinomial.analysisAtMost {design} {point(found.null_rate)})"
-            f".typeIClaim\n      {ratio(b_n, b_d)}).statement",
-        )
-    )
-    return ExactResult("stage_result", parts, found)
+        rejected = found.decision == "reject_null"
+        theorems.append(S.stage_decision(design, found.first, found.second, rejected))
+    bound = found.error_bound.as_integer_ratio()
+    theorems.append(S.stage_typeI(P, design, program_point(found.null_rate), bound))
+    return ExactResult("stage_result", theorems, found)
+
+
+def tail_of(found: Any) -> str:
+    return S.ratio(*found.tail_level.as_integer_ratio())
 
 
 def binomial_interval(found: Any) -> ExactResult:
-    n, x = found.n, found.responses
-    tail = ratio(*found.tail_level.as_integer_ratio())
-    parts = [
-        (
-            "coverage",
-            f"∀ (p : unitInterval), 1 - 2 * {tail} ≤\n"
-            f"      (ProbabilityTheory.binomial {n} p).real\n"
-            f"        {{count | p ∈ {confidence(n, tail, 'count')}}}",
-        ),
-        (
-            "interval",
-            f"∀ (p : unitInterval) (member : p ∈ {confidence(n, tail, x)}),\n"
-            f"      {point(found.lower)} ≤ p ∧ p ≤ {point(found.upper)}",
-        ),
+    n, tail = found.n, tail_of(found)
+    lower, upper = found.lower.as_integer_ratio(), found.upper.as_integer_ratio()
+    theorems = [
+        S.binomial_coverage(P, n, tail),
+        S.binomial_interval(P, n, found.responses, tail, lower, upper),
     ]
-    return ExactResult("binomial_interval", parts, found)
+    return ExactResult("binomial_interval", theorems, found)
 
 
-def ends(found: Any) -> tuple[tuple[int, int, int, int], tuple[int, int, int, int]]:
+def ends(found: Any) -> list[tuple[int, ...]]:
     """Each arm's lower and upper endpoint, as numerators and denominators."""
-    control, treatment = (
+    return [
         (*arm.lower.as_integer_ratio(), *arm.upper.as_integer_ratio())
         for arm in (found.control, found.treatment)
-    )
-    return control, treatment
-
-
-def joint_coverage(level: Fraction, n: int, m: int, tail: str, x: str, y: str) -> str:
-    return (
-        f"∀ (pc pt : unitInterval), {ratio(*level.as_integer_ratio())} ≤ "
-        f"(StatClaim.productBinomial {n} {m} pc pt).real\n"
-        f"      ({{{x} | pc ∈ {confidence(n, tail, x)}}} ×ˢ\n"
-        f"        {{{y} | pt ∈ {confidence(m, tail, y)}}})"
-    )
-
-
-def difference(control: tuple[int, ...], treatment: tuple[int, ...]) -> str:
-    cln, cld, cun, cud = control
-    tln, tld, tun, tud = treatment
-    return (
-        f"(({tln} : ℕ) : ℝ) / (({tld} : ℕ) : ℝ) - (({cun} : ℕ) : ℝ) / (({cud} : ℕ) : ℝ) ≤\n"
-        "        (pt : ℝ) - (pc : ℝ) ∧\n"
-        "      (pt : ℝ) - (pc : ℝ) ≤\n"
-        f"        (({tun} : ℕ) : ℝ) / (({tud} : ℕ) : ℝ) - (({cln} : ℕ) : ℝ) / (({cld} : ℕ) : ℝ)"
-    )
+    ]
 
 
 def difference_interval(found: Any) -> ExactResult:
     n, m = found.n_control, found.n_treatment
     x, y = found.control_successes, found.treatment_successes
-    tail = ratio(*found.control.tail_level.as_integer_ratio())
+    tail = tail_of(found.control)
     control, treatment = ends(found)
-    parts = [
-        ("coverage", joint_coverage(found.level, n, m, tail, "x", "y")),
-        (
-            "interval",
-            f"∀ (pc pt : unitInterval)\n      (control : pc ∈ {confidence(n, tail, x)})\n"
-            f"      (treatment : pt ∈ {confidence(m, tail, y)}),\n"
-            f"      {difference(control, treatment)}",
-        ),
+    theorems = [
+        S.joint_coverage(P, found.level.as_integer_ratio(), n, m, tail),
+        S.difference_interval(P, n, m, x, y, tail, control, treatment),
     ]
-    return ExactResult("difference_interval", parts, found)
+    return ExactResult("difference_interval", theorems, found)
 
 
 def effect_interval(found: Any) -> ExactResult:
-    groups = found.groups
     first, second, x, y = found.table.conditional
-    tail = ratio(*groups.control.tail_level.as_integer_ratio())
-    control, treatment = ends(groups)
-    cln, cld, cun, cud = control
-    tln, tld, tun, tud = treatment
+    tail = tail_of(found.groups.control)
+    level = found.level.as_integer_ratio()
     if found.table.fixed_groups:
-        coverage = joint_coverage(found.level, first, second, tail, "a", "b")
+        coverage = S.joint_coverage(P, level, first, second, tail, ("a", "b"))
     else:
-        n = found.table.n
-        coverage = (
-            f"∀ (q pc pt : unitInterval),\n      {ratio(*found.level.as_integer_ratio())} ≤\n"
-            f"      ({MODULES}.Association.mixture {n} q (fun k => StatClaim.productBinomial "
-            f"({n} - k) k pc pt)).real\n"
-            f"        ({MODULES}.Association.given {n} (fun k =>\n"
-            f"          {{a | pc ∈ {confidence(f'({n} - k)', tail, 'a')}}} ×ˢ\n"
-            f"            {{b | pt ∈ {confidence('k', tail, 'b')}}}))"
-        )
-    hypotheses = (
-        f"(pc pt : unitInterval)\n      (control : pc ∈ {confidence(first, tail, x)})\n"
-        f"      (treatment : pt ∈ {confidence(second, tail, y)})"
-    )
-    if found.kind == "difference":
-        statement = difference(control, treatment)
-    elif found.kind == "ratio":
-        hypotheses += "\n      (positive : 0 < (pc : ℝ))"
-        statement = f"{ratio(tln, tld)} / {ratio(cun, cud)} ≤ (pt : ℝ) / pc"
-        if cln > 0:
-            statement += f" ∧\n      (pt : ℝ) / pc ≤ {ratio(tun, tud)} / {ratio(cln, cld)}"
-    else:
-        hypotheses += (
-            "\n      (positive : 0 < (pc : ℝ)) (below : (pc : ℝ) < 1) (treatedBelow : (pt : ℝ) < 1)"
-        )
-        effect = f"{odds('pt')} / {odds('pc')}"
-        statement = (
-            f"{odds(ratio(tln, tld))} / {odds(ratio(cun, cud))} ≤ {effect}"
-            if cun < cud
-            else f"0 ≤ {effect}"
-        )
-        if cln > 0 and tun < tud:
-            statement += f" ∧\n      {effect} ≤ {odds(ratio(tun, tud))} / {odds(ratio(cln, cld))}"
-    parts = [("coverage", coverage), ("interval", f"∀ {hypotheses},\n      {statement}")]
-    return ExactResult("effect_interval", parts, found)
-
-
-def single_odds(lower: tuple[int, int], upper: tuple[int, int], scale: str) -> str:
-    """Bounds on an odds, times a scale, from bounds on a share. No upper bound at one."""
-    statement = f"{odds(ratio(*lower))}{scale} ≤ {odds('π')}{scale}"
-    if upper[0] < upper[1]:
-        statement += f" ∧\n      {odds('π')}{scale} ≤ {odds(ratio(*upper))}{scale}"
-    return statement
+        coverage = S.mixture_coverage(P, level, str(found.table.n), tail)
+    arms = S.two_arms(P, first, second, x, y, tail)
+    control, treatment = ends(found.groups)
+    theorems = [coverage, S.effect_interval(P, found.kind, arms, control, treatment)]
+    return ExactResult("effect_interval", theorems, found)
 
 
 def rate_ratio(found: Any) -> ExactResult:
     binomial = found.binomial
-    n, x = found.events.total, found.events.exposed_events
-    tail = ratio(*binomial.tail_level.as_integer_ratio())
-    scale = f" * {ratio(*found.scale.as_integer_ratio())}"
+    tail = tail_of(binomial)
     lower, upper = binomial.lower.as_integer_ratio(), binomial.upper.as_integer_ratio()
-    parts = [
-        (
-            "coverage",
-            f"∀ (total : NNReal) (π : unitInterval), "
-            f"{ratio(*found.level.as_integer_ratio())} ≤ "
-            f"({MODULES}.Incidence.ratesLaw total π).real\n"
-            f"      ({MODULES}.Incidence.given (fun n =>\n"
-            f"        {{x | π ∈ {confidence('n', tail, 'x')}}}))",
-        ),
-        (
-            "interval",
-            f"∀ (π : unitInterval)\n      (member : π ∈ {confidence(n, tail, x)}) "
-            f"(below : (π : ℝ) < 1),\n      {single_odds(lower, upper, scale)}",
-        ),
+    scale = f" * {S.ratio(*found.scale.as_integer_ratio())}"
+    n, x = found.events.total, found.events.exposed_events
+    theorems = [
+        S.rate_coverage(P, found.level.as_integer_ratio(), tail),
+        S.odds_interval(P, n, x, tail, lower, upper, scale),
     ]
-    return ExactResult("rate_ratio", parts, found)
+    return ExactResult("rate_ratio", theorems, found)
 
 
 def matched_interval(found: Any) -> ExactResult:
     binomial = found.binomial
-    pairs = found.observed.pairs
-    d, x = found.observed.discordant, found.observed.case_exposed
-    tail = ratio(*binomial.tail_level.as_integer_ratio())
+    tail = tail_of(binomial)
     lower, upper = binomial.lower.as_integer_ratio(), binomial.upper.as_integer_ratio()
-    parts = [
-        (
-            "coverage",
-            f"∀ (δ π : unitInterval), {ratio(*found.level.as_integer_ratio())} ≤ "
-            f"({MODULES}.Matched.pairsLaw {pairs} δ π).real\n"
-            f"      ({MODULES}.Association.given {pairs}\n"
-            f"        (fun d => {{x | π ∈ {confidence('d', tail, 'x')}}}))",
-        ),
-        (
-            "interval",
-            f"∀ (π : unitInterval)\n      (member : π ∈ {confidence(d, tail, x)}) "
-            f"(below : (π : ℝ) < 1),\n      {single_odds(lower, upper, '')}",
-        ),
+    d, x = found.observed.discordant, found.observed.case_exposed
+    theorems = [
+        S.pairs_coverage(P, found.level.as_integer_ratio(), str(found.observed.pairs), tail),
+        S.odds_interval(P, d, x, tail, lower, upper, ""),
     ]
-    return ExactResult("matched_interval", parts, found)
+    return ExactResult("matched_interval", theorems, found)

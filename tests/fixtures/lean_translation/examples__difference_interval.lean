@@ -41,7 +41,8 @@ end verification_claim_checks
 
 set_option maxRecDepth 100000 in
 theorem verification_claim (i : Instance) (premises : Premises i) :
-    (∀ (pc pt : unitInterval), (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 50 50 pc pt).real
+    (∀ (pc pt : unitInterval),
+      (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 50 50 pc pt).real
       ({x | pc ∈ StatClaim.Modules.BinomialInterval.confidenceSet 50 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) x} ×ˢ
         {y | pt ∈ StatClaim.Modules.BinomialInterval.confidenceSet 50 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) y})) ∧
     (∀ (pc pt : unitInterval)
@@ -55,7 +56,8 @@ theorem verification_claim (i : Instance) (premises : Premises i) :
 
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
-  (∀ (pc pt : unitInterval), (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 50 50 pc pt).real
+  (∀ (pc pt : unitInterval),
+      (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 50 50 pc pt).real
       ({x | pc ∈ StatClaim.Modules.BinomialInterval.confidenceSet 50 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) x} ×ˢ
         {y | pt ∈ StatClaim.Modules.BinomialInterval.confidenceSet 50 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) y})) ∧
     (∀ (pc pt : unitInterval)

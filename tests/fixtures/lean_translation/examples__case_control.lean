@@ -66,7 +66,8 @@ end odds_claim_checks
 
 set_option maxRecDepth 100000 in
 theorem odds_claim (i : Instance) (premises : Premises i) :
-    (∀ (pc pt : unitInterval), (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 240 120 pc pt).real
+    (∀ (pc pt : unitInterval),
+      (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 240 120 pc pt).real
       ({a | pc ∈ StatClaim.Modules.BinomialInterval.confidenceSet 240 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) a} ×ˢ
         {b | pt ∈ StatClaim.Modules.BinomialInterval.confidenceSet 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) b})) ∧
     (∀ (pc pt : unitInterval)
@@ -80,7 +81,8 @@ theorem odds_claim (i : Instance) (premises : Premises i) :
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
   ((analysis.typeIClaim analysis_compatible (analysis_level.value : ℝ)).statement) ∧
-  ((∀ (pc pt : unitInterval), (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 240 120 pc pt).real
+  ((∀ (pc pt : unitInterval),
+      (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 240 120 pc pt).real
       ({a | pc ∈ StatClaim.Modules.BinomialInterval.confidenceSet 240 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) a} ×ˢ
         {b | pt ∈ StatClaim.Modules.BinomialInterval.confidenceSet 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) b})) ∧
     (∀ (pc pt : unitInterval)

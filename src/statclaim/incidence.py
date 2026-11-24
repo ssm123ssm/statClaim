@@ -20,6 +20,8 @@ from math import comb
 
 from statclaim.association import NAME
 from statclaim.fisher import fraction_record, parse_alpha, validate_alpha
+from statclaim.lean_translation import statements as S
+from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.planning import MAX_ONE_ARM, BinomialInterval, _audit, render_interval_proof
 from statclaim.randomisation import PRESPECIFIED
 
@@ -553,10 +555,7 @@ def _level(alpha: Fraction) -> str:
   ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩
 
 -- For every total rate and every share of person-time, under equal rates.
-theorem checked_typeI (total : NNReal) (share : unitInterval) :
-    (Incidence.ratesLaw total share).real
-        (Incidence.given (fun n => Incidence.rejectionAt share n (declaredLevel.value : ℝ))) ≤
-      (declaredLevel.value : ℝ) :=
+{S.rate_typeI(C, "declaredLevel.value").header()} :=
   Incidence.typeI total share _ (by exact_mod_cast declaredLevel.nonnegative)
 """
 
@@ -581,13 +580,10 @@ def render_rate_result_proof(result: RateResult, input_sha256: str) -> str:
 -- The observed events: {x} of {n} in the exposed group, whose share of person-time is {a}/{d}.
 noncomputable def share : unitInterval := ratPoint {a} {d} (by decide) (by decide)
 
-theorem checked_tails : OneSampleBinomial.tailNumerator {n} {a} {d} {x} = {upper} ∧
-    BinomialInterval.lowerNumerator {n} {a} {d} {x} = {lower} := by
+{S.tails(C, n, (a, d), x, upper, lower).header()} := by
   constructor <;> decide +kernel
 
-theorem checked_decision :
-    (({n}, {x}) ∈ Incidence.given (fun n => Incidence.rejectionAt share n
-      (declaredLevel.value : ℝ))) ↔ {truth} := by
+{S.rate_decision(C, n, x, "share", "declaredLevel.value", truth).header()} := by
   simp only [Incidence.given, Incidence.rejectionAt, Set.mem_ofPred_eq, share]
   rw [BinomialInterval.upper_tail_ratPoint, BinomialInterval.lower_tail_ratPoint,
     checked_tails.1, checked_tails.2,
@@ -618,26 +614,15 @@ def render_rate_ratio_proof(interval: RateRatioInterval, input_sha256: str) -> s
     scale = f"((({kn} : ℕ) : ℝ) / (({kd} : ℕ) : ℝ))"
     lower_check = "(Or.inl rfl)" if lower_n == 0 else "(Or.inr (by decide +kernel))"
     upper_check = "(Or.inl rfl)" if upper_n == upper_d else "(Or.inr (by decide +kernel))"
-    lower = f"((({lower_n} : ℕ) : ℝ) / (({lower_d} : ℕ) : ℝ))"
-    statement = f"Association.odds {lower} * {scale} ≤ Association.odds π * {scale}"
-    body = "  exact bound.1"
-    if upper_n < upper_d:
-        statement += (
-            f" ∧\n      Association.odds π * {scale} ≤ Association.odds "
-            f"((({upper_n} : ℕ) : ℝ) / (({upper_d} : ℕ) : ℝ)) * {scale}"
-        )
-        body = "  exact ⟨bound.1, bound.2 (by decide)⟩"
+    claimed = S.odds_interval(C, n, x, tail, (lower_n, lower_d), (upper_n, upper_d), f" * {scale}")
+    body = "  exact bound.1" if upper_n == upper_d else "  exact ⟨bound.1, bound.2 (by decide)⟩"
     header = _header(input_sha256, "Coverage is a general theorem; the endpoints are checked.")
     return f"""{header}
-theorem checked_coverage (total : NNReal) (π : unitInterval) :
-    ((({ln} : ℕ) : ℝ) / (({ld} : ℕ) : ℝ)) ≤ (Incidence.ratesLaw total π).real
-      (Incidence.given (fun n => {{x | π ∈ BinomialInterval.confidenceSet n {tail} x}})) := by
+{S.rate_coverage(C, (ln, ld), tail).header()} := by
   have covered := Incidence.coverage total {tail} (by positivity) π
   exact le_trans (by norm_num) covered
 
-theorem checked_interval (π : unitInterval)
-    (member : π ∈ BinomialInterval.confidenceSet {n} {tail} {x}) (below : (π : ℝ) < 1) :
-    {statement} := by
+{claimed.header()} := by
   have bound := Incidence.rate_ratio_contains {n} {x} {an} {ad} (by decide)
     {lower_n} {lower_d} (by decide) (by decide) {upper_n} {upper_d} (by decide) (by decide)
     {lower_check} {upper_check} {scale} (by positivity) π member below

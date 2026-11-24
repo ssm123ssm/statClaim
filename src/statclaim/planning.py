@@ -22,6 +22,8 @@ from statclaim.fisher import (
     parse_alpha,
     test_id,
 )
+from statclaim.lean_translation import statements as S
+from statclaim.lean_translation.statements import CERTIFICATE as C
 
 SMALLEST = "smallest_in_range"
 PLANNING_KIND = "statclaim_planning_certificate"
@@ -977,7 +979,6 @@ def render_result_proof(result: OneSampleResult, input_sha256: str) -> str:
     a, d = result.null_rate.as_integer_ratio()
     an, ad = result.alpha.as_integer_ratio()
     pn, pd = result.p_value.as_integer_ratio()
-    decision = f"{c} ≤ {k}" if result.reject_null else f"¬ {c} ≤ {k}"
     return f"""import StatClaim
 import Lean.Util.CollectAxioms
 
@@ -989,20 +990,15 @@ set_option maxHeartbeats 2000000
 namespace StatClaimCertificate
 open StatClaim StatClaim.Modules
 
-theorem checked_p_value :
-    ((OneSampleBinomial.policy ⟨{n}, {k}⟩).law (ratPoint {a} {d} (by decide) (by decide))).real
-        {{count | {k} ≤ count}} = ((({pn} : ℕ) : ℝ) / (({pd} : ℕ) : ℝ)) :=
+{S.one_sample_p_value(C, n, k, (a, d), (pn, pd)).header()} :=
   OneSampleBinomial.pValue_eq_of_cross_product {n} {k} {a} {d} (by decide) (by decide)
     {pn} {pd} (by decide) (by decide +kernel)
 
-theorem checked_critical :
-    OneSampleBinomial.criticalValue {n} {a} {d} {an} {ad} = {c} := by decide +kernel
+{S.one_sample_critical(C, n, (a, d), (an, ad), c).header()} := by decide +kernel
 
-theorem checked_decision : {decision} := by decide
+{S.one_sample_decision(c, k, result.reject_null).header()} := by decide
 
-theorem checked_typeI :
-    ((OneSampleBinomial.analysis ⟨{n}, {c}⟩ (ratPoint {a} {d} (by decide) (by decide))).typeIClaim
-      ((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))).statement :=
+{S.one_sample_typeI(C, n, c, (a, d), (an, ad)).header()} :=
   OneSampleBinomial.typeI_of_check ⟨{n}, {c}⟩ {a} {d} (by decide) (by decide)
     {an} {ad} (by decide) (by decide +kernel)
 
@@ -1129,16 +1125,10 @@ set_option maxHeartbeats 2000000
 namespace StatClaimCertificate
 open StatClaim StatClaim.Modules
 
-theorem checked_coverage (p : unitInterval) :
-    1 - 2 * {level} ≤
-      (ProbabilityTheory.binomial {n} p).real
-        {{count | p ∈ BinomialInterval.confidenceSet {n} {level} count}} :=
+{S.binomial_coverage(C, n, level).header()} :=
   BinomialInterval.coverage {n} _ (by positivity) p
 
-theorem checked_interval (p : unitInterval)
-    (member : p ∈ BinomialInterval.confidenceSet {n} {level} {x}) :
-    ratPoint {ln} {ld} (by decide) (by decide) ≤ p ∧
-      p ≤ ratPoint {un} {ud} (by decide) (by decide) :=
+{S.binomial_interval(C, n, x, level, (ln, ld), (un, ud)).header()} :=
   BinomialInterval.interval_contains {n} {x} {an} {ad} (by decide) {ln} {ld} (by decide)
     (by decide) {un} {ud} (by decide) (by decide) {lower} {upper} p member
 
@@ -1302,9 +1292,11 @@ def render_stage_result_proof(result: TwoStageResult, input_sha256: str) -> str:
     decision = ""
     if result.second is not None:
         rejected = "true" if result.decision == "reject_null" else "false"
+        claimed = S.stage_decision(
+            "declaredDesign", result.first, result.second, rejected == "true"
+        )
         decision = f"""
-theorem checked_decision :
-    declaredDesign.rejects {result.first} {result.second} = {rejected} := by decide +kernel
+{claimed.header()} := by decide +kernel
 """
     return f"""import StatClaim
 import Lean.Util.CollectAxioms
@@ -1321,13 +1313,10 @@ def declaredDesign : TwoStageBinomial.Design :=
   {design}
 noncomputable def nullRate : unitInterval := ratPoint {a} {d} (by decide) (by decide)
 
-theorem checked_interim :
-    declaredDesign.continues {result.first} = {"true" if result.continued else "false"} := by
+{S.stage_interim("declaredDesign", result.first, result.continued).header()} := by
   decide +kernel
 {decision}
-theorem checked_typeI :
-    ((TwoStageBinomial.analysisAtMost declaredDesign nullRate).typeIClaim
-      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
+{S.stage_typeI(C, "declaredDesign", "nullRate", (bn, bd)).header()} :=
   TwoStageBinomial.typeI_atMost_of_check declaredDesign
     ({monotone}) {a} {d} (by decide) (by decide)
     {bn} {bd} (by decide) (by decide +kernel)
@@ -1739,10 +1728,7 @@ def render_margin_proof(test: MarginTest, input_sha256: str) -> str:
         (a, d), (b, e) = test.p_control.as_integer_ratio(), test.p_treatment.as_integer_ratio()
         point = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
         sections += f"""
-theorem checked_power :
-    (declaredAnalysis.powerClaim
-      (fun parameter => parameter = FisherPower.ratePoint {point})
-      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
+{S.margin_power(C, "declaredAnalysis", point, (bn, bd)).header()} :=
   DifferenceTest.power_of_check {design} _ {point}
     {bn} {bd} (by decide) (by decide +kernel)
 """
@@ -1750,8 +1736,7 @@ theorem checked_power :
         x, y = test.observed
         verdict = "true" if test.reject_null else "false"
         sections += f"""
-theorem checked_decision :
-    DifferenceTest.rejects {nt} thresholds {x} {y} = {verdict} := by
+{S.margin_decision(C, nt, "thresholds", x, y, verdict).header()} := by
   decide
 """
     return f"""import StatClaim
@@ -1771,16 +1756,14 @@ noncomputable def declaredAnalysis :=
   DifferenceTest.analysis {design} {margin}
 {chunk_text}
 
-theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
-    0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+{S.analysis_sizes("declaredSizes", nc, nt).header()} := by decide
 
 theorem checked_cells :
     (declaredAnalysis.typeIClaim ((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))).statement :=
   DifferenceTest.typeI_of_cells {design} (by decide) {grid} (by decide) {sp} {sn} (by decide)
     {an} {ad} (by decide) cells (by decide) {joined} (by decide)
 
-theorem checked_typeI :
-    (declaredAnalysis.typeIClaim ((({bound_n} : ℕ) : ℝ) / (({bound_d} : ℕ) : ℝ))).statement := by
+{S.analysis_typeI("declaredAnalysis", S.ratio(bound_n, bound_d)).header()} := by
   intro parameter null
   refine le_trans (checked_cells parameter null) ?_
   norm_num
@@ -1942,21 +1925,12 @@ set_option maxHeartbeats 2000000
 namespace StatClaimCertificate
 open StatClaim StatClaim.Modules
 
-theorem checked_coverage (pc pt : unitInterval) :
-    ((({ln} : ℕ) : ℝ) / (({ld} : ℕ) : ℝ)) ≤ (productBinomial {n} {m} pc pt).real
-      ({{x | pc ∈ BinomialInterval.confidenceSet {n} {tail} x}} ×ˢ
-        {{y | pt ∈ BinomialInterval.confidenceSet {m} {tail} y}}) := by
+{S.joint_coverage(C, (ln, ld), n, m, tail).header()} := by
   have joint := BinomialInterval.joint_coverage {n} {m} {tail} (by positivity) (by norm_num)
     pc pt
   exact le_trans (by norm_num) joint
 
-theorem checked_interval (pc pt : unitInterval)
-    (control : pc ∈ BinomialInterval.confidenceSet {n} {tail} {x})
-    (treatment : pt ∈ BinomialInterval.confidenceSet {m} {tail} {y}) :
-    (({tln} : ℕ) : ℝ) / (({tld} : ℕ) : ℝ) - (({cun} : ℕ) : ℝ) / (({cud} : ℕ) : ℝ) ≤
-        (pt : ℝ) - (pc : ℝ) ∧
-      (pt : ℝ) - (pc : ℝ) ≤
-        (({tun} : ℕ) : ℝ) / (({tud} : ℕ) : ℝ) - (({cln} : ℕ) : ℝ) / (({cld} : ℕ) : ℝ) :=
+{S.difference_interval(C, n, m, x, y, tail, ends[0], ends[1]).header()} :=
   BinomialInterval.difference_contains {n} {m} {x} {y} {an} {ad} (by decide)
     {endpoints}
     {" ".join(checks)} pc pt control treatment

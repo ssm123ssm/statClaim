@@ -64,20 +64,22 @@ structure Premises (i : Instance) : Prop where
 theorem individual_claim (i : Instance) (premises : Premises i) :
     ∀ {Value : Type} {Statistic : Type} [LinearOrder Statistic]
       (statistic : StatClaim.Modules.Randomisation.Assignment 40 → (Fin 40 → Value) → Statistic)
-      (outcomes : StatClaim.Modules.Randomisation.PotentialOutcomes 40 Value),
-      (StatClaim.Modules.Randomisation.SharpNull outcomes) →
+      (outcomes : StatClaim.Modules.Randomisation.PotentialOutcomes 40 Value)
+      (sharp : StatClaim.Modules.Randomisation.SharpNull outcomes),
       (MeasureTheory.Measure.pi (fun _ : Fin (9999 + 1) => StatClaim.Modules.Randomisation.law 40 20)).real
-        (StatClaim.Modules.Randomisation.drawnRejection 9999 statistic outcomes (analysis_level.value : ℚ)) ≤ (analysis_level.value : ℝ) :=
+        (StatClaim.Modules.Randomisation.drawnRejection 9999 statistic outcomes analysis_level.value) ≤
+      (analysis_level.value : ℝ) :=
   fun statistic outcomes sharp =>
     StatClaim.Modules.Randomisation.drawnRejection_le_of_level (StatClaim.Modules.Randomisation.splits 40 20) 9999 statistic outcomes sharp _ analysis_level.nonnegative
 
 theorem by_clinic_claim (i : Instance) (premises : Premises i) :
     ∀ {Value : Type} {Statistic : Type} [LinearOrder Statistic]
       (statistic : StatClaim.Modules.Randomisation.Assignment 12 → (Fin 12 → Value) → Statistic)
-      (outcomes : StatClaim.Modules.Randomisation.PotentialOutcomes 12 Value),
-      (StatClaim.Modules.Randomisation.SharpNull outcomes) →
+      (outcomes : StatClaim.Modules.Randomisation.PotentialOutcomes 12 Value)
+      (sharp : StatClaim.Modules.Randomisation.SharpNull outcomes),
       (StatClaim.Modules.Randomisation.law 12 6).real
-        (StatClaim.Modules.Randomisation.rejection 12 6 statistic outcomes (clustered_level.value : ℚ)) ≤ (clustered_level.value : ℝ) :=
+        (StatClaim.Modules.Randomisation.rejection 12 6 statistic outcomes clustered_level.value) ≤
+      (clustered_level.value : ℝ) :=
   fun statistic outcomes sharp =>
     StatClaim.Modules.Randomisation.typeI_of_level 12 6 statistic outcomes sharp _ clustered_level.nonnegative
 
@@ -85,16 +87,18 @@ theorem by_clinic_claim (i : Instance) (premises : Premises i) :
 def Claims (i : Instance) : Prop :=
   (∀ {Value : Type} {Statistic : Type} [LinearOrder Statistic]
       (statistic : StatClaim.Modules.Randomisation.Assignment 40 → (Fin 40 → Value) → Statistic)
-      (outcomes : StatClaim.Modules.Randomisation.PotentialOutcomes 40 Value),
-      (StatClaim.Modules.Randomisation.SharpNull outcomes) →
+      (outcomes : StatClaim.Modules.Randomisation.PotentialOutcomes 40 Value)
+      (sharp : StatClaim.Modules.Randomisation.SharpNull outcomes),
       (MeasureTheory.Measure.pi (fun _ : Fin (9999 + 1) => StatClaim.Modules.Randomisation.law 40 20)).real
-        (StatClaim.Modules.Randomisation.drawnRejection 9999 statistic outcomes (analysis_level.value : ℚ)) ≤ (analysis_level.value : ℝ)) ∧
+        (StatClaim.Modules.Randomisation.drawnRejection 9999 statistic outcomes analysis_level.value) ≤
+      (analysis_level.value : ℝ)) ∧
   (∀ {Value : Type} {Statistic : Type} [LinearOrder Statistic]
       (statistic : StatClaim.Modules.Randomisation.Assignment 12 → (Fin 12 → Value) → Statistic)
-      (outcomes : StatClaim.Modules.Randomisation.PotentialOutcomes 12 Value),
-      (StatClaim.Modules.Randomisation.SharpNull outcomes) →
+      (outcomes : StatClaim.Modules.Randomisation.PotentialOutcomes 12 Value)
+      (sharp : StatClaim.Modules.Randomisation.SharpNull outcomes),
       (StatClaim.Modules.Randomisation.law 12 6).real
-        (StatClaim.Modules.Randomisation.rejection 12 6 statistic outcomes (clustered_level.value : ℚ)) ≤ (clustered_level.value : ℝ))
+        (StatClaim.Modules.Randomisation.rejection 12 6 statistic outcomes clustered_level.value) ≤
+      (clustered_level.value : ℝ))
 
 /-- One instance meeting every premise, so the claims are not vacuous. -/
 noncomputable def witness : Instance where

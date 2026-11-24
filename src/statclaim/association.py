@@ -22,6 +22,8 @@ from statclaim.fisher import (
     parse_alpha,
     validate_alpha,
 )
+from statclaim.lean_translation import statements as S
+from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.planning import MAX_ONE_ARM, DifferenceInterval, _audit
 from statclaim.randomisation import PRESPECIFIED
 
@@ -278,13 +280,9 @@ def declaredLevel : SignificanceLevel :=
 def firstGroup : ℕ := {first}
 def secondGroup : ℕ := {second}
 
-theorem checked_sizes : firstGroup = {first} ∧ secondGroup = {second} ∧ 0 < firstGroup ∧
-    0 < secondGroup := by decide
+{S.groups_sizes("firstGroup", "secondGroup", (first, second)).header()} := by decide
 
-theorem checked_typeI (p : unitInterval) :
-    (fisherNullLaw firstGroup secondGroup p).real
-        (fisherRejectionRegionAt firstGroup secondGroup declaredLevel.value) ≤
-      (declaredLevel.value : ℝ) :=
+{S.groups_typeI(C, "firstGroup", "secondGroup", "declaredLevel.value").header()} :=
   Association.groups_typeI_le_alpha firstGroup secondGroup p declaredLevel.value
     declaredLevel.nonnegative
 """
@@ -293,16 +291,12 @@ theorem checked_typeI (p : unitInterval) :
 -- Only the total is fixed; the number exposed is binomial.
 def sampleSize : ℕ := {test.n}
 
-theorem checked_size : sampleSize = {test.n} ∧ 0 < sampleSize := by decide
+{S.total_size("sampleSize", test.n).header()} := by decide
 
-theorem checked_law (q p : unitInterval) :
-    Association.mixtureLaw sampleSize q p Set.univ = 1 :=
+{S.mixture_law(C, "sampleSize").header()} :=
   Association.mixtureLaw_univ sampleSize q p
 
-theorem checked_typeI (q p : unitInterval) :
-    (Association.mixtureLaw sampleSize q p).real
-        (Association.mixtureRejection sampleSize declaredLevel.value) ≤
-      (declaredLevel.value : ℝ) :=
+{S.mixture_typeI(C, "sampleSize", "declaredLevel.value").header()} :=
   Association.mixture_typeI_le_alpha sampleSize q p declaredLevel.value
     declaredLevel.nonnegative
 """
@@ -528,13 +522,13 @@ def _result_checks(result: AssociationResult) -> str:
     an, ad = result.test.alpha.as_integer_ratio()
     truth = "True" if fisher.reject_null else "False"
     if result.table.fixed_groups:
-        membership = f"(({x}, {y}) ∈ fisherRejectionRegionAt {first} {second} (({an} : ℚ) / {ad}))"
+        table = f"({x}, {y})"
+        region = f"fisherRejectionRegionAt {first} {second} (({an} : ℚ) / {ad})"
         unfold = ""
     else:
         k = result.table.exposed
-        membership = (
-            f"(({k}, ({x}, {y})) ∈ Association.mixtureRejection sampleSize (({an} : ℚ) / {ad}))"
-        )
+        table = f"({k}, ({x}, {y}))"
+        region = f"Association.mixtureRejection sampleSize (({an} : ℚ) / {ad})"
         unfold = (
             "  simp only [Association.mixtureRejection, Association.given, Set.mem_setOf_eq,\n"
             "    sampleSize, Finset.mem_coe]\n"
@@ -543,19 +537,17 @@ def _result_checks(result: AssociationResult) -> str:
         )
     return f"""
 -- The observed table: {x} of {first} and {y} of {second}, given its margins.
-theorem checked_p_value : hypergeometricPValue {first} {second} {total} {x} =
-    ({numerator} : ℚ) / {denominator} := by
+{S.p_value(C, first, second, total, x, (numerator, denominator)).header()} := by
   apply hypergeometricPValue_eq_of_cross_product {first} {second} {total} {x}
     {numerator} {denominator} (by decide) (by decide)
   decide +kernel
 
-theorem checked_table_probability : hypergeometricMass {first} {second} {total} {x} =
-    ({table_num} : ℚ) / {table_den} := by
+{S.table_probability(C, first, second, total, x, (table_num, table_den)).header()} := by
   apply hypergeometricMass_eq_of_cross_product {first} {second} {total} {x}
     {table_num} {table_den} (by decide) (by decide)
   decide +kernel
 
-theorem checked_decision : {membership} ↔ {truth} := by
+{S.association_decision(C, table, region, truth).header()} := by
 {unfold}  simp only [fisherRejectionRegionAt, Finset.mem_filter, binomialCountSupport,
     Finset.mem_product, Finset.mem_range]
   rw [checked_p_value]
@@ -808,16 +800,9 @@ def render_interval_proof(interval: EffectInterval, input_sha256: str) -> str:
     arguments = (
         f"{first} {second} {x} {y} {an} {ad} (by decide)\n    {endpoints}\n    {' '.join(checks)}"
     )
-    r = lambda num, den: f"((({num} : ℕ) : ℝ) / (({den} : ℕ) : ℝ))"  # noqa: E731
     if interval.table.fixed_groups:
-        law = f"(productBinomial {first} {second} pc pt)"
-        events = (
-            f"({{a | pc ∈ BinomialInterval.confidenceSet {first} {tail} a}} ×ˢ\n"
-            f"        {{b | pt ∈ BinomialInterval.confidenceSet {second} {tail} b}})"
-        )
-        coverage = f"""theorem checked_coverage (pc pt : unitInterval) :
-    ((({ln} : ℕ) : ℝ) / (({ld} : ℕ) : ℝ)) ≤ {law}.real
-      {events} := by
+        joint = S.joint_coverage(C, (ln, ld), first, second, tail, ("a", "b"))
+        coverage = f"""{joint.header()} := by
   have joint := BinomialInterval.joint_coverage {first} {second} {tail} (by positivity)
     (by norm_num) pc pt
   exact le_trans (by norm_num) joint"""
@@ -825,62 +810,33 @@ def render_interval_proof(interval: EffectInterval, input_sha256: str) -> str:
         n = interval.table.n
         coverage = f"""def sampleSize : ℕ := {n}
 
-theorem checked_coverage (q pc pt : unitInterval) :
-    ((({ln} : ℕ) : ℝ) / (({ld} : ℕ) : ℝ)) ≤
-      (Association.mixture sampleSize q (fun k => productBinomial (sampleSize - k) k pc pt)).real
-        (Association.given sampleSize (fun k =>
-          {{a | pc ∈ BinomialInterval.confidenceSet (sampleSize - k) {tail} a}} ×ˢ
-            {{b | pt ∈ BinomialInterval.confidenceSet k {tail} b}})) := by
+{S.mixture_coverage(C, (ln, ld), "sampleSize", tail).header()} := by
   have joint := Association.mixture_joint_coverage sampleSize {tail} (by positivity)
     (by norm_num) q pc pt
   exact le_trans (by norm_num) joint"""
-    hypotheses = (
-        f"(pc pt : unitInterval)\n"
-        f"    (control : pc ∈ BinomialInterval.confidenceSet {first} {tail} {x})\n"
-        f"    (treatment : pt ∈ BinomialInterval.confidenceSet {second} {tail} {y})"
-    )
+    # The statement is in statements.py; here, its proof.
+    arms = S.two_arms(C, first, second, x, y, tail)
+    claimed = S.effect_interval(C, interval.kind, arms, ends[0], ends[1])
     if interval.kind == "difference":
-        statement = (
-            f"{r(tln, tld)} - {r(cun, cud)} ≤ (pt : ℝ) - (pc : ℝ) ∧\n"
-            f"      (pt : ℝ) - (pc : ℝ) ≤ {r(tun, tud)} - {r(cln, cld)}"
-        )
         body = f"  exact BinomialInterval.difference_contains {arguments} pc pt control treatment"
     elif interval.kind == "ratio":
-        hypotheses += "\n    (positive : 0 < (pc : ℝ))"
-        lower = f"{r(tln, tld)} / {r(cun, cud)} ≤ (pt : ℝ) / pc"
         bound = f"Association.ratio_contains {arguments} pc pt control treatment positive"
         if cln > 0:
-            statement = f"{lower} ∧\n      (pt : ℝ) / pc ≤ {r(tun, tud)} / {r(cln, cld)}"
             body = f"  have bound := {bound}\n  exact ⟨bound.1, bound.2 (by decide)⟩"
         else:
-            statement = lower
             body = f"  exact ({bound}).1"
     else:
-        hypotheses += (
-            "\n    (positive : 0 < (pc : ℝ)) (below : (pc : ℝ) < 1) (treatedBelow : (pt : ℝ) < 1)"
-        )
-        ratio = "Association.odds pt / Association.odds pc"
-        lower = (
-            f"Association.odds {r(tln, tld)} / Association.odds {r(cun, cud)} ≤ {ratio}"
-            if cun < cud
-            else f"0 ≤ {ratio}"
-        )
         bound = (
             f"Association.odds_ratio_contains {arguments} pc pt control treatment positive "
             "below treatedBelow"
         )
         lower_proof = "bound.2.1 (by decide)" if cun < cud else "bound.1"
         if cln > 0 and tun < tud:
-            statement = (
-                f"{lower} ∧\n      {ratio} ≤ Association.odds {r(tun, tud)} / "
-                f"Association.odds {r(cln, cld)}"
-            )
             body = (
                 f"  have bound := {bound}\n"
                 f"  exact ⟨{lower_proof}, bound.2.2 (by decide) (by decide)⟩"
             )
         else:
-            statement = lower
             body = f"  have bound := {bound}\n  exact {lower_proof}"
     return f"""import StatClaim
 import Lean.Util.CollectAxioms
@@ -895,8 +851,7 @@ open StatClaim StatClaim.Modules
 
 {coverage}
 
-theorem checked_interval {hypotheses} :
-    {statement} := by
+{claimed.header()} := by
 {body}
 
 end StatClaimCertificate

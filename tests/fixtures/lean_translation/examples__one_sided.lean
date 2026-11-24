@@ -100,7 +100,8 @@ end outcome_claim_checks
 set_option maxRecDepth 100000 in
 theorem outcome_claim (i : Instance) (premises : Premises i) :
     (0 < 36 ∧ 0 < 36 ∧ 4 ≤ 36 ∧ 14 ≤ 36) ∧
-    (StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 = (4212885 : ℚ) / 650576834) ∧
+    (StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 =
+    (4212885 : ℚ) / 650576834) ∧
     ((StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 ≤ (1 : ℚ) / 40) ↔ True) ∧
     ((analysis.typeIClaim (analysis_level.value : ℝ)).statement) :=
   ⟨outcome_claim_checks.checked_counts, outcome_claim_checks.checked_p_value, outcome_claim_checks.checked_decision, outcome_claim_checks.checked_typeI⟩
@@ -109,7 +110,8 @@ theorem outcome_claim (i : Instance) (premises : Premises i) :
 def Claims (i : Instance) : Prop :=
   ((analysis.typeIClaim (analysis_level.value : ℝ)).statement) ∧
   ((0 < 36 ∧ 0 < 36 ∧ 4 ≤ 36 ∧ 14 ≤ 36) ∧
-    (StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 = (4212885 : ℚ) / 650576834) ∧
+    (StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 =
+    (4212885 : ℚ) / 650576834) ∧
     ((StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 ≤ (1 : ℚ) / 40) ↔ True) ∧
     ((analysis.typeIClaim (analysis_level.value : ℝ)).statement))
 

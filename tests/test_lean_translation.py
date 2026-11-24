@@ -188,6 +188,22 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
         assert checker.translation(ROOT / path).claims == claims, path
 
 
+def test_certificates_take_their_statements_from_one_place():
+    """The templates of results, intervals and randomisation tests write no claimed theorem
+    themselves: each comes from lean_translation/statements.py, as the translator's do."""
+    import re
+
+    claimed = re.compile(
+        r"theorem checked_(counts|support|p_value|table_probability|decision|interval|"
+        r"coverage|tails|interim|critical)\b"
+    )
+    for name in ("proof", "association", "incidence", "matched", "randomisation"):
+        source = (ROOT / f"src/statclaim/{name}.py").read_text()
+        assert not claimed.search(source), name
+    source = (ROOT / "src/statclaim/randomisation.py").read_text()
+    assert "theorem checked_typeI" not in source
+
+
 def test_every_exact_claim_is_checked_against_its_template():
     checker = corpus_checker()
     found = [
@@ -286,7 +302,11 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
         (
             result,
             "a misreported p-value",
-            ("35 10 = (19912805355158606332329 : ℚ)", "35 10 = (19912805355158606332328 : ℚ)"),
+            # The claim's own statement, after the template's proof material.
+            (
+                "(19912805355158606332329 : ℚ) / 2341699062001756564467919) ∧",
+                "(19912805355158606332328 : ℚ) / 2341699062001756564467919) ∧",
+            ),
         )
     )
     cases.append(

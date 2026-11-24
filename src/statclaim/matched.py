@@ -16,6 +16,8 @@ from math import comb
 
 from statclaim.association import NAME, SOURCE_POPULATION
 from statclaim.fisher import fraction_record, parse_alpha, validate_alpha
+from statclaim.lean_translation import statements as S
+from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.planning import MAX_ONE_ARM, BinomialInterval, _audit
 from statclaim.randomisation import PRESPECIFIED
 
@@ -186,14 +188,12 @@ def _design_body(test: MatchedTest) -> str:
 def pairs : ℕ := {test.pairs}
 {_level(test.alpha)}
 
-theorem checked_size : pairs = {test.pairs} ∧ 0 < pairs := by decide
+{S.pairs_size("pairs", test.pairs).header()} := by decide
 
-theorem checked_law (δ π : unitInterval) : Matched.pairsLaw pairs δ π Set.univ = 1 :=
+{S.pairs_law(C, "pairs").header()} :=
   Matched.pairsLaw_univ pairs δ π
 
-theorem checked_typeI (δ : unitInterval) :
-    (Matched.pairsLaw pairs δ Matched.half).real
-        (Matched.pairsRejection pairs (declaredLevel.value : ℝ)) ≤ (declaredLevel.value : ℝ) :=
+{S.pairs_typeI(C, "pairs", "declaredLevel.value").header()} :=
   Matched.typeI pairs δ _ (by exact_mod_cast declaredLevel.nonnegative)
 """
 
@@ -323,12 +323,10 @@ def render_result_proof(result: MatchedResult, input_sha256: str) -> str:
     truth = "True" if result.reject_null else "False"
     checks = f"""
 -- The observed pairs: {x} of {d} discordant pairs with the case exposed.
-theorem checked_tails : OneSampleBinomial.tailNumerator {d} 1 2 {x} = {upper} ∧
-    BinomialInterval.lowerNumerator {d} 1 2 {x} = {lower} := by
+{S.tails(C, d, (1, 2), x, upper, lower).header()} := by
   constructor <;> decide +kernel
 
-theorem checked_decision :
-    (({d}, {x}) ∈ Matched.pairsRejection pairs (declaredLevel.value : ℝ)) ↔ {truth} := by
+{S.pairs_decision(C, d, x, "pairs", "declaredLevel.value", truth).header()} := by
   simp only [Matched.pairsRejection, Association.given, Set.mem_ofPred_eq, Matched.rejection,
     Matched.half, pairs]
   rw [BinomialInterval.upper_tail_ratPoint, BinomialInterval.lower_tail_ratPoint,
@@ -459,29 +457,17 @@ def render_interval_proof(interval: MatchedInterval, input_sha256: str) -> str:
     tail = f"((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))"
     lower_check = "(Or.inl rfl)" if lower_n == 0 else "(Or.inr (by decide +kernel))"
     upper_check = "(Or.inl rfl)" if upper_n == upper_d else "(Or.inr (by decide +kernel))"
-    r = f"((({lower_n} : ℕ) : ℝ) / (({lower_d} : ℕ) : ℝ))"
-    statement = f"Association.odds {r} ≤ Association.odds π"
-    body = "  exact bound.1"
-    if upper_n < upper_d:
-        statement += (
-            f" ∧\n      Association.odds π ≤ Association.odds "
-            f"((({upper_n} : ℕ) : ℝ) / (({upper_d} : ℕ) : ℝ))"
-        )
-        body = "  exact ⟨bound.1, bound.2 (by decide)⟩"
+    claimed = S.odds_interval(C, d, x, tail, (lower_n, lower_d), (upper_n, upper_d), "")
+    body = "  exact bound.1" if upper_n == upper_d else "  exact ⟨bound.1, bound.2 (by decide)⟩"
     header = _header(input_sha256, "Coverage is a general theorem; the endpoints are checked.")
     return f"""{header}
 def pairs : ℕ := {interval.observed.pairs}
 
-theorem checked_coverage (δ π : unitInterval) :
-    ((({ln} : ℕ) : ℝ) / (({ld} : ℕ) : ℝ)) ≤ (Matched.pairsLaw pairs δ π).real
-      (Association.given pairs
-        (fun d => {{x | π ∈ BinomialInterval.confidenceSet d {tail} x}})) := by
+{S.pairs_coverage(C, (ln, ld), "pairs", tail).header()} := by
   have covered := Matched.pairs_coverage pairs {tail} (by positivity) δ π
   exact le_trans (by norm_num) covered
 
-theorem checked_interval (π : unitInterval)
-    (member : π ∈ BinomialInterval.confidenceSet {d} {tail} {x}) (below : (π : ℝ) < 1) :
-    {statement} := by
+{claimed.header()} := by
   have bound := Matched.odds_contains {d} {x} {an} {ad} (by decide)
     {lower_n} {lower_d} (by decide) (by decide) {upper_n} {upper_d} (by decide) (by decide)
     {lower_check} {upper_check} π member below
