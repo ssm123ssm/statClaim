@@ -32,6 +32,8 @@ from statclaim.association import (
 )
 from statclaim.fisher import fraction_record, parse_alpha
 from statclaim.incidence import MAX_EVENTS, RateTest, rate_assumptions, rate_null_words
+from statclaim.lean_translation import statements as S
+from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.matched import MatchedTest, matched_assumptions
 from statclaim.matched import null_words as matched_null_words
 from statclaim.planning import (
@@ -384,6 +386,9 @@ def render_plan_proof(plan: AssociationPowerPlan, input_sha256: str) -> str:
         f"{an} {ad} (by decide) declaredLevel.value (by norm_num [declaredLevel])\n"
         f"    {a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide) {bn} {bd} (by decide)"
     )
+    typeI = S.groups_typeI(
+        C, "firstGroup", "secondGroup", "declaredLevel.value", _ratio(plan.maximum_typeI)
+    )
     smaller = ""
     if plan.minimal:
         low, r = plan.search[0], plan.ratio
@@ -405,10 +410,7 @@ def render_plan_proof(plan: AssociationPowerPlan, input_sha256: str) -> str:
         body = "\n".join(cases)
         smaller = f"""
 {chr(10).join(facts)}
-theorem checked_smaller (n : ℕ) (lower : {low} ≤ n) (upper : n < {second}) :
-    (productBinomial ({r} * n) n {point}).real
-        (fisherRejectionRegionAt ({r} * n) n declaredLevel.value) <
-      {_ratio(plan.minimum_power)} := by
+{S.groups_smaller(C, low, second, r, point, "declaredLevel.value", (bn, bd)).header()} := by
   interval_cases n
 {body}
 """
@@ -424,32 +426,24 @@ set_option maxHeartbeats 20000000
 namespace StatClaimCertificate
 open StatClaim StatClaim.Modules
 
-def declaredLevel : SignificanceLevel :=
-  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
+{S.level_definition(C, (an, ad))}
 -- The two groups the design fixes: (unexposed, exposed) or (controls, cases).
 def firstGroup : ℕ := {first}
 def secondGroup : ℕ := {second}
 def cuts : List ℕ := {_lean_list(cuts)}
 def nexts : List ℕ := {_lean_list(nexts)}
 
-theorem checked_sizes : firstGroup = {first} ∧ secondGroup = {second} ∧ 0 < firstGroup ∧
-    0 < secondGroup := by decide
+{S.groups_sizes("firstGroup", "secondGroup", (first, second)).header()} := by decide
 
 theorem checked_region : FisherPower.HintsValid firstGroup secondGroup {an} {ad} cuts nexts := by
   decide +kernel
 
-theorem checked_typeI (p : unitInterval) :
-    (fisherNullLaw firstGroup secondGroup p).real
-        (fisherRejectionRegionAt firstGroup secondGroup declaredLevel.value) ≤
-      {_ratio(plan.maximum_typeI)} := by
+{typeI.header()} := by
   refine le_trans (Association.groups_typeI_le_alpha firstGroup secondGroup p
     declaredLevel.value declaredLevel.nonnegative) ?_
   norm_num [declaredLevel]
 
-theorem checked_power :
-    {_ratio(plan.minimum_power)} ≤
-      (productBinomial firstGroup secondGroup {point}).real
-        (fisherRejectionRegionAt firstGroup secondGroup declaredLevel.value) :=
+{S.groups_power(C, "firstGroup", "secondGroup", point, "declaredLevel.value", (bn, bd)).header()} :=
   AssociationPower.power_of_check firstGroup secondGroup {arguments} (by
       rw [FisherPower.rejectionNumerator_hint _ _ _ _ _ _ _ _ cuts nexts checked_region]
       decide +kernel)
@@ -866,9 +860,7 @@ def rate_plan_assumptions(plan: RatePowerPlan) -> list[str]:
 
 
 def _level_lean(alpha: Fraction) -> str:
-    an, ad = alpha.as_integer_ratio()
-    return f"""def declaredLevel : SignificanceLevel :=
-  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩"""
+    return S.level_definition(C, alpha.as_integer_ratio())
 
 
 def _binomial_header(input_sha256: str, what: str) -> str:
@@ -917,9 +909,7 @@ def render_matched_plan_proof(plan: MatchedPowerPlan, input_sha256: str) -> str:
             )
         smaller = f"""
 {chr(10).join(facts)}
-theorem checked_smaller (m : ℕ) (lower : {low} ≤ m) (upper : m < {n}) :
-    (Matched.pairsLaw m {point}).real
-        (Matched.pairsRejection m (declaredLevel.value : ℝ)) < {_ratio(plan.minimum_power)} := by
+{S.pairs_smaller(C, low, n, point, "declaredLevel.value", (bn, bd)).header()} := by
   interval_cases m
 {chr(10).join(cases)}
 """
@@ -930,18 +920,14 @@ theorem checked_smaller (m : ℕ) (lower : {low} ≤ m) (upper : m < {n}) :
 def lows : List ℕ := {_lean_list(lows)}
 def highs : List ℕ := {_lean_list(highs)}
 
-theorem checked_typeI (δ : unitInterval) :
-    (Matched.pairsLaw {n} δ Matched.half).real
-        (Matched.pairsRejection {n} (declaredLevel.value : ℝ)) ≤ {_ratio(plan.maximum_typeI)} := by
+{S.pairs_typeI(C, str(n), "declaredLevel.value", _ratio(plan.maximum_typeI)).header()} := by
   refine le_trans (Matched.typeI {n} δ _ (by exact_mod_cast declaredLevel.nonnegative)) ?_
   norm_num [declaredLevel]
 
 theorem checked_region : BinomialPower.PairsValid {n} {an} {ad} lows highs := by
   decide +kernel
 
-theorem checked_power :
-    {_ratio(plan.minimum_power)} ≤ (Matched.pairsLaw {n} {point}).real
-        (Matched.pairsRejection {n} (declaredLevel.value : ℝ)) :=
+{S.pairs_power(C, n, point, "declaredLevel.value", (bn, bd)).header()} :=
   BinomialPower.pairs_power_of_check {n} {arguments} checked_region
     {bn} {bd} (by decide) (by decide +kernel)
 {smaller}
@@ -984,10 +970,7 @@ def render_rate_plan_proof(plan: RatePowerPlan, input_sha256: str) -> str:
             )
         smaller = f"""
 {chr(10).join(facts)}
-theorem checked_smaller (m : ℕ) (lower : {first} ≤ m) (upper : m < {n}) :
-    (ProbabilityTheory.binomial m {alternative}).real
-        (Incidence.rejectionAt {null} m (declaredLevel.value : ℝ)) <
-      {_ratio(plan.minimum_power)} := by
+{S.events_smaller(C, first, n, alternative, null, "declaredLevel.value", (bn, bd)).header()} := by
   interval_cases m
 {chr(10).join(cases)}
 """
@@ -995,10 +978,7 @@ theorem checked_smaller (m : ℕ) (lower : {first} ≤ m) (upper : m < {n}) :
 {_level_lean(alpha)}
 
 -- For every total rate and every share of person-time, under equal rates.
-theorem checked_typeI (total : NNReal) (share : unitInterval) :
-    (Incidence.ratesLaw total share).real
-        (Incidence.given (fun n => Incidence.rejectionAt share n (declaredLevel.value : ℝ))) ≤
-      {_ratio(plan.maximum_typeI)} := by
+{S.rate_typeI(C, "declaredLevel.value", _ratio(plan.maximum_typeI)).header()} := by
   refine le_trans (Incidence.typeI total share _
     (by exact_mod_cast declaredLevel.nonnegative)) ?_
   norm_num [declaredLevel]
@@ -1007,9 +987,7 @@ theorem checked_typeI (total : NNReal) (share : unitInterval) :
 theorem checked_region : BinomialPower.RegionValid {n} {c} {f} {an} {ad} {low} {high} := by
   decide +kernel
 
-theorem checked_power :
-    {_ratio(plan.minimum_power)} ≤ (ProbabilityTheory.binomial {n} {alternative}).real
-        (Incidence.rejectionAt {null} {n} (declaredLevel.value : ℝ)) :=
+{S.events_power(C, n, alternative, null, "declaredLevel.value", (bn, bd)).header()} :=
   BinomialPower.power_of_check {n} {arguments} checked_region
     {bn} {bd} (by decide) (by decide +kernel)
 {smaller}
@@ -1273,14 +1251,13 @@ set_option maxHeartbeats 20000000
 namespace StatClaimCertificate
 open StatClaim StatClaim.Modules
 
-def declaredLevel : SignificanceLevel :=
-  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
+{S.level_definition(C, (an, ad))}
 def sampleSize : ℕ := {n}
 def cutsList : List (List ℕ) := {_lean_list(_lean_list(c) for c, _ in hints)}
 def nextsList : List (List ℕ) := {_lean_list(_lean_list(x) for _, x in hints)}
 def numerators : List ℕ := {_lean_list(numerators)}
 
-theorem checked_size : sampleSize = {n} ∧ 0 < sampleSize := by decide
+{S.total_size("sampleSize", n).header()} := by decide
 
 {parts}
 theorem checked_parts (k : ℕ) (below : k < {n} + 1) :
@@ -1289,19 +1266,12 @@ theorem checked_parts (k : ℕ) (below : k < {n} + 1) :
   interval_cases k
 {cases}
 
-theorem checked_typeI (q p : unitInterval) :
-    (Association.mixtureLaw sampleSize q p).real
-        (Association.mixtureRejection sampleSize declaredLevel.value) ≤
-      {_ratio(plan.maximum_typeI)} := by
+{S.mixture_typeI(C, "sampleSize", "declaredLevel.value", _ratio(plan.maximum_typeI)).header()} := by
   refine le_trans (Association.mixture_typeI_le_alpha sampleSize q p declaredLevel.value
     declaredLevel.nonnegative) ?_
   norm_num [declaredLevel]
 
-theorem checked_power :
-    {_ratio(plan.minimum_power)} ≤
-      (Association.mixture {n} {share}
-        (fun k => productBinomial ({n} - k) k {groups})).real
-        (Association.mixtureRejection {n} declaredLevel.value) :=
+{S.total_power(C, n, share, groups, "declaredLevel.value", (bn, bd)).header()} :=
   AssociationPower.total_power_of_check {n} {q} {r} {a} {d} {b} {e} {an} {ad}
     (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
     declaredLevel.value (by norm_num [declaredLevel]) cutsList nextsList numerators checked_parts

@@ -12,9 +12,12 @@ compiler rejects is not translated; its rejection is checked separately.
 Lean also lists the premises each claim's proof uses. The grade they give must equal the
 grade the translator expects and the status Python reports for the claim (`best_status`).
 
-Each exact test's claim must imply the statement its certificate template checks for
-`verify` today (test 5 of the proposal): the template's body is placed beside the program,
-and an `example` derives the template's theorem from the program's claim.
+Each exact claim must imply the statement its certificate template checks for `verify`
+today (test 5 of the proposal). A result, interval or plan is proved part by part from the
+template's own theorems, which Lean accepts only when each part and its theorem are
+definitionally equal, so the claim's proof shows it. A Type I claim is stated on the
+program's own objects, so its template's body is placed beside the program, and an
+`example` derives the template's theorem from the claim.
 """
 
 import re
@@ -23,17 +26,18 @@ import sys
 import tempfile
 from pathlib import Path
 
-from statclaim.language import ComposedFamilyIR
+from statclaim.language import ComposedFamilyIR, ProgramIR
 from statclaim.language_compiler import compile_source
 from statclaim.language_inspection import best_status
 from statclaim.language_syntax import Source
 from statclaim.language_values import STATUS_GRADES
-from statclaim.lean_translation.denote import Claim, denote
+from statclaim.lean_translation.denote import Analysis, Claim, denote
 from statclaim.lean_translation.emit import name as lean
 from statclaim.lean_translation.exact import ExactAnalysis
 from statclaim.lean_translation.grades import grade
 from statclaim.lean_translation.program import Translation, translate
-from statclaim.lean_translation.prove import DEEP, projection, template, template_body
+from statclaim.lean_translation.prove import template, template_body
+from statclaim.proof import render_design_proof
 
 ROOT = Path(__file__).resolve().parents[1]
 PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
@@ -42,7 +46,7 @@ PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
 # association in a survey, a family of a proved and a cited test, a fixed sequence, a
 # design with two looks, a graphical procedure, the COPD hierarchy, which nests a graph
 # in a sequence, exact tests (one-sided Fisher, association with fixed groups,
-# randomisation), a result for observed counts and an interval.
+# randomisation), a result for observed counts, an interval and a two-stage plan.
 PINNED = (
     "examples/paper/fisher_design.stat",
     "examples/t_test.stat",
@@ -59,6 +63,7 @@ PINNED = (
     "examples/randomisation.stat",
     "examples/fisher_result.stat",
     "examples/difference_interval.stat",
+    "examples/paper/simon_design.stat",
 )
 
 
@@ -130,22 +135,39 @@ def grade_problems(results: dict[str, tuple[Path, Translation]], output: str) ->
     return problems
 
 
+def fisher_equivalence(claim: Claim, program: ProgramIR) -> str:
+    """Two-sided Fisher: the template's bound for every common rate, from the program's
+    claim at the rate (p, p), where the sampling law is the binomial law under the null."""
+    analysis = claim.analysis
+    assert isinstance(analysis, Analysis)
+    space, name = f"template_{claim.name}", lean(claim.name)
+    sizes, level = lean(analysis.model.sizes), lean(analysis.level)
+    design = program.requests[claim.request_id - 1].claim.subject.lower()
+    return "\n".join(
+        [
+            f"namespace {space}",
+            "",
+            template_body(render_design_proof(design, "0" * 64)),
+            "",
+            f"end {space}",
+            "",
+            "example (i : Instance) (premises : Premises i) :",
+            f"    type_of% @{space}.checked_typeI := by",
+            "  intro p",
+            f"  have claim := {name} i premises (p, p) rfl",
+            f"  change ((StatClaim.Modules.TwoArmBinomial.model {sizes}).law (p, p)).real",
+            f"    (StatClaim.Modules.Fisher.procedure {sizes} {level}).rejectionEvent ≤ _ at claim",
+            f"  rw [StatClaim.Modules.TwoArmBinomial.law_under_null {sizes} (p, p) rfl,",
+            f"    StatClaim.Modules.Fisher.rejectionEvent_eq {sizes} {level}] at claim",
+            f"  convert claim using 1 <;> norm_num [{level}, {sizes}]",
+            "",
+        ]
+    )
+
+
 def equivalence(claim: Claim) -> str:
     """An `example` deriving the template's theorem from the program's claim."""
     space, name = f"template_{claim.name}", lean(claim.name)
-    if claim.result is not None:
-        # Each part of a result is the theorem of the same name in its template.
-        parts = claim.result.parts
-        text = template(claim.result.kind, claim.result.source)
-        examples = [
-            f"{DEEP}\nexample (i : Instance) (premises : Premises i) :\n"
-            f"    type_of% @{space}.checked_{part} :=\n"
-            f"  ({name} i premises){projection(index, len(parts))}\n"
-            for index, (part, _) in enumerate(parts)
-        ]
-        return "\n".join(
-            [f"namespace {space}", "", template_body(text), "", f"end {space}", "", *examples]
-        )
     analysis = claim.analysis
     assert isinstance(analysis, ExactAnalysis)
     level = analysis.level
@@ -198,16 +220,39 @@ def equivalence(claim: Claim) -> str:
     )
 
 
+def fisher_claim(claim: Claim) -> bool:
+    """A Type I claim of a two-sided Fisher test in a design of its own."""
+    analysis = claim.analysis
+    return (
+        isinstance(analysis, Analysis)
+        and analysis.kind == "fisher"
+        and claim.kind == "typeI"
+        and claim.combination is None
+    )
+
+
 def equivalences(path: Path) -> list[str]:
-    """One for each exact test's claim in the program."""
+    """One for each Type I claim of an exact test in the program."""
+    program = compiled(path)
+    assert program is not None
+    found = []
+    for claim in denote(program).claims:
+        if isinstance(claim.analysis, ExactAnalysis):
+            found.append(equivalence(claim))
+        elif fisher_claim(claim):
+            found.append(fisher_equivalence(claim, program))
+    return found
+
+
+def exact_claims(path: Path) -> int:
+    """The exact claims in a program: Type I claims, results, intervals and plans."""
     program = compiled(path)
     assert program is not None
     claims = denote(program).claims
-    return [
-        equivalence(claim)
-        for claim in claims
-        if isinstance(claim.analysis, ExactAnalysis) or claim.result is not None
-    ]
+    return sum(
+        isinstance(c.analysis, ExactAnalysis) or c.result is not None or fisher_claim(c)
+        for c in claims
+    )
 
 
 def block(path: Path, result: Translation, extra: list[str] = []) -> str:  # noqa: B006
@@ -230,7 +275,7 @@ def main() -> int:
             continue
         results[label(path)] = (path, result)
         extra = equivalences(path)
-        templates += len(extra)
+        templates += exact_claims(path)
         blocks.append(block(path, result, extra))
         claims += len(result.claims)
         skipped += len(result.skipped)
@@ -260,8 +305,8 @@ def main() -> int:
         print("\n".join(lines[:60]))
         return 1
     print(
-        f"Lean accepted every translated program, and each of the {templates} exact tests' "
-        "claims implies the statement its template checks."
+        f"Lean accepted every translated program, and each of the {templates} exact claims "
+        "implies the statement its template checks."
     )
     problems = grade_problems(results, run.stdout + run.stderr)
     if problems:

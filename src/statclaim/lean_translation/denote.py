@@ -94,6 +94,30 @@ IGNORED = {
     "AssociationTableIR",
     "ObservedEventsIR",
     "MatchedPairsIR",
+    # Planning inputs: a target, the candidates searched and the planning point are stated
+    # with the planning claim that verifies them, and mean nothing in Lean on their own.
+    "PowerTargetIR",
+    "PrecisionTargetIR",
+    "PlannedIntervalIR",
+    "CandidatesIR",
+    "GroupCandidatesIR",
+    "TotalCandidatesIR",
+    "IntervalCandidatesIR",
+    "TwoStageCandidatesIR",
+    "CountCandidatesIR",
+    "ClusterCandidatesIR",
+    "OneArmCandidatesIR",
+    "RatesIR",
+    "MeanDifferenceIR",
+    "ExponentialSurvivalIR",
+    "EndpointPointsIR",
+    "NullScenariosIR",
+    "OutcomePrevalenceIR",
+    "ExposurePrevalenceIR",
+    "IncidenceRatesIR",
+    "SlopeIR",
+    "OutcomeMeansIR",
+    "SingleProportionIR",
 }
 
 
@@ -1032,6 +1056,33 @@ class Denoter:
             )
         )
 
+    def plan(self, name: str, request_id: int, kind: str, subject: object) -> None:
+        """A planning claim: the plan `verify` would certify, and what its certificate
+        claims. A sample-size search runs here, as it does for `verify`."""
+        try:
+            template, found = exact.planned(subject)
+        except ValueError as refused:
+            raise Untranslated(str(refused)) from None
+        unmet = exact.met(found)
+        if unmet is not None:
+            raise Untranslated(unmet)
+        space = self.namer.fresh(f"{name}_plan")
+        stated = exact.plan_claim(template, found, lean(space))
+        self.out.defs.append(
+            f"namespace {lean(space)}\n\n{stated.definitions}\n\nend {lean(space)}"
+        )
+        self.out.claims.append(
+            Claim(
+                name,
+                stated.statement(),
+                kind,
+                request_id,
+                "proved",
+                space=self.namer.fresh(f"{name}_checks"),
+                result=stated,
+            )
+        )
+
     # The program ------------------------------------------------------------------------
     def run(self) -> Denotation:
         holders: dict[int, str] = {}
@@ -1081,6 +1132,8 @@ class Denoter:
                     self.type_i(name, request_id, self.analysis(subject))
                 elif request.claim.kind == "familywise":
                     self.familywise(name, request_id, request.claim.subject)
+                elif request.claim.kind in ("meets", "sample_size"):
+                    self.plan(name, request_id, request.claim.kind, subject)
                 elif request.claim.kind in ("result", "interval") and isinstance(
                     request.claim.subject, (ObservationIR, *exact.RESULTS, *exact.INTERVALS)
                 ):

@@ -84,6 +84,25 @@ Decisions taken in milestone 4 (2026-11-23):
   the duplication of part 2 is gone; the templates keep only their definitions
   and proofs. Every certificate the test suite and the corpus render is
   unchanged, byte for byte.
+- Milestone 5 done: planning claims too, 137 claims in all. `statements.py`
+  now also states the planning certificates' theorems and the definitions they
+  name (design, level, analysis, planning point); a translated program declares
+  those definitions in a namespace of the claim's own. A sample-size search runs
+  as it does for `verify`, and a plan that misses its target is not translated,
+  with `verify`'s reason. Test 5 holds for all 88 exact claims in the corpus:
+  a result, interval or plan is proved from its template's own theorems, which
+  Lean accepts only when each part is definitionally equal to its theorem; each
+  Type I claim, including two-sided Fisher, has an example deriving its
+  template's theorem. The corpus check takes about four minutes.
+
+Where the templates stand after milestone 5 (2026-11-23): every theorem an exact
+certificate claims is stated once, in `statements.py`, and both `verify` and the
+translator use it. What remains of each template is its definitions and its
+proofs, which are untrusted. Hint checks (rejection regions, cells, parts) stay
+as proof material. `verify` still writes its certificates from the templates;
+issuing them from translated programs instead is the compatibility certificate
+of milestone 6. Families with an exact member, and the one-arm and two-stage
+declarations themselves, are not translated yet.
 
 ## Goal
 

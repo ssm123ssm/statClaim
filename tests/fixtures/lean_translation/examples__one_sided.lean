@@ -25,6 +25,17 @@ def analysis_level : StatClaim.SignificanceLevel :=
 noncomputable def analysis :=
   StatClaim.Modules.FisherOneSided.analysis study_sizes analysis_level
 
+namespace sizing_claim_plan
+
+def declaredSizes : StatClaim.FixedSampleDesign := ⟨36, 36, by decide, by decide⟩
+def declaredLevel : StatClaim.SignificanceLevel :=
+  ⟨(1 : ℚ) / 40, by norm_num, by norm_num⟩
+noncomputable def declaredAnalysis := StatClaim.Modules.FisherOneSided.analysis declaredSizes declaredLevel
+noncomputable def planningPoint : StatClaim.Modules.TwoArmBinomial.Parameters :=
+  StatClaim.Modules.FisherPower.ratePoint 1 10 2 5 (by decide) (by decide) (by decide) (by decide)
+
+end sizing_claim_plan
+
 -- Contract facts the Python compiler checks, decided by Lean.
 
 theorem analysis_null :
@@ -56,6 +67,77 @@ theorem guarantee_claim (i : Instance) (premises : Premises i) :
     (analysis.typeIClaim (analysis_level.value : ℝ)).statement :=
   StatClaim.Modules.FisherOneSided.typeI_of_hints study_sizes analysis_level 1 40
     (by decide) (by norm_num [analysis_level]) guarantee_claim_checks.bounds guarantee_claim_checks.region guarantee_claim_checks.sections
+
+namespace sizing_claim_checks
+
+set_option maxRecDepth 100000
+set_option maxHeartbeats 20000000
+open StatClaim StatClaim.Modules
+
+def declaredSizes : FixedSampleDesign := ⟨36, 36, by decide, by decide⟩
+def declaredLevel : SignificanceLevel :=
+  ⟨(1 : ℚ) / 40, by norm_num, by norm_num⟩
+noncomputable def declaredAnalysis := FisherOneSided.analysis declaredSizes declaredLevel
+noncomputable def planningPoint : TwoArmBinomial.Parameters :=
+  FisherPower.ratePoint 1 10 2 5 (by decide) (by decide) (by decide) (by decide)
+def bounds : List ℕ := [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 25, 25, 26, 26, 27, 28, 28, 29, 29, 30, 31, 31, 32, 33, 34, 35, 36]
+
+theorem checked_sizes : declaredSizes.nControl = 36 ∧ declaredSizes.nTreatment = 36 ∧
+    0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+
+theorem checked_region : FisherOneSided.HintsValid declaredSizes.nControl
+    declaredSizes.nTreatment 1 40 bounds := by
+  decide +kernel
+
+theorem checked_sections : FisherOneSided.HintSections declaredSizes.nControl
+    declaredSizes.nTreatment bounds := by
+  decide +kernel
+
+theorem checked_typeI :
+    (declaredAnalysis.typeIClaim (((1 : ℕ) : ℝ) / ((40 : ℕ) : ℝ))).statement := by
+  intro parameter null
+  refine le_trans (FisherOneSided.typeI_of_hints declaredSizes declaredLevel 1 40
+    (by decide) (by norm_num [declaredLevel]) bounds checked_region checked_sections
+    parameter null) ?_
+  norm_num [declaredLevel]
+
+theorem checked_power :
+    (declaredAnalysis.powerClaim (fun parameter => parameter = planningPoint)
+      (((4 : ℕ) : ℝ) / ((5 : ℕ) : ℝ))).statement :=
+  FisherOneSided.power_of_check declaredSizes declaredLevel 1 40 (by decide)
+    (by norm_num [declaredLevel]) 1 10 2 5 (by decide) (by decide) (by decide) (by decide)
+    4 5 (by decide) (by
+      rw [FisherOneSided.rejectionNumerator_hint _ _ _ _ _ _ _ _ bounds checked_region]
+      decide +kernel)
+
+def smallerBounds : List (List ℕ) := [[0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 10, 11, 11, 12, 12, 13, 14, 14, 15, 16, 16, 17, 18, 19, 20], [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 12, 12, 13, 13, 14, 15, 15, 16, 17, 17, 18, 19, 20, 21], [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 13, 13, 14, 14, 15, 16, 16, 17, 18, 18, 19, 20, 21, 22], [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 14, 14, 15, 15, 16, 17, 17, 18, 19, 19, 20, 21, 22, 23], [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15, 15, 16, 16, 17, 18, 18, 19, 20, 20, 21, 22, 23, 24], [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 17, 17, 18, 19, 19, 20, 20, 21, 22, 23, 24, 25], [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 8, 9, 9, 10, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 18, 18, 19, 20, 20, 21, 21, 22, 23, 24, 25, 26], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 19, 19, 20, 20, 21, 22, 22, 23, 24, 25, 26, 27], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 20, 20, 21, 21, 22, 23, 23, 24, 25, 26, 27, 28], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 17, 17, 18, 18, 19, 19, 20, 21, 21, 22, 22, 23, 24, 24, 25, 26, 27, 28, 29], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 18, 18, 19, 19, 20, 20, 21, 22, 22, 23, 23, 24, 25, 25, 26, 27, 28, 29, 30], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 19, 19, 20, 20, 21, 21, 22, 23, 23, 24, 24, 25, 26, 26, 27, 28, 29, 30, 31], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25, 25, 26, 27, 27, 28, 29, 30, 31, 32], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 22, 22, 23, 23, 24, 25, 25, 26, 26, 27, 28, 28, 29, 30, 31, 32, 33], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 11, 12, 12, 13, 13, 14, 14, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 23, 23, 24, 24, 25, 26, 26, 27, 27, 28, 29, 29, 30, 31, 32, 33, 34], [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25, 25, 26, 27, 27, 28, 28, 29, 30, 30, 31, 32, 33, 34, 35]]
+
+theorem checked_smaller (n : ℕ) (positive : 0 < n) (lower : 20 ≤ n) (upper : n < 36) :
+    ((Core.Policy.fixed (TwoArmBinomial.model
+        ⟨n, 1 * n, positive, Nat.mul_pos (by decide) positive⟩)).law planningPoint).real
+        (FisherOneSided.analysis ⟨n, 1 * n, positive, Nat.mul_pos (by decide) positive⟩
+          declaredLevel).rejection <
+      (((4 : ℕ) : ℝ) / ((5 : ℕ) : ℝ)) :=
+  FisherOneSided.power_lt_of_smallerFail declaredLevel 1 40 (by decide)
+    (by norm_num [declaredLevel]) 1 10 2 5 (by decide) (by decide) (by decide) (by decide) 4 5 (by decide) 1 (by decide) 20 36
+    smallerBounds (by decide +kernel) n positive lower upper
+
+end sizing_claim_checks
+
+set_option maxRecDepth 100000 in
+theorem sizing_claim (i : Instance) (premises : Premises i) :
+    (sizing_claim_plan.declaredSizes.nControl = 36 ∧ sizing_claim_plan.declaredSizes.nTreatment = 36 ∧
+    0 < sizing_claim_plan.declaredSizes.nControl ∧ 0 < sizing_claim_plan.declaredSizes.nTreatment) ∧
+    ((sizing_claim_plan.declaredAnalysis.typeIClaim (((1 : ℕ) : ℝ) / ((40 : ℕ) : ℝ))).statement) ∧
+    ((sizing_claim_plan.declaredAnalysis.powerClaim (fun parameter => parameter = sizing_claim_plan.planningPoint)
+      (((4 : ℕ) : ℝ) / ((5 : ℕ) : ℝ))).statement) ∧
+    (∀ (n : ℕ) (positive : 0 < n) (lower : 20 ≤ n) (upper : n < 36),
+      ((StatClaim.Core.Policy.fixed (StatClaim.Modules.TwoArmBinomial.model
+        ⟨n, 1 * n, positive, Nat.mul_pos (by decide) positive⟩)).law sizing_claim_plan.planningPoint).real
+        (StatClaim.Modules.FisherOneSided.analysis ⟨n, 1 * n, positive, Nat.mul_pos (by decide) positive⟩
+          sizing_claim_plan.declaredLevel).rejection <
+      (((4 : ℕ) : ℝ) / ((5 : ℕ) : ℝ))) :=
+  ⟨sizing_claim_checks.checked_sizes, sizing_claim_checks.checked_typeI, sizing_claim_checks.checked_power, sizing_claim_checks.checked_smaller⟩
 
 namespace outcome_claim_checks
 
@@ -109,6 +191,17 @@ theorem outcome_claim (i : Instance) (premises : Premises i) :
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
   ((analysis.typeIClaim (analysis_level.value : ℝ)).statement) ∧
+  ((sizing_claim_plan.declaredSizes.nControl = 36 ∧ sizing_claim_plan.declaredSizes.nTreatment = 36 ∧
+    0 < sizing_claim_plan.declaredSizes.nControl ∧ 0 < sizing_claim_plan.declaredSizes.nTreatment) ∧
+    ((sizing_claim_plan.declaredAnalysis.typeIClaim (((1 : ℕ) : ℝ) / ((40 : ℕ) : ℝ))).statement) ∧
+    ((sizing_claim_plan.declaredAnalysis.powerClaim (fun parameter => parameter = sizing_claim_plan.planningPoint)
+      (((4 : ℕ) : ℝ) / ((5 : ℕ) : ℝ))).statement) ∧
+    (∀ (n : ℕ) (positive : 0 < n) (lower : 20 ≤ n) (upper : n < 36),
+      ((StatClaim.Core.Policy.fixed (StatClaim.Modules.TwoArmBinomial.model
+        ⟨n, 1 * n, positive, Nat.mul_pos (by decide) positive⟩)).law sizing_claim_plan.planningPoint).real
+        (StatClaim.Modules.FisherOneSided.analysis ⟨n, 1 * n, positive, Nat.mul_pos (by decide) positive⟩
+          sizing_claim_plan.declaredLevel).rejection <
+      (((4 : ℕ) : ℝ) / ((5 : ℕ) : ℝ)))) ∧
   ((0 < 36 ∧ 0 < 36 ∧ 4 ≤ 36 ∧ 14 ≤ 36) ∧
     (StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 =
     (4212885 : ℚ) / 650576834) ∧
@@ -119,7 +212,7 @@ def Claims (i : Instance) : Prop :=
 noncomputable def witness : Instance := ⟨⟩
 
 theorem program : StatClaim.Interface.ProgramTheorem Premises Claims where
-  implies := fun i premises => ⟨guarantee_claim i premises, outcome_claim i premises⟩
+  implies := fun i premises => ⟨guarantee_claim i premises, sizing_claim i premises, outcome_claim i premises⟩
   satisfiable := ⟨witness, ⟨⟩⟩
 
 -- The premises each claim's proof uses, following this program's own constants.
@@ -128,7 +221,7 @@ run_cmd do
   let env ← getEnv
   let structureName := ``Premises
   let fields := getStructureFields env structureName
-  for (short, claim) in [("guarantee_claim", ``guarantee_claim), ("outcome_claim", ``outcome_claim)] do
+  for (short, claim) in [("guarantee_claim", ``guarantee_claim), ("sizing_claim", ``sizing_claim), ("outcome_claim", ``outcome_claim)] do
     let found ← IO.mkRef ({} : NameSet)
     let mut seen : NameSet := {}
     let mut stack := [claim]

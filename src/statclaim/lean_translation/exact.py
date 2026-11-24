@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Any
 
+from statclaim import plan_kinds
+from statclaim.association import AssociationTest
 from statclaim.fisher import fisher_exact
 from statclaim.incidence import tails_at
 from statclaim.language import (
@@ -29,24 +31,45 @@ from statclaim.language import (
     AssociationResultIR,
     DifferenceIntervalIR,
     EffectIntervalIR,
+    FeasibilityIR,
     IntervalIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
     MatchedResultIR,
     ObservationIR,
+    OneArmCandidatesIR,
     OneSampleObservationIR,
     ProportionIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RateRatioIR,
     RateResultIR,
+    TotalCandidatesIR,
+    TwoStageCandidatesIR,
     TwoStageObservationIR,
+    group_probabilities,
+    planned_analysis,
 )
 from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.emit import rational
-from statclaim.matched import tails
+from statclaim.matched import MatchedTest, tails
+from statclaim.observational_planning import (
+    MatchedPowerPlan,
+    RatePowerPlan,
+    TotalPowerPlan,
+    search_events,
+    search_groups,
+    search_pairs,
+    search_totals,
+)
+from statclaim.planning import (
+    OneSamplePlan,
+    margin_grid,
+    search_equal_arms,
+    search_one_sample,
+    search_two_stage,
+)
 from statclaim.planning import _lean_design as lean_design
-from statclaim.planning import margin_grid
 
 MODULES = "StatClaim.Modules"
 EXACT = (AssociationAnalysisIR, RandomisationAnalysisIR, RateAnalysisIR, MatchedAnalysisIR)
@@ -102,6 +125,7 @@ class ExactResult:
     kind: str  # the template whose proofs prove it
     theorems: list[S.Theorem]
     source: Any  # what the template renders: the proof's material, not trusted
+    definitions: str = ""  # a plan's definitions, which its theorems name
 
     @property
     def parts(self) -> list[tuple[str, str]]:
@@ -377,3 +401,241 @@ def matched_interval(found: Any) -> ExactResult:
         S.odds_interval(P, d, x, tail, lower, upper, ""),
     ]
     return ExactResult("matched_interval", theorems, found)
+
+
+# Planning ---------------------------------------------------------------------------------
+# The kinds of analysis whose plans have exact power, checked by a template.
+EXACT_PLANS = ("fisher", "one_sample", "two_stage", "association", "matched", "rate")
+
+
+def planned(subject: Any) -> tuple[str, Any]:
+    """The plan a planning claim is about, as `verify` finds it: a declared design, or the
+    design a sample-size search selects. The kind names the template that checks it."""
+    analysis = planned_analysis(subject)
+    kind = plan_kinds.kind_of(analysis).name
+    if kind not in EXACT_PLANS:
+        raise ValueError(f"Plans of the {kind} kind have no exact power to prove.")
+    if isinstance(subject, FeasibilityIR):
+        plan = subject.lower()
+    else:
+        plan = searched(subject, analysis, kind)
+    return PLAN_TEMPLATES[type(plan).__name__], plan
+
+
+def searched(subject: Any, analysis: Any, kind: str) -> Any:
+    """The design a sample-size search selects, or None."""
+    target, candidates = subject.target, subject.candidates
+    if kind == "association" and isinstance(candidates, TotalCandidatesIR):
+        test = analysis.lower()
+        bounds = (candidates.min_n, candidates.max_n)
+        first: Any = TotalPowerPlan(
+            AssociationTest(test.design, test.alpha, None, bounds[0], test.exposure, test.outcome),
+            *group_probabilities(target.at),
+            target.at.exposed_share,
+            target.minimum,
+            target.maximum_typeI,
+            "sample_size",
+            bounds,
+        )
+        return search_totals(first, *bounds)[0]
+    if kind == "association":
+        return search_groups(
+            analysis.lower(),
+            *group_probabilities(target.at),
+            target.minimum,
+            target.maximum_typeI,
+            candidates.min_size,
+            candidates.max_size,
+            subject.minimal,
+            candidates.ratio,
+        )[0]
+    if kind in ("matched", "rate"):
+        bounds = (candidates.min_size, candidates.max_size)
+        point = target.at
+        if isinstance(analysis, MatchedAnalysisIR):
+            test = analysis.lower()
+            first = MatchedPowerPlan(
+                MatchedTest(bounds[0], test.alpha, test.exposure, test.outcome),
+                point.share,
+                point.odds_ratio,
+                target.minimum,
+                target.maximum_typeI,
+                "sample_size",
+                bounds,
+                subject.minimal,
+            )
+            return search_pairs(first, *bounds, subject.minimal)[0]
+        first = RatePowerPlan(
+            analysis.lower(),
+            point.exposed_time,
+            point.unexposed_time,
+            point.rate_ratio,
+            bounds[0],
+            target.minimum,
+            target.maximum_typeI,
+            "sample_size",
+            bounds,
+            subject.minimal,
+        )
+        return search_events(first, *bounds, subject.minimal)[0]
+    if isinstance(candidates, TwoStageCandidatesIR):
+        return search_two_stage(
+            candidates.null_rate,
+            target.at.value,
+            target.minimum,
+            target.maximum_typeI,
+            candidates.max_total,
+            candidates.criterion,
+        )[0]
+    if isinstance(candidates, OneArmCandidatesIR):
+        first = candidates.analysis.plan(target, candidates.min_n)
+        return search_one_sample(first, candidates.min_n, candidates.max_n, subject.minimal)[0]
+    return search_equal_arms(
+        candidates.analysis.alpha,
+        target.at.p_control,
+        target.at.p_treatment,
+        target.minimum,
+        target.maximum_typeI,
+        candidates.min_per_arm,
+        candidates.max_per_arm,
+        subject.minimal,
+        candidates.ratio,
+        candidates.analysis.alternative,
+    )[0]
+
+
+# The template that checks each kind of plan.
+PLAN_TEMPLATES = {
+    "PowerPlan": "power_plan",
+    "TwoStagePlan": "policy_plan",
+    "OneSamplePlan": "policy_plan",
+    "AssociationPowerPlan": "association_plan",
+    "TotalPowerPlan": "total_plan",
+    "MatchedPowerPlan": "matched_plan",
+    "RatePowerPlan": "rate_plan",
+    "NoneType": "none",
+}
+
+
+def met(plan: Any) -> str | None:
+    """Why `verify` would issue no certificate for the plan, or None."""
+    if plan is None:
+        return "No candidate in the search meets the target, so nothing is claimed."
+    calculation = plan.evaluate()
+    if not calculation["typeI_target_met"]:
+        return "The test's level exceeds the requested Type I bound."
+    if not calculation["power_target_met"]:
+        return "The plan's power falls short of the target, so verify issues no certificate."
+    design = getattr(plan, "design", None)
+    if getattr(design, "stopping", "fixed") != "fixed":
+        return "A plan's power is exact for a fixed design; this design stops on the data."
+    return None
+
+
+def two_points(first: Fraction, second: Fraction) -> str:
+    return f"({S.point(P, *first.as_integer_ratio())}) ({S.point(P, *second.as_integer_ratio())})"
+
+
+def plan_claim(kind: str, plan: Any, space: str) -> ExactResult:
+    """A plan's claim: the theorems its certificate claims, naming the definitions it
+    declares in `space`."""
+    error = S.ratio(*plan.maximum_typeI.as_integer_ratio())
+    power = plan.minimum_power.as_integer_ratio()
+    minimal = getattr(plan, "minimal", False)
+    if kind == "power_plan":
+        design = plan.design
+        nc, nt = design.n_control, design.n_treatment
+        module = "FisherOneSided" if design.alternative == "greater" else "FisherPower"
+        (a, d), (b, e) = plan.p_control.as_integer_ratio(), plan.p_treatment.as_integer_ratio()
+        rates = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
+        level = design.alpha.as_integer_ratio()
+        definitions = S.fisher_plan_definitions(P, module, nc, nt, level, rates)
+        analysis, planning = f"{space}.declaredAnalysis", f"{space}.planningPoint"
+        theorems = [
+            S.analysis_sizes(f"{space}.declaredSizes", nc, nt),
+            S.analysis_typeI(analysis, error),
+            S.fisher_power(analysis, planning, power),
+        ]
+        if minimal:
+            theorems.append(
+                S.fisher_smaller(
+                    P,
+                    module,
+                    plan.search[0],
+                    nc,
+                    plan.ratio,
+                    planning,
+                    f"{space}.declaredLevel",
+                    power,
+                )
+            )
+        return ExactResult(kind, theorems, plan, definitions)
+    if kind == "policy_plan":
+        rate = plan.null_rate.as_integer_ratio()
+        alternative = plan.alternative_rate.as_integer_ratio()
+        designed = f"{space}.declaredDesign"
+        if isinstance(plan, OneSamplePlan):
+            module, term, analysis = "OneSampleBinomial", f"⟨{plan.n}, {plan.critical}⟩", "analysis"
+            shape = f"{designed}.n = {plan.n} ∧ {designed}.critical = {plan.critical}"
+        else:
+            module, term = "TwoStageBinomial", f"{MODULES}.{lean_design(plan)}"
+            analysis = "analysisAtMost"
+            shape = f"{designed}.nFirst = {plan.n_first} ∧ {designed}.nSecond = {plan.n_second}"
+        definitions = S.policy_definitions(P, module, term, rate, analysis)
+        theorems = [
+            S.policy_stages(shape),
+            S.analysis_typeI(f"{space}.declaredAnalysis", error),
+            S.policy_power(P, f"{space}.declaredAnalysis", alternative, power),
+        ]
+        if minimal:
+            level = plan.alpha.as_integer_ratio()
+            maximum = plan.maximum_typeI.as_integer_ratio()
+            theorems += [
+                S.one_sample_critical(P, plan.n, rate, level, plan.critical),
+                S.policy_smaller(
+                    P, plan.search[0], plan.n, rate, level, maximum, alternative, power
+                ),
+            ]
+        return ExactResult(kind, theorems, plan, definitions)
+    level = f"{space}.declaredLevel.value"
+    definitions = S.level_definition(P, plan.test.alpha.as_integer_ratio())
+    if kind == "association_plan":
+        first, second = plan.test.groups
+        rates = two_points(plan.p_first, plan.p_second)
+        theorems = [
+            S.groups_sizes(str(first), str(second), (first, second)),
+            S.groups_typeI(P, str(first), str(second), level, error),
+            S.groups_power(P, str(first), str(second), rates, level, power),
+        ]
+        if minimal:
+            theorems.append(
+                S.groups_smaller(P, plan.search[0], second, plan.ratio, rates, level, power)
+            )
+    elif kind == "matched_plan":
+        n = plan.test.pairs
+        rates = two_points(plan.discordant, plan.case_share)
+        theorems = [
+            S.pairs_typeI(P, str(n), level, error),
+            S.pairs_power(P, n, rates, level, power),
+        ]
+        if minimal:
+            theorems.append(S.pairs_smaller(P, plan.search[0], n, rates, level, power))
+    elif kind == "rate_plan":
+        n = plan.events
+        alternative = f"({S.point(P, *plan.event_share.as_integer_ratio())})"
+        null = f"({S.point(P, *plan.share.as_integer_ratio())})"
+        theorems = [
+            S.rate_typeI(P, level, error),
+            S.events_power(P, n, alternative, null, level, power),
+        ]
+        if minimal:
+            theorems.append(S.events_smaller(P, plan.search[0], n, alternative, null, level, power))
+    else:
+        n = plan.test.n
+        share = f"({S.point(P, *plan.exposed_share.as_integer_ratio())})"
+        theorems = [
+            S.total_size(str(n), n),
+            S.mixture_typeI(P, str(n), level, error),
+            S.total_power(P, n, share, two_points(plan.p_first, plan.p_second), level, power),
+        ]
+    return ExactResult(kind, theorems, plan, definitions)

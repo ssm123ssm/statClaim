@@ -358,14 +358,15 @@ def groups_sizes(first: str, second: str, sizes: tuple) -> Theorem:
     )
 
 
-def groups_typeI(s: Scope, first: str, second: str, level: str) -> Theorem:
-    """`level` is the level's value in ℚ, as a Lean term."""
+def groups_typeI(s: Scope, first: str, second: str, level: str, bound: str = "") -> Theorem:
+    """`level` is the level's value in ℚ, as a Lean term; the bound is the level unless a
+    plan requests another."""
     return Theorem(
         "checked_typeI",
         " (p : unitInterval)",
         f"\n    ({s.root}fisherNullLaw {first} {second} p).real\n"
         f"        ({s.root}fisherRejectionRegionAt {first} {second} {level}) ≤\n"
-        f"      ({level} : ℝ)",
+        f"      {bound or f'({level} : ℝ)'}",
     )
 
 
@@ -381,13 +382,13 @@ def mixture_law(s: Scope, n: str) -> Theorem:
     )
 
 
-def mixture_typeI(s: Scope, n: str, level: str) -> Theorem:
+def mixture_typeI(s: Scope, n: str, level: str, bound: str = "") -> Theorem:
     return Theorem(
         "checked_typeI",
         " (q p : unitInterval)",
         f"\n    ({s.modules}Association.mixtureLaw {n} q p).real\n"
         f"        ({s.modules}Association.mixtureRejection {n} {level}) ≤\n"
-        f"      ({level} : ℝ)",
+        f"      {bound or f'({level} : ℝ)'}",
     )
 
 
@@ -396,14 +397,14 @@ def association_decision(s: Scope, table: str, region: str, truth: str) -> Theor
     return Theorem("checked_decision", "", f" ({table} ∈ {region}) ↔ {truth}")
 
 
-def rate_typeI(s: Scope, level: str) -> Theorem:
+def rate_typeI(s: Scope, level: str, bound: str = "") -> Theorem:
     """For every total rate and every share of person-time, under equal rates."""
     return Theorem(
         "checked_typeI",
         " (total : NNReal) (share : unitInterval)",
         f"\n    ({s.modules}Incidence.ratesLaw total share).real\n"
         f"        ({s.modules}Incidence.given (fun n => {s.modules}Incidence.rejectionAt share n "
-        f"({level} : ℝ))) ≤\n      ({level} : ℝ)",
+        f"({level} : ℝ))) ≤\n      {bound or f'({level} : ℝ)'}",
     )
 
 
@@ -448,12 +449,13 @@ def pairs_law(s: Scope, pairs: str) -> Theorem:
     )
 
 
-def pairs_typeI(s: Scope, pairs: str, level: str) -> Theorem:
+def pairs_typeI(s: Scope, pairs: str, level: str, bound: str = "") -> Theorem:
     return Theorem(
         "checked_typeI",
         " (δ : unitInterval)",
         f"\n    ({s.modules}Matched.pairsLaw {pairs} δ {s.modules}Matched.half).real\n"
-        f"        ({s.modules}Matched.pairsRejection {pairs} ({level} : ℝ)) ≤ ({level} : ℝ)",
+        f"        ({s.modules}Matched.pairsRejection {pairs} ({level} : ℝ)) ≤ "
+        f"{bound or f'({level} : ℝ)'}",
     )
 
 
@@ -525,3 +527,174 @@ def randomisation_typeI(
             f"      ({level} : ℝ)"
         )
     return Theorem("checked_typeI", binders, statement)
+
+
+# Plans -----------------------------------------------------------------------------------
+# A plan's statements name the definitions its certificate declares. A translated program
+# declares the same definitions in a namespace of the claim's own, from these functions.
+def level_definition(s: Scope, level: tuple) -> str:
+    return (
+        f"def declaredLevel : {s.root}SignificanceLevel :=\n"
+        f"  ⟨({level[0]} : ℚ) / {level[1]}, by norm_num, by norm_num⟩"
+    )
+
+
+def fisher_plan_definitions(s: Scope, module: str, nc: int, nt: int, level: tuple, rates: str):
+    """A design of two arms: `module` is FisherPower (two-sided) or FisherOneSided, and
+    `rates` the planning point's four numbers and their four checks."""
+    return (
+        f"def declaredSizes : {s.root}FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩\n"
+        f"{level_definition(s, level)}\n"
+        f"noncomputable def declaredAnalysis := {s.modules}{module}.analysis declaredSizes "
+        "declaredLevel\n"
+        f"noncomputable def planningPoint : {s.modules}TwoArmBinomial.Parameters :=\n"
+        f"  {s.modules}FisherPower.ratePoint {rates}"
+    )
+
+
+def fisher_power(analysis: str, planning: str, power: tuple) -> Theorem:
+    return Theorem(
+        "checked_power",
+        "",
+        f"\n    ({analysis}.powerClaim (fun parameter => parameter = {planning})\n"
+        f"      {ratio(*power)}).statement",
+    )
+
+
+def fisher_smaller(
+    s: Scope, module: str, low: int, n: int, r: int, planning: str, level: str, power: tuple
+) -> Theorem:
+    """Every smaller design in the search, `r` times as many treated, falls short of power."""
+    sizes = f"⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩"
+    return Theorem(
+        "checked_smaller",
+        f" (n : ℕ) (positive : 0 < n) (lower : {low} ≤ n) (upper : n < {n})",
+        f"\n    (({s.root}Core.Policy.fixed ({s.modules}TwoArmBinomial.model\n"
+        f"        {sizes})).law {planning}).real\n"
+        f"        ({s.modules}{module}.analysis {sizes}\n"
+        f"          {level}).rejection <\n"
+        f"      {ratio(*power)}",
+    )
+
+
+def policy_definitions(s: Scope, module: str, design: str, rate: tuple, analysis: str) -> str:
+    """A one-arm or two-stage design: `design` is its term, written by the caller."""
+    return (
+        f"def declaredDesign : {s.modules}{module}.Design :=\n"
+        f"  {design}\n"
+        f"noncomputable def nullRate : unitInterval := {point(s, *rate)}\n"
+        f"noncomputable def declaredAnalysis := {s.modules}{module}.{analysis} declaredDesign "
+        "nullRate"
+    )
+
+
+def policy_stages(shape: str) -> Theorem:
+    return Theorem("checked_stages", "", f" {shape}")
+
+
+def policy_power(s: Scope, analysis: str, alternative: tuple, power: tuple) -> Theorem:
+    return Theorem(
+        "checked_power",
+        "",
+        f"\n    ({analysis}.powerClaim (fun rate => rate = {point(s, *alternative)})\n"
+        f"      {ratio(*power)}).statement",
+    )
+
+
+def policy_smaller(
+    s: Scope,
+    low: int,
+    n: int,
+    rate: tuple,
+    level: tuple,
+    error: tuple,
+    alternative: tuple,
+    power: tuple,
+) -> Theorem:
+    """Every smaller one-arm design in the search exceeds the error bound or falls short of
+    power."""
+    m = f"{s.modules}OneSampleBinomial"
+    design = f"{m}.levelDesign n {rate[0]} {rate[1]} {level[0]} {level[1]}"
+    return Theorem(
+        "checked_smaller",
+        f" (n : ℕ) (lower : {low} ≤ n) (upper : n < {n})",
+        f"\n    {ratio(*error)} <\n"
+        f"        (({m}.policy ({design})).law\n"
+        f"          ({point(s, *rate)})).real\n"
+        f"          {{count | ({design}).critical ≤ count}} ∨\n"
+        f"      (({m}.policy ({design})).law\n"
+        f"          ({point(s, *alternative)})).real\n"
+        f"          {{count | ({design}).critical ≤ count}} <\n"
+        f"        {ratio(*power)}",
+    )
+
+
+def groups_power(s: Scope, first: str, second: str, rates: str, level: str, power: tuple):
+    """`rates` is the two groups' planning probabilities, as Lean terms."""
+    return Theorem(
+        "checked_power",
+        "",
+        f"\n    {ratio(*power)} ≤\n"
+        f"      ({s.root}productBinomial {first} {second} {rates}).real\n"
+        f"        ({s.root}fisherRejectionRegionAt {first} {second} {level})",
+    )
+
+
+def groups_smaller(s: Scope, low: int, n: int, r: int, rates: str, level: str, power: tuple):
+    return Theorem(
+        "checked_smaller",
+        f" (n : ℕ) (lower : {low} ≤ n) (upper : n < {n})",
+        f"\n    ({s.root}productBinomial ({r} * n) n {rates}).real\n"
+        f"        ({s.root}fisherRejectionRegionAt ({r} * n) n {level}) <\n"
+        f"      {ratio(*power)}",
+    )
+
+
+def pairs_power(s: Scope, pairs: int, rates: str, level: str, power: tuple) -> Theorem:
+    return Theorem(
+        "checked_power",
+        "",
+        f"\n    {ratio(*power)} ≤ ({s.modules}Matched.pairsLaw {pairs} {rates}).real\n"
+        f"        ({s.modules}Matched.pairsRejection {pairs} ({level} : ℝ))",
+    )
+
+
+def pairs_smaller(s: Scope, low: int, n: int, rates: str, level: str, power: tuple) -> Theorem:
+    return Theorem(
+        "checked_smaller",
+        f" (m : ℕ) (lower : {low} ≤ m) (upper : m < {n})",
+        f"\n    ({s.modules}Matched.pairsLaw m {rates}).real\n"
+        f"        ({s.modules}Matched.pairsRejection m ({level} : ℝ)) < {ratio(*power)}",
+    )
+
+
+def events_power(s: Scope, n: int, alternative: str, null: str, level: str, power: tuple):
+    return Theorem(
+        "checked_power",
+        "",
+        f"\n    {ratio(*power)} ≤ (ProbabilityTheory.binomial {n} {alternative}).real\n"
+        f"        ({s.modules}Incidence.rejectionAt {null} {n} ({level} : ℝ))",
+    )
+
+
+def events_smaller(
+    s: Scope, low: int, n: int, alternative: str, null: str, level: str, power: tuple
+) -> Theorem:
+    return Theorem(
+        "checked_smaller",
+        f" (m : ℕ) (lower : {low} ≤ m) (upper : m < {n})",
+        f"\n    (ProbabilityTheory.binomial m {alternative}).real\n"
+        f"        ({s.modules}Incidence.rejectionAt {null} m ({level} : ℝ)) <\n"
+        f"      {ratio(*power)}",
+    )
+
+
+def total_power(s: Scope, n: int, share: str, rates: str, level: str, power: tuple) -> Theorem:
+    return Theorem(
+        "checked_power",
+        "",
+        f"\n    {ratio(*power)} ≤\n"
+        f"      ({s.modules}Association.mixture {n} {share}\n"
+        f"        (fun k => {s.root}productBinomial ({n} - k) k {rates})).real\n"
+        f"        ({s.modules}Association.mixtureRejection {n} {level})",
+    )

@@ -142,7 +142,11 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     assert trial.claims["overall_claim"] == "conditional"  # looks nested in a sequence
     # Exact tests are proved by their modules, with their numerical checks in Lean.
     exact = {
-        "examples/one_sided.stat": {"guarantee_claim": "proved", "outcome_claim": "proved"},
+        "examples/one_sided.stat": {
+            "guarantee_claim": "proved",
+            "sizing_claim": "proved",
+            "outcome_claim": "proved",
+        },
         "examples/non_inferiority.stat": {"guarantee_claim": "proved", "outcome_claim": "proved"},
         "examples/case_control.stat": {"checked_claim": "proved", "odds_claim": "proved"},
         "examples/cross_sectional.stat": {
@@ -186,6 +190,17 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     }
     for path, claims in observed.items():
         assert checker.translation(ROOT / path).claims == claims, path
+    # Plans: the design verify would certify, a declared one or the one a search selects.
+    plans = checker.translation(ROOT / "examples/observational_power.stat")
+    assert plans.claims == {
+        "smallest_claim": "proved",
+        "fewest_pairs_claim": "proved",
+        "rates_power_claim": "proved",
+        "survey_power_claim": "proved",
+    }
+    missed = checker.translation(ROOT / "examples/planning.stat")
+    assert missed.claims == {"sizing_verification_claim": "proved"}
+    assert "power falls short" in missed.skipped["verification"]
 
 
 def test_certificates_take_their_statements_from_one_place():
@@ -197,23 +212,28 @@ def test_certificates_take_their_statements_from_one_place():
         r"theorem checked_(counts|support|p_value|table_probability|decision|interval|"
         r"coverage|tails|interim|critical)\b"
     )
-    for name in ("proof", "association", "incidence", "matched", "randomisation"):
+    for name in ("proof", "association", "incidence", "matched", "randomisation", "planning"):
         source = (ROOT / f"src/statclaim/{name}.py").read_text()
         assert not claimed.search(source), name
+    # Nor do the planning templates, nor any Type I statement outside the two-sided design
+    # and family templates, whose claims the translator states on the program's objects.
+    planned = re.compile(r"theorem checked_(typeI|power|smaller|stages|critical|sizes|size)\b")
+    for name in ("planning", "observational_planning", "association", "incidence", "matched"):
+        source = (ROOT / f"src/statclaim/{name}.py").read_text()
+        assert not planned.search(source), name
     source = (ROOT / "src/statclaim/randomisation.py").read_text()
     assert "theorem checked_typeI" not in source
 
 
 def test_every_exact_claim_is_checked_against_its_template():
+    """Results, intervals and plans are proved from their templates' own theorems, which
+    shows the two agree; each Type I claim gets an example deriving its template's."""
     checker = corpus_checker()
-    found = [
-        text
-        for path in checker.corpus()
-        if checker.translation(path) is not None
-        for text in checker.equivalences(path)
-    ]
-    assert len(found) == 51
-    assert all("type_of% @template_" in text for text in found)
+    accepted = [path for path in checker.corpus() if checker.translation(path) is not None]
+    assert sum(checker.exact_claims(path) for path in accepted) == 88
+    examples = [text for path in accepted for text in checker.equivalences(path)]
+    assert len(examples) == 35
+    assert all("type_of% @template_" in text for text in examples)
 
 
 def test_a_grade_follows_from_the_premises_a_proof_uses():
@@ -314,6 +334,28 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
             result,
             "a reversed decision",
             ("((1 : ℚ) / 20)) ↔ True)", "((1 : ℚ) / 20)) ↔ False)"),
+        )
+    )
+    plan = corpus_checker().translation(ROOT / "examples/paper/simon_design.stat").lean
+    power = "StatClaim.ratPoint 1 4 (by decide) (by decide))\n      "
+    cases.append(
+        (
+            plan,
+            "a plan claiming more power than its design has",
+            (
+                f"{power}(((9 : ℕ) : ℝ) / ((10 : ℕ) : ℝ)))",
+                f"{power}(((99 : ℕ) : ℝ) / ((100 : ℕ) : ℝ)))",
+            ),
+        )
+    )
+    cases.append(
+        (
+            plan,
+            "a plan whose stated design is not the one checked",
+            (
+                "StatClaim.Modules.TwoStageBinomial.thresholdDesign 9 15 0 2",
+                "StatClaim.Modules.TwoStageBinomial.thresholdDesign 9 15 0 1",
+            ),
         )
     )
     interval = corpus_checker().translation(ROOT / "examples/difference_interval.stat").lean

@@ -417,15 +417,13 @@ def _render_one_sided_planning_proof(plan: PowerPlan, input_sha256: str) -> str:
     if plan.minimal:
         low, r = plan.search[0], plan.ratio
         hints = [fisher_bounds(n, r * n, alpha) for n in range(low, nc)]
+        claimed = S.fisher_smaller(
+            C, "FisherOneSided", low, nc, r, "planningPoint", "declaredLevel", (bn, bd)
+        )
         smaller = f"""
 def smallerBounds : List (List ℕ) := {_lean_list(_lean_list(h) for h in hints)}
 
-theorem checked_smaller (n : ℕ) (positive : 0 < n) (lower : {low} ≤ n) (upper : n < {nc}) :
-    ((Core.Policy.fixed (TwoArmBinomial.model
-        ⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩)).law planningPoint).real
-        (FisherOneSided.analysis ⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩
-          declaredLevel).rejection <
-      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ)) :=
+{claimed.header()} :=
   FisherOneSided.power_lt_of_smallerFail declaredLevel {an} {ad} (by decide)
     (by norm_num [declaredLevel]) {point} {bn} {bd} (by decide) {r} (by decide) {low} {nc}
     smallerBounds (by decide +kernel) n positive lower upper
@@ -442,16 +440,10 @@ set_option maxHeartbeats 20000000
 namespace StatClaimCertificate
 open StatClaim StatClaim.Modules
 
-def declaredSizes : FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩
-def declaredLevel : SignificanceLevel :=
-  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
-noncomputable def declaredAnalysis := FisherOneSided.analysis declaredSizes declaredLevel
-noncomputable def planningPoint : TwoArmBinomial.Parameters :=
-  FisherPower.ratePoint {point}
+{S.fisher_plan_definitions(C, "FisherOneSided", nc, nt, (an, ad), point)}
 def bounds : List ℕ := {_lean_list(fisher_bounds(nc, nt, alpha))}
 
-theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
-    0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+{S.analysis_sizes("declaredSizes", nc, nt).header()} := by decide
 
 theorem checked_region : FisherOneSided.HintsValid declaredSizes.nControl
     declaredSizes.nTreatment {an} {ad} bounds := by
@@ -461,17 +453,14 @@ theorem checked_sections : FisherOneSided.HintSections declaredSizes.nControl
     declaredSizes.nTreatment bounds := by
   decide +kernel
 
-theorem checked_typeI :
-    (declaredAnalysis.typeIClaim ((({mn} : ℕ) : ℝ) / (({md} : ℕ) : ℝ))).statement := by
+{S.analysis_typeI("declaredAnalysis", S.ratio(mn, md)).header()} := by
   intro parameter null
   refine le_trans (FisherOneSided.typeI_of_hints declaredSizes declaredLevel {an} {ad}
     (by decide) (by norm_num [declaredLevel]) bounds checked_region checked_sections
     parameter null) ?_
   norm_num [declaredLevel]
 
-theorem checked_power :
-    (declaredAnalysis.powerClaim (fun parameter => parameter = planningPoint)
-      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
+{S.fisher_power("declaredAnalysis", "planningPoint", (bn, bd)).header()} :=
   FisherOneSided.power_of_check declaredSizes declaredLevel {an} {ad} (by decide)
     (by norm_num [declaredLevel]) {point}
     {bn} {bd} (by decide) (by
@@ -500,16 +489,14 @@ def render_planning_proof(plan: PowerPlan, input_sha256: str) -> str:
         low = plan.search[0]
         r = plan.ratio
         hints = [fisher_cuts(n, r * n, alpha) for n in range(low, nc)]
+        claimed = S.fisher_smaller(
+            C, "FisherPower", low, nc, r, "planningPoint", "declaredLevel", (bn, bd)
+        )
         smaller = f"""
 def smallerCuts : List (List ℕ) := {_lean_list(_lean_list(c) for c, _ in hints)}
 def smallerNexts : List (List ℕ) := {_lean_list(_lean_list(x) for _, x in hints)}
 
-theorem checked_smaller (n : ℕ) (positive : 0 < n) (lower : {low} ≤ n) (upper : n < {nc}) :
-    ((Core.Policy.fixed (TwoArmBinomial.model
-        ⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩)).law planningPoint).real
-        (FisherPower.analysis ⟨n, {r} * n, positive, Nat.mul_pos (by decide) positive⟩
-          declaredLevel).rejection <
-      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ)) :=
+{claimed.header()} :=
   FisherPower.power_lt_of_smallerFail declaredLevel {an} {ad} (by decide)
     (by norm_num [declaredLevel]) {point} {bn} {bd} (by decide) {r} (by decide) {low} {nc}
     (FisherPower.smallerFail_of_hinted _ _ _ _ _ _ _ _ _ _ _ smallerCuts smallerNexts
@@ -527,31 +514,22 @@ set_option maxHeartbeats 20000000
 namespace StatClaimCertificate
 open StatClaim StatClaim.Modules
 
-def declaredSizes : FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩
-def declaredLevel : SignificanceLevel :=
-  ⟨({an} : ℚ) / {ad}, by norm_num, by norm_num⟩
-noncomputable def declaredAnalysis := FisherPower.analysis declaredSizes declaredLevel
-noncomputable def planningPoint : TwoArmBinomial.Parameters :=
-  FisherPower.ratePoint {point}
+{S.fisher_plan_definitions(C, "FisherPower", nc, nt, (an, ad), point)}
 def cuts : List ℕ := {_lean_list(cuts)}
 def nexts : List ℕ := {_lean_list(nexts)}
 
-theorem checked_sizes : declaredSizes.nControl = {nc} ∧ declaredSizes.nTreatment = {nt} ∧
-    0 < declaredSizes.nControl ∧ 0 < declaredSizes.nTreatment := by decide
+{S.analysis_sizes("declaredSizes", nc, nt).header()} := by decide
 
 theorem checked_region : FisherPower.HintsValid declaredSizes.nControl
     declaredSizes.nTreatment {an} {ad} cuts nexts := by
   decide +kernel
 
-theorem checked_typeI :
-    (declaredAnalysis.typeIClaim ((({mn} : ℕ) : ℝ) / (({md} : ℕ) : ℝ))).statement := by
+{S.analysis_typeI("declaredAnalysis", S.ratio(mn, md)).header()} := by
   intro parameter null
   refine le_trans (FisherPower.typeI_statement declaredSizes declaredLevel parameter null) ?_
   norm_num [declaredLevel]
 
-theorem checked_power :
-    (declaredAnalysis.powerClaim (fun parameter => parameter = planningPoint)
-      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
+{S.fisher_power("declaredAnalysis", "planningPoint", (bn, bd)).header()} :=
   FisherPower.power_of_check declaredSizes declaredLevel {an} {ad} (by decide)
     (by norm_num [declaredLevel]) {point}
     {bn} {bd} (by decide) (by
@@ -2125,21 +2103,14 @@ def render_policy_proof(plan: "TwoStagePlan | OneSamplePlan", input_sha256: str)
     smaller = ""
     if getattr(plan, "minimal", False):
         an, ad = plan.alpha.as_integer_ratio()
-        level = f"levelDesign n {a} {d} {an} {ad}"
+        claimed = S.policy_smaller(
+            C, plan.search[0], plan.n, (a, d), (an, ad), (mn, md), (b, e), (bn, bd)
+        )
         smaller = f"""
-theorem checked_critical :
-    OneSampleBinomial.criticalValue {plan.n} {a} {d} {an} {ad} = {plan.critical} := by
+{S.one_sample_critical(C, plan.n, (a, d), (an, ad), plan.critical).header()} := by
   decide +kernel
 
-theorem checked_smaller (n : ℕ) (lower : {plan.search[0]} ≤ n) (upper : n < {plan.n}) :
-    ((({mn} : ℕ) : ℝ) / (({md} : ℕ) : ℝ)) <
-        ((OneSampleBinomial.policy (OneSampleBinomial.{level})).law
-          (ratPoint {a} {d} (by decide) (by decide))).real
-          {{count | (OneSampleBinomial.{level}).critical ≤ count}} ∨
-      ((OneSampleBinomial.policy (OneSampleBinomial.{level})).law
-          (ratPoint {b} {e} (by decide) (by decide))).real
-          {{count | (OneSampleBinomial.{level}).critical ≤ count}} <
-        ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ)) :=
+{claimed.header()} :=
   OneSampleBinomial.fails_of_smallerFail {a} {d} (by decide) (by decide) {an} {ad}
     {mn} {md} (by decide) {b} {e} (by decide) (by decide) {bn} {bd} (by decide)
     {plan.search[0]} {plan.n} (by decide +kernel) n lower upper
@@ -2155,21 +2126,15 @@ set_option maxHeartbeats 2000000
 namespace StatClaimCertificate
 open StatClaim StatClaim.Modules
 
-def declaredDesign : {module}.Design :=
-  {design}
-noncomputable def nullRate : unitInterval := ratPoint {a} {d} (by decide) (by decide)
-noncomputable def declaredAnalysis := {module}.{analysis} declaredDesign nullRate
+{S.policy_definitions(C, module, design, (a, d), analysis)}
 
-theorem checked_stages : {shape} := ⟨rfl, rfl⟩
+{S.policy_stages(shape).header()} := ⟨rfl, rfl⟩
 
-theorem checked_typeI :
-    (declaredAnalysis.typeIClaim ((({mn} : ℕ) : ℝ) / (({md} : ℕ) : ℝ))).statement :=
+{S.analysis_typeI("declaredAnalysis", S.ratio(mn, md)).header()} :=
   {module}.{typeI} {a} {d} (by decide) (by decide)
     {mn} {md} (by decide) (by decide +kernel)
 
-theorem checked_power :
-    (declaredAnalysis.powerClaim (fun rate => rate = ratPoint {b} {e} (by decide) (by decide))
-      ((({bn} : ℕ) : ℝ) / (({bd} : ℕ) : ℝ))).statement :=
+{S.policy_power(C, "declaredAnalysis", (b, e), (bn, bd)).header()} :=
   {module}.{power} declaredDesign nullRate {b} {e} (by decide) (by decide)
     {bn} {bd} (by decide) (by decide +kernel)
 {smaller}

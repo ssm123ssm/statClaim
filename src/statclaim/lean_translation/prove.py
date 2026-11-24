@@ -10,7 +10,7 @@ split over members.
 
 from typing import Any
 
-from statclaim import association, incidence, matched, planning
+from statclaim import association, incidence, matched, observational_planning, planning
 from statclaim.association import render_association_proof
 from statclaim.incidence import render_rate_proof
 from statclaim.lean_translation.denote import (
@@ -269,6 +269,12 @@ def template(kind: str, source: Any) -> str:
         "effect_interval": association.render_interval_proof,
         "rate_ratio": incidence.render_rate_ratio_proof,
         "matched_interval": matched.render_interval_proof,
+        "power_plan": planning.render_planning_proof,
+        "policy_plan": planning.render_policy_proof,
+        "association_plan": observational_planning.render_plan_proof,
+        "total_plan": observational_planning.render_total_plan_proof,
+        "matched_plan": observational_planning.render_matched_plan_proof,
+        "rate_plan": observational_planning.render_rate_plan_proof,
     }
     return renderers[kind](source, digest)
 
