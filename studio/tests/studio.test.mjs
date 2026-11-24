@@ -1284,14 +1284,14 @@ test('a run shows what its one Lean build of the whole study checked', async t =
   el('runChecks').click();
   await until(() => section()?.dataset.state === 'checked', 'the run never showed its Lean build');
   assert.match(section().textContent, /One Lean build checked the whole study: 2 contract facts hold, and 1 claim follows/);
-  assert.equal(section().querySelector('.results-lean-python'), null, 'a grade Python agrees with is said once, on its entry');
+  assert.equal(section().querySelector('.results-lean-python'), null, 'a grade both agree on is said once, on its entry');
   assert.match(section().textContent, /1 part not in Lean yet/);
   assert.ok(section().querySelector('.entry-cert'), 'the certificate path can be copied');
-  // A grade Python gives otherwise is named, as a defect.
+  // A grade StatClaim's contract check gives otherwise is named, as a defect.
   canned = run([{...lean.claims[0], python: 'conditional'}]);
   el('runChecks').click();
   await until(() => section()?.querySelector('.results-lean-python'), 'the disagreement was not shown');
-  assert.match(section().querySelector('.results-lean-python').textContent, /verification Lean grades it proved; Python grades it conditional/);
+  assert.match(section().querySelector('.results-lean-python').textContent, /verification Lean grades it proved, but StatClaim's contract check grades it conditional/);
   // An edit leaves it in place, marked as about the earlier version.
   const size = host.querySelector('.stack[data-name="study"] input[aria-label="n control"]');
   size.value = '60';

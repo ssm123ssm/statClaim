@@ -1260,7 +1260,8 @@ async function runChecks() {
 }
 // What the run's one Lean build of the whole study shows, as `statclaim report --lean` says it:
 // the contract facts Lean decides, what it refutes and what is not in Lean yet. Each claim's
-// grade is on its own entry below; a claim is named here only where Python grades it otherwise.
+// grade is on its own entry below; a claim is named here only where StatClaim's contract check
+// grades it otherwise.
 function leanSection(run, stale) {
   const result = run.result?.lean;
   if (!result) return null;
@@ -1278,7 +1279,7 @@ function leanSection(run, stale) {
     const row = el('p', 'results-note results-lean-python');
     const chip = button(claim.name || claim.claim, () => reveal(claim.source), 'use-chip');
     chip.title = 'Show ' + claim.claim + ' on the canvas, line ' + claim.source.line;
-    row.append(chip, ' Lean grades it ' + claim.grade + '; Python grades it ' + claim.python + '. This disagreement is a defect; please report it.');
+    row.append(chip, ' Lean grades it ' + claim.grade + ', but StatClaim\'s contract check grades it ' + claim.python + '. This disagreement is a defect; please report it.');
     section.append(row);
   }
   for (const [name, theorem] of Object.entries(result.refuted || {})) {
