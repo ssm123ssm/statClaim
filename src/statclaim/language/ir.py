@@ -34,6 +34,7 @@ from statclaim.language_contracts import (
 )
 from statclaim.language_syntax import (
     Span,
+    deferring,
 )
 from statclaim.matched import (
     MatchedInterval,
@@ -309,7 +310,10 @@ class AnalysisIR(TwoArmTestIR, LevelTestIR):
         }[self.alternative]
 
     def __post_init__(self):
-        if not self.contract.accepts(self.plan, self.hypothesis):
+        # The elaborator checks the same contract first; when it is deferred, so is this.
+        if not self.contract.accepts(self.plan, self.hypothesis) and not deferring(
+            "hypothesis_mismatch", "model_mismatch"
+        ):
             raise ValueError(
                 "A Fisher analysis requires its design's equal-proportions null."
                 if self.alternative == "two_sided"

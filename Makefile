@@ -62,6 +62,7 @@ lean-check:
 	lake env lean tests/lean/Policies.lean
 	lake env lean tests/lean/Interface.lean
 	uv run --locked python scripts/check_lean_translation.py
+	uv run --locked python scripts/check_lean_rejections.py
 	lake env lean examples/FisherObjects.lean
 	lake env lean examples/DesignGuarantee.lean
 	lake env lean examples/ConfigurableAlpha.lean

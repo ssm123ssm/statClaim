@@ -75,6 +75,17 @@ inductive CountUnit where
   | participant
   deriving DecidableEq, Repr
 
+/-- Declared design features a test's assumptions can contradict. -/
+inductive DesignFeature where
+  | repeated_measures
+  | clusters
+  deriving DecidableEq, Repr
+
+/-- The assumptions each design feature contradicts: a test assuming one of them does not fit a design with the feature. -/
+def DesignFeature.contradicts : DesignFeature → List String
+  | .repeated_measures => ["independent_observations", "independent_binomial_arms"]
+  | .clusters => ["independent_observations", "independent_participants", "independent_binomial_arms"]
+
 /-- The observational designs cited tests fit. -/
 inductive ObservationalDesign where
   | case_control

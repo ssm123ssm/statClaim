@@ -72,6 +72,18 @@ theorem final_values :
     ((47 : ℚ) / 2000) < 1 :=
   by norm_num
 
+theorem looks_question :
+    StatClaim.Generated.Methods.t_test_one_sided.key = StatClaim.Generated.Methods.t_test_one_sided.key ∧ StatClaim.Generated.NullKey.mean_difference_at_most = StatClaim.Generated.NullKey.mean_difference_at_most :=
+  by decide
+
+theorem looks_values :
+    (0 : ℚ) = (0 : ℚ) :=
+  by norm_num
+
+theorem looks_order :
+    100 ≤ 200 ∧ 100 ≤ 200 ∧ 100 + 100 < 200 + 200 :=
+  by decide
+
 /-- The premises the claims rest on: cited and declared guarantees. -/
 structure Premises (i : Instance) : Prop where
   cited_interim_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.t_test_one_sided.scope i.halfway.law (null i)

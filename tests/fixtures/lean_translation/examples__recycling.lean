@@ -166,6 +166,12 @@ theorem onset_null :
     ∀ parameter, null_2 parameter ↔ onset.hypothesis parameter :=
   fun parameter => Iff.rfl
 
+theorem sequence_levels :
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) ∧
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) ∧
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) :=
+  by norm_num
+
 /-- The premises the claims rest on: cited and declared guarantees. -/
 structure Premises (i : Instance) : Prop where
   cited_trough_not_worse_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.welch_test_one_sided.scope i.per_protocol.law (null i)

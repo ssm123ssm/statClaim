@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from statclaim.language_syntax import Diagnostic, LanguageError, RelatedLocation
+from statclaim.language_syntax import Diagnostic, RelatedLocation, refuse
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ class HypothesisContract:
         if getattr(design.model, "observational", False):
             # Exposure was not assigned, so no test of randomised arms applies.
             kind = design.model.design.replace("_", "-")
-            raise LanguageError(
+            return refuse(
                 Diagnostic(
                     "observational_design",
                     f"{name} relies on randomised arms, but this is an observational {kind} "
@@ -52,9 +52,7 @@ class HypothesisContract:
                 f"{name}: the design and the null use different outcome models. "
                 "Declare the design and the null over the same model."
             )
-            raise LanguageError(
-                Diagnostic("model_mismatch", message, argument.span, related=related)
-            )
+            return refuse(Diagnostic("model_mismatch", message, argument.span, related=related))
         if design.model != null.model:
             sizes = (design.model.n_control, design.model.n_treatment)
             other = (null.model.n_control, null.model.n_treatment)
@@ -69,9 +67,7 @@ class HypothesisContract:
                 "Declare the intended null for the design's model. "
                 "Matching a null form alone does not make different models compatible."
             )
-            raise LanguageError(
-                Diagnostic("model_mismatch", message, argument.span, related=related)
-            )
+            return refuse(Diagnostic("model_mismatch", message, argument.span, related=related))
         if null.predicate not in self.supported_predicates or (
             self.required_value is not None and null.value != self.required_value
         ):
@@ -82,7 +78,7 @@ class HypothesisContract:
                 "This is a limitation of the supported analysis/proof contract, "
                 "not a proof that your null is false."
             )
-            raise LanguageError(
+            return refuse(
                 Diagnostic("hypothesis_mismatch", message, argument.span, related=related)
             )
 

@@ -97,6 +97,20 @@ Decisions taken in milestone 4 (2026-11-23):
   now the tracked programs only; counts in earlier entries included one
   untracked local program with two claims.
 
+- Milestone 6, part 1 done: rejections agree (test 3). `rejection.py` elaborates
+  a refused program with Python's contract checks deferred (recorded, and the value
+  built anyway) and states every `verify` claim, including those with open
+  requirements. `scripts/check_lean_rejections.py` asks Lean about the 30 scenarios
+  Python rejects or leaves unresolved and the 8 such corpus programs, in one file, and
+  Lean's outcome must match a table: 16 fail a contract fact, 1 is ill-typed (a null of
+  another model), 5 claims are unproved, 5 are refuted (Lean proves the design has no
+  sampling law), 6 have no typed form (type errors, or values Python's objects refuse
+  even with the checks deferred), and 5 are accepted, each with its reason: a test
+  listed twice in a family (2), a calculation, data no claim reads, and the direction
+  called better. New Lean facts make Lean agree: design features against a cited
+  test's assumptions (generated from the registry), a fixed sequence's levels, and the
+  question and order of a design's looks.
+
 Where the templates stand after milestone 5 (2026-11-23): every theorem an exact
 certificate claims is stated once, in `statements.py`, and both `verify` and the
 translator use it. What remains of each template is its definitions and its

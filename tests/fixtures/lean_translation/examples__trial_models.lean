@@ -72,6 +72,11 @@ theorem response_values :
     StatClaim.Generated.Methods.logistic_regression_one_sided.nullValue = some (0 : ℚ) :=
   by norm_num [StatClaim.Generated.Methods.logistic_regression_one_sided]
 
+theorem sequence_levels :
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) ∧
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) :=
+  by norm_num
+
 /-- The premises the claims rest on: cited and declared guarantees. -/
 structure Premises (i : Instance) : Prop where
   cited_lung_function_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.mmrm_test_one_sided.scope i.measured.law (null i)

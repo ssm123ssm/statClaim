@@ -13,6 +13,7 @@ slack of each cited or declared test. Premise names start with their kind, `cite
 """
 
 import json
+import re
 from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Any
@@ -42,7 +43,7 @@ from statclaim.language import (
     VerificationResultIR,
     normalize,
 )
-from statclaim.language.ir import TwoArmModelIR
+from statclaim.language.ir import EXACT_CONTRACT_IDS, TwoArmModelIR
 from statclaim.language_compiler import requirements
 from statclaim.lean_translation import exact
 from statclaim.lean_translation import statements as S
@@ -123,6 +124,29 @@ IGNORED = {
 
 class Untranslated(Exception):
     """A value, or a claim about it, that the translator does not handle yet."""
+
+
+class Refuted(Untranslated):
+    """A claim that cannot be stated because Lean proves its design supplies no sampling
+    law: `theorem` names the program's proof of that."""
+
+    def __init__(self, message: str, theorem: str):
+        super().__init__(message)
+        self.theorem = theorem
+
+
+def test_key(analysis: object) -> str:
+    """The test a look uses, as Lean names it: a cited method's registry key, or the
+    exact test's own."""
+    if isinstance(analysis, CitedAnalysisIR) and analysis.method.key in METHODS:
+        return f"{GENERATED}.Methods.{analysis.method.key}.key"
+    if isinstance(analysis, CitedAnalysisIR):
+        key = analysis.method.key
+    else:
+        key = EXACT_CONTRACT_IDS[getattr(analysis, "alternative", "two_sided")].split("/")[1]
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", key):
+        raise Untranslated(f"The test key {key!r} cannot be stated in Lean.")
+    return f'"{key}"'
 
 
 def subscript(number: int) -> str:
@@ -243,6 +267,7 @@ class Value:
 class Design(Value):
     model: Model
     compatible: Value | None  # absent when the plan supplies no sampling law
+    no_law: str = ""  # then the program's theorem that no compatibility exists
 
 
 @dataclass
@@ -294,7 +319,7 @@ class Contract:
     name: str
     facts: list[str]
     check: str  # decide, norm_num, fisher_null, fisher_requires, same_null, splits,
-    # grouped_splits or comment
+    # grouped_splits, no_law or comment
     unfold: str = ""  # a definition norm_num may unfold
     predicate: str = ""  # fisher_null: the declared binomial null
     compatible: str = ""  # fisher_requires: the compatibility that meets the requirement
@@ -365,14 +390,18 @@ class Denotation:
     premises: list[Premise] = field(default_factory=list)
     claims: list[Claim] = field(default_factory=list)
     skipped: dict[str, str] = field(default_factory=dict)
+    # Claims not stated because their design has no sampling law: the theorem proving it.
+    refuted: dict[str, str] = field(default_factory=dict)
+    asked: bool = False  # claims Python leaves open are stated too (`rejection.py`)
 
 
 class Denoter:
-    def __init__(self, program: ProgramIR):
+    def __init__(self, program: ProgramIR, ask: bool = False):
         self.program = program
+        self.ask = ask
         self.namer = Namer([*STRUCTURAL, *(b.name for b in program.bindings)])
         self.memo: dict[str, object] = {}
-        self.out = Denotation()
+        self.out = Denotation(asked=ask)
 
     def own(self, preferred: str | None, kind: str) -> str:
         """A binding's own name, unless the file needs it; otherwise a fresh one."""
@@ -442,6 +471,7 @@ class Denoter:
         base = self.own(preferred, "design")
         arguments = "(i : Instance) " if model.abstract else ""
         design = Value(base, model.abstract)
+        no_law = ""
         if ir.stopping == "fixed":
             self.out.defs.append(
                 f"noncomputable def {lean(base)} {arguments}:=\n"
@@ -456,13 +486,22 @@ class Denoter:
             )
         else:
             # Data-dependent stopping without a stated rule supplies no sampling law, so no
-            # Type I claim about it can be stated (Core.no_compatibility_without_law).
+            # Type I claim about it can be stated, and Lean proves there is none.
             self.out.defs.append(
                 f"noncomputable def {lean(base)} {arguments}:=\n"
                 f"  {CORE}.StudyDesign.unresolvedAdaptive {model.core()}"
             )
             compatible = None
-        result = Design(base, model.abstract, model, compatible)
+            no_law = self.namer.fresh(f"{base}_no_law")
+            every = "∀ i : Instance, " if model.abstract else ""
+            self.out.contracts.append(
+                Contract(
+                    no_law,
+                    [f"{every}¬ Nonempty ({CORE}.Compatibility {design.ref()})"],
+                    "no_law",
+                )
+            )
+        result = Design(base, model.abstract, model, compatible, no_law)
         self.memo[k] = result
         return result
 
@@ -708,6 +747,11 @@ class Denoter:
                 f"{entry}.minPerArm ≤ {counts[1]}",
                 f"{entry}.minTotal ≤ {counts[0]} + {counts[1]}",
             ]
+            # No assumption of the test is one a declared feature of the design contradicts.
+            facts += [
+                f"∀ a ∈ {entry}.assumptions, a ∉ {GENERATED}.DesignFeature.{feature}.contradicts"
+                for feature in two_arm.features
+            ]
             extra: list[str] = []
             if method.null_value is None:
                 facts.append(f"{entry}.nullValue = none")
@@ -769,11 +813,6 @@ class Denoter:
             raise Untranslated(
                 "Fisher's test needs the binomial model of independent participants."
             )
-        if not (
-            ir.hypothesis.predicate == "equal_proportions"
-            or (ir.hypothesis.predicate == "proportion_difference" and ir.hypothesis.value == 0)
-        ):
-            raise Untranslated("Fisher's test supports only the null of equal proportions.")
         base = self.own(preferred, "analysis")
         level = self.namer.fresh(f"{base}_level")
         self.out.defs.append(
@@ -825,9 +864,11 @@ class Denoter:
             return
         compatible = analysis.design.compatible
         if compatible is None:
-            raise Untranslated(
+            raise Refuted(
                 "The design leaves data-dependent stopping unspecified, so it supplies no "
-                "sampling law and no Type I claim can be stated."
+                "sampling law and no Type I claim can be stated; Lean proves it has none "
+                f"({lean(analysis.design.no_law)}).",
+                analysis.design.no_law,
             )
         if analysis.kind == "fisher":
             statement = (
@@ -882,6 +923,8 @@ class Denoter:
         }.get(mode)
         if rule is None:
             raise Untranslated(f"{mode} combinations are not translated yet.")
+        if isinstance(family, ComposedFamilyIR) and (rule == "sequence" or looks):
+            self.combination_facts(family, looks)
         parts = []
         for _, member in family.analyses:
             if isinstance(member, ComposedFamilyIR):
@@ -905,7 +948,11 @@ class Denoter:
                     f"Exact member {analysis.name} joins combinations in a later part."
                 )
             if analysis.design.compatible is None:
-                raise Untranslated(f"Member {analysis.name} has no sampling law to combine.")
+                raise Refuted(
+                    f"Member {analysis.name} has no sampling law to combine; Lean proves it "
+                    f"has none ({lean(analysis.design.no_law)}).",
+                    analysis.design.no_law,
+                )
             parts.append(Part("leaf", member.alpha, analysis, len(leaves)))
             leaves.append(analysis)
         graph = None
@@ -913,6 +960,44 @@ class Denoter:
             assert isinstance(family, ComposedFamilyIR)
             graph = self.graph(family, parts)
         return Combination(rule, family.alpha, parts, graph)
+
+    def combination_facts(self, family: ComposedFamilyIR, looks: bool) -> None:
+        """A fixed sequence tests every member at its whole level. A design with looks asks
+        one question at growing sizes: the same test of the same null at every look."""
+        k = f"facts:{id(family)}"
+        if k in self.memo:
+            return
+        self.memo[k] = family
+        members = [member for _, member in family.analyses]
+        if not looks:
+            base = self.namer.fresh("sequence")
+            levels = [f"{rational(m.alpha)} = {rational(family.alpha)}" for m in members]
+            self.out.contracts.append(
+                Contract(self.namer.fresh(f"{base}_levels"), levels, "norm_num")
+            )
+            return
+        base = self.namer.fresh("looks")
+        first = members[0]
+        same = [
+            f"{test_key(look)} = {test_key(first)} ∧ "
+            f"{GENERATED}.NullKey.{look.hypothesis.predicate} = "
+            f"{GENERATED}.NullKey.{first.hypothesis.predicate}"
+            for look in members[1:]
+        ]
+        values = [
+            f"{rational(look.hypothesis.value)} = {rational(first.hypothesis.value)}"
+            for look in members[1:]
+        ]
+        sizes = [(look.plan.model.n_control, look.plan.model.n_treatment) for look in members]
+        growing = [
+            f"{a[0]} ≤ {b[0]} ∧ {a[1]} ≤ {b[1]} ∧ {a[0]} + {a[1]} < {b[0]} + {b[1]}"
+            for a, b in zip(sizes, sizes[1:], strict=False)
+        ]
+        self.out.contracts += [
+            Contract(self.namer.fresh(f"{base}_question"), same, "decide"),
+            Contract(self.namer.fresh(f"{base}_values"), values, "norm_num"),
+            Contract(self.namer.fresh(f"{base}_order"), growing, "decide"),
+        ]
 
     def graph(self, family: ComposedFamilyIR, parts: list[Part]) -> Graph:
         """A graphical procedure: its facts, decided by Lean, and its cited guarantee."""
@@ -1064,7 +1149,7 @@ class Denoter:
         except ValueError as refused:
             raise Untranslated(str(refused)) from None
         unmet = exact.met(found)
-        if unmet is not None:
+        if unmet is not None and not (self.ask and found is not None):
             raise Untranslated(unmet)
         space = self.namer.fresh(f"{name}_plan")
         stated = exact.plan_claim(template, found, lean(space))
@@ -1119,9 +1204,10 @@ class Denoter:
             if request.operation != "verify":
                 continue
             try:
-                # Python's open requirements stay open: Lean is never asked to prove them.
+                # Python's open requirements stay open: Lean is asked to prove them only
+                # when testing that it refuses to (`rejection.py`).
                 open_requirements = requirements(self.program, request)
-                if open_requirements:
+                if open_requirements and not self.ask:
                     raise Untranslated(open_requirements[0].message)
                 name = self.namer.fresh(f"{holder}_claim")
                 subject = request.claim.subject
@@ -1142,9 +1228,15 @@ class Denoter:
                     raise Untranslated(f"{request.claim.kind} claims are not translated yet.")
             except Untranslated as reason:
                 self.out.skipped[holder] = str(reason)
+                if isinstance(reason, Refuted):
+                    self.out.refuted[holder] = reason.theorem
         return self.out
 
 
-def denote(program: ProgramIR) -> Denotation:
-    """Everything a compiled program states in Lean, and what it leaves out."""
-    return Denoter(program).run()
+def denote(program: ProgramIR, ask: bool = False) -> Denotation:
+    """Everything a compiled program states in Lean, and what it leaves out.
+
+    With `ask`, claims Python leaves with an open requirement, and plans that miss their
+    target, are stated too, so that Lean can be seen to refuse them (test 3).
+    """
+    return Denoter(program, ask).run()

@@ -23,6 +23,12 @@ noncomputable def analysis :=
 
 -- Contract facts the Python compiler checks, decided by Lean.
 
+theorem design_no_law :
+    ¬ Nonempty (StatClaim.Core.Compatibility design) :=
+  by
+    intros
+    exact StatClaim.Core.no_compatibility_without_law _ rfl
+
 theorem analysis_null :
     ∀ parameter, null parameter ↔ analysis.hypothesis parameter :=
   fun parameter => Iff.rfl

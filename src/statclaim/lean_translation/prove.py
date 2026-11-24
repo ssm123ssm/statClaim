@@ -48,6 +48,9 @@ def contract(fact: Contract) -> str:
         return f"fun parameter => {BINOMIAL}.proportionDifference_zero_iff parameter"
     if fact.check == "fisher_requires":
         return f"⟨{fact.compatible}⟩"
+    if fact.check == "no_law":
+        # The design's plan supplies no law, so no compatibility with its model exists.
+        return "by\n    intros\n    exact StatClaim.Core.no_compatibility_without_law _ rfl"
     if fact.check == "same_null":
         return "fun parameter => Iff.rfl"
     if fact.check == "splits":

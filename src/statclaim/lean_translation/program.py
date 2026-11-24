@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from statclaim.language import ProgramIR
 from statclaim.lean_translation import prove
 from statclaim.lean_translation.denote import INTERFACE, Denotation, denote
+from statclaim.lean_translation.emit import comment
 from statclaim.lean_translation.emit import name as lean
 from statclaim.lean_translation.grades import collector
 
@@ -57,7 +58,14 @@ def render(denotation: Denotation, label: str) -> str:
     out.append("")
     for claim in denotation.claims:
         proof = prove.claim(claim)
-        out += prove.checks(claim)
+        try:
+            out += prove.checks(claim)
+        except ValueError as refused:
+            # Only for a claim Python leaves open, stated to see Lean refuse it: its
+            # template offers no proof material, so the proof below cannot hold.
+            if not denotation.asked:
+                raise
+            out += [f"-- No proof material: {comment(refused)}", ""]
         if claim.result is not None:
             # Matching a part to its template's theorem may unfold a law over many counts.
             out.append(prove.DEEP)

@@ -36,6 +36,9 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   claim's grade follows from the premises its proof uses; `program.py` writes
   the file and lists what it does not translate yet. `scripts/check_lean_translation.py` translates every
   example and replication study and checks them with Lean, in `make lean-check`.
+  `rejection.py` defers Python's contract checks so a program Python refuses still
+  reaches Lean; `scripts/check_lean_rejections.py` checks that Lean refuses each
+  injected error and refused corpus program too, or says why it need not.
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.

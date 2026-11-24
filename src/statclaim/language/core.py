@@ -9,8 +9,8 @@ from statclaim.language_contracts import (
 )
 from statclaim.language_syntax import (
     Diagnostic,
-    LanguageError,
     Span,
+    refuse,
 )
 
 LANGUAGE_VERSION = "0.41.0"
@@ -54,7 +54,10 @@ class Module:
 
 
 def fail(code: str, message: str, span: Span) -> NoReturn:
-    raise LanguageError(Diagnostic(code, message, span))
+    refuse(Diagnostic(code, message, span))
+    # Reached only while this check is deferred (`language_syntax.DEFERRED`): the caller
+    # goes on building its value, so Lean can be asked to decide the check instead.
+    return  # type: ignore[misc]
 
 
 def _constructor(

@@ -413,3 +413,53 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
         )
         run = subprocess.run(["lake", "env", "lean", str(lean_file)], cwd=ROOT, capture_output=True)
         assert run.returncode != 0, f"Lean accepted {label}"
+
+
+def rejection_checker():
+    path = ROOT / "scripts/check_lean_rejections.py"
+    spec = importlib.util.spec_from_file_location("check_lean_rejections", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_program_python_refuses_has_an_expected_lean_outcome():
+    """Test 3: each injected error and each refused corpus program says what Lean does."""
+    from statclaim.lean_translation.rejection import OUTCOMES
+
+    checker = rejection_checker()
+    asked = checker.asked_all()
+    assert sorted(asked) == sorted(checker.EXPECTED)
+    for key, item in asked.items():
+        expected, reason = checker.EXPECTED[key]
+        assert expected in OUTCOMES, key
+        assert (expected == "accepted") == bool(reason), key
+        # Only a program with no typed form stays out of Lean.
+        assert (item.denotation is None) == (expected == "untyped"), key
+        assert item.refused, key
+        if expected == "refuted":
+            assert item.denotation.refuted and "Lean proves it has none" in " ".join(
+                item.denotation.skipped.values()
+            ), key
+
+
+def test_deferred_checks_stay_deferred_only_while_asked():
+    from statclaim.language_compiler import compile_source
+    from statclaim.language_syntax import Source
+    from statclaim.lean_translation.rejection import ask
+
+    source = Source((ROOT / "examples/hypothesis_mismatch.stat").read_text(), "mismatch.stat")
+    asked = ask(source, "mismatch")
+    assert [d.code for d in asked.deferred] == ["hypothesis_mismatch"]
+    assert asked.denotation is not None and "analysis_null" in asked.lean
+    # Outside ask(), the same program is rejected as before.
+    compilation = compile_source(source)
+    assert compilation.status == "invalid"
+    assert [d.code for d in compilation.diagnostics] == ["hypothesis_mismatch"]
+
+
+def test_a_design_without_a_sampling_law_is_refuted_in_lean():
+    checker = corpus_checker()
+    adaptive = checker.translation(ROOT / "examples/paper/fisher_adaptive.stat")
+    assert "theorem design_no_law :" in adaptive.lean
+    assert "StatClaim.Core.no_compatibility_without_law" in adaptive.lean

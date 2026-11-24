@@ -16,6 +16,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
+from statclaim.methods.assumptions import CONTRADICTED_BY
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = ROOT / "StatClaim/Generated/Methods.lean"
@@ -198,6 +199,19 @@ def render() -> str:
         ((key, "true" if form.takes_value else "false") for key, (_, form) in NULL_FORMS.items()),
     )
     lines += enum("CountUnit", "What a test's minimum sizes count.", units)
+    lines += enum(
+        "DesignFeature",
+        "Declared design features a test's assumptions can contradict.",
+        CONTRADICTED_BY,
+    )
+    lines += mapping(
+        "contradicts",
+        "The assumptions each design feature contradicts: a test assuming one of them does "
+        "not fit a design with the feature.",
+        "DesignFeature",
+        "List String",
+        ((feature, strings(ids)) for feature, ids in CONTRADICTED_BY.items()),
+    )
     lines += enum("ObservationalDesign", "The observational designs cited tests fit.", designs)
     lines += enum("Scale", "The scales of an observational outcome or exposure.", scales)
     lines += enum("Survey", "The sampling designs of an observational study.", surveys)

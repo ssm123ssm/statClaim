@@ -7,6 +7,7 @@ Statistical constructors and claim meanings belong to the module registry.
 import bisect
 import json
 import re
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from fractions import Fraction
 from functools import cached_property
@@ -89,6 +90,30 @@ class LanguageError(Exception):
     def __init__(self, diagnostic: Diagnostic):
         super().__init__(diagnostic.message)
         self.diagnostic = diagnostic
+
+
+# Contract checks whose failures are recorded instead of raised, with the list they go to.
+# Set only by `lean_translation.rejection`, to ask Lean to decide checks Python refuses
+# (test 3 of docs/proposals/lean-translation.md); never while compiling a user's file.
+DEFERRED: ContextVar[tuple[frozenset[str], list[Diagnostic]] | None] = ContextVar(
+    "statclaim_deferred", default=None
+)
+
+
+def deferring(*codes: str) -> bool:
+    """Whether every one of these checks is deferred now."""
+    deferred = DEFERRED.get()
+    return deferred is not None and all(code in deferred[0] for code in codes)
+
+
+def refuse(diagnostic: Diagnostic) -> None:
+    """Raise a check's diagnostic. Returns only while that check is deferred: the
+    diagnostic is recorded and the caller goes on building its value."""
+    deferring = DEFERRED.get()
+    if deferring is not None and diagnostic.code in deferring[0]:
+        deferring[1].append(diagnostic)
+        return
+    raise LanguageError(diagnostic)
 
 
 @dataclass(frozen=True)

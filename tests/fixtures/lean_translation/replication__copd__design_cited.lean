@@ -216,6 +216,14 @@ theorem emsci_ni_values :
     ((1 : ℚ) / 40) < 1 :=
   by norm_num
 
+theorem sequence_levels :
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) ∧
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) ∧
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) ∧
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) ∧
+    ((1 : ℚ) / 40) = ((1 : ℚ) / 40) :=
+  by norm_num
+
 /-- The premises the claims rest on: cited and declared guarantees. -/
 structure Premises (i : Instance) : Prop where
   cited_trough_fev1_ni_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.mmrm_test_one_sided.scope i.per_protocol.law (null i)
