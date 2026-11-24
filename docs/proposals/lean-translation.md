@@ -130,6 +130,14 @@ Decisions taken in milestone 4 (2026-11-23):
   corpus case yet: the combinations whose members are all proved have exact members,
   which combinations do not translate yet. The report shows both grades meanwhile.
 
+- After milestone 6, coverage: one-arm and two-stage declarations are stated in
+  Lean (the binomial test at the critical value Lean finds; a two-stage test whose rule
+  Lean proves monotone), and an exact test in a combination is seen from outside under
+  a member premise (`member_…`), so the combination is conditional, as Python grades it.
+  Re-estimation designs say why they are not in Lean. What the corpus leaves out is now
+  only what Python also refuses, a plan short of its target, and re-estimation: 8 of
+  what were 48. A test checks that every kind of claim `verify` certifies translates.
+
 Where the templates stand after milestone 5 (2026-11-23): every theorem an exact
 certificate claims is stated once, in `statements.py`, and both `verify` and the
 translator use it. What remains of each template is its definitions and its

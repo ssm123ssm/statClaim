@@ -10,7 +10,10 @@ cannot be reported as proved. A premise's name starts with its kind, `cited_` or
 
 from statclaim.lean_translation.emit import name as lean
 
-ASSUMED = ("cited_", "declared_")
+# A member premise is an exact test's level, assumed inside a combination: it is proved on
+# the test itself, as its own claim, but the combination is stated over the test seen from
+# outside, so a combination resting on it is conditional.
+ASSUMED = ("cited_", "declared_", "member_")
 
 
 def grade(own: str | None, used: list[str]) -> str:

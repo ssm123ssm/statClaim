@@ -51,6 +51,9 @@ def contract(fact: Contract) -> str:
     if fact.check == "no_law":
         # The design's plan supplies no law, so no compatibility with its model exists.
         return "by\n    intros\n    exact StatClaim.Core.no_compatibility_without_law _ rfl"
+    if fact.check == "lemma":
+        # A module's lemma about the declared object, applied once Lean unfolds it.
+        return f"by apply {fact.unfold}"
     if fact.check == "same_null":
         return "fun parameter => Iff.rfl"
     if fact.check == "splits":
@@ -102,6 +105,8 @@ def witness(abstracts: list[Abstract]) -> list[str]:
             ]
         elif part.kind == "test":
             values.append(f"{part.name} := {INTERFACE}.TestInterface.neverRejects _")
+        elif part.kind == "predicate":
+            values.append(f"{part.name} := fun _ => True")
         elif part.kind == "procedure":
             values.append(f"{part.name} := fun {' '.join(['_'] * part.arity)} => ∅")
         else:

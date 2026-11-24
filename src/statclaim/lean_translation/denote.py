@@ -33,6 +33,8 @@ from statclaim.language import (
     ModelIR,
     ObservationalStudyIR,
     ObservationIR,
+    OneArmModelIR,
+    OneSampleAnalysisIR,
     OutcomeNullIR,
     PlanIR,
     ProgramIR,
@@ -40,6 +42,8 @@ from statclaim.language import (
     RateAnalysisIR,
     RateResultIR,
     SequentialIR,
+    TwoStageAnalysisIR,
+    TwoStageModelIR,
     VerificationResultIR,
     normalize,
 )
@@ -50,6 +54,7 @@ from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.emit import Namer, comment, rational, real
 from statclaim.lean_translation.emit import name as lean
 from statclaim.lean_translation.exact import ExactAnalysis, ExactResult
+from statclaim.lean_translation.table import TABLE, NotInLean
 from statclaim.methods import METHODS
 
 CORE = "StatClaim.Core"
@@ -119,7 +124,14 @@ IGNORED = {
     "SlopeIR",
     "OutcomeMeansIR",
     "SingleProportionIR",
+    # A two-stage rule and its prior are stated with the analysis that uses them.
+    "RuleIR",
+    "PriorIR",
 }
+# Values Lean gives no meaning by design, with the constructor whose reason says why.
+OUTSIDE = {"ReestimationIR": "blinded_reestimation"}
+TWO_STAGE = "StatClaim.Modules.TwoStageBinomial"
+ONE_SAMPLE = "StatClaim.Modules.OneSampleBinomial"
 
 
 class Untranslated(Exception):
@@ -319,8 +331,8 @@ class Contract:
     name: str
     facts: list[str]
     check: str  # decide, norm_num, fisher_null, fisher_requires, same_null, splits,
-    # grouped_splits, no_law or comment
-    unfold: str = ""  # a definition norm_num may unfold
+    # grouped_splits, no_law, lemma or comment
+    unfold: str = ""  # a definition norm_num may unfold; for lemma, the lemma to apply
     predicate: str = ""  # fisher_null: the declared binomial null
     compatible: str = ""  # fisher_requires: the compatibility that meets the requirement
 
@@ -942,12 +954,9 @@ class Denoter:
                 inner = self.combination(member, leaves, rule)
                 parts.append(Part(kind, member.alpha, combination=inner))
                 continue
-            analysis = self.analysis(member)
-            if isinstance(analysis, ExactAnalysis):
-                raise Untranslated(
-                    f"Exact member {analysis.name} joins combinations in a later part."
-                )
-            if analysis.design.compatible is None:
+            found = self.analysis(member)
+            analysis = self.member(member, found) if isinstance(found, ExactAnalysis) else found
+            if analysis.kind != "member" and analysis.design.compatible is None:
                 raise Refuted(
                     f"Member {analysis.name} has no sampling law to combine; Lean proves it "
                     f"has none ({lean(analysis.design.no_law)}).",
@@ -960,6 +969,31 @@ class Denoter:
             assert isinstance(family, ComposedFamilyIR)
             graph = self.graph(family, parts)
         return Combination(rule, family.alpha, parts, graph)
+
+    def member(self, ir: object, exact_analysis: ExactAnalysis) -> Analysis:
+        """An exact test as a member of a combination: seen from outside, as a test of an
+        abstract model whose level is a member premise. Its own claim, when one is made,
+        is proved on the test itself; the combination rests on the premise, so it is
+        conditional, as Python grades a combination of assumed members."""
+        k = f"member:{id(ir)}"
+        if k in self.memo:
+            return self.memo[k]  # type: ignore[return-value]
+        base = self.namer.fresh(f"{exact_analysis.name}_member")
+        model = self.abstract(base, "TwoArmModel", "member")
+        predicate = self.namer.fresh(f"{base}_hypothesis")
+        self.out.fields.append(f"{lean(predicate)} : {lean(model.parameter)} → Prop")
+        self.out.abstracts.append(Abstract(lean(predicate), "predicate"))
+        null = Null(self.namer.fresh(f"{base}_null"), True, model)
+        self.out.defs.append(f"def {lean(null.name)} (i : Instance) :=\n  i.{lean(predicate)}")
+        alpha = exact_analysis.test.alpha
+        scope = f"{INTERFACE}.Scope.finiteSample"
+        test, slack, premise = self.tested(base, "member", model, null, alpha, scope)
+        design = Design(self.namer.fresh(f"{base}_design"), True, model, None)
+        result = Analysis(
+            base, "member", model, design, null, alpha, "finite_sample", test, slack, premise
+        )
+        self.memo[k] = result
+        return result
 
     def combination_facts(self, family: ComposedFamilyIR, looks: bool) -> None:
         """A fixed sequence tests every member at its whole level. A design with looks asks
@@ -1082,7 +1116,7 @@ class Denoter:
         """A family, a fixed sequence, a graph or a design with looks, over its members."""
         leaves: list[Analysis] = []
         combination = self.combination(family, leaves)
-        assumed = any(leaf.kind in ("cited", "declared") for leaf in leaves)
+        assumed = any(leaf.kind in ("cited", "declared", "member") for leaf in leaves)
         graphs = self.graphs(combination)
         own = None
         if combination.graph is not None:
@@ -1168,6 +1202,113 @@ class Denoter:
             )
         )
 
+    def one_arm(self, ir: OneArmModelIR, preferred: str | None = None) -> str:
+        """A single arm of n participants, each responding or not."""
+        k = key(ir)
+        if k in self.memo:
+            return self.memo[k]  # type: ignore[return-value]
+        base = self.own(preferred, "study")
+        self.out.defs.append(
+            f"/-- The number of participants in the arm. -/\ndef {lean(base)} : ℕ := {ir.n}"
+        )
+        self.out.contracts.append(
+            Contract(self.namer.fresh(f"{base}_values"), [f"1 ≤ {lean(base)}"], "decide")
+        )
+        self.memo[k] = base
+        return base
+
+    def one_sample(self, ir: OneSampleAnalysisIR, preferred: str | None = None) -> None:
+        """The exact binomial test, at the critical value Lean finds for the level."""
+        if f"analysis:{id(ir)}" in self.memo:
+            return
+        study = self.one_arm(ir.model)
+        base = self.own(preferred, "analysis")
+        design = self.namer.fresh(f"{base}_design")
+        (a, d), (ln, ld) = ir.null_rate.as_integer_ratio(), ir.alpha.as_integer_ratio()
+        self.out.defs += [
+            f"def {lean(design)} : {ONE_SAMPLE}.Design :=\n"
+            f"  {ONE_SAMPLE}.levelDesign {lean(study)} {a} {d} {ln} {ld}",
+            f"noncomputable def {lean(base)} :=\n"
+            f"  {ONE_SAMPLE}.analysis {lean(design)} ({S.point(S.PROGRAM, a, d)})",
+        ]
+        rate = rational(ir.null_rate)
+        self.level_range(base, ir.alpha, [f"(0 : ℚ) < {rate}", f"{rate} < 1"])
+        self.memo[f"analysis:{id(ir)}"] = base
+
+    def stages(self, ir: TwoStageModelIR, preferred: str | None = None) -> str:
+        """Two stages of a single-arm design: their sizes."""
+        k = key(ir)
+        if k in self.memo:
+            return self.memo[k]  # type: ignore[return-value]
+        base = self.own(preferred, "stages")
+        self.out.defs.append(
+            f"/-- The participants in the first and the second stage. -/\n"
+            f"def {lean(base)} : ℕ × ℕ := ({ir.n_stage1}, {ir.n_stage2})"
+        )
+        self.out.contracts.append(
+            Contract(
+                self.namer.fresh(f"{base}_values"),
+                [f"1 ≤ {lean(base)}.1 ∧ 1 ≤ {lean(base)}.2"],
+                "decide",
+            )
+        )
+        self.memo[k] = base
+        return base
+
+    def two_stage(self, ir: TwoStageAnalysisIR, preferred: str | None = None) -> None:
+        """A two-stage test: the declared stages and rule, under a response rate at most
+        the null rate. Lean proves the rule monotone, which the bound over that null needs."""
+        if f"analysis:{id(ir)}" in self.memo:
+            return
+        stages = lean(self.stages(ir.design))
+        base = self.own(preferred, "analysis")
+        design = self.namer.fresh(f"{base}_design")
+        rule = ir.rule.rule
+        sizes = f"{stages}.1 {stages}.2"
+        if rule.kind == "threshold":
+            numbers = [rule.continue_above, rule.reject_above]
+            term, lemma = "thresholdDesign", "thresholdDesign_monotone"
+        else:
+            numbers = [
+                rule.prior_a,
+                rule.prior_b,
+                *rule.reference.as_integer_ratio(),
+                *rule.continue_at_least.as_integer_ratio(),
+                *rule.success_at_least.as_integer_ratio(),
+            ]
+            term, lemma = "posteriorDesign", "posteriorDesign_monotone"
+        listed = " ".join(str(number) for number in numbers)
+        a, d = ir.null_rate.as_integer_ratio()
+        self.out.defs += [
+            f"def {lean(design)} : {TWO_STAGE}.Design :=\n  {TWO_STAGE}.{term} {sizes} {listed}",
+            f"noncomputable def {lean(base)} :=\n"
+            f"  {TWO_STAGE}.analysisAtMost {lean(design)} ({S.point(S.PROGRAM, a, d)})",
+        ]
+        rate = rational(ir.null_rate)
+        self.out.contracts += [
+            Contract(
+                self.namer.fresh(f"{base}_values"),
+                [f"(0 : ℚ) < {rate}", f"{rate} < 1"],
+                "norm_num",
+            ),
+            Contract(
+                self.namer.fresh(f"{base}_monotone"),
+                [f"{lean(design)}.Monotone"],
+                "lemma",
+                unfold=f"{TWO_STAGE}.{lemma}",
+            ),
+        ]
+        if rule.kind == "posterior":
+            prior = (rule.prior_a, rule.prior_b)
+            self.out.contracts.append(
+                Contract(
+                    self.namer.fresh(f"{base}_prior"),
+                    [f"1 ≤ {prior[0]} ∧ 1 ≤ {prior[1]}"],
+                    "decide",
+                )
+            )
+        self.memo[f"analysis:{id(ir)}"] = base
+
     def no_law_of(self, subject: object) -> str:
         """The theorem that the subject's design has no sampling law, if it has one."""
         plan = getattr(subject, "plan", None)
@@ -1199,6 +1340,18 @@ class Denoter:
                     self.analysis(value, binding.name)
                 elif isinstance(value, (FamilyIR, ComposedFamilyIR)):
                     self.combination(value, [])
+                elif isinstance(value, OneArmModelIR):
+                    self.one_arm(value, binding.name)
+                elif isinstance(value, OneSampleAnalysisIR):
+                    self.one_sample(value, binding.name)
+                elif isinstance(value, TwoStageModelIR):
+                    self.stages(value, binding.name)
+                elif isinstance(value, TwoStageAnalysisIR):
+                    self.two_stage(value, binding.name)
+                elif type(value).__name__ in OUTSIDE:
+                    entry = TABLE[OUTSIDE[type(value).__name__]]
+                    assert isinstance(entry, NotInLean)
+                    self.out.skipped[binding.name] = f"Not in Lean: {entry.reason}"
                 elif (
                     type(value).__module__.startswith("statclaim")
                     and not isinstance(value, ClaimIR)

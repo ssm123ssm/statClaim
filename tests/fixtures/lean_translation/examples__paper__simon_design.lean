@@ -4,6 +4,15 @@ set_option linter.unusedVariables false
 from outside. -/
 structure Instance where
 
+/-- The participants in the first and the second stage. -/
+def stages : ℕ × ℕ := (9, 15)
+
+def analysis_design : StatClaim.Modules.TwoStageBinomial.Design :=
+  StatClaim.Modules.TwoStageBinomial.thresholdDesign stages.1 stages.2 0 2
+
+noncomputable def analysis :=
+  StatClaim.Modules.TwoStageBinomial.analysisAtMost analysis_design (StatClaim.ratPoint 1 20 (by decide) (by decide))
+
 namespace checked_claim_plan
 
 def declaredDesign : StatClaim.Modules.TwoStageBinomial.Design :=
@@ -12,6 +21,21 @@ noncomputable def nullRate : unitInterval := StatClaim.ratPoint 1 20 (by decide)
 noncomputable def declaredAnalysis := StatClaim.Modules.TwoStageBinomial.analysisAtMost declaredDesign nullRate
 
 end checked_claim_plan
+
+-- Contract facts the Python compiler checks, decided by Lean.
+
+theorem stages_values :
+    1 ≤ stages.1 ∧ 1 ≤ stages.2 :=
+  by decide
+
+theorem analysis_values :
+    (0 : ℚ) < ((1 : ℚ) / 20) ∧
+    ((1 : ℚ) / 20) < 1 :=
+  by norm_num
+
+theorem analysis_monotone :
+    analysis_design.Monotone :=
+  by apply StatClaim.Modules.TwoStageBinomial.thresholdDesign_monotone
 
 /-- The premises the claims rest on: cited and declared guarantees. -/
 structure Premises (i : Instance) : Prop where

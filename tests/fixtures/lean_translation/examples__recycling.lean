@@ -21,8 +21,16 @@ structure Instance where
   graph_slack : ℝ
   capacity_test : StatClaim.Interface.TestInterface per_protocol_Outcome
   capacity_slack : ℝ
+  onset_member_Parameter : Type
+  onset_member_Outcome : Type
+  [onset_member_space : MeasurableSpace onset_member_Outcome]
+  onset_member : StatClaim.Interface.TwoArmModel onset_member_Parameter onset_member_Outcome
+  onset_member_hypothesis : onset_member_Parameter → Prop
+  onset_member_test : StatClaim.Interface.TestInterface onset_member_Outcome
+  onset_member_slack : ℝ
 attribute [instance] Instance.per_protocol_space
 attribute [instance] Instance.everyone_space
+attribute [instance] Instance.onset_member_space
 
 def responders_sizes : StatClaim.FixedSampleDesign :=
   ⟨500, 500, by decide, by decide⟩
@@ -64,6 +72,9 @@ def null_2 : StatClaim.Core.Hypothesis StatClaim.Modules.TwoArmBinomial.Paramete
 
 noncomputable def onset :=
   StatClaim.Modules.FisherOneSided.analysis responders_sizes onset_level
+
+def onset_member_null (i : Instance) :=
+  i.onset_member_hypothesis
 
 -- Contract facts the Python compiler checks, decided by Lean.
 
@@ -194,6 +205,8 @@ structure Premises (i : Instance) : Prop where
         ((↑((1 : ℚ) / 40) : ℝ) + i.graph_slack)
   cited_capacity_level : StatClaim.Interface.LevelPremise StatClaim.Generated.Methods.welch_test_one_sided.scope i.per_protocol.law (null i)
     i.capacity_test ((1 : ℚ) / 40) i.capacity_slack
+  member_onset_member_level : StatClaim.Interface.LevelPremise StatClaim.Interface.Scope.finiteSample i.onset_member.law (onset_member_null i)
+    i.onset_member_test ((1 : ℚ) / 40) i.onset_member_slack
 
 theorem primary_error_claim (i : Instance) (premises : Premises i) :
     ∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : StatClaim.Interface.JointStudy Θ Ω)
@@ -217,9 +230,58 @@ theorem primary_error_claim (i : Instance) (premises : Premises i) :
     premises.cited_graph_rule.2 Θ Ω σ v₀ v₁ v₂ m₀ m₁ m₂
   exact c₀
 
+theorem overall_error_claim (i : Instance) (premises : Premises i) :
+    ∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : StatClaim.Interface.JointStudy Θ Ω)
+      (v₀ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₁ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₂ : StatClaim.Interface.MemberView Θ Ω i.everyone_Parameter i.everyone_Outcome) (v₃ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₄ : StatClaim.Interface.MemberView Θ Ω i.onset_member_Parameter i.onset_member_Outcome),
+      v₀.Marginal σ i.per_protocol.law →
+      v₁.Marginal σ i.per_protocol.law →
+      v₂.Marginal σ i.everyone.law →
+      v₃.Marginal σ i.per_protocol.law →
+      v₄.Marginal σ i.onset_member.law →
+      StatClaim.Interface.sequenceClaim σ.law
+        ![fun θ => ∃ k, ![fun θ => (null i) (v₀.parameter θ), fun θ => (null i) (v₁.parameter θ), fun θ => (null_1 i) (v₂.parameter θ)] k θ,
+        fun θ => (null i) (v₃.parameter θ),
+        fun θ => (onset_member_null i) (v₄.parameter θ)]
+        ![(⋂ k, (i.graph_procedure Θ Ω σ v₀ v₁ v₂) k),
+        v₃.outcome ⁻¹' i.capacity_test.reject,
+        v₄.outcome ⁻¹' i.onset_member_test.reject]
+        ((↑((1 : ℚ) / 40) : ℝ) + ∑ k, ![i.graph_slack, i.capacity_slack, i.onset_member_slack] k) := by
+  intro Θ Ω _ σ v₀ v₁ v₂ v₃ v₄ m₀ m₁ m₂ m₃ m₄
+  have o₃ : ∀ parameter, (null i) parameter → (i.per_protocol.law parameter).real i.capacity_test.reject ≤ ((↑((1 : ℚ) / 40) : ℝ) + i.capacity_slack) :=
+    premises.cited_capacity_level.2
+  have b₃ := v₃.bound m₃ i.capacity_test.measurable o₃
+  have s₃ : 0 ≤ i.capacity_slack :=
+    StatClaim.Interface.Scope.permits_nonnegative premises.cited_capacity_level.1
+  have o₄ : ∀ parameter, (onset_member_null i) parameter → (i.onset_member.law parameter).real i.onset_member_test.reject ≤ ((↑((1 : ℚ) / 40) : ℝ) + i.onset_member_slack) :=
+    premises.member_onset_member_level.2
+  have b₄ := v₄.bound m₄ i.onset_member_test.measurable o₄
+  have s₄ : 0 ≤ i.onset_member_slack :=
+    StatClaim.Interface.Scope.permits_nonnegative premises.member_onset_member_level.1
+  have g₀ : 0 ≤ i.graph_slack :=
+    StatClaim.Interface.Scope.permits_nonnegative premises.cited_graph_rule.1
+  have c₁ : StatClaim.Interface.familywiseClaim σ.law
+        ![fun θ => (null i) (v₀.parameter θ),
+        fun θ => (null i) (v₁.parameter θ),
+        fun θ => (null_1 i) (v₂.parameter θ)]
+        (i.graph_procedure Θ Ω σ v₀ v₁ v₂)
+        ((↑((1 : ℚ) / 40) : ℝ) + i.graph_slack) :=
+    premises.cited_graph_rule.2 Θ Ω σ v₀ v₁ v₂ m₀ m₁ m₂
+  have n₂ := StatClaim.Interface.family_member σ c₁
+  have c₀ : StatClaim.Interface.sequenceClaim σ.law
+        ![fun θ => ∃ k, ![fun θ => (null i) (v₀.parameter θ), fun θ => (null i) (v₁.parameter θ), fun θ => (null_1 i) (v₂.parameter θ)] k θ,
+        fun θ => (null i) (v₃.parameter θ),
+        fun θ => (onset_member_null i) (v₄.parameter θ)]
+        ![(⋂ k, (i.graph_procedure Θ Ω σ v₀ v₁ v₂) k),
+        v₃.outcome ⁻¹' i.capacity_test.reject,
+        v₄.outcome ⁻¹' i.onset_member_test.reject]
+        ((↑((1 : ℚ) / 40) : ℝ) + ∑ k, ![i.graph_slack, i.capacity_slack, i.onset_member_slack] k) := by
+    apply StatClaim.Interface.sequence_of_members σ _ _ ((1 : ℚ) / 40)
+    all_goals statclaim
+  exact c₀
+
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
-  ∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : StatClaim.Interface.JointStudy Θ Ω)
+  (∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : StatClaim.Interface.JointStudy Θ Ω)
       (v₀ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₁ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₂ : StatClaim.Interface.MemberView Θ Ω i.everyone_Parameter i.everyone_Outcome),
       v₀.Marginal σ i.per_protocol.law →
       v₁.Marginal σ i.per_protocol.law →
@@ -229,7 +291,22 @@ def Claims (i : Instance) : Prop :=
         fun θ => (null i) (v₁.parameter θ),
         fun θ => (null_1 i) (v₂.parameter θ)]
         (i.graph_procedure Θ Ω σ v₀ v₁ v₂)
-        ((↑((1 : ℚ) / 40) : ℝ) + i.graph_slack)
+        ((↑((1 : ℚ) / 40) : ℝ) + i.graph_slack)) ∧
+  (∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : StatClaim.Interface.JointStudy Θ Ω)
+      (v₀ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₁ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₂ : StatClaim.Interface.MemberView Θ Ω i.everyone_Parameter i.everyone_Outcome) (v₃ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₄ : StatClaim.Interface.MemberView Θ Ω i.onset_member_Parameter i.onset_member_Outcome),
+      v₀.Marginal σ i.per_protocol.law →
+      v₁.Marginal σ i.per_protocol.law →
+      v₂.Marginal σ i.everyone.law →
+      v₃.Marginal σ i.per_protocol.law →
+      v₄.Marginal σ i.onset_member.law →
+      StatClaim.Interface.sequenceClaim σ.law
+        ![fun θ => ∃ k, ![fun θ => (null i) (v₀.parameter θ), fun θ => (null i) (v₁.parameter θ), fun θ => (null_1 i) (v₂.parameter θ)] k θ,
+        fun θ => (null i) (v₃.parameter θ),
+        fun θ => (onset_member_null i) (v₄.parameter θ)]
+        ![(⋂ k, (i.graph_procedure Θ Ω σ v₀ v₁ v₂) k),
+        v₃.outcome ⁻¹' i.capacity_test.reject,
+        v₄.outcome ⁻¹' i.onset_member_test.reject]
+        ((↑((1 : ℚ) / 40) : ℝ) + ∑ k, ![i.graph_slack, i.capacity_slack, i.onset_member_slack] k))
 
 /-- One instance meeting every premise, so the claims are not vacuous. -/
 noncomputable def witness : Instance where
@@ -249,12 +326,18 @@ noncomputable def witness : Instance where
   graph_slack := 0
   capacity_test := StatClaim.Interface.TestInterface.neverRejects _
   capacity_slack := 0
+  onset_member_Parameter := Unit
+  onset_member_Outcome := Unit
+  onset_member := StatClaim.Interface.TwoArmModel.trivial
+  onset_member_hypothesis := fun _ => True
+  onset_member_test := StatClaim.Interface.TestInterface.neverRejects _
+  onset_member_slack := 0
 
 theorem program : StatClaim.Interface.ProgramTheorem Premises Claims where
-  implies := fun i premises => primary_error_claim i premises
+  implies := fun i premises => ⟨primary_error_claim i premises, overall_error_claim i premises⟩
   satisfiable := ⟨witness, ⟨StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num), StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num), StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num), ⟨StatClaim.Interface.Scope.permits_zero _, by
       intro Θ Ω _ σ v₀ v₁ v₂ m₀ m₁ m₂
-      exact StatClaim.Interface.familywise_of_nothing σ.law _ (by norm_num [witness])⟩, StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num)⟩⟩
+      exact StatClaim.Interface.familywise_of_nothing σ.law _ (by norm_num [witness])⟩, StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num), StatClaim.Interface.neverRejects_meets_level _ _ _ _ (by norm_num)⟩⟩
 
 -- The premises each claim's proof uses, following this program's own constants.
 open Lean Elab Command in
@@ -262,7 +345,7 @@ run_cmd do
   let env ← getEnv
   let structureName := ``Premises
   let fields := getStructureFields env structureName
-  for (short, claim) in [("primary_error_claim", ``primary_error_claim)] do
+  for (short, claim) in [("primary_error_claim", ``primary_error_claim), ("overall_error_claim", ``overall_error_claim)] do
     let found ← IO.mkRef ({} : NameSet)
     let mut seen : NameSet := {}
     let mut stack := [claim]

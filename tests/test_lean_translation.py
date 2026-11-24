@@ -463,3 +463,60 @@ def test_a_design_without_a_sampling_law_is_refuted_in_lean():
     adaptive = checker.translation(ROOT / "examples/paper/fisher_adaptive.stat")
     assert "theorem design_no_law :" in adaptive.lean
     assert "StatClaim.Core.no_compatibility_without_law" in adaptive.lean
+
+
+# Every kind of claim `verify` certifies, as language_runner dispatches them.
+VERIFIED_SUBJECTS = {
+    "AnalysisIR",
+    "AssociationAnalysisIR",
+    "AssociationResultIR",
+    "CitedAnalysisIR",
+    "CitedAssociationIR",
+    "ComposedFamilyIR",
+    "DifferenceIntervalIR",
+    "EffectIntervalIR",
+    "FamilyIR",
+    "FeasibilityIR",
+    "IntervalIR",
+    "MatchedAnalysisIR",
+    "MatchedIntervalIR",
+    "MatchedResultIR",
+    "ObservationIR",
+    "OneSampleObservationIR",
+    "ProportionIR",
+    "RandomisationAnalysisIR",
+    "RateAnalysisIR",
+    "RateRatioIR",
+    "RateResultIR",
+    "SequentialIR",
+    "SizingIR",
+    "TwoStageObservationIR",
+}
+# Why a verified claim may stay out of Lean: Python's open requirement, a design Lean
+# proves has no sampling law, or a plan that misses its target.
+REFUSALS = ("needs a justified sampling law", "exceeds the requested", "falls short of")
+
+
+def test_every_kind_of_verified_claim_translates_unless_refused():
+    checker = corpus_checker()
+    kinds = set()
+    for path in checker.corpus():
+        program = checker.compiled(path)
+        if program is None:
+            continue
+        result = checker.translation(path)
+        stated = set(result.requests.values())
+        holders = {
+            b.value.request_id: b.name
+            for b in program.bindings
+            if type(b.value).__name__ == "VerificationResultIR"
+        }
+        for index, request in enumerate(program.requests, 1):
+            if request.operation != "verify":
+                continue
+            kinds.add(type(request.claim.subject).__name__)
+            if index in stated:
+                continue
+            reason = result.skipped[holders.get(index, f"request_{index}")]
+            assert any(words in reason for words in REFUSALS), (path, reason)
+    assert kinds == VERIFIED_SUBJECTS, "Add a corpus example of each kind of verified claim."
