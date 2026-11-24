@@ -49,9 +49,11 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   the cited-method registry in Lean, written by `scripts/update_lean_premises.py`.
   `StatClaim/Semantics/` defines what a compiled program means, as Lean functions of
   the program as data ([proposal](proposals/lean-semantics.md)); certificates do not
-  use it yet. `lean_translation/data.py` writes that data from the canonical program,
-  and `scripts/check_lean_semantics.py` checks that Lean's encoding of it is the
-  canonical program.
+  use it yet. `Soundness.lean` proves every covered claim from its premises once, for
+  every program. `lean_translation/data.py` writes the data from the canonical program,
+  and `scripts/check_lean_semantics.py` checks on the corpus that Lean's encoding of it
+  is the canonical program, that its grades are Python's, and that today's translation
+  states the same claims.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `studio/`: the block editor. `api.py` answers its requests on the same compiler,
   runner and language-server features; `server.py` serves it on this machine, and

@@ -47,16 +47,14 @@ theorem Premise.trivial_holds (q : Premise) : q.Holds Instance.trivial := by
         simp only [Instance.trivial, add_zero]
         exact_mod_cast this)
 
-/-- Every program's premises hold together, so no claim is vacuous. -/
-theorem Program.satisfiable (p : Program) (uses : List ℕ) : p.Using Instance.trivial uses := by
-  induction uses with
-  | nil => trivial
-  | cons k ks rest =>
-    refine ⟨?_, rest⟩
-    unfold Program.premiseAt
-    cases p.premises[k]? with
-    | none => trivial
-    | some q => exact q.trivial_holds
+theorem Premise.allHold_trivial : ∀ premises : List Premise, Premise.AllHold Instance.trivial premises
+  | [] => trivial
+  | q :: qs => ⟨q.trivial_holds, Premise.allHold_trivial qs⟩
+
+/-- Every request's premises hold together, so no claim is vacuous. -/
+theorem Program.satisfiable (p : Program) (r : ℕ) :
+    Premise.AllHold Instance.trivial (p.premisesAt r) :=
+  Premise.allHold_trivial _
 
 end
 

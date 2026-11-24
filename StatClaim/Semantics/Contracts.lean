@@ -17,9 +17,9 @@ namespace StatClaim.Semantics
 
 open MeasureTheory StatClaim.Interface
 
-/-- Whole clusters were assigned, in a model whose law the instance gives. -/
+/-- Whole clusters were assigned. The model's law is then one the instance gives. -/
 def Model.clustered (model : Model) : Bool :=
-  model.outcome != .binary && model.clusters.isSome
+  model.clusters.isSome
 
 /-- The declared design features a test's assumptions can contradict. -/
 def Model.features (model : Model) : List Generated.DesignFeature :=
@@ -43,12 +43,20 @@ def Null.fits (null : Null) (design : Design) : Bool :=
 def rowFits (index : ℕ) (row : List ℚ) : Bool :=
   decide (row[index]? = some 0) && row.all (fun t => decide (0 ≤ t)) && decide (row.sum ≤ 1)
 
+/-- A single test, not a combination. -/
+def Test.single : Test → Bool
+  | .fisher .. => true
+  | .assumed .. => true
+  | _ => false
+
 mutual
 def Test.check : Test → Bool
   | .fisher _ design null _ =>
     null.fits design && decide (design.model.outcome = .binary) &&
     decide (null.key = .equal_proportions) && design.model.features.isEmpty
-  | .cited _ method design null alpha =>
+  | .assumed _ (.declared ..) design null alpha =>
+    null.fits design && decide (0 < alpha.value) && decide (alpha.value < 1)
+  | .assumed _ (.cited method) design null alpha =>
     let counts := design.model.counts method.unit
     null.fits design && method.nulls.contains null.key &&
     decide (null.key.outcome = method.outcome) &&
@@ -63,9 +71,11 @@ def Test.check : Test → Bool
       | some value => decide (null.value = some value)) &&
     decide (0 < alpha.value) && decide (alpha.value < 1)
   | .bonferroni _ members alpha =>
-    Test.checkAll members && decide ((members.map Test.alpha).sum ≤ alpha.value)
+    Test.checkAll members && members.all Test.single &&
+    decide ((members.map Test.alpha).sum ≤ alpha.value)
   | .graphical _ members weights rows alpha =>
-    Test.checkAll members && decide (weights.length = members.length) &&
+    Test.checkAll members && members.all Test.single &&
+    decide (weights.length = members.length) &&
     weights.all (fun w => decide (0 ≤ w)) && decide (weights.sum ≤ 1) &&
     decide (rows.length = members.length) &&
     (List.range rows.length).all (fun index => rowFits index (rows.getD index [])) &&
@@ -80,8 +90,13 @@ def Test.checkAll : List Test → Bool
 termination_by structural ts => ts
 end
 
+/-- A Type I claim is about a single test, and a familywise claim about a combination. -/
+def Request.check : Request → Bool
+  | .typeI t => t.single && t.check
+  | .familywise t => !t.single && t.check
+
 def Program.Contracts (p : Program) : Prop :=
-  p.requests.all (fun r => r.test.check) = true
+  p.requests.all Request.check = true
 
 instance (p : Program) : Decidable p.Contracts :=
   inferInstanceAs (Decidable (_ = true))

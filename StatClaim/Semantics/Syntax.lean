@@ -2,6 +2,7 @@ module
 
 public import StatClaim.Design
 public import StatClaim.Generated.Methods
+public import StatClaim.Interface.Premises
 
 /-!
 A compiled program as Lean data: its models, designs, nulls, tests and requested
@@ -63,9 +64,20 @@ structure Null where
   value : Option ℚ := none
   deriving DecidableEq
 
+/-- Where an assumed test's guarantee comes from: a method in the registry, or the
+author's own declaration, with the scope and references the file gives. -/
+inductive Guarantee where
+  | cited (method : Generated.TrialMethod)
+  | declared (method : String) (scope : Interface.Scope) (references : List String)
+
+def Guarantee.scope : Guarantee → Interface.Scope
+  | .cited method => method.scope
+  | .declared _ scope _ => scope
+
 inductive Test where
   | fisher (name : String) (design : Design) (null : Null) (alpha : SignificanceLevel)
-  | cited (name : String) (method : Generated.TrialMethod) (design : Design) (null : Null)
+  /-- A test whose level is a premise: cited from the registry or declared by the author. -/
+  | assumed (name : String) (guarantee : Guarantee) (design : Design) (null : Null)
       (alpha : SignificanceLevel)
   | bonferroni (name : String) (members : List Test) (alpha : SignificanceLevel)
   | graphical (name : String) (members : List Test) (weights : List ℚ)
@@ -86,14 +98,14 @@ def Request.test : Request → Test
 
 def Test.name : Test → String
   | .fisher name .. => name
-  | .cited name .. => name
+  | .assumed name .. => name
   | .bonferroni name .. => name
   | .graphical name .. => name
   | .sequence name .. => name
 
 def Test.alpha : Test → ℚ
   | .fisher _ _ _ alpha => alpha.value
-  | .cited _ _ _ _ alpha => alpha.value
+  | .assumed _ _ _ _ alpha => alpha.value
   | .bonferroni _ _ alpha => alpha.value
   | .graphical _ _ _ _ alpha => alpha.value
   | .sequence _ _ alpha => alpha.value

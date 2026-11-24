@@ -40,3 +40,4 @@ public import StatClaim.Semantics.Meaning
 public import StatClaim.Semantics.Contracts
 public import StatClaim.Semantics.Grades
 public import StatClaim.Semantics.Theorems
+public import StatClaim.Semantics.Soundness

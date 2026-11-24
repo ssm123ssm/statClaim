@@ -405,6 +405,11 @@ class Denotation:
     # Claims not stated because their design has no sampling law: the theorem proving it.
     refuted: dict[str, str] = field(default_factory=dict)
     asked: bool = False  # claims Python leaves open are stated too (`rejection.py`)
+    # Where each abstract part and premise comes from, for re-stating the translation over
+    # the semantics' instance (scripts/check_lean_semantics.py): ("model", canonical
+    # model), ("test", name, canonical model), ("slack", name), ("graph", name, canonical
+    # member models) or, for premises, ("level", name) and ("graph", name).
+    sources: dict[str, tuple] = field(default_factory=dict)
 
 
 class Denoter:
@@ -414,6 +419,7 @@ class Denoter:
         self.namer = Namer([*STRUCTURAL, *(b.name for b in program.bindings)])
         self.memo: dict[str, object] = {}
         self.out = Denotation(asked=ask)
+        self.names = {id(binding.value): binding.name for binding in program.bindings}
 
     def own(self, preferred: str | None, kind: str) -> str:
         """A binding's own name, unless the file needs it; otherwise a fresh one."""
@@ -470,6 +476,7 @@ class Denoter:
                 )
             else:
                 result = self.abstract(base, "TwoArmModel", measured.kind)
+                self.out.sources[base] = ("model", normalize(ir))
         self.memo[k] = result
         return result
 
@@ -776,6 +783,14 @@ class Denoter:
             self.level_range(base, ir.alpha, extra, entry if extra else "")
         kind = "declared" if declared else "cited"
         test, slack, premise = self.tested(base, kind, model, null, ir.alpha, scope)
+        name = self.names.get(id(ir), preferred)
+        self.out.sources.update(
+            {
+                lean(test): ("test", name, normalize(two_arm)),
+                lean(slack): ("slack", name),
+                premise: ("level", name),
+            }
+        )
         return Analysis(
             base, kind, model, design, null, ir.alpha, method.scope, test, slack, premise
         )
@@ -1078,6 +1093,15 @@ class Denoter:
         large = any(leaf.scope != "finite_sample" for leaf in leaves if leaf is not None)
         scope = f"{INTERFACE}.Scope.{'largeSample' if large else 'finiteSample'}"
         premise = self.namer.fresh(f"cited_{base}_rule")
+        name = self.names.get(id(family))
+        models = [normalize(member.plan.model) for _, member in family.analyses]
+        self.out.sources.update(
+            {
+                lean(procedure): ("graph", name, models),
+                lean(slack): ("slack", name),
+                premise: ("graph", name),
+            }
+        )
         result = Graph(base, procedure, slack, premise, scope)
         self.memo[k] = result
         # The premise quantifies over the graph's own members, so their views count from zero.

@@ -17,6 +17,7 @@ from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
 
 SEMANTICS = "StatClaim.Semantics"
 MARKER = "STATCLAIM_PROGRAM"
+GRADES = "STATCLAIM_GRADES"
 # The model constructor each outcome kind's module names, as the canonical program writes it.
 MODULES = {outcome.constructor: key for key, outcome in OUTCOMES.items()}
 STOPPING = ("fixed", "data_dependent")
@@ -34,6 +35,10 @@ MODEL_EXTRAS = (
     "outcome_name",
 )
 ANALYSIS = {"test", "design", "null", "alpha"}
+# A declared test is described by the file: its method, scope and references.
+DECLARED = "declared_test"
+DECLARED_FIELDS = {"method", "scope", "references"}
+SCOPES = {"finite_sample": "finiteSample", "asymptotic": "largeSample"}
 
 
 class Outside(Exception):
@@ -167,16 +172,26 @@ def test(name: object, value: object) -> str:
             )
             return f".graphical {label}\n    {listed}\n    {shares} {level(record['alpha'])}"
         return f".{COMBINATIONS[method]} {label}\n    {listed}\n    {level(record['alpha'])}"
-    record = fields(value, ANALYSIS, "An analysis")
+    declared = isinstance(value, dict) and value.get("test") == DECLARED
+    record = fields(value, ANALYSIS | (DECLARED_FIELDS if declared else set()), "An analysis")
     parts = (
         f"{design(record['design'])}\n      {null(record['null'])}\n      {level(record['alpha'])}"
     )
     if record["test"] == "fisher":
         return f".fisher {label}\n      {parts}"
+    if declared:
+        if record["scope"] not in SCOPES or not isinstance(record["references"], list):
+            raise Outside("A declared test's scope or references are not ones the semantics reads.")
+        references = ", ".join(string(r, "A reference") for r in record["references"])
+        guarantee = (
+            f"(.declared {string(record['method'], 'A method')} .{SCOPES[record['scope']]} "
+            f"[{references}])"
+        )
+        return f".assumed {label} {guarantee}\n      {parts}"
     cited = METHODS.get(record["test"])
     if cited is None or cited.grade != "cited":
         raise Outside(f"The test {record['test']!r} is not in the semantics yet.")
-    return f".cited {label} StatClaim.Generated.Methods.{cited.key}\n      {parts}"
+    return f".assumed {label} (.cited StatClaim.Generated.Methods.{cited.key})\n      {parts}"
 
 
 def verify_claims(program: dict) -> list:
@@ -198,6 +213,31 @@ def program_data(program: dict) -> str:
     return f"def program : {SEMANTICS}.Program := ⟨[\n  {body}]⟩\n"
 
 
+def fixed(value: object) -> bool:
+    """Whether every design in a claim's subject stops at fixed sizes. A claim about one
+    that does not has no sampling law, and the semantics states it as `False`."""
+    if isinstance(value, dict):
+        if value.get("stopping") not in (None, "fixed"):
+            return False
+        return all(fixed(item) for item in value.values())
+    if isinstance(value, list):
+        return all(fixed(item) for item in value)
+    return True
+
+
+def claims(program: dict) -> str:
+    """The theorems proving each claim that has a sampling law, by the semantics'
+    soundness theorem and the program's contracts."""
+    lines = ["theorem contracts : program.Contracts := by decide +kernel", ""]
+    for index, claim in enumerate(verify_claims(program)):
+        if fixed(claim["subject"]):
+            lines.append(
+                f"theorem claim_{index} : program.Claim {index} :=\n"
+                f"  {SEMANTICS}.Program.sound program contracts {index} (by decide +kernel)"
+            )
+    return "\n".join(lines) + "\n"
+
+
 def report(label: str) -> str:
     """The command that prints the data's canonical form."""
     if "{" in label or "}" in label or "\n" in label:
@@ -205,6 +245,9 @@ def report(label: str) -> str:
     return (
         "open Lean Elab Command in\n"
         f'run_cmd logInfo m!"{MARKER} {label} {{({SEMANTICS}.Program.encode program).compress}}"\n'
+        "open Lean Elab Command in\n"
+        f'run_cmd logInfo m!"{GRADES} {label} {{(List.range program.requests.length).map '
+        f'fun r => ({SEMANTICS}.Program.grade program r).name}}"\n'
     )
 
 
@@ -215,6 +258,17 @@ def printed(output: str, label: str) -> list | None:
         start = line.find(prefix)
         if start != -1:
             return json.loads(line[start + len(prefix) :])
+    return None
+
+
+def printed_grades(output: str, label: str) -> list[str] | None:
+    """Each claim's grade, as Lean computes it from the premises the claim assumes."""
+    prefix = f"{GRADES} {label} "
+    for line in output.splitlines():
+        start = line.find(prefix)
+        if start != -1:
+            listed = line[start + len(prefix) :].strip().strip("[]")
+            return [name.strip() for name in listed.split(",") if name.strip()]
     return None
 
 

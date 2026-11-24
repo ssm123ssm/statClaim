@@ -17,6 +17,7 @@ from statclaim.lean_translation.data import (
     MARKER,
     Outside,
     binding_problem,
+    fixed,
     program_data,
     report,
     verify_claims,
@@ -45,6 +46,18 @@ def test_every_program_is_written_as_data_or_says_why_not():
         assert data.startswith("def program : StatClaim.Semantics.Program")
         requests = re.findall(r"^  \.(typeI|familywise) ", data, re.MULTILINE)
         assert len(requests) == len(verify_claims(program))
+
+
+def test_todays_translation_of_every_covered_program_can_be_restated():
+    """The agreement check needs each abstract part and premise of today's translation
+    traced to a model, test or graph of the canonical program."""
+    checker = semantics_checker()
+    found, _ = checker.covered()
+    for path, program, _ in found.values():
+        text = checker.agreement(path, program)
+        assert text.startswith("namespace Old")
+        stated = any(fixed(claim["subject"]) for claim in verify_claims(program))
+        assert ("Old.Claims i ↔" in text) == stated
 
 
 def test_the_writer_refuses_what_it_does_not_read():

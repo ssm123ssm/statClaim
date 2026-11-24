@@ -81,10 +81,25 @@ def combination (method : String) (alpha : SignificanceLevel) (members : Json)
     [("method", Json.str method), ("composition", Json.str "conditional"),
       ("alpha", ratJson alpha.value), ("analyses", members)] ++ extra
 
+def scopeJson : Interface.Scope → Json
+  | .finiteSample => Json.str "finite_sample"
+  | .largeSample => Json.str "asymptotic"
+
+/-- An assumed test: a cited one names its registry method; a declared one is described
+by the file. -/
+def assumedJson (guarantee : Guarantee) (design : Design) (null : Null) (alpha : SignificanceLevel) :
+    Json :=
+  match guarantee with
+  | .cited method => analysis method.key design null alpha
+  | .declared method scope references =>
+    (analysis "declared_test" design null alpha).mergeObj
+      (Json.mkObj [("method", Json.str method), ("scope", scopeJson scope),
+        ("references", Json.arr (references.map Json.str).toArray)])
+
 mutual
 def Test.encode : Test → Json
   | .fisher _ design null alpha => analysis "fisher" design null alpha
-  | .cited _ method design null alpha => analysis method.key design null alpha
+  | .assumed _ guarantee design null alpha => assumedJson guarantee design null alpha
   | .bonferroni _ members alpha => combination "bonferroni" alpha (Json.arr (Test.encodeMembers members).toArray)
   | .graphical _ members weights rows alpha =>
     combination "graphical" alpha (Json.arr (Test.encodeMembers members).toArray)

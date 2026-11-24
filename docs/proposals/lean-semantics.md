@@ -48,7 +48,8 @@ What the spike changed in the design:
   `SignificanceLevel`s, written with `by decide` and `by norm_num`, so positive
   sizes and levels in [0, 1] are checked by typing.
 - **Positions name premises.** `p.premises` lists each request's premises in order;
-  a claim's `uses` are positions in that list.
+  a claim's `uses` are positions in that list. (Replaced in milestone 2: a claim
+  assumes its own tests' premises.)
 - **Contracts belong to the certified statement.** A null form a model has no
   reading for is read as `True`, the strongest claim; the contracts refuse such
   programs, so the audit requires them.
@@ -57,6 +58,19 @@ What the spike changed in the design:
   different universes. Every mutual definition now says `termination_by structural`.
 - **`decide +kernel` for contracts.** Plain `decide` cannot reduce rational
   arithmetic; the kernel can.
+
+- Milestone 2, part 1 done. `Soundness.lean` proves `Program.sound` once, so every
+  covered claim is proved by it and `decide +kernel` on the contracts, with no proof
+  from Python. Declared tests are in (`Test.assumed` with a cited or declared
+  `Guarantee`). `scripts/check_lean_semantics.py` now covers 27 corpus programs and,
+  for each: proves its 37 claims with sampling laws by soundness (3 have none and are
+  `False`); checks each grade against Python's; and re-states today's translation over
+  the semantics' instance, from sources the translator now records, so that Lean
+  accepts `Iff.rfl` between each translated claim and the semantic one and derives each
+  semantic claim's premises from today's. A definition changed where the soundness
+  proof does not look, such as how a model reads its nulls, fails that check. The COPD
+  plan is proved in about 0.1 s beyond the import. Part 2: certificates switch; part 3:
+  observational studies and their cited tests.
 
 What milestone 1 changed:
 
@@ -72,6 +86,17 @@ What milestone 1 changed:
 - **Order.** The rest of phase 1's syntax arrives with its meaning, in milestones 2 and
   3, each with its encoding. The certificate audit starts comparing the encoding when
   the first programs switch, in milestone 2.
+
+What milestone 2 changed:
+
+- **No `uses`.** A claim assumes the premises of the tests it involves, so its grade
+  follows from the program alone. On the corpus this is the grade the collector gives.
+- **One proof for every program.** `Program.sound` replaces per-program proofs; today's
+  proofs are needed only to check agreement, not in certificates.
+- **A binary model is binomial only without clusters or repeated measures**, as the
+  translator decides; otherwise its law is abstract.
+- **Requests have shapes.** A Type I claim is about a single test and a familywise claim
+  about a combination; Bonferroni families and graphs combine single tests only.
 
 ## Goal
 
@@ -151,9 +176,10 @@ def Program.Contracts (p : Program) : Prop             -- decidable
 def Program.premises (p : Program) : List Premise
 def Request.Holds (i : Instance) : Request → Prop
 
-/-- Request `r` holds for every instance meeting the premises at positions `uses`. -/
-def Program.ClaimFrom (p : Program) (r : ℕ) (uses : List ℕ) : Prop :=
-  ∀ i, p.Using i uses → p.claimAt r i
+/-- Request `r` holds for every instance meeting the premises of the tests it
+involves. -/
+def Program.Claim (p : Program) (r : ℕ) : Prop :=
+  ∀ i, Premise.AllHold i (p.premisesAt r) → p.claimAt r i
 ```
 
 The definitions use the objects that translated files already use: the
@@ -169,48 +195,49 @@ claim can never be certified, and such a premise can never make a claim vacuous.
 ### A generated file
 
 ```lean
-def program : StatClaim.Semantics.Program := { requests := [ ... ] }  -- data, from Python
+def program : StatClaim.Semantics.Program := ⟨[ ... ]⟩  -- data, from Python
 
 theorem contracts : program.Contracts := by decide +kernel
 
-theorem claim_0 : program.ClaimFrom 0 [0] := by ...   -- untrusted proof, from Python
-theorem claim_1 : program.ClaimFrom 1 [] := by ...
-
-theorem grades : [program.grade 0 [0], program.grade 1 []] = [.conditional, .proved] := by
-  decide +kernel
+theorem claim_0 : program.Claim 0 :=
+  StatClaim.Semantics.Program.sound program contracts 0 (by decide +kernel)
 ```
+
+`program.Claim r` says that request `r` holds for every instance meeting the premises
+of the tests it involves. Python writes no proof: the soundness theorem gives every
+claim whose designs stop at fixed sizes.
 
 The audit checks three things beyond what it checks today:
 
-1. Each certified theorem has exactly the type `program.ClaimFrom r uses`, and
-   `contracts` has the type `program.Contracts`.
+1. Each certified theorem has exactly the type `program.Claim r`, and `contracts`
+   has the type `program.Contracts`.
 2. `program`, encoded back to JSON by `StatClaim/Semantics/Encode.lean`, equals
    the canonical program the certificate binds. Python's writer is then
    untrusted too.
-3. The grades reported are the ones `grades` proves.
+3. The grades reported are the ones Lean computes (`Program.grade`).
 
 ### Grades from the statement
 
 Today a meta-program walks each proof to list the premises it uses, and
-`grades.py` turns that list into a grade. Here, the list is part of the
-statement: `ClaimFrom r uses` can be proved only if the premises in `uses`
-suffice. Lean computes the grade from `uses` and the program, by the rule
-`grades.py` uses now. Python chooses `uses`. A list that is too short fails to
-build. A list that is too long gives a weaker grade, which the status-agreement
-test catches. The collector and its trusted meta-code are deleted.
+`grades.py` turns that list into a grade. Here a claim assumes the premises of the
+tests it involves, and `Program.grade` reads the grade from them by the rule
+`grades.py` uses: the claim's own premise makes it cited, or declared when the author
+declared it; only its members' premises make it conditional; none makes it proved.
+Neither Python nor the proof chooses the premises, so the collector and its trusted
+meta-code can be deleted.
 
 ### Proved once, for every program
 
-`StatClaim/Semantics/Theorems.lean` proves, for every program:
+`StatClaim/Semantics/Theorems.lean` and `Soundness.lean` prove, for every program:
 
-- **The premises can hold together** (`Program.satisfiable`, done): the trivial
+- **The premises can hold together** (`Program.satisfiable`): the trivial
   instance, whose tests never reject, meets every premise of every program, without
   any contract. This replaces the witness in each file.
-- **Grades never overstate**: adding premises to `uses` never gives a stronger
-  grade, and a claim whose `uses` includes a cited or declared premise is never
-  graded proved.
-- **Large-sample claims keep their slack**: a claim that rests on a
-  large-sample premise states its bound with that premise's slack.
+- **Soundness** (`Program.sound`): when the contracts hold, every request whose
+  designs stop at fixed sizes holds for every instance meeting its premises. It goes
+  through every test seen as a member of a combination, by structural recursion.
+- **Large-sample claims keep their slack**, by the statement itself: a cited Type I
+  claim of a large-sample method states its bound with the premise's slack.
 
 These are the general guarantees a separately verified contract checker would give.
 Contracts are computed from the data and evaluated by the kernel, so no such checker
@@ -271,19 +298,17 @@ pushed.
    `lean_translation/data.py` writes `program`; the audit checks that the
    encoding equals the canonical program. Nothing is stated through the semantics
    yet.
-2. **Single tests.** Extend `Meaning.lean` to phase 1's other single tests:
-   declared tests, survival models, observational studies and their cited tests,
-   and designs without a sampling law. The corpus checker writes the agreement
-   examples for every single-test claim; such programs switch.
-3. **Combinations.** Interim looks and the remaining nesting rules (Bonferroni
-   families, graphs and fixed sequences are in since milestone 0); agreement
-   examples; the COPD plan switches.
-4. **Grades and theorems.** The grade function and the non-vacuity theorem exist
-   since milestone 0. What remains: the certified statement (contracts and every
-   claim with its `uses`), the audit's check of its type, grades proved by
-   `decide +kernel`, and the collector deleted. The rejection-agreement table
-   (test 3) is re-run; a changed outcome, such as an ill-typed null becoming a
-   contract failure, is reviewed and recorded.
+2. **Single tests and the switch.** Part 1 (done): the soundness theorem, declared
+   tests, and agreement examples generated for every covered program. Part 2:
+   certificates of covered programs state and prove their claims through the
+   semantics, the audit checks the binding, the statements' types and the grades, and
+   the collector is no longer used for them. Part 3: observational studies and their
+   cited tests.
+3. **Combinations.** Interim looks and Fisher families with a joint law; agreement
+   examples; such programs switch.
+4. **Clean-up.** The collector deleted once no certificate uses it. The
+   rejection-agreement table (test 3) is re-run on the semantics; a changed outcome,
+   such as an ill-typed null becoming a contract failure, is reviewed and recorded.
 5. **Phase 2**, after the common module interface: exact Type I, results,
    intervals and plans, by the same steps. `exact.py` and `statements.py` then
    leave the trusted base.

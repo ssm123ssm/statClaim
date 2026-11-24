@@ -74,9 +74,11 @@ def AbstractModel.view (model : AbstractModel) : View :=
     base := model.model.toModel
     null := fun null => model.model.null null.key.shape (null.value.getD 0) }
 
-/-- A binary model has the binomial law; any other has the law the instance gives it. -/
+/-- A binary model of independent participants measured once has the binomial law; any
+other model has the law the instance gives it, as the translator decides. -/
 def Model.view (laws : Model → AbstractModel) : Model → View
-  | { outcome := .binary, sizes, .. } => binomialView sizes
+  | { outcome := .binary, sizes, clusters := none, measurements := none, .. } =>
+    binomialView sizes
   | model => (laws model).view
 
 /-- One view of a joint study for each listed model. -/
@@ -106,7 +108,7 @@ mutual
 /-- The models of a test's single tests, in order. -/
 def Test.leaves (laws : Model → AbstractModel) : Test → List View
   | .fisher _ design _ _ => [binomialView design.model.sizes]
-  | .cited _ _ design _ _ => [design.model.view laws]
+  | .assumed _ _ design _ _ => [design.model.view laws]
   | .bonferroni _ members _ => Test.leavesOf laws members
   | .graphical _ members _ _ _ => Test.leavesOf laws members
   | .sequence _ members _ => Test.leavesOf laws members
@@ -143,7 +145,7 @@ def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
       reject :=
         ws.1.outcome ⁻¹' (fisherAnalysis design.model.sizes alpha).procedure.rejectionEvent
       slack := 0 }
-  | .cited name _ design null _, ws =>
+  | .assumed name _ design null _, ws =>
     { null := fun θ => null.denote i.laws design.model (ws.1.parameter θ)
       reject := ws.1.outcome ⁻¹' (i.test name design.model).reject
       slack := i.slack name }
@@ -201,10 +203,10 @@ def Test.typeI (i : Instance) : Test → Prop
   | .fisher _ design _ alpha =>
     ((fisherAnalysis design.model.sizes alpha).typeIClaim (Core.Compatibility.fixed _)
       (alpha.value : ℝ)).statement
-  | .cited name method design null alpha =>
+  | .assumed name guarantee design null alpha =>
     typeIClaim (Core.Compatibility.fixed (design.model.view i.laws).base)
       (null.denote i.laws design.model) (i.test name design.model)
-      (match method.scope with
+      (match guarantee.scope with
         | .finiteSample => (alpha.value : ℝ)
         | .largeSample => (alpha.value : ℝ) + i.slack name)
   | _ => False
@@ -234,7 +236,7 @@ mutual
 law. -/
 def Test.fixed : Test → Bool
   | .fisher _ design .. => design.stopping == .fixed
-  | .cited _ _ design .. => design.stopping == .fixed
+  | .assumed _ _ design .. => design.stopping == .fixed
   | .bonferroni _ members _ => Test.allFixed members
   | .graphical _ members _ _ _ => Test.allFixed members
   | .sequence _ members _ => Test.allFixed members
@@ -257,7 +259,7 @@ def Request.Holds (i : Instance) (request : Request) : Prop :=
   | false => False
 
 inductive Premise where
-  | level (name : String) (method : Generated.TrialMethod) (model : Model) (null : Null)
+  | level (name : String) (guarantee : Guarantee) (model : Model) (null : Null)
       (alpha : SignificanceLevel)
   | graph (name : String) (members : List Test) (alpha : SignificanceLevel)
 
@@ -267,13 +269,13 @@ def Premise.name : Premise → String
 
 def Test.finiteSample : Test → Bool
   | .fisher .. => true
-  | .cited _ method .. => method.scope == .finiteSample
+  | .assumed _ guarantee .. => guarantee.scope == .finiteSample
   | _ => false
 
-/-- What a premise assumes: a cited test's level, or a graph's familywise bound. -/
+/-- What a premise assumes: an assumed test's level, or a graph's familywise bound. -/
 def Premise.Holds (i : Instance) : Premise → Prop
-  | .level name method model null alpha =>
-    LevelPremise method.scope (model.view i.laws).base.law (null.denote i.laws model)
+  | .level name guarantee model null alpha =>
+    LevelPremise guarantee.scope (model.view i.laws).base.law (null.denote i.laws model)
       (i.test name model) alpha.value (i.slack name)
   | .graph name members alpha =>
     (match members.all Test.finiteSample with
@@ -287,7 +289,7 @@ def Premise.Holds (i : Instance) : Premise → Prop
 mutual
 def Test.premises : Test → List Premise
   | .fisher .. => []
-  | .cited name method design null alpha => [.level name method design.model null alpha]
+  | .assumed name guarantee design null alpha => [.level name guarantee design.model null alpha]
   | .bonferroni _ members _ => Test.premisesOf members
   | .graphical name members _ _ alpha => Test.premisesOf members ++ [.graph name members alpha]
   | .sequence _ members _ => Test.premisesOf members
@@ -299,28 +301,26 @@ def Test.premisesOf : List Test → List Premise
 termination_by structural ts => ts
 end
 
-/-- Each request's premises, in order; claims name them by position. -/
-def Program.premises (p : Program) : List Premise :=
-  p.requests.flatMap fun r => r.test.premises
-
-def Program.premiseAt (p : Program) (k : ℕ) (i : Instance) : Prop :=
-  match p.premises[k]? with
-  | some q => q.Holds i
-  | none => True
-
-/-- The premises listed by their positions in `p.premises` hold. -/
-def Program.Using (p : Program) (i : Instance) : List ℕ → Prop
+/-- Every listed premise holds. -/
+def Premise.AllHold (i : Instance) : List Premise → Prop
   | [] => True
-  | k :: ks => p.premiseAt k i ∧ p.Using i ks
+  | q :: qs => q.Holds i ∧ Premise.AllHold i qs
 
 def Program.claimAt (p : Program) (r : ℕ) (i : Instance) : Prop :=
   match p.requests[r]? with
   | some q => q.Holds i
   | none => False
 
-/-- Request `r` holds for every instance meeting the premises in `uses`. -/
-def Program.ClaimFrom (p : Program) (r : ℕ) (uses : List ℕ) : Prop :=
-  ∀ i, p.Using i uses → p.claimAt r i
+/-- The premises of the tests request `r` involves. -/
+def Program.premisesAt (p : Program) (r : ℕ) : List Premise :=
+  match p.requests[r]? with
+  | some q => q.test.premises
+  | none => []
+
+/-- What a certificate proves of request `r`: it holds for every instance meeting the
+premises of the tests it involves. -/
+def Program.Claim (p : Program) (r : ℕ) : Prop :=
+  ∀ i, Premise.AllHold i (p.premisesAt r) → p.claimAt r i
 
 end
 

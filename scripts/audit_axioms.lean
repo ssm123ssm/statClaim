@@ -141,7 +141,12 @@ run_cmd do
     ``StatClaim.Semantics.ForallViews.intro,
     ``StatClaim.Semantics.Marginals.intro,
     ``StatClaim.Semantics.Premise.trivial_holds,
-    ``StatClaim.Semantics.Program.satisfiable]
+    ``StatClaim.Semantics.Program.satisfiable,
+    ``StatClaim.Semantics.Premise.allHold_trivial,
+    ``StatClaim.Semantics.Test.outside_bound,
+    ``StatClaim.Semantics.Test.members_bound,
+    ``StatClaim.Semantics.Request.sound,
+    ``StatClaim.Semantics.Program.sound]
   for theoremName in checked do
     match ← getConstInfo theoremName with
     | .thmInfo _ => pure ()

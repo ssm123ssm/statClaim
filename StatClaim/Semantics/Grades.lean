@@ -3,8 +3,8 @@ module
 public import StatClaim.Semantics.Meaning
 
 /-!
-A claim's grade, from the premises its statement lists: the grade cannot depend on
-how the proof was found.
+A claim's grade, from the premises its statement assumes: those of the tests it
+involves. The grade cannot depend on how a proof was found.
 
 Trusted. See docs/proposals/lean-semantics.md.
 -/
@@ -21,17 +21,30 @@ inductive Grade where
   | proved
   | conditional
   | cited
+  | declared
   deriving DecidableEq, Repr
 
-/-- A claim resting on its own premise is cited; one resting only on others' premises
-is conditional; one resting on none is proved. -/
-def Program.grade (p : Program) (r : ℕ) (uses : List ℕ) : Grade :=
-  let used := uses.filterMap fun k => p.premises[k]?
+/-- The grade's name, as Python reports it. -/
+def Grade.name : Grade → String
+  | .proved => "proved"
+  | .conditional => "conditional"
+  | .cited => "cited"
+  | .declared => "declared"
+
+/-- Whether a premise is a test's level that the author declared. -/
+def Premise.declared : Premise → Bool
+  | .level _ (.declared ..) .. => true
+  | _ => false
+
+/-- A claim resting on its own premise is cited, or declared when the author declared
+it; one resting only on its members' premises is conditional; one resting on none is
+proved. -/
+def Program.grade (p : Program) (r : ℕ) : Grade :=
   match p.requests[r]? with
   | none => .cited
   | some q =>
-    if used.any (fun premise => premise.name == q.test.name) then .cited
-    else if used.isEmpty then .proved
-    else .conditional
+    match q.test.premises.find? (fun premise => premise.name == q.test.name) with
+    | some own => if own.declared then .declared else .cited
+    | none => if q.test.premises.isEmpty then .proved else .conditional
 
 end StatClaim.Semantics
