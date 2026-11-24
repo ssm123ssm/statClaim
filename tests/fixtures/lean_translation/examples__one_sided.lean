@@ -57,15 +57,66 @@ theorem guarantee_claim (i : Instance) (premises : Premises i) :
   StatClaim.Modules.FisherOneSided.typeI_of_hints study_sizes analysis_level 1 40
     (by decide) (by norm_num [analysis_level]) guarantee_claim_checks.bounds guarantee_claim_checks.region guarantee_claim_checks.sections
 
+namespace outcome_claim_checks
+
+set_option maxRecDepth 100000
+set_option maxHeartbeats 20000000
+open StatClaim StatClaim.Modules
+
+def declaredSizes : FixedSampleDesign := ⟨36, 36, by decide, by decide⟩
+def declaredLevel : SignificanceLevel :=
+  ⟨(1 : ℚ) / 40, by norm_num, by norm_num⟩
+noncomputable def declaredAnalysis := FisherOneSided.analysis declaredSizes declaredLevel
+def bounds : List ℕ := [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 25, 25, 26, 26, 27, 28, 28, 29, 29, 30, 31, 31, 32, 33, 34, 35, 36]
+
+theorem checked_region : FisherOneSided.HintsValid declaredSizes.nControl
+    declaredSizes.nTreatment 1 40 bounds := by
+  decide +kernel
+
+theorem checked_sections : FisherOneSided.HintSections declaredSizes.nControl
+    declaredSizes.nTreatment bounds := by
+  decide +kernel
+
+theorem checked_typeI :
+    (declaredAnalysis.typeIClaim (declaredLevel.value : ℝ)).statement :=
+  FisherOneSided.typeI_of_hints declaredSizes declaredLevel 1 40 (by decide)
+    (by norm_num [declaredLevel]) bounds checked_region checked_sections
+
+theorem checked_counts : 0 < 36 ∧ 0 < 36 ∧ 4 ≤ 36 ∧ 14 ≤ 36 := by decide
+
+theorem checked_p_value : FisherOneSided.lowerPValue 36 36 18 4 =
+    (4212885 : ℚ) / 650576834 := by
+  apply FisherOneSided.lowerPValue_eq_of_cross_product 36 36 18 4
+    4212885 650576834 (by decide) (by decide)
+  decide +kernel
+
+theorem checked_decision :
+    (FisherOneSided.lowerPValue 36 36 18 4 ≤ (1 : ℚ) / 40) ↔ True := by
+  rw [checked_p_value]
+  norm_num
+
+end outcome_claim_checks
+
+theorem outcome_claim (i : Instance) (premises : Premises i) :
+    (0 < 36 ∧ 0 < 36 ∧ 4 ≤ 36 ∧ 14 ≤ 36) ∧
+    (StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 = (4212885 : ℚ) / 650576834) ∧
+    ((StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 ≤ (1 : ℚ) / 40) ↔ True) ∧
+    ((analysis.typeIClaim (analysis_level.value : ℝ)).statement) :=
+  ⟨outcome_claim_checks.checked_counts, outcome_claim_checks.checked_p_value, outcome_claim_checks.checked_decision, outcome_claim_checks.checked_typeI⟩
+
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
-  (analysis.typeIClaim (analysis_level.value : ℝ)).statement
+  ((analysis.typeIClaim (analysis_level.value : ℝ)).statement) ∧
+  ((0 < 36 ∧ 0 < 36 ∧ 4 ≤ 36 ∧ 14 ≤ 36) ∧
+    (StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 = (4212885 : ℚ) / 650576834) ∧
+    ((StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 ≤ (1 : ℚ) / 40) ↔ True) ∧
+    ((analysis.typeIClaim (analysis_level.value : ℝ)).statement))
 
 /-- One instance meeting every premise, so the claims are not vacuous. -/
 noncomputable def witness : Instance := ⟨⟩
 
 theorem program : StatClaim.Interface.ProgramTheorem Premises Claims where
-  implies := fun i premises => guarantee_claim i premises
+  implies := fun i premises => ⟨guarantee_claim i premises, outcome_claim i premises⟩
   satisfiable := ⟨witness, ⟨⟩⟩
 
 -- The premises each claim's proof uses, following this program's own constants.
@@ -74,7 +125,7 @@ run_cmd do
   let env ← getEnv
   let structureName := ``Premises
   let fields := getStructureFields env structureName
-  for (short, claim) in [("guarantee_claim", ``guarantee_claim)] do
+  for (short, claim) in [("guarantee_claim", ``guarantee_claim), ("outcome_claim", ``outcome_claim)] do
     let found ← IO.mkRef ({} : NameSet)
     let mut seen : NameSet := {}
     let mut stack := [claim]
