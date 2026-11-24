@@ -81,9 +81,8 @@ integration-check:
 
 # CI runs the Lean integration tests in three shards at once. The last shard takes every
 # file the first two do not name, so a new integration file is never left out.
-SHARD_A = tests/test_association_integration.py
-SHARD_B = tests/test_verification_integration.py tests/test_randomisation_integration.py \
-	tests/test_design_verification_integration.py
+SHARD_A = tests/test_planning_integration.py
+SHARD_B = tests/test_composed_integration.py tests/test_language_integration.py
 .PHONY: integration-shard
 integration-shard:
 ifeq ($(SHARD),a)

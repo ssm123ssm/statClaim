@@ -1,6 +1,6 @@
 """Prevalence, cumulative incidence and incidence rates: estimability, rates and certificates.
 
-Nothing here starts Lean; tests/test_association_integration.py does.
+Nothing here starts Lean; tests/test_lean_translation.py proves these claims in Lean.
 """
 
 import copy

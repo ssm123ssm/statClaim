@@ -1,6 +1,6 @@
 """Randomisation tests: the sharp null, the declared scheme, derivations and certificates.
 
-Nothing here starts Lean; tests/test_randomisation_integration.py does.
+Nothing here starts Lean; tests/test_lean_translation.py proves these claims in Lean.
 """
 
 import copy

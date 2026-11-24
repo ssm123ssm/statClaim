@@ -1,6 +1,6 @@
 """Exact power of Fisher's test of association for cohort and case-control studies.
 
-Nothing here starts Lean; tests/test_association_integration.py does.
+Nothing here starts Lean; tests/test_lean_translation.py proves these claims in Lean.
 """
 
 import copy

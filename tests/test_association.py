@@ -1,6 +1,6 @@
 """Observational studies: designs, the null of no association, refusals and derivations.
 
-Nothing here starts Lean; tests/test_association_integration.py does.
+Nothing here starts Lean; tests/test_lean_translation.py proves these claims in Lean.
 """
 
 import copy

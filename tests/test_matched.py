@@ -1,6 +1,6 @@
 """Matched case-control studies: McNemar's test, observed pairs and the conditional odds ratio.
 
-Nothing here starts Lean; tests/test_association_integration.py does.
+Nothing here starts Lean; tests/test_lean_translation.py proves these claims in Lean.
 """
 
 import copy
