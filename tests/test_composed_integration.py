@@ -1,4 +1,4 @@
-"""A family with cited members: Lean checks the combination, the members stay assumed."""
+"""Combinations checked in Lean as part of the whole program; members may stay assumed."""
 
 import json
 import shutil
@@ -11,6 +11,7 @@ from statclaim.language_syntax import Source
 from statclaim.verification import VerificationError, recheck_certificate
 
 ROOT = Path(__file__).resolve().parents[1]
+PROGRAM = "statclaim_program_certificate"
 pytestmark = [
     pytest.mark.lean,
     pytest.mark.skipif(not shutil.which("lake"), reason="Lean required"),
@@ -61,26 +62,35 @@ def test_mixed_family_is_conditional_and_its_fisher_member_is_verified(mixed):
     assert "Weakest part: cited from the literature; not machine-checked (symptoms)" in text
 
 
-def test_composition_certificate_replays_and_states_what_it_leaves_assumed(mixed):
+def test_the_combination_is_certified_with_its_members_premises_listed(mixed):
     report, _ = mixed
     bundle = Path(report["values"]["family"]["evidence"]["certificate"]["directory"])
     certificate = json.loads((bundle / "certificate.json").read_text())
-    assert certificate["kind"] == "statclaim_composition_certificate"
-    assert certificate["status"] == "combination_verified_members_assumed"
-    assert "hypothesis `marginal`" in (bundle / "Proof.lean").read_text()
+    assert certificate["kind"] == PROGRAM
+    assert certificate["status"] == "program_checked_under_premises"
+    # The cited member's level is a premise the combination rests on.
+    assert certificate["assumptions"] == ["cited_symptoms_level"]
+    assert "familywise_of_members" in (bundle / "Proof.lean").read_text()
     checked = recheck_certificate(bundle, project=ROOT)
-    assert checked["certificate_status"] == "combination_verified_members_assumed"
+    assert checked["certificate_status"] == "program_checked_under_premises"
 
 
 def test_a_cited_member_cannot_be_relabelled_as_proved(mixed, tmp_path):
+    from statclaim.verification import canonical_bytes, digest
+
     report, _ = mixed
     original = Path(report["values"]["family"]["evidence"]["certificate"]["directory"])
     bundle = tmp_path / "forged"
     shutil.copytree(original, bundle)
-    text = (bundle / "inputs.json").read_text()
-    assert '"grade": "cited"' in text
-    (bundle / "inputs.json").write_text(text.replace('"grade": "cited"', '"grade": "proved"'))
-    with pytest.raises(VerificationError):
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    certificate.pop("certificate_id")
+    claims = certificate["claims"]
+    assert "familywise(endpoints), line 26: conditional" in claims
+    certificate["claims"] = [c.replace(": conditional", ": proved") for c in claims]
+    certificate["certificate_id"] = digest(canonical_bytes(certificate))
+    (bundle / "certificate.json").write_text(json.dumps(certificate))
+    # The grades are what the program's premises give; a relabelled one does not replay.
+    with pytest.raises(VerificationError, match="claims"):
         recheck_certificate(bundle, project=ROOT)
 
 
@@ -113,7 +123,9 @@ def test_interim_look_design_gets_a_conditional_overall_error_bound(tmp_path):
     assert value["status"] == "conditional"
     assert value["evidence"]["guarantee"]["quantity"] == "type_I_error"
     bundle = Path(value["evidence"]["certificate"]["directory"])
-    assert json.loads((bundle / "inputs.json").read_text())["method"] == "alpha_spending"
+    # Lean decides that the looks ask one question at growing sizes.
+    proof = (bundle / "Proof.lean").read_text()
+    assert "theorem looks_question" in proof and "theorem looks_order" in proof
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
 
 
@@ -131,11 +143,11 @@ def test_confirmatory_trial_with_looks_and_a_fixed_sequence(tmp_path):
     assert report["status"] == "cited"
     bundle = Path(values["overall"]["evidence"]["certificate"]["directory"])
     proof = (bundle / "Proof.lean").read_text()
-    assert "fixed_sequence_le_of_levels" in proof and "checked_levels" in proof
+    assert "sequence_of_members" in proof and "theorem sequence_levels" in proof
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
 
 
-def test_lean_rejects_a_sequence_whose_levels_were_altered(tmp_path):
+def test_a_sequence_whose_levels_were_altered_does_not_replay(tmp_path):
     path = ROOT / "examples/confirmatory_trial.stat"
     report = check_source(
         Source(path.read_text(), str(path)), project=ROOT, output=tmp_path / "run"
@@ -143,8 +155,9 @@ def test_lean_rejects_a_sequence_whose_levels_were_altered(tmp_path):
     original = Path(report["values"]["overall"]["evidence"]["certificate"]["directory"])
     bundle = tmp_path / "forged"
     shutil.copytree(original, bundle)
-    text = (bundle / "inputs.json").read_text()
-    (bundle / "inputs.json").write_text(text.replace('"level": "1/20"', '"level": "1/10"', 1))
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    inputs["source"]["text"] = inputs["source"]["text"].replace("alpha=1/20", "alpha=1/10", 1)
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
     with pytest.raises(VerificationError):
         recheck_certificate(bundle, project=ROOT)
 
@@ -159,8 +172,10 @@ def test_recycling_graph_gating_a_sequence(tmp_path):
     assert values["overall_error"]["status"] == "conditional"
     assert report["status"] == "cited"  # the weakest status in the file
     bundle = Path(values["overall_error"]["evidence"]["certificate"]["directory"])
-    members = json.loads((bundle / "inputs.json").read_text())["members"]
-    assert members[0]["quantity"] == "familywise_error" and members[0]["grade"] == "cited"
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    # The graph's cited rule and the exact member's level are premises.
+    assert "cited_graph_rule" in certificate["assumptions"]
+    assert any(name.startswith("member_onset") for name in certificate["assumptions"])
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
 
 
@@ -173,8 +188,7 @@ def test_declared_member_in_a_proved_combination_makes_the_file_declared(tmp_pat
     assert values["alone"]["status"] == "declared"
     assert report["status"] == "declared"
     assert report["requests"][0]["weakest_link"] == {"grade": "declared", "parts": ["pain"]}
-    members = json.loads(
-        (Path(values["family"]["evidence"]["certificate"]["directory"]) / "inputs.json").read_text()
-    )["members"]
-    assert members[0]["grade"] == "declared" and members[0]["basis"].startswith("declared by")
+    bundle = Path(values["family"]["evidence"]["certificate"]["directory"])
+    assumptions = json.loads((bundle / "certificate.json").read_text())["assumptions"]
+    assert any(name.startswith("declared_") for name in assumptions)
     assert "Weakest part: declared by the author" in render_report(report, source)

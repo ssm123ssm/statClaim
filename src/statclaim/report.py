@@ -3,6 +3,7 @@
 from fractions import Fraction
 from pathlib import Path
 
+from statclaim.composition import composition_claims
 from statclaim.design import Design, inspect_design
 from statclaim.family import FisherFamily, inspect_family
 from statclaim.fisher import FisherResult, fisher_exact
@@ -99,6 +100,14 @@ def _result_report(design: Design, result: FisherResult) -> dict:
     return report
 
 
+def _from_program(report: dict) -> dict | None:
+    """The report with the evidence of the program certificate `check` built for this run,
+    when it covers the request being run; otherwise None. See program_evidence.py."""
+    from statclaim.program_evidence import attach
+
+    return attach(report)
+
+
 def verify_design(
     design: Design,
     *,
@@ -125,6 +134,9 @@ def verify_design(
             ),
         }
         return report
+    attached = _from_program(report)
+    if attached is not None:
+        return attached
     try:
         certificate, bundle = certify_result(
             design,
@@ -174,6 +186,9 @@ def verify_design_only(
             "this is not evidence of inflated error.",
         }
         return report
+    attached = _from_program(report)
+    if attached is not None:
+        return attached
     try:
         certificate, bundle = certify_design(
             design, project=project, output=output, timeout=timeout
@@ -256,6 +271,9 @@ def verify_family(
             "this is not evidence of inflated error.",
         }
         return report
+    attached = _from_program(report)
+    if attached is not None:
+        return attached
     try:
         certificate, bundle = certify_family(
             family, project=project, output=output, timeout=timeout
@@ -290,9 +308,13 @@ def planning_report(scope: str, target_property: str, assumptions: list[str]) ->
 
 def run_composition(report: dict, composition, *, project: Path, output, timeout: float) -> dict:
     """Have Lean check how the member levels combine. The members stay assumed."""
+    report["combination_words"] = composition_claims(composition)
     report = _certified(
         report, certify_composition, composition, project=project, output=output, timeout=timeout
     )
+    if report.get("evidence_source") == "program":
+        # Lean's grade stands: a combination whose members Lean proves is proved.
+        return report
     if report["status"] == "verified":
         report.update(status="conditional", evidence_grade="conditional")
         report["limitations"] = [
@@ -312,6 +334,9 @@ def _unmet(report: dict, stage: str, code: str, message: str) -> dict:
 
 
 def _certified(report: dict, certify, plan, *, project: Path, output, timeout: float) -> dict:
+    attached = _from_program(report)
+    if attached is not None:
+        return attached
     try:
         certificate, bundle = certify(plan, project=project, output=output, timeout=timeout)
     except VerificationError as error:

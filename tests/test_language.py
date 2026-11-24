@@ -282,10 +282,7 @@ def test_calculation_has_no_formal_status_and_retains_source(tmp_path):
 
 
 def test_backend_failure_is_a_source_located_unresolved_claim(monkeypatch, tmp_path):
-    def failed(*args, **kwargs):
-        raise VerificationError("proof", "Controlled backend failure.")
-
-    monkeypatch.setattr("statclaim.report.certify_design", failed)
+    lean_fails(monkeypatch, "Controlled backend failure.")
     report = check_source(source(), project=ROOT, output=tmp_path / "run")
     assert report["status"] == "unresolved_obligation"
     assert report["certificate_issued"] is False
@@ -411,3 +408,13 @@ def test_every_operation_says_whether_it_needs_lean():
     operation must say which it is."""
     assert set(OPERATION_BACKENDS) == set(OPERATIONS)
     assert set(OPERATION_BACKENDS.values()) <= {"lean", "python"}
+
+
+def lean_fails(monkeypatch, message):
+    """Lean is available, and the build of the program fails with this message."""
+
+    def fail(*args, **kwargs):
+        raise VerificationError("proof", message)
+
+    monkeypatch.setattr("statclaim.language_runner.lean_available", lambda project: True)
+    monkeypatch.setattr("statclaim.program_evidence.certify_program", fail)

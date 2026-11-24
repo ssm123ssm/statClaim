@@ -21,13 +21,16 @@ cited [primary_error]: familywise(co_primary)
     Laird, N. M. and Ware, J. H. (1982). Random-effects models for longitudinal data. Biometrics 38(4), 963-974.
     Kenward, M. G. and Roger, J. H. (1997). Small sample inference for fixed effects from restricted maximum likelihood. Biometrics 53(3), 983-997.
     Mallinckrodt, C. H., Lane, P. W., Schnell, D., Peng, Y. and Mancuso, J. P. (2008). Recommendations for the primary analysis of continuous endpoints in longitudinal clinical trials. Drug Information Journal 42(4), 303-319.
+  Checked in Lean: the declarations' contract facts hold, and the claim rests on its own premise.
 conditional [overall_error]: familywise(trial)
   Weakest part: cited from the literature; not machine-checked (co_primary: its rule, trough_fev1_ni, peak_fev1_ni, peak_fev1_sup, inspiratory_capacity_ni, onset_of_action_sup, tdi_ni, emsci_ni)
   Evidence: combination proved in Lean; the members' own guarantees are assumed; guarantee: large-sample approximation
+  Combination proved in Lean; members assumed.
   Every test in the sequence uses the full level 1/40.
   If each test rejects its own true null with probability at most that level, and a test is carried out only when every earlier test rejected (every null of an earlier entry that holds several), the probability of rejecting any true null is at most 1/40, for every configuration of true and false nulls and any dependence between tests.
   If a test's bound holds only up to a slack, the familywise bound holds up to the largest slack. With large-sample tests the bound is therefore approached as the sample sizes grow; none is claimed at the declared sizes.
   Not checked here: each test's own error bound, listed as an assumption.
+  The program's declarations meet 18 contract facts, each decided by Lean.
   Assumptions:
     The tests and their order are fixed in advance, and a test is carried out only if every earlier test in the order rejected.
     co_primary: Probability of rejecting any true member null is at most 1/40 whenever any subset of the member nulls is true. (cited from the literature; not machine-checked)
@@ -58,5 +61,6 @@ cited [onset_error]: typeI(onset_of_action_sup)
   References:
     Cox, D. R. (1958). The regression analysis of binary sequences. Journal of the Royal Statistical Society B 20(2), 215-242.
     Hosmer, D. W., Lemeshow, S. and Sturdivant, R. X. (2013). Applied Logistic Regression, 3rd ed. Wiley.
+  Checked in Lean: the declarations' contract facts hold, and the claim rests on its own premise.
 Program status: cited
 These results concern the study as declared in this file, under the listed assumptions. They say nothing about how the study is run.

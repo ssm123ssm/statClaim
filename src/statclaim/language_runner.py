@@ -1,5 +1,6 @@
 """Execute typed language requests through the existing verification backend."""
 
+import dataclasses
 import json
 import math
 import tempfile
@@ -13,6 +14,7 @@ from statclaim import (
     looks_planning,
     plan_kinds,
     precision_planning,
+    program_evidence,
     simulated_planning,
 )
 from statclaim.composition import composition_claims
@@ -94,7 +96,7 @@ from statclaim.report import (
     verify_design_only,
     verify_family,
 )
-from statclaim.verification import digest
+from statclaim.verification import digest, lean_available
 
 STATUS_OF_GRADE = {grade: status for status, grade in STATUS_GRADES.items()}
 
@@ -149,7 +151,8 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             evidence_grade=grade,
             established_properties=[f"{prefix}: {report['target_property']}"],
         )
-        return report
+        # With Lean, the program certificate checks its contract facts and its grade.
+        return program_evidence.attach(report) or report
     if request.claim.kind in ("meets", "sample_size"):
         options = {
             "verify": request.operation == "verify",
@@ -234,7 +237,7 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             evidence_grade="cited",
             established_properties=composition_claims(subject.lower()),
         )
-        return report
+        return program_evidence.attach(report) or report
     if isinstance(subject, ComposedFamilyIR):
         return run_composition(
             inspect_request(request),
@@ -450,6 +453,22 @@ def check_source(
             directory.mkdir(parents=True, exist_ok=False)
         (directory / "Source.stat").write_bytes(source.text.encode("utf-8"))
         report["run_directory"] = str(directory)
+    # Every verified claim the translation states is checked in one Lean build of the
+    # whole program; each request then takes its claim's evidence from it.
+    program_run = None
+    verifying = any(
+        request.operation == "verify" and not blockers and wanted(request)
+        for request, blockers in zip(program.requests, obligations, strict=True)
+    )
+    if verifying and directory is not None and lean_available(project.resolve()):
+        try:
+            program_run = program_evidence.build(
+                source, project=project, output=directory / "lean", timeout=timeout
+            )
+        except (ValueError, KeyError, OSError):
+            program_run = None  # each claim falls back to a certificate of its own
+        if program_run is not None and program_run.bundle is not None:
+            report["lean_certificate"] = str(program_run.bundle)
     for index, (request, blockers) in enumerate(zip(program.requests, obligations, strict=True), 1):
         request_diagnostics = list(blockers)
         if blockers:
@@ -459,7 +478,15 @@ def check_source(
             result = inspect_request(request)
             status = "not_executed"
         else:
-            result = _run_request(request, project, directory / f"request-{index:03d}", timeout)
+            token = program_evidence.CURRENT.set(
+                None
+                if program_run is None or request.operation != "verify"
+                else dataclasses.replace(program_run, request=index)
+            )
+            try:
+                result = _run_request(request, project, directory / f"request-{index:03d}", timeout)
+            finally:
+                program_evidence.CURRENT.reset(token)
             result = with_population(result, request.claim.subject)
             status = result["status"]
             if request.operation in ("calculate", "simulate"):
@@ -1133,6 +1160,11 @@ def render_report(report: dict, source: Source) -> str:
             )
             lines.append("  References:")
             lines.extend(f"    {reference}" for reference in details["references"])
+            if details.get("lean_check"):
+                lines.append(
+                    "  Checked in Lean: the declarations' contract facts hold, and the claim "
+                    "rests on its own premise."
+                )
         elif request["status"] in ("planned", "blocked"):
             lines.append(f"  {details['target_property']}")
             lines.append("  Assumptions:")

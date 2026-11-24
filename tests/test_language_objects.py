@@ -215,16 +215,13 @@ def test_calculation_bindings_and_aliases_execute_once_without_formal_evidence(
 def test_backend_failure_produces_a_named_error_value_and_other_requests_continue(
     monkeypatch, tmp_path
 ):
-    def fail(*args, **kwargs):
-        raise VerificationError("proof", "Controlled proof failure.")
-
-    monkeypatch.setattr("statclaim.report.certify_design", fail)
+    lean_fails(monkeypatch, "Controlled proof failure.")
     text = first_class().text + OBSERVATION + "let computation = calculate(observed)\n"
     report = check_source(Source(text), project=ROOT, output=tmp_path / "run")
     value = report["values"]["checked"]
     assert value["status"] == "backend_error"
     assert value["evidence"] is None
-    assert value["diagnostics"][0]["message"] == "Controlled proof failure."
+    assert "Controlled proof failure." in value["diagnostics"][0]["message"]
     assert report["values"]["computation"]["status"] == "calculated"
     assert report["status"] == "unresolved_obligation"
     assert "backend_error [checked]" in render_report(report, Source(text))
@@ -320,3 +317,13 @@ def test_compile_cli_invalid_program_returns_two_without_executing(monkeypatch, 
     path.write_text(first_class("let checked = verify(analysis)\n").text)
     assert main(["compile", str(path), "--json"]) == 2
     assert json.loads(capsys.readouterr().out)["status"] == "invalid"
+
+
+def lean_fails(monkeypatch, message):
+    """Lean is available, and the build of the program fails with this message."""
+
+    def fail(*args, **kwargs):
+        raise VerificationError("proof", message)
+
+    monkeypatch.setattr("statclaim.language_runner.lean_available", lambda project: True)
+    monkeypatch.setattr("statclaim.program_evidence.certify_program", fail)

@@ -144,3 +144,77 @@ def test_report_lean_checks_a_program_and_records_refutations(tmp_path, capsys):
     assert lean["status"] == "checked" and lean["claims"] == []
     assert lean["refuted"] == {"verification": "design_no_law"}
     assert "design_no_law" in lean["contract_facts"]
+
+
+def test_claims_lean_rejects_are_found_by_where_its_errors_fall():
+    payload = inputs()
+    stated = certificate.denotation(payload)
+    proof = _proof_for_payload(PROGRAM_KIND, payload)
+    lines = proof.splitlines()
+    at = {
+        name: lines.index(next(x for x in lines if x.startswith(f"theorem {name} "))) + 1
+        for name in ("primary_claim", "response_contract")
+    }
+    error = "/b/Proof.lean:{}:3: error: unsolved goals"
+    assert certificate.failing_claims(proof, error.format(at["primary_claim"] + 1), stated) == {
+        "primary_claim"
+    }
+    # An error in a contract fact is the declarations failing, not one claim.
+    assert certificate.failing_claims(proof, error.format(at["response_contract"]), stated) is None
+    # The audit after the program fails whenever a claim does; it names no claim of its own.
+    assert certificate.failing_claims(proof, error.format(len(lines) - 1), stated) == set()
+
+
+def test_a_certificate_may_leave_out_claims_lean_did_not_prove():
+    payload = {**inputs(), "omitted": ["primary_claim"]}
+    assert [c.name for c in certificate.denotation(payload).claims] == ["family_claim"]
+    assert (
+        "Not proved in Lean, so left out: primary_claim."
+        in _profile(PROGRAM_KIND, payload)["claims"]
+    )
+    with pytest.raises(certificate.Unchecked, match="does not state"):
+        certificate.denotation({**inputs(), "omitted": ["no_such_claim"]})
+
+
+def test_outside_a_run_no_request_takes_program_evidence():
+    from statclaim.program_evidence import attach
+
+    assert attach({"status": "unresolved_obligation"}) is None
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_check_proves_every_claim_in_one_lean_build(tmp_path):
+    from statclaim.language_runner import check_source
+
+    report = check_source(
+        Source(MIXED.read_text(), str(MIXED)), project=ROOT, output=tmp_path / "run"
+    )
+    statuses = {r["subject"]: r["status"] for r in report["requests"]}
+    assert statuses == {"endpoints": "conditional", "response": "verified"}
+    bundles = {r["report"]["certificate"]["directory"] for r in report["requests"]}
+    assert bundles == {str(tmp_path / "run/lean")}, "one certificate for the whole program"
+    assert not list((tmp_path / "run").glob("request-*/certificate.json"))
+    assert recheck_certificate(tmp_path / "run/lean", project=ROOT)["status"] == "verified"
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_a_claim_lean_does_not_prove_stays_open_and_the_rest_is_certified(tmp_path, monkeypatch):
+    from statclaim import program_evidence
+    from statclaim.lean_translation import prove
+
+    honest = prove.claim
+    # A broken proof of one claim, as a translator bug would give.
+    monkeypatch.setattr(
+        prove,
+        "claim",
+        lambda statement: (
+            "by\n  exact absurd" if statement.name == "primary_claim" else honest(statement)
+        ),
+    )
+    source = Source(MIXED.read_text(), str(MIXED))
+    run = program_evidence.build(source, project=ROOT, output=tmp_path / "lean", timeout=600)
+    assert set(run.claims) == {1} and set(run.failures) == {2}
+    assert "Lean did not prove this claim" in run.failures[2]
+    assert run.bundle == tmp_path / "lean-proved"

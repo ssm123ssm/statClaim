@@ -59,7 +59,43 @@ def denotation(inputs: dict) -> Denotation:
     compilation = compile_source(source)
     if compilation.status == "invalid" or compilation.program.to_dict() != inputs["program"]:
         raise Unchecked("The source no longer compiles to the program the inputs record.")
-    return denote(compilation.program)
+    stated = denote(compilation.program)
+    # Claims Lean did not prove when the certificate was first built are left out of it,
+    # and the inputs say which: the rest of the program is still certified.
+    omitted = set(inputs.get("omitted", []))
+    if not omitted <= {claim.name for claim in stated.claims}:
+        raise Unchecked("The inputs omit a claim the program does not state.")
+    stated.claims = [claim for claim in stated.claims if claim.name not in omitted]
+    return stated
+
+
+def failing_claims(proof_text: str, output: str, stated: Denotation) -> set[str] | None:
+    """The claims whose proofs Lean rejected, from its errors in Proof.lean, or None when
+    an error lies outside every claim: then the declarations themselves failed."""
+    from statclaim.lean_translation.rejection import owners
+
+    lines = proof_text.splitlines()
+    end = lines.index(f"end {NAMESPACE}") + 1 if f"end {NAMESPACE}" in lines else len(lines)
+    found = owners(proof_text)
+    names = {lean(claim.name): claim.name for claim in stated.claims}
+    failing: set[str] = set()
+    for line in output.splitlines():
+        match = re.search(r"Proof\.lean:(\d+):\d+: error", line)
+        if not match or int(match.group(1)) > end:
+            continue  # the audit after the program fails whenever a claim does
+        space, declaration = found[int(match.group(1)) - 1]
+        inner = space.removeprefix(NAMESPACE).removeprefix(".")
+        claim = next(
+            (name for lean_name, name in names.items() if declaration == lean_name),
+            next(
+                (name for lean_name, name in names.items() if inner.startswith(f"{lean_name}_")),
+                None,
+            ),
+        )
+        if claim is None:
+            return None
+        failing.add(claim)
+    return failing
 
 
 def theorems(stated: Denotation) -> list[str]:
@@ -129,6 +165,8 @@ def claims(inputs: dict) -> list[dict]:
                 "grade": claim.grade,
                 "premise": claim.own,
                 "source": request["source"],
+                # A result, interval or plan is proved in parts, named as its theorems are.
+                "parts": [name for name, _ in claim.result.parts] if claim.result else [],
             }
         )
     return found
@@ -142,11 +180,10 @@ def profile(inputs: dict) -> dict:
         for claim in claims(inputs)
     ]
     facts = sum(fact.check != "comment" for fact in stated.contracts)
+    unproved = [f"Not proved in Lean, so left out: {name}." for name in inputs.get("omitted", [])]
+    met = [f"The program's declarations meet {facts} contract facts, each decided by Lean."]
     return {
-        "claims": [
-            f"The program's declarations meet {facts} contract facts, each decided by Lean.",
-            *listed,
-        ],
+        "claims": [*(met if facts else []), *listed, *unproved],
         "assumptions": [premise.name for premise in stated.premises],
         "scope": (
             "The declarations of this program as Lean states them, and each listed claim "

@@ -1,4 +1,4 @@
-"""Semantic equivalence with existing declarations and real certificate replay."""
+"""Runs whose claims Lean proves in one program certificate, replayed for real."""
 
 import json
 import shutil
@@ -6,21 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from statclaim.design import load_design
-from statclaim.family import load_family
-from statclaim.fisher import fisher_exact
 from statclaim.language_runner import check_source, render_report
 from statclaim.language_syntax import Source
-from statclaim.verification import (
-    canonical_bytes,
-    design_payload,
-    digest,
-    family_payload,
-    recheck_certificate,
-    result_payload,
-)
+from statclaim.verification import canonical_bytes, digest, recheck_certificate
 
 ROOT = Path(__file__).resolve().parents[1]
+PROGRAM = "statclaim_program_certificate"
 pytestmark = [
     pytest.mark.lean,
     pytest.mark.skipif(not shutil.which("lake"), reason="Lean required"),
@@ -51,23 +42,16 @@ def language_runs(tmp_path_factory):
 
 
 @pytest.mark.parametrize("name", ["fisher", "two_outcomes", "fisher_result"])
-def test_language_produces_the_same_bound_inputs_as_existing_interface(language_runs, name):
+def test_a_run_binds_its_source_in_one_program_certificate(language_runs, name):
     report = language_runs[name]
     request = report["requests"][-1]
     certificate_path = Path(request["report"]["certificate"]["file"])
     certificate = json.loads(certificate_path.read_text())
-    if name == "fisher":
-        expected = design_payload(load_design(ROOT / "examples/fixed_sample.toml"))
-    elif name == "two_outcomes":
-        expected = family_payload(load_family(ROOT / "examples/two_outcomes.toml"))
-    else:
-        design = load_design(ROOT / "examples/fixed_sample.toml")
-        result = fisher_exact(
-            n_control=100, n_treatment=100, control_successes=10, treatment_successes=25
-        )
-        expected = result_payload(design, result)
-    assert canonical_bytes(certificate["inputs"]) == canonical_bytes(expected)
-    assert certificate["input_sha256"] == digest(canonical_bytes(expected))
+    assert certificate["kind"] == PROGRAM
+    retained = (Path(report["run_directory"]) / "Source.stat").read_text()
+    assert certificate["inputs"]["source"]["text"] == retained
+    assert certificate["inputs"]["program"] == report["program"]
+    assert certificate["input_sha256"] == digest(canonical_bytes(certificate["inputs"]))
     assert recheck_certificate(certificate_path.parent, project=ROOT)["status"] == "verified"
 
 
@@ -102,7 +86,7 @@ def test_editing_alpha_requires_new_evidence_and_retains_old_snapshot(language_r
     old_certificate = json.loads((original_bundle / "certificate.json").read_text())
     new_certificate = json.loads((new_bundle / "certificate.json").read_text())
     assert old_certificate["input_sha256"] != new_certificate["input_sha256"]
-    assert new_certificate["inputs"]["analysis"]["alpha"] == "1/40"
+    assert "alpha=1/40" in new_certificate["inputs"]["source"]["text"]
     assert original_report["source"]["sha256"] != edited["source"]["sha256"]
     assert recheck_certificate(original_bundle, project=ROOT)["status"] == "verified"
 
@@ -119,29 +103,22 @@ def test_first_class_results_retain_real_evidence_and_reuse_it(language_runs):
         values["result_verification"],
     ]
     assert all(value["source_sha256"] == report["source"]["sha256"] for value in values["results"])
-    for name, reference in (
-        ("design_verification", "fisher"),
-        ("result_verification", "fisher_result"),
-    ):
+    files = set()
+    for name in ("design_verification", "result_verification"):
         value = values[name]
         assert value["status"] == "verified"
         evidence = value["evidence"]
         assert evidence["claim"] == value["claim"]
         assert evidence["required_assumptions"]
-        certificate_path = Path(evidence["certificate"]["file"])
-        certificate = json.loads(certificate_path.read_text())
-        reference_path = Path(
-            language_runs[reference]["requests"][-1]["report"]["certificate"]["file"]
-        )
-        expected = json.loads(reference_path.read_text())
-        assert certificate["input_sha256"] == expected["input_sha256"]
-        assert recheck_certificate(certificate_path.parent, project=ROOT)["status"] == "verified"
+        files.add(evidence["certificate"]["file"])
+    (certificate_file,) = files  # both claims are proved in the one program certificate
+    assert recheck_certificate(Path(certificate_file).parent, project=ROOT)["status"] == "verified"
     directory = Path(report["run_directory"])
     assert json.loads((directory / "run.json").read_text()) == report
-    assert not (directory / "request-004").exists()
+    assert not list(directory.glob("request-*"))
 
 
-def test_first_class_family_proof_uses_the_existing_bonferroni_inputs(language_runs, tmp_path):
+def test_a_family_of_proved_tests_is_proved(language_runs, tmp_path):
     path = ROOT / "examples/two_outcomes.stat"
     text = path.read_text().replace(
         "verify familywise(outcomes)",
@@ -150,10 +127,10 @@ def test_first_class_family_proof_uses_the_existing_bonferroni_inputs(language_r
     report = check_source(Source(text), project=ROOT, output=tmp_path / "family")
     value = report["values"]["checked"]
     assert value["status"] == "verified"
-    actual = json.loads(Path(value["evidence"]["certificate"]["file"]).read_text())
-    expected = family_payload(load_family(ROOT / "examples/two_outcomes.toml"))
-    assert canonical_bytes(actual["inputs"]) == canonical_bytes(expected)
     bundle = Path(value["evidence"]["certificate"]["directory"])
+    certificate = json.loads((bundle / "certificate.json").read_text())
+    assert certificate["assumptions"] == []  # no premise: every member is proved
+    assert "familywise_of_members" in (bundle / "Proof.lean").read_text()
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
 
 
@@ -202,8 +179,8 @@ def test_zero_difference_alias_issues_only_the_existing_equality_guarantee(langu
     value = report["values"]["checked"]
     assert value["status"] == "verified"
     assert value["claim"]["subject"]["null"]["predicate"] == "equal_proportions"
-    certificate_path = Path(value["evidence"]["certificate"]["file"])
-    certificate = json.loads(certificate_path.read_text())
-    reference = language_runs["fisher"]["requests"][0]["report"]["certificate"]["file"]
-    assert certificate["inputs"] == json.loads(Path(reference).read_text())["inputs"]
-    assert recheck_certificate(certificate_path.parent, project=ROOT)["status"] == "verified"
+    bundle = Path(value["evidence"]["certificate"]["directory"])
+    proof = (bundle / "Proof.lean").read_text()
+    # The declared null is Fisher's, which Lean decides: equality of the two proportions.
+    assert "∀ parameter, null parameter ↔ analysis.hypothesis parameter" in proof
+    assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"

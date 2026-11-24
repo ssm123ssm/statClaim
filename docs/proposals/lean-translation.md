@@ -138,6 +138,16 @@ Decisions taken in milestone 4 (2026-11-23):
   only what Python also refuses, a plan short of its target, and re-estimation: 8 of
   what were 48. A test checks that every kind of claim `verify` certifies translates.
 
+- `check` now builds the whole program in Lean once (`program_evidence.py`): every
+  `verify` claim the translation states takes its evidence and grade from that one
+  certificate, in the run's `lean/` folder, instead of a template certificate of its
+  own. A claim Lean does not prove is left out (the inputs record it) and the rest
+  built again, so only that claim stays unresolved. Cited and declared claims keep
+  Python's account, and the run says Lean checked their contract facts. Without Lean
+  nothing changes. A combination's search gets a heartbeat budget per member, so a
+  family of ten tests is proved. The templates remain only as a fallback, which no
+  corpus claim uses.
+
 Where the templates stand after milestone 5 (2026-11-23): every theorem an exact
 certificate claims is stated once, in `statements.py`, and both `verify` and the
 translator use it. What remains of each template is its definitions and its

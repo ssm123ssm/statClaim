@@ -230,6 +230,7 @@ theorem primary_error_claim (i : Instance) (premises : Premises i) :
     premises.cited_graph_rule.2 Θ Ω σ v₀ v₁ v₂ m₀ m₁ m₂
   exact c₀
 
+set_option maxHeartbeats 2000000 in
 theorem overall_error_claim (i : Instance) (premises : Premises i) :
     ∀ (Θ Ω : Type) [MeasurableSpace Ω] (σ : StatClaim.Interface.JointStudy Θ Ω)
       (v₀ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₁ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₂ : StatClaim.Interface.MemberView Θ Ω i.everyone_Parameter i.everyone_Outcome) (v₃ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome) (v₄ : StatClaim.Interface.MemberView Θ Ω i.onset_member_Parameter i.onset_member_Outcome),

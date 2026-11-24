@@ -75,6 +75,18 @@ DEEP = "set_option maxRecDepth 100000 in"
 HEAVY = "set_option maxRecDepth 100000 in\nset_option maxHeartbeats 20000000 in"
 
 
+# The heartbeats a combination's search may use for each member: the case split over
+# members grows with their number, so a fixed budget would fail large families.
+MEMBER_HEARTBEATS = 400_000
+
+
+def budget(statement: Claim) -> list[str]:
+    """Options a claim's proof needs: a combination's search gets a budget per member."""
+    if statement.combination is None or len(statement.leaves) <= 4:
+        return []
+    return [f"set_option maxHeartbeats {MEMBER_HEARTBEATS * len(statement.leaves)} in"]
+
+
 def options(fact: Contract) -> list[str]:
     """Options a contract's proof needs."""
     return HEAVY.splitlines() if fact.check in ("splits", "grouped_splits") else []

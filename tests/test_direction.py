@@ -58,7 +58,7 @@ def test_a_lower_is_better_outcome_uses_the_mirrored_null(tmp_path):
     text = continuous("lower", "mean_difference_at_least(model=study, value=3)")
     text += "let checked = verify(typeI(analysis))\n"
     assert codes(text) == []
-    report = check_source(Source(text, "d.stat"), project=ROOT, output=tmp_path / "run")
+    report = check_source(Source(text, "d.stat"), project=tmp_path, output=tmp_path / "run")
     value = report["values"]["checked"]
     assert value["status"] == "cited"
     assert "mean_treatment - mean_control >= 3" in value["evidence"]["guarantee"]["null"]
@@ -80,7 +80,7 @@ def test_a_lower_is_better_outcome_uses_the_mirrored_null(tmp_path):
 )
 def test_an_undeclared_direction_is_listed_as_assumed(null, assumed, tmp_path):
     text = continuous(None, null) + "let checked = verify(typeI(analysis))\n"
-    report = check_source(Source(text, "d.stat"), project=ROOT, output=tmp_path / "run")
+    report = check_source(Source(text, "d.stat"), project=tmp_path, output=tmp_path / "run")
     evidence = report["values"]["checked"]["evidence"]
     item = next(item for item in evidence["assumptions"] if item["id"] == assumed)
     assert item["kind"] == "meaning" and item["status"] == "assumed"
@@ -136,7 +136,7 @@ def test_power_for_a_lower_is_better_test_mirrors_the_higher_one(tmp_path):
     target = "power_target(at=mean_difference(value=0, sd=10), minimum=4/5, maximum_typeI=1/40)"
     report = check_source(
         Source(text + f"let power = calculate(meets(analysis=analysis, target={target}))\n"),
-        project=ROOT,
+        project=tmp_path,
         output=tmp_path / "run",
     )
     calculation = report["requests"][0]["report"]["calculation"]

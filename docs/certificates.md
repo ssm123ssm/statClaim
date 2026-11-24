@@ -1,12 +1,11 @@
 # Certificate and replay guide
 
-The standalone file language uses these same certificate kinds and proof
-generators. `statclaim check examples/fisher.stat --output .statclaim/my-program`
-retains the source and typed program in a parent run directory, then places each
-verified request's certificate in `request-NNN/`. Replay that request directory
-with `check-certificate`. The parent `run.json` is a source/IR provenance report,
-not a mathematical certificate. Translation from `.stat` declarations remains a
-trusted application boundary. See the [file-language guide](stat-language.md).
+`statclaim check examples/fisher.stat --output .statclaim/my-program` retains
+the source and typed program in a parent run directory and builds the whole
+program in Lean once, as `statclaim_program_certificate` in `lean/`: every
+verified claim takes its evidence from it. Replay it with `check-certificate`.
+The parent `run.json` is a source/IR provenance report, not a mathematical
+certificate. See the [file-language guide](stat-language.md).
 
 Planning claims issue `statclaim_planning_certificate` (a fixed design's Type I
 bound and its power at one point) and `statclaim_policy_certificate` (a complete

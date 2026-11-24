@@ -390,7 +390,7 @@ pipeline. A numerical result and a Type I guarantee remain different claim kinds
 
 ```sh
 uv run --locked statclaim check examples/fisher.stat --output .statclaim/my-program
-uv run --locked statclaim check-certificate .statclaim/my-program/request-001
+uv run --locked statclaim check-certificate .statclaim/my-program/lean
 ```
 
 `--output` must name a new directory. By default, a run directory is allocated
@@ -399,9 +399,11 @@ under `.statclaim/programs/`. A run retains:
 - `Source.stat`: the UTF-8 source snapshot used for this execution.
 - `run.json`: the source hash, normalized typed objects, source locations,
   dependencies, per-request statuses, diagnostics, and certificate references.
-- `request-NNN/`: ordinary certificate bundles for successful verification
-  requests, numbered in execution order. Calculation-only or unresolved
-  requests have no certificate bundle.
+- `lean/`: the program's certificate. Every `verify` claim the translation
+  states is checked in one Lean build of the whole program
+  (`statclaim_program_certificate`), and each request takes its claim's evidence
+  from it. A claim Lean does not prove is left out and stays unresolved; the rest
+  is then built again in `lean-proved/`. Calculations make no certificate.
 
 `run.json` is a provenance/reporting record, not a mathematical certificate.
 Its `program` records static objects and typed execution slots. Its `values` map
@@ -410,7 +412,7 @@ result as `value`. Backend reports remain in each request's `report`. This keeps
 the aggregate/per-request status interface compatible: a backend error still
 produces aggregate `unresolved_obligation` and exit code 1, while its named
 `VerificationResult` has the more specific `backend_error` status.
-`check-certificate` replays a request directory, not the parent run directory.
+`check-certificate` replays the `lean/` directory, not the parent run directory.
 The certificate binds canonical mathematical inputs and generated Lean statements;
 it does not certify the spelling of the original `.stat` source. The parser,
 elaborator, lowering, and report binding remain trusted application components.

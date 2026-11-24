@@ -26,7 +26,8 @@ EQUAL = FIXED + "let null = equal_means(model=study)\n"
 
 
 def run(text, tmp_path):
-    return check_source(Source(text, "cited.stat"), project=ROOT, output=tmp_path / "run")
+    # No checkout, so no Lean: cited claims need none.
+    return check_source(Source(text, "cited.stat"), project=tmp_path, output=tmp_path / "run")
 
 
 def codes(text):
@@ -187,8 +188,11 @@ def test_data_dependent_stopping_leaves_the_cited_claim_unresolved(tmp_path):
     assert value["status"] == "unresolved_obligation" and value["evidence"] is None
 
 
-def test_example_runs_from_the_cli_without_lean(capsys):
-    assert main(["check", str(ROOT / "examples/t_test.stat"), "--project", str(ROOT)]) == 0
+def test_example_runs_from_the_cli_without_lean(capsys, tmp_path):
+    example = str(ROOT / "examples/t_test.stat")
+    assert (
+        main(["check", example, "--project", str(tmp_path), "--output", str(tmp_path / "r")]) == 0
+    )
     assert "Program status: cited" in capsys.readouterr().out
 
 

@@ -199,7 +199,9 @@ def test_a_cited_claim_reports_its_grade_scope_and_assumptions(tmp_path):
         + analysis("logistic_association", ', adjusted_for=["age"]')
         + "let claim = verify(typeI(analysis))\nlet grade = claim.evidence.grade\n"
     )
-    report = check_source(Source(USES + text, "study.stat"), project=ROOT, output=tmp_path / "r")
+    report = check_source(
+        Source(USES + text, "study.stat"), project=tmp_path, output=tmp_path / "r"
+    )
     assert report["status"] == "cited" and report["values"]["grade"] == "cited"
     details = report["requests"][0]["report"]
     assert details["target_property"].startswith("About exposure and outcome, adjusted for age")

@@ -148,10 +148,7 @@ def test_known_failures_yield_no_evidence_even_through_chained_aliases(tmp_path)
 
 
 def test_backend_errors_produce_status_but_never_evidence(monkeypatch, tmp_path):
-    def failed(*args, **kwargs):
-        raise VerificationError("proof", "Controlled verification failure")
-
-    monkeypatch.setattr("statclaim.report.certify_design", failed)
+    lean_fails(monkeypatch, "Controlled verification failure")
     result = report(
         CLAIM + "let state = checked.status\nlet path = checked.evidence.certificate.file\n",
         tmp_path,
@@ -198,3 +195,13 @@ def test_static_field_values_still_undergo_constructor_domain_checks(tmp_path):
     )
     assert result["status"] == "invalid"
     assert result["diagnostics"][0]["code"] == "domain"
+
+
+def lean_fails(monkeypatch, message):
+    """Lean is available, and the build of the program fails with this message."""
+
+    def fail(*args, **kwargs):
+        raise VerificationError("proof", message)
+
+    monkeypatch.setattr("statclaim.language_runner.lean_available", lambda project: True)
+    monkeypatch.setattr("statclaim.program_evidence.certify_program", fail)

@@ -1,4 +1,4 @@
-"""Planning and policy certificates checked and replayed by the real Lean backend."""
+"""Planning claims, results and intervals checked in Lean and replayed."""
 
 import json
 import shutil
@@ -42,6 +42,25 @@ def runs(tmp_path_factory):
     return reports
 
 
+PROGRAM = "statclaim_program_certificate"
+
+
+def bundle_of(report: dict, name: str) -> Path:
+    return Path(report["values"][name]["evidence"]["certificate"]["directory"])
+
+
+def refuses_tampering(source: Path, tmp_path: Path, old: str, new: str) -> None:
+    """A copy whose inputs say something else no longer replays."""
+    bundle = tmp_path / "tampered"
+    shutil.copytree(source, bundle)
+    inputs = json.loads((bundle / "inputs.json").read_text())
+    assert old in inputs["source"]["text"]
+    inputs["source"]["text"] = inputs["source"]["text"].replace(old, new, 1)
+    (bundle / "inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(VerificationError):
+        recheck_certificate(bundle, project=ROOT)
+
+
 def test_planning_example_components(runs):
     report = runs["planning"]
     values = report["values"]
@@ -50,130 +69,84 @@ def test_planning_example_components(runs):
     assert values["verification"]["evidence"] is None
     assert values["recommended_size"] == 36
     evidence = values["sizing_evidence"]
-    assert "smallest sufficient candidate" in evidence["established_properties"][-1]
+    assert "no smaller design meets the targets" in " ".join(evidence["established_properties"])
     replay = recheck_certificate(Path(evidence["certificate"]["directory"]), project=ROOT)
-    assert replay["kind"] == "statclaim_planning_certificate"
+    assert replay["kind"] == PROGRAM
 
 
 @pytest.mark.parametrize("name", ["two_stage", "two_stage_posterior", "one_sample"])
-def test_policy_certificates_replay(runs, name):
+def test_policy_claims_are_proved_and_replay(runs, name):
     report = runs[name]
     assert report["values"]["verification"]["status"] == "verified", report["diagnostics"]
-    certificate = report["values"]["verification"]["evidence"]["certificate"]
-    replay = recheck_certificate(Path(certificate["directory"]), project=ROOT)
-    assert replay["kind"] == "statclaim_policy_certificate"
+    assert recheck_certificate(bundle_of(report, "verification"), project=ROOT)["kind"] == PROGRAM
 
 
-def test_one_sample_result_certificate_replays_and_resists_tampering(runs, tmp_path):
-    evidence = runs["one_sample_result"]["values"]["verification"]["evidence"]
-    source = Path(evidence["certificate"]["directory"])
-    assert recheck_certificate(source, project=ROOT)["kind"] == (
-        "statclaim_binomial_result_certificate"
+def test_one_sample_result_replays_and_resists_tampering(runs, tmp_path):
+    report = runs["one_sample_result"]
+    source = bundle_of(report, "verification")
+    assert recheck_certificate(source, project=ROOT)["kind"] == PROGRAM
+    parts = " ".join(report["values"]["verification"]["evidence"]["established_properties"])
+    assert "the p-value reported" in parts and "the critical value" in parts
+    refuses_tampering(source, tmp_path, "count=", "count=1")
+
+
+def test_interval_replays_and_resists_tampering(runs, tmp_path):
+    report = runs["confidence_interval"]
+    source = bundle_of(report, "verification")
+    assert recheck_certificate(source, project=ROOT)["kind"] == PROGRAM
+    assert "the interval reported" in " ".join(
+        report["values"]["verification"]["evidence"]["established_properties"]
     )
-    bundle = tmp_path / "tampered"
-    shutil.copytree(source, bundle)
-    inputs = json.loads((bundle / "inputs.json").read_text())
-    inputs["result"]["p_value"] = "1/1000"
-    (bundle / "inputs.json").write_text(json.dumps(inputs))
-    with pytest.raises(VerificationError):
-        recheck_certificate(bundle, project=ROOT)
-
-
-def test_interval_certificate_replays_and_rejects_a_narrower_interval(runs, tmp_path):
-    evidence = runs["confidence_interval"]["values"]["verification"]["evidence"]
-    source = Path(evidence["certificate"]["directory"])
-    assert recheck_certificate(source, project=ROOT)["kind"] == (
-        "statclaim_binomial_interval_certificate"
-    )
-    bundle = tmp_path / "narrow"
-    shutil.copytree(source, bundle)
-    inputs = json.loads((bundle / "inputs.json").read_text())
-    inputs["result"]["lower"] = "3/10"
-    (bundle / "inputs.json").write_text(json.dumps(inputs))
-    with pytest.raises(VerificationError):
-        recheck_certificate(bundle, project=ROOT)
+    refuses_tampering(source, tmp_path, "level=", "level=1")
 
 
 def test_unequal_allocation_is_verified(runs):
     report = runs["unequal_allocation"]
     assert report["status"] == "verified", report["diagnostics"]
-    evidence = report["values"]["verification"]["evidence"]
-    assert "(26, 52) is the smallest" in evidence["established_properties"][-1]
+    claims = report["values"]["verification"]["evidence"]["established_properties"]
+    assert "1:2 allocation" in claims[0]
+    assert "no smaller design meets the targets" in claims[1]
 
 
 def test_searched_two_stage_design_is_verified(runs):
     report = runs["two_stage_search"]
     assert report["status"] == "verified", report["diagnostics"]
     claims = report["values"]["verification"]["evidence"]["established_properties"]
-    assert "stages 13 and 30" in claims[0]
+    assert "two-stage design with at most 45 participants" in claims[0]
 
 
-def test_two_stage_result_certificate_replays_and_resists_tampering(runs, tmp_path):
+def test_two_stage_result_replays_and_resists_tampering(runs, tmp_path):
     report = runs["two_stage_result"]
     assert report["status"] == "verified", report["diagnostics"]
-    source = Path(report["values"]["verification"]["evidence"]["certificate"]["directory"])
-    assert recheck_certificate(source, project=ROOT)["kind"] == (
-        "statclaim_two_stage_result_certificate"
-    )
-    bundle = tmp_path / "tampered"
-    shutil.copytree(source, bundle)
-    inputs = json.loads((bundle / "inputs.json").read_text())
-    inputs["result"]["typeI_bound"] = "1/100"
-    (bundle / "inputs.json").write_text(json.dumps(inputs))
-    with pytest.raises(VerificationError):
-        recheck_certificate(bundle, project=ROOT)
+    source = bundle_of(report, "verification")
+    assert recheck_certificate(source, project=ROOT)["kind"] == PROGRAM
+    refuses_tampering(source, tmp_path, "stage1_responses=", "stage1_responses=1")
 
 
-def test_difference_interval_certificate_replays_and_rejects_a_narrower_interval(runs, tmp_path):
+def test_difference_interval_replays_and_resists_tampering(runs, tmp_path):
     report = runs["difference_interval"]
     assert report["status"] == "verified", report["diagnostics"]
-    source = Path(report["values"]["verification"]["evidence"]["certificate"]["directory"])
-    assert recheck_certificate(source, project=ROOT)["kind"] == (
-        "statclaim_difference_interval_certificate"
-    )
-    bundle = tmp_path / "narrow"
-    shutil.copytree(source, bundle)
-    inputs = json.loads((bundle / "inputs.json").read_text())
-    inputs["result"]["lower"] = "1/20"
-    (bundle / "inputs.json").write_text(json.dumps(inputs))
-    with pytest.raises(VerificationError):
-        recheck_certificate(bundle, project=ROOT)
+    source = bundle_of(report, "verification")
+    assert recheck_certificate(source, project=ROOT)["kind"] == PROGRAM
+    refuses_tampering(source, tmp_path, "level=", "level=1")
 
 
-def test_one_sided_certificates_replay_and_resist_tampering(runs, tmp_path):
+def test_one_sided_claims_share_one_certificate(runs, tmp_path):
     report = runs["one_sided"]
     assert report["status"] == "verified", report["diagnostics"]
-    kinds = {}
-    for name in ("guarantee", "sizing", "outcome"):
-        directory = Path(report["values"][name]["evidence"]["certificate"]["directory"])
-        kinds[name] = recheck_certificate(directory, project=ROOT)["kind"]
-    assert kinds == {
-        "guarantee": "statclaim_design_certificate",
-        "sizing": "statclaim_planning_certificate",
-        "outcome": "statclaim_per_result_certificate",
-    }
-    source = Path(report["values"]["outcome"]["evidence"]["certificate"]["directory"])
-    bundle = tmp_path / "tampered"
-    shutil.copytree(source, bundle)
-    inputs = json.loads((bundle / "inputs.json").read_text())
-    inputs["result"]["p_value"]["numerator"] += 1
-    (bundle / "inputs.json").write_text(json.dumps(inputs))
-    with pytest.raises(VerificationError):
-        recheck_certificate(bundle, project=ROOT)
+    bundles = {bundle_of(report, name) for name in ("guarantee", "sizing", "outcome")}
+    assert len(bundles) == 1, "one Lean build for the whole program"
+    (source,) = bundles
+    assert recheck_certificate(source, project=ROOT)["kind"] == PROGRAM
+    refuses_tampering(source, tmp_path, "alpha=", "alpha=1")
 
 
-def test_margin_certificates_replay_and_resist_tampering(runs, tmp_path):
+def test_margin_test_replays_and_resists_tampering(runs, tmp_path):
     report = runs["non_inferiority"]
     assert report["status"] == "verified", report["diagnostics"]
-    source = Path(report["values"]["outcome"]["evidence"]["certificate"]["directory"])
-    assert recheck_certificate(source, project=ROOT)["kind"] == "statclaim_margin_test_certificate"
-    bundle = tmp_path / "tampered"
-    shutil.copytree(source, bundle)
-    inputs = json.loads((bundle / "inputs.json").read_text())
-    inputs["analysis"]["thresholds"] = [max(0, t - 4) for t in inputs["analysis"]["thresholds"]]
-    (bundle / "inputs.json").write_text(json.dumps(inputs))
-    with pytest.raises(VerificationError):
-        recheck_certificate(bundle, project=ROOT)
+    source = bundle_of(report, "outcome")
+    assert recheck_certificate(source, project=ROOT)["kind"] == PROGRAM
+    refuses_tampering(source, tmp_path, "value=", "value=1")
 
 
 def test_ten_endpoint_family_is_verified(tmp_path):
@@ -199,11 +172,7 @@ def test_ten_endpoint_family_is_verified(tmp_path):
 
 
 def test_strengthened_claim_is_rejected(runs, tmp_path):
-    source = Path(runs["two_stage"]["values"]["evidence"]["certificate"]["directory"])
-    bundle = tmp_path / "tampered"
-    shutil.copytree(source, bundle)
-    inputs = json.loads((bundle / "inputs.json").read_text())
-    inputs["target"]["maximum_typeI"] = "1/25"
-    (bundle / "inputs.json").write_text(json.dumps(inputs))
-    with pytest.raises(VerificationError):
-        recheck_certificate(bundle, project=ROOT)
+    report = runs["two_stage"]
+    refuses_tampering(
+        bundle_of(report, "verification"), tmp_path, "maximum_typeI=", "maximum_typeI=1"
+    )
