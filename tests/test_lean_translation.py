@@ -230,9 +230,9 @@ def test_every_exact_claim_is_checked_against_its_template():
     shows the two agree; each Type I claim gets an example deriving its template's."""
     checker = corpus_checker()
     accepted = [path for path in checker.corpus() if checker.translation(path) is not None]
-    assert sum(checker.exact_claims(path) for path in accepted) == 88
+    assert sum(checker.exact_claims(path) for path in accepted) == 87
     examples = [text for path in accepted for text in checker.equivalences(path)]
-    assert len(examples) == 35
+    assert len(examples) == 34
     assert all("type_of% @template_" in text for text in examples)
 
 

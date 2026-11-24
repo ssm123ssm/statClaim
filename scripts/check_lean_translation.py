@@ -68,7 +68,16 @@ PINNED = (
 
 
 def corpus() -> list[Path]:
-    return sorted([*(ROOT / "examples").rglob("*.stat"), *(ROOT / "replication").glob("*/*.stat")])
+    """Every tracked program in examples/ and replication/*/: untracked scratch files are
+    not part of the corpus, so a checkout and CI see the same one."""
+    found = sorted([*(ROOT / "examples").rglob("*.stat"), *(ROOT / "replication").glob("*/*.stat")])
+    listed = subprocess.run(
+        ["git", "ls-files", "examples", "replication"], cwd=ROOT, capture_output=True, text=True
+    )
+    if listed.returncode != 0:
+        return found
+    tracked = {ROOT / line for line in listed.stdout.splitlines()}
+    return [path for path in found if path in tracked]
 
 
 def namespace(path: Path) -> str:
