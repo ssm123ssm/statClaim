@@ -18,37 +18,21 @@ from statclaim.language_compiler import compile_source
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
 from statclaim.matched import MatchedTest
-from statclaim.methods.identify import identify
 from statclaim.observational_planning import (
     AssociationPowerPlan,
     MatchedPowerPlan,
     RatePowerPlan,
     TotalPowerPlan,
     binomial_region,
-    matched_plan_assumptions,
-    matched_plan_payload,
-    parse_matched_plan_payload,
-    parse_plan_payload,
-    parse_rate_plan_payload,
-    parse_total_plan_payload,
-    plan_assumptions,
-    plan_claims,
-    plan_payload,
     plan_theorems,
-    rate_plan_assumptions,
-    rate_plan_claims,
-    rate_plan_payload,
     render_matched_plan_proof,
     render_plan_proof,
     render_rate_plan_proof,
     render_total_plan_proof,
     search_groups,
     search_pairs,
-    total_plan_claims,
-    total_plan_payload,
 )
 from statclaim.planning import fisher_rejection_probability
-from statclaim.verification import _profile
 
 ROOT = Path(__file__).resolve().parents[1]
 USES = "use models.observational\nuse sampling\nuse tests.association\nuse planning\n"
@@ -295,28 +279,9 @@ def plan(minimal=False):
     return found, evaluated
 
 
-def test_payloads_round_trip_and_reject_tampering():
+def test_a_minimal_search_finds_the_smallest_groups():
     found, evaluated = plan(minimal=True)
     assert found.test.groups == (34, 17) and evaluated == 8
-    payload = plan_payload(found)
-    assert payload["search"] == {
-        "min_cases": 10,
-        "max_cases": 60,
-        "controls_per_case": 2,
-        "claim": "smallest_in_range",
-    }
-    assert parse_plan_payload(payload) == found
-    changed = copy.deepcopy(payload)
-    changed["design"]["groups"] = [36, 17]  # not 2 controls per case
-    with pytest.raises(ValueError):
-        parse_plan_payload(changed)
-    changed = copy.deepcopy(payload)
-    changed["target"]["exposure_cases"] = "1/5"
-    with pytest.raises(ValueError):
-        parse_plan_payload(changed)
-    profile = _profile("statclaim_association_planning_certificate", payload)
-    assert profile["general_theorem"] == "StatClaim.Modules.AssociationPower.power_of_check"
-    assert profile["theorems"][-1] == "StatClaimCertificate.checked_smaller"
 
 
 @pytest.mark.parametrize(
@@ -360,17 +325,12 @@ def test_plans_refuse_designs_they_cannot_certify():
 
 def test_claims_proofs_and_assumptions():
     found, _ = plan(minimal=True)
-    claims = plan_claims(found)
-    assert "17 cases and 34 controls" in claims[0]
-    assert "smoking is found in 1/2 of cases of cancer and 1/5 of controls" in claims[1]
-    assert "No candidate with 10 to 16 cases, 2 controls per case, reaches" in claims[2]
     proof = render_plan_proof(found, "a" * 64)
     for name in plan_theorems(found):
         assert f"theorem {name}" in proof
     assert "AssociationPower.power_lt_of_fails" in proof
     assert proof.count("AssociationPower.FailsHinted") == 7  # one theorem per smaller size
     assert "smoking" not in proof
-    assert all(identify(text)["id"] for text in plan_assumptions(found))
     unmet = AssociationPowerPlan(
         AssociationTest("cohort", Fraction(1, 20), (40, 40)),
         Fraction(1, 5),
@@ -570,7 +530,7 @@ def test_matched_and_rate_derivations_are_checked():
     assert check_derivation(changed) != []
 
 
-def test_matched_and_rate_payloads_and_proofs():
+def test_matched_and_rate_proofs():
     template = MatchedPowerPlan(
         MatchedTest(30, Fraction(1, 20), "drug", "fracture"),
         Fraction(1, 2),
@@ -582,14 +542,6 @@ def test_matched_and_rate_payloads_and_proofs():
         True,
     )
     found, evaluated = search_pairs(template, 30, 80, minimal=True)
-    payload = matched_plan_payload(found)
-    assert parse_matched_plan_payload(payload) == found
-    changed = copy.deepcopy(payload)
-    changed["target"]["odds_ratio"] = "1"
-    with pytest.raises(ValueError):
-        parse_matched_plan_payload(changed)
-    profile = _profile("statclaim_matched_planning_certificate", payload)
-    assert profile["general_theorem"] == "StatClaim.Modules.BinomialPower.pairs_power_of_check"
     proof = render_matched_plan_proof(found, "b" * 64)
     assert proof.count("theorem smaller_") == found.test.pairs - 30 == evaluated - 1
     assert "drug" not in proof
@@ -602,11 +554,6 @@ def test_matched_and_rate_payloads_and_proofs():
         Fraction(1, 2),
         Fraction(1, 40),
     )
-    payload = rate_plan_payload(rate)
-    assert parse_rate_plan_payload(payload) == rate
-    assert "Given 60 events" in rate_plan_claims(rate)[1]
-    assert all(identify(text)["id"] for text in rate_plan_assumptions(rate))
-    assert all(identify(text)["id"] for text in matched_plan_assumptions(found))
     proof = render_rate_plan_proof(rate, "c" * 64)
     assert "BinomialPower.RegionValid 60 1 4 1 40 8 24" in proof
     assert binomial_region(60, Fraction(1, 4), Fraction(1, 40)) == (8, 24)
@@ -741,7 +688,7 @@ def test_total_searches_are_sufficient_only():
     assert compiled(text).diagnostics[0].code == "domain"
 
 
-def test_total_derivations_payloads_and_proofs():
+def test_total_derivations_and_proofs():
     text = (
         SURVEY
         + target(SURVEY_POINT)
@@ -751,12 +698,6 @@ def test_total_derivations_payloads_and_proofs():
     )
     compilation = compiled(text)
     assert compilation.status == "elaborated", compilation.diagnostics
-    for name in ("claim", "search"):
-        record = next(d for d in compilation.derivations if d.name == name).to_dict()
-        assert check_derivation(record) == [], name
-        changed = copy.deepcopy(record)
-        changed["subject"]["subject"]["target"]["at"]["exposed_share"] = "1"
-        assert check_derivation(changed) != []
     plan = TotalPowerPlan(
         AssociationTest("cross_sectional", Fraction(1, 20), None, 30, "shifts", "insomnia"),
         Fraction(1, 10),
@@ -765,15 +706,6 @@ def test_total_derivations_payloads_and_proofs():
         Fraction(1, 2),
         Fraction(1, 20),
     )
-    payload = total_plan_payload(plan)
-    assert parse_total_plan_payload(payload) == plan
-    changed = copy.deepcopy(payload)
-    changed["target"]["exposed_share"] = "1"
-    with pytest.raises(ValueError):
-        parse_total_plan_payload(changed)
-    assert "averaged over the number exposed" in total_plan_claims(plan)[1]
     proof = render_total_plan_proof(plan, "d" * 64)
     assert proof.count("theorem part_") == 31
     assert "shifts" not in proof
-    profile = _profile("statclaim_total_planning_certificate", payload)
-    assert profile["general_theorem"] == "StatClaim.Modules.AssociationPower.total_power_of_check"

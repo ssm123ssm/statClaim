@@ -16,18 +16,13 @@ from typing import Literal
 
 from statclaim.design import Design
 from statclaim.fisher import (
-    ONE_SIDED_TEST_ID,
-    TEST_VERSION,
     fraction_record,
     parse_alpha,
-    test_id,
 )
 from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.statements import CERTIFICATE as C
 
 SMALLEST = "smallest_in_range"
-PLANNING_KIND = "statclaim_planning_certificate"
-POLICY_KIND = "statclaim_policy_certificate"
 
 
 def planning_theorems(plan) -> list[str]:
@@ -282,102 +277,6 @@ def search_equal_arms(
         if plan.power >= minimum_power:
             return plan, evaluated
     return None, high - low + 1
-
-
-NULL_NAMES = {"two_sided": "equal_proportions", "greater": "treatment_at_most_control"}
-
-
-def alternative_of(test: str) -> str:
-    return "greater" if test == ONE_SIDED_TEST_ID else "two_sided"
-
-
-def planning_payload(plan: PowerPlan) -> dict:
-    if plan.design.stopping != "fixed":
-        raise ValueError("A planning certificate requires fixed sampling.")
-    payload = {
-        "schema_version": 1,
-        "scope": "planning",
-        "request": plan.request,
-        "design": {
-            "module": "two_arm_binomial",
-            "n_control": plan.design.n_control,
-            "n_treatment": plan.design.n_treatment,
-            "stopping": "fixed",
-        },
-        "analysis": {
-            "test": test_id(plan.design.alternative),
-            "test_version": TEST_VERSION,
-            "null": NULL_NAMES[plan.design.alternative],
-            "alpha": str(plan.design.alpha),
-        },
-        "target": {
-            "p_control": str(plan.p_control),
-            "p_treatment": str(plan.p_treatment),
-            "minimum_power": str(plan.minimum_power),
-            "maximum_typeI": str(plan.maximum_typeI),
-        },
-    }
-    if plan.search is not None:
-        payload["search"] = {"min_per_arm": plan.search[0], "max_per_arm": plan.search[1]}
-        if plan.minimal:
-            payload["search"]["claim"] = SMALLEST
-        if plan.ratio != 1:
-            payload["search"]["treatment_per_control"] = plan.ratio
-    return payload
-
-
-def parse_planning_payload(payload: dict) -> PowerPlan:
-    design, target, search = payload["design"], payload["target"], payload.get("search")
-    plan = PowerPlan(
-        Design(
-            design["n_control"],
-            design["n_treatment"],
-            design["stopping"],
-            parse_alpha(payload["analysis"]["alpha"]),
-            alternative_of(payload["analysis"]["test"]),
-        ),
-        *(
-            parse_alpha(target[name])
-            for name in ("p_control", "p_treatment", "minimum_power", "maximum_typeI")
-        ),
-        payload["request"],
-        (search["min_per_arm"], search["max_per_arm"]) if search else None,
-        bool(search) and search.get("claim") == SMALLEST,
-        search.get("treatment_per_control", 1) if search else 1,
-    )
-    if payload != planning_payload(plan):
-        raise ValueError("Bound planning inputs are inconsistent.")
-    return plan
-
-
-def planning_claims(plan: PowerPlan) -> list[str]:
-    sizes = f"({plan.design.n_control}, {plan.design.n_treatment})"
-    one_sided = plan.design.alternative == "greater"
-    claims = [
-        f"The one-sided Fisher analysis with arm sizes {sizes} and alpha {plan.design.alpha} "
-        f"has Type I error at most {plan.maximum_typeI} whenever the treatment success "
-        "probability is at most the control's."
-        if one_sided
-        else f"The two-sided Fisher analysis with arm sizes {sizes} and alpha "
-        f"{plan.design.alpha} has Type I error at most {plan.maximum_typeI} under the null, "
-        "for every common success probability in [0, 1].",
-        f"Its power is at least {plan.minimum_power} at p_control = {plan.p_control}, "
-        f"p_treatment = {plan.p_treatment}.",
-    ]
-    kind = "equal-arm" if plan.ratio == 1 else f"1:{plan.ratio} (control:treatment)"
-    if plan.minimal:
-        claims.append(
-            f"No {kind} candidate with {plan.search[0]} up to {plan.design.n_control - 1} "
-            f"controls reaches that power, so {sizes} is the smallest sufficient candidate "
-            f"in the range {plan.search[0]} to {plan.search[1]}. "
-            "Nothing is claimed outside the range."
-        )
-    elif plan.search is not None:
-        claims.append(
-            f"Arm sizes {sizes} are therefore sufficient among {kind} candidates with "
-            f"{plan.search[0]} to {plan.search[1]} controls. Minimality is not claimed."
-        )
-    return claims
 
 
 PLANNING_ASSUMPTIONS = [
@@ -1114,9 +1013,6 @@ end StatClaimCertificate
 {_audit(INTERVAL_CHECKED_THEOREMS, input_sha256)}"""
 
 
-STAGE_RESULT_KIND = "statclaim_two_stage_result_certificate"
-
-
 @dataclass(frozen=True)
 class TwoStageResult:
     """Observed counts from a two-stage design: stage two exists only if it continued."""
@@ -1185,65 +1081,9 @@ class TwoStageResult:
         }
 
 
-def stage_result_payload(result: TwoStageResult) -> dict:
-    return {
-        "schema_version": 1,
-        "scope": "result",
-        "design": {
-            "module": "two_stage_binomial",
-            "module_version": "0.1.0",
-            "n_stage1": result.n_first,
-            "n_stage2": result.n_second,
-            "rule": result.rule.to_dict(),
-        },
-        "analysis": {"null_rate": str(result.null_rate)},
-        "result": {
-            "stage1_responses": result.first,
-            "stage2_responses": result.second,
-            "decision": result.decision,
-            "typeI_bound": str(result.error_bound),
-        },
-    }
-
-
-def parse_stage_result_payload(payload: dict) -> TwoStageResult:
-    design = payload["design"]
-    result = TwoStageResult(
-        design["n_stage1"],
-        design["n_stage2"],
-        TwoStageRule.from_dict(design["rule"]),
-        parse_alpha(payload["analysis"]["null_rate"]),
-        payload["result"]["stage1_responses"],
-        payload["result"]["stage2_responses"],
-    )
-    if payload != stage_result_payload(result):
-        raise ValueError("Bound result inputs are inconsistent.")
-    return result
-
-
 def stage_result_theorems(result: TwoStageResult) -> list[str]:
     names = ["checked_interim", "checked_typeI"]
     return names if result.second is None else ["checked_interim", "checked_decision", names[1]]
-
-
-def stage_result_claims(result: TwoStageResult) -> list[str]:
-    if result.second is None:
-        outcome = (
-            f"With {result.first} responses out of {result.n_first} in stage one, the declared "
-            "interim rule stops the study. The null is not rejected."
-        )
-    else:
-        total = result.first + result.second
-        verdict = "rejects" if result.decision == "reject_null" else "does not reject"
-        outcome = (
-            f"With {result.first} responses in stage one the declared rule continues, and with "
-            f"{total} responses in total it {verdict} the null."
-        )
-    return [
-        outcome,
-        f"The complete design rejects with probability at most {float(result.error_bound):.4f} "
-        f"for every response rate at or below {result.null_rate}.",
-    ]
 
 
 def stage_result_assumptions(result: TwoStageResult) -> list[str]:
@@ -1303,7 +1143,6 @@ end StatClaimCertificate
 {_audit(stage_result_theorems(result), input_sha256)}"""
 
 
-MARGIN_KIND = "statclaim_margin_test_certificate"
 MAX_MARGIN_ARM = 120
 MARGIN_GRID = 1000
 MARGIN_CHUNK = 32
@@ -1557,66 +1396,6 @@ class MarginTest:
         return values
 
 
-def margin_payload(test: MarginTest) -> dict:
-    payload = {
-        "schema_version": 1,
-        "scope": "margin_test",
-        "design": {
-            "module": "two_arm_binomial",
-            "n_control": test.n_control,
-            "n_treatment": test.n_treatment,
-            "stopping": "fixed",
-        },
-        "analysis": {
-            "test": "difference_exact_one_sided",
-            "test_version": "0.1.0",
-            "margin": str(test.margin),
-            "alpha": str(test.alpha),
-            "thresholds": list(test.thresholds),
-            "cells": list(test.cells),
-        },
-    }
-    if test.has_target:
-        payload["target"] = {
-            "p_control": str(test.p_control),
-            "p_treatment": str(test.p_treatment),
-            "minimum_power": str(test.minimum_power),
-            "maximum_typeI": str(test.maximum_typeI),
-        }
-    if test.observed is not None:
-        payload["result"] = {
-            "control_successes": test.observed[0],
-            "treatment_successes": test.observed[1],
-            "reject_null": test.reject_null,
-        }
-    return payload
-
-
-def parse_margin_payload(payload: dict) -> MarginTest:
-    design, analysis = payload["design"], payload["analysis"]
-    target, result = payload.get("target"), payload.get("result")
-    test = MarginTest(
-        design["n_control"],
-        design["n_treatment"],
-        Fraction(analysis["margin"]),
-        parse_alpha(analysis["alpha"]),
-        *(
-            (
-                parse_alpha(target[name])
-                for name in ("p_control", "p_treatment", "minimum_power", "maximum_typeI")
-            )
-            if target
-            else (None, None, None, None)
-        ),
-        (result["control_successes"], result["treatment_successes"]) if result else None,
-        tuple(analysis["thresholds"]),
-        tuple(analysis["cells"]),
-    )
-    if payload != margin_payload(test):
-        raise ValueError("Bound margin-test inputs are inconsistent.")
-    return test
-
-
 def margin_theorems(test: MarginTest) -> list[str]:
     names = ["checked_sizes", "checked_typeI"]
     if test.has_target:
@@ -1628,29 +1407,6 @@ def margin_theorems(test: MarginTest) -> list[str]:
 
 def _margin_text(margin: Fraction) -> str:
     return f"p_treatment - p_control <= {margin}"
-
-
-def margin_claims(test: MarginTest) -> list[str]:
-    bound = test.maximum_typeI if test.has_target else test.alpha
-    claims = [
-        f"The exact difference test with arm sizes ({test.n_control}, {test.n_treatment}) and "
-        f"the listed rejection thresholds has Type I error at most {bound} whenever "
-        f"{_margin_text(test.margin)}.",
-    ]
-    if test.has_target:
-        claims.append(
-            f"Its power is at least {test.minimum_power} at p_control = {test.p_control}, "
-            f"p_treatment = {test.p_treatment}."
-        )
-    if test.observed is not None:
-        verdict = "rejects" if test.reject_null else "does not reject"
-        claims.append(
-            f"For {test.observed[0]} of {test.n_control} control and {test.observed[1]} of "
-            f"{test.n_treatment} treatment successes, the test {verdict} the null: with that "
-            f"many control successes it needs at least {test.thresholds[test.observed[0]]} "
-            "treatment successes."
-        )
-    return claims
 
 
 def margin_assumptions(test: MarginTest) -> list[str]:
@@ -1750,7 +1506,6 @@ end StatClaimCertificate
 {_audit(margin_theorems(test), input_sha256)}"""
 
 
-DIFFERENCE_KIND = "statclaim_difference_interval_certificate"
 DIFFERENCE_CHECKED_THEOREMS = ["checked_coverage", "checked_interval"]
 
 
@@ -1822,49 +1577,6 @@ class DifferenceInterval:
         }
 
 
-def difference_payload(interval: DifferenceInterval) -> dict:
-    return {
-        "schema_version": 1,
-        "scope": "interval",
-        "design": {
-            "module": "two_arm_binomial",
-            "n_control": interval.n_control,
-            "n_treatment": interval.n_treatment,
-        },
-        "level": str(interval.level),
-        "result": {
-            "control_successes": interval.control_successes,
-            "treatment_successes": interval.treatment_successes,
-            "lower": str(interval.lower),
-            "upper": str(interval.upper),
-        },
-    }
-
-
-def parse_difference_payload(payload: dict) -> DifferenceInterval:
-    interval = DifferenceInterval(
-        payload["design"]["n_control"],
-        payload["design"]["n_treatment"],
-        payload["result"]["control_successes"],
-        payload["result"]["treatment_successes"],
-        Fraction(payload["level"]),
-    )
-    if payload != difference_payload(interval):
-        raise ValueError("Bound interval inputs are inconsistent.")
-    return interval
-
-
-def difference_claims(interval: DifferenceInterval) -> list[str]:
-    return [
-        "For every pair of true success rates, the exact confidence sets of the two arms "
-        f"both contain their rates with probability at least {interval.level}.",
-        f"For {interval.control_successes} of {interval.n_control} control and "
-        f"{interval.treatment_successes} of {interval.n_treatment} treatment successes, "
-        "whenever both sets contain their rates the difference p_treatment - p_control lies "
-        f"within [{float(interval.lower):.4f}, {float(interval.upper):.4f}].",
-    ]
-
-
 DIFFERENCE_ASSUMPTIONS = [
     "The two samples are independent, each with one common success probability.",
     "The arm sizes and the confidence level were fixed before outcomes were observed.",
@@ -1917,129 +1629,9 @@ end StatClaimCertificate
 {_audit(DIFFERENCE_CHECKED_THEOREMS, input_sha256)}"""
 
 
-def policy_payload(plan: "TwoStagePlan | OneSamplePlan") -> dict:
-    if isinstance(plan, OneSamplePlan):
-        payload = {
-            "schema_version": 1,
-            "scope": "policy",
-            "design": {
-                "module": "one_sample_binomial",
-                "module_version": "0.1.0",
-                "n": plan.n,
-                "critical_value": plan.critical,
-            },
-            "analysis": {
-                "null_rate": str(plan.null_rate),
-                "alpha": str(plan.alpha),
-                "alternative": "greater",
-            },
-            "target": {
-                "alternative_rate": str(plan.alternative_rate),
-                "minimum_power": str(plan.minimum_power),
-                "maximum_typeI": str(plan.maximum_typeI),
-            },
-        }
-        if plan.search is not None:
-            payload["search"] = {"min_n": plan.search[0], "max_n": plan.search[1]}
-            if plan.minimal:
-                payload["search"]["claim"] = SMALLEST
-        return payload
-    return {
-        "schema_version": 1,
-        "scope": "policy",
-        "design": {
-            "module": "two_stage_binomial",
-            "module_version": "0.1.0",
-            "n_stage1": plan.n_first,
-            "n_stage2": plan.n_second,
-            "rule": plan.rule.to_dict(),
-        },
-        "analysis": {"null_rate": str(plan.null_rate)},
-        "target": {
-            "alternative_rate": str(plan.alternative_rate),
-            "minimum_power": str(plan.minimum_power),
-            "maximum_typeI": str(plan.maximum_typeI),
-        },
-    }
-
-
-def parse_policy_payload(payload: dict) -> "TwoStagePlan | OneSamplePlan":
-    design, target = payload["design"], payload["target"]
-    if design["module"] == "one_sample_binomial":
-        search = payload.get("search")
-        plan = OneSamplePlan(
-            design["n"],
-            parse_alpha(payload["analysis"]["null_rate"]),
-            parse_alpha(payload["analysis"]["alpha"]),
-            parse_alpha(target["alternative_rate"]),
-            parse_alpha(target["minimum_power"]),
-            parse_alpha(target["maximum_typeI"]),
-            (search["min_n"], search["max_n"]) if search else None,
-            bool(search) and search.get("claim") == SMALLEST,
-        )
-        if payload != policy_payload(plan):
-            raise ValueError("Bound policy inputs are inconsistent.")
-        return plan
-    plan = TwoStagePlan(
-        design["n_stage1"],
-        design["n_stage2"],
-        TwoStageRule.from_dict(design["rule"]),
-        parse_alpha(payload["analysis"]["null_rate"]),
-        parse_alpha(target["alternative_rate"]),
-        parse_alpha(target["minimum_power"]),
-        parse_alpha(target["maximum_typeI"]),
-    )
-    if payload != policy_payload(plan):
-        raise ValueError("Bound policy inputs are inconsistent.")
-    return plan
-
-
 def composite_null(plan: "TwoStagePlan | OneSamplePlan") -> bool:
     """Whether the error bound covers every rate at or below the null rate."""
     return True
-
-
-def _null_scope(plan: "TwoStagePlan | OneSamplePlan") -> str:
-    if composite_null(plan):
-        return f"for every response rate at or below {plan.null_rate}"
-    return f"at the null response rate {plan.null_rate}"
-
-
-def policy_claims(plan: "TwoStagePlan | OneSamplePlan") -> list[str]:
-    if isinstance(plan, OneSamplePlan):
-        claims = [
-            f"The exact binomial test with {plan.n} participants, rejecting at "
-            f"{plan.critical} or more responses, rejects with probability at most "
-            f"{plan.maximum_typeI} {_null_scope(plan)}.",
-            f"It rejects with probability at least {plan.minimum_power} at the response rate "
-            f"{plan.alternative_rate}.",
-        ]
-        if plan.minimal:
-            claims.append(
-                f"No sample size from {plan.search[0]} up to {plan.n - 1} meets both bounds "
-                f"with this test, so {plan.n} is the smallest sufficient candidate in the "
-                f"range {plan.search[0]} to {plan.search[1]}. Nothing is claimed outside it."
-            )
-        elif plan.search is not None:
-            claims.append(
-                f"A sample size of {plan.n} is therefore sufficient among candidates "
-                f"{plan.search[0]} to {plan.search[1]}. Minimality is not claimed."
-            )
-        return claims
-    rule = plan.rule
-    stop = (
-        f"continuing above {rule.continue_above} responses and rejecting above "
-        f"{rule.reject_above} in total"
-        if rule.kind == "threshold"
-        else "with its posterior interim and final rules"
-    )
-    return [
-        f"The complete two-stage design (stages {plan.n_first} and {plan.n_second}, {stop}) "
-        f"rejects with probability at most {plan.maximum_typeI} "
-        f"{_null_scope(plan)}.",
-        f"It rejects with probability at least {plan.minimum_power} at the response rate "
-        f"{plan.alternative_rate}.",
-    ]
 
 
 def policy_assumptions(plan: "TwoStagePlan | OneSamplePlan") -> list[str]:

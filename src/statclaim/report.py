@@ -25,30 +25,13 @@ from statclaim.planning import (
     search_two_stage,
     stage_result_assumptions,
 )
-from statclaim.verification import (
-    DESIGN_ASSUMPTIONS,
-    VerificationError,
-    certify_association,
-    certify_association_plan,
-    certify_association_result,
-    certify_binomial_result,
-    certify_composition,
-    certify_design,
-    certify_difference,
-    certify_effect_interval,
-    certify_family,
-    certify_incidence,
-    certify_interval,
-    certify_margin,
-    certify_matched,
-    certify_observational_plan,
-    certify_planning,
-    certify_policy,
-    certify_randomisation,
-    certify_result,
-    certify_stage_result,
-    digest,
-)
+from statclaim.verification import NEEDS_LEAN
+
+DESIGN_ASSUMPTIONS = [
+    "The samples follow two independent binomial distributions.",
+    "Positive arm sizes were fixed before outcomes were observed.",
+    "The error bound is under the null of equal success probabilities, for every p in [0, 1].",
+]
 
 
 def test_design(design: Design, *, control_successes: int, treatment_successes: int) -> dict:
@@ -134,26 +117,7 @@ def verify_design(
             ),
         }
         return report
-    attached = _from_program(report)
-    if attached is not None:
-        return attached
-    try:
-        certificate, bundle = certify_result(
-            design,
-            result,
-            project=project,
-            output=output,
-            timeout=timeout,
-        )
-    except VerificationError as error:
-        report["backend_invoked"] = error.stage != "project"
-        report["verification"] = {
-            "stage": error.stage,
-            "message": str(error),
-            "attempt_directory": str(error.bundle) if error.bundle else None,
-        }
-        return report
-    return _verified_report(report, certificate, bundle, scope="result")
+    return _certified(report)
 
 
 def verify_design_only(
@@ -186,76 +150,7 @@ def verify_design_only(
             "this is not evidence of inflated error.",
         }
         return report
-    attached = _from_program(report)
-    if attached is not None:
-        return attached
-    try:
-        certificate, bundle = certify_design(
-            design, project=project, output=output, timeout=timeout
-        )
-    except VerificationError as error:
-        report["backend_invoked"] = error.stage != "project"
-        report["verification"] = {
-            "stage": error.stage,
-            "message": str(error),
-            "attempt_directory": str(error.bundle) if error.bundle else None,
-        }
-        return report
-    return _verified_report(report, certificate, bundle, scope="design")
-
-
-def _verified_report(report: dict, certificate: dict, bundle: Path, *, scope: str) -> dict:
-    report.update(
-        {
-            "status": "verified",
-            "evidence_grade": "proved",
-            "certificate_issued": True,
-            "backend_invoked": True,
-            "verification_scope": scope,
-            "established_properties": list(certificate["claims"]),
-            "outstanding_obligations": [],
-            "required_assumptions": certificate["assumptions"],
-            "trusted_components": certificate["trusted_components"],
-            "certificate": {
-                "certificate_id": certificate["certificate_id"],
-                "directory": str(bundle),
-                "file": str(bundle / "certificate.json"),
-                "sha256": digest((bundle / "certificate.json").read_bytes()),
-            },
-            "limitations": [
-                "Real-world sampling assumptions are explicitly assumed.",
-                "The certificate establishes only its named properties; "
-                "power, coverage, and universal study validity are outside its scope.",
-            ],
-        }
-    )
-    if scope == "result":
-        report["decision_scope"] = (
-            "Lean-checked result and fixed-sample error bound under the listed assumptions."
-        )
-        report["limitations"].append(
-            "This result was checked; the Python program is not universally verified."
-        )
-    else:
-        report["limitations"].append(
-            "No observations, p-values, or numerical results were checked."
-        )
-    report["formal_reference"].update(
-        theorem=certificate["general_theorem"],
-        checked_in_this_run=True,
-        application_to_this_run=f"verified_{scope}_only",
-    )
-    report["evidence"].append(
-        {
-            "kind": "formal_proof",
-            "scope": list(certificate["claims"]),
-            "theorems": certificate["theorems"],
-            "backend": certificate["environment"]["lean_version"],
-            "input_sha256": certificate["input_sha256"],
-            "certificate_id": certificate["certificate_id"],
-        }
-    )
-    return report
+    return _certified(report)
 
 
 def verify_family(
@@ -271,22 +166,7 @@ def verify_family(
             "this is not evidence of inflated error.",
         }
         return report
-    attached = _from_program(report)
-    if attached is not None:
-        return attached
-    try:
-        certificate, bundle = certify_family(
-            family, project=project, output=output, timeout=timeout
-        )
-    except VerificationError as error:
-        report["backend_invoked"] = error.stage != "project"
-        report["verification"] = {
-            "stage": error.stage,
-            "message": str(error),
-            "attempt_directory": str(error.bundle) if error.bundle else None,
-        }
-        return report
-    return _verified_report(report, certificate, bundle, scope="family")
+    return _certified(report)
 
 
 def planning_report(scope: str, target_property: str, assumptions: list[str]) -> dict:
@@ -307,21 +187,10 @@ def planning_report(scope: str, target_property: str, assumptions: list[str]) ->
 
 
 def run_composition(report: dict, composition, *, project: Path, output, timeout: float) -> dict:
-    """Have Lean check how the member levels combine. The members stay assumed."""
+    """How the members' levels combine, proved in Lean with the program: outright when Lean
+    proves every member, otherwise conditional on the members' premises."""
     report["combination_words"] = composition_claims(composition)
-    report = _certified(
-        report, certify_composition, composition, project=project, output=output, timeout=timeout
-    )
-    if report.get("evidence_source") == "program":
-        # Lean's grade stands: a combination whose members Lean proves is proved.
-        return report
-    if report["status"] == "verified":
-        report.update(status="conditional", evidence_grade="conditional")
-        report["limitations"] = [
-            "Each member's own error bound is assumed, not checked, in this certificate.",
-            "Real-world sampling assumptions are explicitly assumed.",
-        ]
-    return report
+    return _certified(report)
 
 
 def _approx(record: dict) -> str:
@@ -333,49 +202,22 @@ def _unmet(report: dict, stage: str, code: str, message: str) -> dict:
     return report
 
 
-def _certified(report: dict, certify, plan, *, project: Path, output, timeout: float) -> dict:
+def _certified(report: dict) -> dict:
+    """The claim's evidence from the program certificate `check` built for this run, or
+    why it has none: no Lean here, or a claim the translation does not state."""
     attached = _from_program(report)
     if attached is not None:
         return attached
-    try:
-        certificate, bundle = certify(plan, project=project, output=output, timeout=timeout)
-    except VerificationError as error:
-        report["backend_invoked"] = error.stage != "project"
+    from statclaim.program_evidence import CURRENT
+
+    if CURRENT.get() is None:
+        report["verification"] = {"stage": "project", "message": NEEDS_LEAN}
+    else:
+        report["backend_invoked"] = True
         report["verification"] = {
-            "stage": error.stage,
-            "message": str(error),
-            "attempt_directory": str(error.bundle) if error.bundle else None,
+            "stage": "translation",
+            "message": "The Lean translation does not state this claim yet, so it has no proof.",
         }
-        return report
-    report.update(
-        status="verified",
-        evidence_grade="proved",
-        certificate_issued=True,
-        backend_invoked=True,
-        established_properties=list(certificate["claims"]),
-        required_assumptions=certificate["assumptions"],
-        trusted_components=certificate["trusted_components"],
-        certificate={
-            "certificate_id": certificate["certificate_id"],
-            "directory": str(bundle),
-            "file": str(bundle / "certificate.json"),
-            "sha256": digest((bundle / "certificate.json").read_bytes()),
-        },
-        limitations=[
-            "Real-world sampling assumptions and planning inputs are explicitly assumed.",
-            "Bounds are checked, not exact values; calculated values are display information.",
-        ],
-    )
-    report["evidence"].append(
-        {
-            "kind": "formal_proof",
-            "scope": list(certificate["claims"]),
-            "theorems": certificate["theorems"],
-            "backend": certificate["environment"]["lean_version"],
-            "input_sha256": certificate["input_sha256"],
-            "certificate_id": certificate["certificate_id"],
-        }
-    )
     return report
 
 
@@ -412,9 +254,7 @@ def run_power_plan(
             "combined planning claim. The Type I component is supported separately by the "
             "Fisher theorem. This says nothing about whether the null is true.",
         )
-    return _certified(
-        report, certify_planning, plan, project=project, output=output, timeout=timeout
-    )
+    return _certified(report)
 
 
 def run_sample_size(
@@ -467,7 +307,6 @@ def run_association_plan(
     """Exact power of an observational test: Fisher's test of association, McNemar's test or
     the rate test. verify certifies only when every component is met."""
     from statclaim.association import NOT_CAUSAL
-    from statclaim.observational_planning import AssociationPowerPlan
 
     calculation = plan.evaluate()
     report["calculation"] = calculation
@@ -499,12 +338,7 @@ def run_association_plan(
             "combined planning claim. The Type I component is supported separately by the "
             "theorem. This says nothing about whether there is an association.",
         )
-    certify = (
-        certify_association_plan
-        if isinstance(plan, AssociationPowerPlan)
-        else certify_observational_plan
-    )
-    report = _certified(report, certify, plan, project=project, output=output, timeout=timeout)
+    report = _certified(report)
     report["limitations"] = [NOT_CAUSAL]
     return report
 
@@ -671,7 +505,7 @@ def run_policy_plan(
             f"{plan.minimum_power} at the alternative rate. No evidence is issued for the "
             "combined planning claim.",
         )
-    return _certified(report, certify_policy, plan, project=project, output=output, timeout=timeout)
+    return _certified(report)
 
 
 def run_one_sample_search(
@@ -727,9 +561,7 @@ def run_binomial_result(
     report["decision"] = "reject_null" if result.reject_null else "do_not_reject_null"
     if not verify:
         return report
-    return _certified(
-        report, certify_binomial_result, result, project=project, output=output, timeout=timeout
-    )
+    return _certified(report)
 
 
 def interval_report(interval: "BinomialInterval | DifferenceInterval", *, verify: bool) -> dict:
@@ -765,8 +597,7 @@ def run_interval(
     report["decision"] = "interval_reported"
     if not verify:
         return report
-    certify = certify_difference if isinstance(interval, DifferenceInterval) else certify_interval
-    return _certified(report, certify, interval, project=project, output=output, timeout=timeout)
+    return _certified(report)
 
 
 def run_two_stage_search(
@@ -837,9 +668,7 @@ def run_stage_result(
     report["decision"] = result.decision
     if not verify:
         return report
-    return _certified(
-        report, certify_stage_result, result, project=project, output=output, timeout=timeout
-    )
+    return _certified(report)
 
 
 def margin_report(test: MarginTest, *, verify: bool) -> dict:
@@ -892,7 +721,7 @@ def run_margin(test: MarginTest, *, verify: bool, project: Path, output, timeout
             f"{test.minimum_power} at the planning point. No evidence is issued for the "
             "combined planning claim.",
         )
-    return _certified(report, certify_margin, test, project=project, output=output, timeout=timeout)
+    return _certified(report)
 
 
 def run_margin_search(
@@ -988,9 +817,7 @@ def run_randomisation(test, *, stopping: str, project: Path, output, timeout: fl
             "fixed set of units no longer describe the design. This is not evidence of "
             "inflated error.",
         )
-    report = _certified(
-        report, certify_randomisation, test, project=project, output=output, timeout=timeout
-    )
+    report = _certified(report)
     if report["status"] == "verified":
         report["limitations"] = [
             "The randomisation and who is analysed are declared by the file; how the p-value "
@@ -1036,9 +863,7 @@ def run_association(test, *, stopping: str, project: Path, output, timeout: floa
             "Data-dependent stopping changes the sampling law of the table. This is not "
             "evidence of inflated error.",
         )
-    report = _certified(
-        report, certify_association, test, project=project, output=output, timeout=timeout
-    )
+    report = _certified(report)
     if report["status"] == "verified":
         report["limitations"] = [NOT_CAUSAL]
     return report
@@ -1078,9 +903,7 @@ def run_association_result(
             "Data-dependent stopping changes the sampling law of the table. This is not "
             "evidence of inflated error.",
         )
-    report = _certified(
-        report, certify_association_result, result, project=project, output=output, timeout=timeout
-    )
+    report = _certified(report)
     report["limitations"] = [NOT_CAUSAL]
     return report
 
@@ -1113,9 +936,7 @@ def run_effect_interval(interval, *, verify: bool, project: Path, output, timeou
     report["decision"] = "interval_reported"
     if not verify:
         return report
-    report = _certified(
-        report, certify_effect_interval, interval, project=project, output=output, timeout=timeout
-    )
+    report = _certified(report)
     report["limitations"] = [NOT_CAUSAL]
     return report
 
@@ -1180,9 +1001,7 @@ def run_matched(subject, *, verify: bool, stopping: str, project: Path, output, 
             "Data-dependent stopping changes the law of the pairs. This is not evidence of "
             "inflated error.",
         )
-    report = _certified(
-        report, certify_matched, subject, project=project, output=output, timeout=timeout
-    )
+    report = _certified(report)
     report["limitations"] = [NOT_CAUSAL]
     return report
 
@@ -1255,9 +1074,7 @@ def run_incidence(subject, *, verify: bool, stopping: str, project: Path, output
             "inflated error.",
         )
     limitations = report.get("limitations")
-    report = _certified(
-        report, certify_incidence, subject, project=project, output=output, timeout=timeout
-    )
+    report = _certified(report)
     if limitations:
         report["limitations"] = limitations
     return report

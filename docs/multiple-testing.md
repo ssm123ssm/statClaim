@@ -6,44 +6,37 @@ language, see `examples/two_outcomes.stat` and `examples/three_outcomes.stat`.
 
 ## Declare the family
 
-```toml
-[family]
-module = "bonferroni"
-alpha = "1/20"
-joint_law = "binomial_marginals"
+```text
+# The same family as two_outcomes.toml, using the common declaration grammar.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use multiplicity.bonferroni
 
-[[analyses]]
-name = "primary_outcome"
-n_control = 200
-n_treatment = 100
-stopping = "fixed"
-alpha = "1/40"
+let study = two_arm_binomial(n_control=200, n_treatment=100)
+let plan = fixed(model=study)
+let null = equal_proportions(model=study)
+let primary_outcome = fisher(design=plan, null=null, alpha=1/40)
+let secondary_outcome = fisher(design=plan, null=null, alpha=1/40)
 
-[[analyses]]
-name = "secondary_outcome"
-n_control = 200
-n_treatment = 100
-stopping = "fixed"
-alpha = "1/40"
+let outcomes = bonferroni(
+    analyses=[primary_outcome, secondary_outcome],
+    alpha=1/20,
+    joint_law="binomial_marginals",
+)
+verify familywise(outcomes)
 ```
 
-Names must be distinct. In the file language a member's name labels its outcome,
-so each outcome needs its own analysis declaration; listing one declaration under
-two names is rejected. Arm sizes may differ between analyses. Levels are exact
-strings in `[0,1]`; `"0.025"` and `"1/40"` normalize to the same rational value.
-Unequal allocations are supported provided their sum does not exceed family alpha.
-Both analyses and the allocation must be specified before observing results.
+Each member is its own analysis declaration, whose name labels its outcome; listing
+one declaration under two names is rejected. Arm sizes may differ between analyses.
+Levels are exact; `0.025` and `1/40` are the same rational. Unequal allocations are
+supported provided their sum does not exceed the family's level. Both analyses and
+the allocation must be specified before observing results.
 
 ```sh
-uv run --locked statclaim inspect-family examples/two_outcomes.toml
-uv run --locked statclaim verify-family examples/two_outcomes.toml \
-  --output .statclaim/two-outcomes
-uv run --locked statclaim check-certificate .statclaim/two-outcomes
+uv run --locked statclaim check examples/two_outcomes.stat --output .statclaim/two-outcomes
+uv run --locked statclaim check-certificate .statclaim/two-outcomes/lean
 ```
-
-Inspection exits with code 1 because it has not checked the proof. Successful
-verification and replay exit with code 0. Malformed declarations exit with code 2.
-The output directory must be new.
 
 ## What is proved
 

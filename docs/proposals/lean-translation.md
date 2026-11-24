@@ -148,14 +148,15 @@ Decisions taken in milestone 4 (2026-11-23):
   family of ten tests is proved. The templates remain only as a fallback, which no
   corpus claim uses.
 
-Where the templates stand after milestone 5 (2026-11-23): every theorem an exact
-certificate claims is stated once, in `statements.py`, and both `verify` and the
-translator use it. What remains of each template is its definitions and its
-proofs, which are untrusted. Hint checks (rejection regions, cells, parts) stay
-as proof material. `verify` still writes its certificates from the templates;
-issuing them from translated programs instead is the compatibility certificate
-of milestone 6. Families with an exact member, and the one-arm and two-stage
-declarations themselves, are not translated yet.
+- Templates retired (2026-11-24): the 25 per-claim certificate kinds, their
+  inputs, parsers and wording are gone, and with them the older TOML commands
+  (`inspect`, `test`, `verify-design`, `verify`, `inspect-family`, `verify-family`)
+  and their example files. `statclaim_program_certificate` is the only kind issued;
+  certificates of the earlier kinds replay with the version that issued them. What
+  the templates wrote as Lean proofs stays, as untrusted proof material the
+  translator renders into each claim's namespace. The tests that checked template
+  certificates now check the program certificate, and the Lean-rejects-a-false-number
+  tests moved to the translation's mutation test.
 
 ## Goal
 
@@ -509,8 +510,8 @@ Trusted, kept small and reviewed line by line:
 | Definitions behind statements | `StatClaim/Core/`, and the definitions (not the proofs) in `StatClaim/Modules/`: laws, rejection events, policies, null predicates, claim propositions | They fix what every theorem means | Statistical and formal review |
 | Interface library | `StatClaim/Interface/` | `LevelPremise`, its slack and the program-theorem shape: one wrong inequality empties every cited composition | Size budget, review, instances checked in known cases |
 | Premise data and generator | The registry fields that state guarantees (relation, scope, bound, null form), `scripts/update_lean_premises.py`, `StatClaim/Generated/Methods.lean` | They decide what each cited guarantee says in Lean | Method version fixture, `--check`, reviewed diffs of the generated file |
-| Translator denotation | `lean_translation/denote.py` and `exact.py`: the Lean term each declaration denotes and the proposition each claim becomes; `table.py` says which constructors have one | A wrong entry gives a proof of the wrong statement | Table-driven, golden files, template equivalence |
-| Certificate statements | `lean_translation/statements.py`: every theorem an exact certificate claims, shared by `verify`'s templates and the translator | One function states a theorem in both places | Golden files, template equivalence, byte-for-byte certificate comparison when changed |
+| Translator denotation | `lean_translation/denote.py` and `exact.py`: the Lean term each declaration denotes and the proposition each claim becomes; `table.py` says which constructors have one | A wrong entry gives a proof of the wrong statement | Table-driven, golden files, the corpus and rejection checks |
+| Certificate statements | `lean_translation/statements.py`: every theorem an exact claim states | One function states each theorem | Golden files, the corpus check, the mutation test |
 | Values from source | The parser, elaboration of values and `language.normalize` | The statement must be about the study the source describes | Source and canonical input kept in each certificate; readings show each value in words; round-trip tests |
 | Grade from premises | `lean_translation/grades.py`: the grade rule, and the dependency collector that lists the premises each claim's proof uses | Together they decide the evidence grade shown | Exhaustive tests over premise kinds, with proofs that use and avoid each one |
 | Certificate checks | The audit, completion marker, input binding and replay in `verification.py` | They decide whether a build counts | Existing tests, including tampered bundles |

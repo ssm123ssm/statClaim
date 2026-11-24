@@ -15,8 +15,8 @@ make objects-demo
 
 For the primary workflow before observations, run `make design-objects-demo`,
 which checks `examples/DesignGuarantee.lean`. It constructs and verifies the design
-and leaves out the observation and numerical result entirely. A replayable JSON
-design certificate is available through `statclaim verify-design DESIGN.toml`.
+and leaves out the observation and numerical result entirely. A replayable
+certificate of a study comes from `statclaim check` on its `.stat` file.
 
 `make objects-demo` builds the library and checks `examples/FisherObjects.lean`. That example
 constructs a model, sampling plan, analysis, general guarantee, observation,
@@ -24,9 +24,8 @@ proposed result, and a certificate for that exact value. It also demonstrates th
 missing contract when the stopping mechanism's sampling law is unspecified.
 
 The output uses Lean's `#check` to show the actual types of the checked objects
-and proofs. It does not serialize a new certificate bundle. The existing Python
-`verify-design`, `verify-result` (also `verify`), and `check-certificate` commands
-provide artifact paths for their respective scopes.
+and proofs. It does not serialize a new certificate bundle; `statclaim check` and
+`check-certificate` issue and replay those.
 
 ## Core objects
 

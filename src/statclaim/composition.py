@@ -9,11 +9,10 @@ Lean theorem for it and a proof template; the language, derivations and reports
 read the table.
 """
 
-import re
 from dataclasses import dataclass
 from fractions import Fraction
 
-from statclaim.fisher import parse_alpha, validate_alpha
+from statclaim.fisher import validate_alpha
 from statclaim.methods.assumptions import (
     FIXED_SIZES,
     PRESPECIFIED_FAMILY,
@@ -23,9 +22,7 @@ from statclaim.methods.assumptions import (
     SINGLE_ANALYSIS,
 )
 from statclaim.methods.core import SCOPES, Assumption, Guarantee
-from statclaim.planning import _audit
 
-COMPOSITION_KIND = "statclaim_composition_certificate"
 # How a member's own bound is established. Either way it is a hypothesis here.
 MEMBER_GRADES = {
     "proved": "provable in Lean; verify the member's own Type I claim",
@@ -130,7 +127,6 @@ MODES = {
         (BRETZ, BURMAN),
     ),
 }
-METHODS_TO_MODES = {mode.method: key for key, mode in MODES.items()}
 DISCHARGED = {key: mode.discharged for key, mode in MODES.items()}
 
 
@@ -229,47 +225,6 @@ class Composition:
         )
 
 
-def composition_payload(composition: Composition) -> dict:
-    if composition.rules.theorem is None:
-        raise ValueError("This way of combining is cited; there is nothing for Lean to check.")
-    if not composition.fits:
-        raise ValueError("The member levels do not fit the requested overall bound.")
-    return {
-        "schema_version": 1,
-        "scope": "composition",
-        "method": composition.rules.method,
-        "alpha": str(composition.alpha),
-        "members": [item.to_dict() for item in composition.components],
-    }
-
-
-def parse_composition_payload(payload: dict) -> Composition:
-    composition = Composition(
-        parse_alpha(payload["alpha"]),
-        tuple(
-            Component(
-                item["name"],
-                parse_alpha(item["level"]),
-                item["scope"],
-                item["grade"],
-                item["basis"],
-                item["null"],
-                item["quantity"],
-            )
-            for item in payload["members"]
-        ),
-        METHODS_TO_MODES[payload["method"]],
-    )
-    if payload != composition_payload(composition):
-        raise ValueError("Bound combination, members, or requested guarantee is inconsistent.")
-    return composition
-
-
-def composition_theorems(composition: Composition) -> list[str]:
-    first = "checked_allocation" if composition.rules.splits else "checked_levels"
-    return [first, "checked_composition"]
-
-
 def general_theorem(composition: Composition) -> str:
     return f"StatClaim.Modules.Composition.{composition.rules.theorem}"
 
@@ -324,66 +279,3 @@ def composition_claims(composition: Composition) -> list[str]:
 
 def composition_assumptions(composition: Composition) -> list[str]:
     return [composition.prespecified.text, *(item.sentence for item in composition.components)]
-
-
-def render_composition_proof(composition: Composition, input_sha256: str) -> str:
-    """Only validated rational literals and the member count enter the template."""
-    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
-        raise ValueError("Expected a SHA-256 input identifier.")
-    if not composition.fits:
-        raise ValueError("The member levels do not fit the requested overall bound.")
-    count = len(composition.components)
-    levels = []
-    for item in composition.components:
-        numerator, denominator = item.level.as_integer_ratio()
-        levels.append(f"⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩")
-    numerator, denominator = composition.alpha.as_integer_ratio()
-    separator = ",\n    "
-    header = f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical composition SHA-256: {input_sha256}
--- The members' own error bounds are the hypothesis `marginal`; they are not proved here.
-namespace StatClaimCertificate
-open StatClaim MeasureTheory
-open Modules.Composition
-
-def levels : Fin {count} → SignificanceLevel :=
-  ![{separator.join(levels)}]
-def familyLevel : ℚ := ({numerator} : ℚ) / {denominator}
-"""
-    if composition.rules.splits:
-        body = f"""
-theorem checked_allocation : ∑ i, (levels i).value ≤ familyLevel := by
-  norm_num [Fin.sum_univ_succ, levels, familyLevel]
-
-theorem checked_composition {{Outcome : Type}} [MeasurableSpace Outcome]
-    (law : Measure Outcome) [IsProbabilityMeasure law]
-    (trueNull : Fin {count} → Prop) (reject : Fin {count} → Set Outcome)
-    (slack : Fin {count} → ℝ) (slack_nonnegative : ∀ i, 0 ≤ slack i)
-    (marginal : ∀ i, trueNull i →
-      law.real (reject i) ≤ ((levels i).value : ℝ) + slack i) :
-    law.real (falseRejection trueNull reject) ≤ (familyLevel : ℝ) + ∑ i, slack i :=
-  familywise_le_of_levels law trueNull reject levels slack slack_nonnegative marginal
-    familyLevel checked_allocation
-"""
-    else:
-        body = f"""
-theorem checked_levels : ∀ i, (levels i).value = familyLevel := by
-  intro i
-  fin_cases i <;> norm_num [levels, familyLevel]
-
--- A null is rejected only if its own test and every earlier test reject.
-theorem checked_composition {{Outcome : Type}} [MeasurableSpace Outcome]
-    (law : Measure Outcome) [IsProbabilityMeasure law]
-    (trueNull : Fin {count} → Prop) (reject : Fin {count} → Set Outcome)
-    (slack : ℝ) (slack_nonnegative : 0 ≤ slack)
-    (marginal : ∀ i, trueNull i →
-      law.real (reject i) ≤ ((levels i).value : ℝ) + slack) :
-    law.real (sequenceFalseRejection trueNull reject) ≤ (familyLevel : ℝ) + slack :=
-  fixed_sequence_le_of_levels law trueNull reject levels slack slack_nonnegative marginal
-    familyLevel (by norm_num [familyLevel]) checked_levels
-"""
-    return f"""{header}{body}
-end StatClaimCertificate
-{_audit(composition_theorems(composition), input_sha256)}"""

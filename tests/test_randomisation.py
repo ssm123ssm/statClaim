@@ -19,8 +19,6 @@ from statclaim.language_syntax import Source
 from statclaim.randomisation import (
     MAX_UNITS,
     RandomisationTest,
-    parse_randomisation_payload,
-    randomisation_payload,
     render_randomisation_proof,
     splits_needed,
 )
@@ -302,25 +300,6 @@ def test_the_checker_rejects_tampered_randomisation_derivations(change):
     assert check_derivation(tamper(record, change)) != []
 
 
-def test_payloads_round_trip_and_reject_tampering():
-    test = RandomisationTest(12, 6, Fraction(1, 20), "cluster", "two_arm_continuous", 120, 120)
-    payload = randomisation_payload(test)
-    assert parse_randomisation_payload(payload) == test
-    for path, value in [
-        (("analysis", "splits"), "925"),
-        (("analysis", "alpha"), "1/1000"),  # below 1/924: the test could never reject
-        (("analysis", "null"), "equal_means"),
-        (("design", "randomisation"), "blocked"),
-        (("design", "treated_units"), 5),
-        (("design", "units"), 13),
-        (("design", "stopping"), "data_dependent"),
-    ]:
-        altered = copy.deepcopy(payload)
-        altered[path[0]][path[1]] = value
-        with pytest.raises((ValueError, KeyError)):
-            parse_randomisation_payload(altered)
-
-
 @pytest.mark.parametrize(
     "arguments",
     [
@@ -468,34 +447,6 @@ def test_the_checker_rejects_tampered_strata_and_blocks(change):
     assert check_derivation(tamper(record, change)) != []
 
 
-def test_grouped_payloads_round_trip_and_reject_tampering():
-    test = RandomisationTest(
-        40,
-        20,
-        Fraction(1, 20),
-        "participant",
-        "two_arm_continuous",
-        20,
-        20,
-        "blocked",
-        ((8, 8), (12, 12)),
-        4,
-    )
-    payload = randomisation_payload(test)
-    assert payload["design"]["strata"] == [[8, 8], [12, 12]]
-    assert parse_randomisation_payload(payload) == test
-    for change in (
-        lambda p: p["design"].update(block_size=8),
-        lambda p: p["design"].update(strata=[[8, 8], [12, 10]]),
-        lambda p: p["design"].update(randomisation="stratified"),
-        lambda p: p["analysis"].update(splits=str(6**10 + 1)),
-    ):
-        altered = copy.deepcopy(payload)
-        change(altered)
-        with pytest.raises((ValueError, KeyError)):
-            parse_randomisation_payload(altered)
-
-
 def test_the_grouped_proof_lists_every_group():
     test = RandomisationTest(
         40,
@@ -583,17 +534,10 @@ def test_the_checker_rejects_tampered_monte_carlo_derivations(change):
     assert check_derivation(tamper(record, change)) != []
 
 
-def test_drawn_payloads_and_proofs():
+def test_drawn_proofs():
     test = RandomisationTest(
         40, 20, Fraction(1, 20), "participant", "two_arm_continuous", 20, 20, draws=9999
     )
-    payload = randomisation_payload(test)
-    assert payload["analysis"]["draws"] == 9999
-    assert parse_randomisation_payload(payload) == test
-    altered = copy.deepcopy(payload)
-    altered["analysis"]["draws"] = 10  # 1/11 is above 1/20: the test could never reject
-    with pytest.raises(ValueError):
-        parse_randomisation_payload(altered)
     proof = render_randomisation_proof(test, "c" * 64)
     assert "def draws : ℕ := 9999" in proof
     assert "Randomisation.drawnRejection_le_of_level" in proof

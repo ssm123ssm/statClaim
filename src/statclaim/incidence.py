@@ -19,16 +19,13 @@ from fractions import Fraction
 from math import comb
 
 from statclaim.association import NAME
-from statclaim.fisher import fraction_record, parse_alpha, validate_alpha
+from statclaim.fisher import fraction_record, validate_alpha
 from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.statements import CERTIFICATE as C
-from statclaim.planning import MAX_ONE_ARM, BinomialInterval, _audit, render_interval_proof
+from statclaim.planning import MAX_ONE_ARM, BinomialInterval, _audit
 from statclaim.randomisation import PRESPECIFIED
 
-PROPORTION_KIND = "statclaim_proportion_certificate"
 RATE_KIND = "statclaim_rate_test_certificate"
-RATE_RESULT_KIND = "statclaim_rate_result_certificate"
-RATE_RATIO_KIND = "statclaim_rate_ratio_certificate"
 TEST_ID = "conditional_rate_test"
 TEST_VERSION = "0.1.0"
 NULL_STATEMENT = "rate_exposed = rate_unexposed"
@@ -149,65 +146,8 @@ class ProportionEstimate:
         }
 
 
-def proportion_payload(estimate: ProportionEstimate) -> dict:
-    interval = estimate.binomial
-    payload: dict = {
-        "schema_version": 1,
-        "scope": "proportion",
-        "design": {
-            "kind": estimate.design,
-            "n": estimate.n,
-            "exposure": estimate.exposure,
-            "outcome": estimate.outcome,
-        },
-        "measure": estimate.measure,
-        "level": str(estimate.level),
-        "result": {
-            "cases": estimate.cases,
-            "lower": str(interval.lower),
-            "upper": str(interval.upper),
-        },
-    }
-    if estimate.group is not None:
-        payload["design"]["group"] = estimate.group
-    return payload
-
-
-def parse_proportion_payload(payload: dict) -> ProportionEstimate:
-    design = payload["design"]
-    estimate = ProportionEstimate(
-        payload["measure"],
-        design["kind"],
-        design["n"],
-        payload["result"]["cases"],
-        Fraction(payload["level"]),
-        design["exposure"],
-        design["outcome"],
-        design.get("group"),
-    )
-    if payload != proportion_payload(estimate):
-        raise ValueError("Bound proportion inputs are inconsistent.")
-    return estimate
-
-
-def proportion_claims(estimate: ProportionEstimate) -> list[str]:
-    words = PROPORTIONS[estimate.measure][0]
-    interval = estimate.binomial
-    return [
-        f"For every true {words} of {estimate.outcome}, the exact confidence set for "
-        f"{estimate.who()} contains it with probability at least {estimate.level}.",
-        f"For {estimate.cases} cases among {estimate.who()}, that confidence set lies within "
-        f"[{float(interval.lower):.4f}, {float(interval.upper):.4f}].",
-    ]
-
-
 def proportion_assumptions(estimate: ProportionEstimate) -> tuple[str, ...]:
     return (RANDOM_SAMPLE, COMMON_RISK, COUNT_LEVEL, COUNT_MATCHES)
-
-
-def render_proportion_proof(estimate: ProportionEstimate, input_sha256: str) -> str:
-    """The Lean statements are those of any exact binomial interval."""
-    return render_interval_proof(estimate.binomial, input_sha256)
 
 
 # Incidence rates ---------------------------------------------------------------------------
@@ -391,93 +331,6 @@ class RateRatioInterval:
         }
 
 
-def _design_record(exposure: str, outcome: str) -> dict:
-    return {
-        "kind": "person_time_cohort",
-        "exposure": exposure,
-        "outcome": outcome,
-        "stopping": "fixed",
-    }
-
-
-def rate_payload(test: RateTest) -> dict:
-    return {
-        "schema_version": 1,
-        "scope": "rate_test",
-        "design": _design_record(test.exposure, test.outcome),
-        "analysis": {
-            "test": TEST_ID,
-            "test_version": TEST_VERSION,
-            "null": "no_association",
-            "alpha": str(test.alpha),
-        },
-    }
-
-
-def parse_rate_payload(payload: dict) -> RateTest:
-    design = payload["design"]
-    alpha = parse_alpha(payload["analysis"]["alpha"])
-    test = RateTest(alpha, design["exposure"], design["outcome"])
-    if payload != rate_payload(test):
-        raise ValueError("Bound rate-test inputs are inconsistent.")
-    return test
-
-
-def _events_from(design: dict, record: dict) -> ObservedEvents:
-    return ObservedEvents(
-        record["exposed_events"],
-        Fraction(record["exposed_time"]),
-        record["unexposed_events"],
-        Fraction(record["unexposed_time"]),
-        design["exposure"],
-        design["outcome"],
-    )
-
-
-def rate_result_payload(result: RateResult) -> dict:
-    payload = rate_payload(result.test)
-    payload["scope"] = "rate_result"
-    payload["events"] = result.events.named()
-    payload["result"] = {"p_value": str(result.p_value), "reject_null": result.reject_null}
-    return payload
-
-
-def parse_rate_result_payload(payload: dict) -> RateResult:
-    design_payload = {k: v for k, v in payload.items() if k not in ("events", "result")}
-    design_payload["scope"] = "rate_test"
-    result = RateResult(
-        parse_rate_payload(design_payload), _events_from(payload["design"], payload["events"])
-    )
-    if payload != rate_result_payload(result):
-        raise ValueError("Bound rate-result inputs are inconsistent.")
-    return result
-
-
-def rate_ratio_payload(interval: RateRatioInterval) -> dict:
-    lower, upper = interval.bounds
-    return {
-        "schema_version": 1,
-        "scope": "rate_ratio",
-        "design": _design_record(interval.events.exposure, interval.events.outcome),
-        "events": interval.events.named(),
-        "interval": {
-            "measure": "rate_ratio",
-            "level": str(interval.level),
-            "lower": str(lower),
-            "upper": None if upper is None else str(upper),
-        },
-    }
-
-
-def parse_rate_ratio_payload(payload: dict) -> RateRatioInterval:
-    interval = RateRatioInterval(
-        _events_from(payload["design"], payload["events"]), Fraction(payload["interval"]["level"])
-    )
-    if payload != rate_ratio_payload(interval):
-        raise ValueError("Bound rate-ratio inputs are inconsistent.")
-    return interval
-
-
 def rate_assumptions(test: RateTest | None = None) -> tuple[str, ...]:
     return (POISSON_EVENTS, PERSON_TIME, PRESPECIFIED, RATE_NULL)
 
@@ -486,47 +339,8 @@ def rate_null_words(test: RateTest) -> str:
     return f"the incidence rate of {test.outcome} is the same with and without {test.exposure}"
 
 
-def rate_claims(test: RateTest) -> list[str]:
-    return [
-        f"Given the total number of events, the exact test of no association between "
-        f"{test.exposure} and {test.outcome} rejects with probability at most {test.alpha}; "
-        f"averaged over that total, its Type I error is at most {test.alpha} whenever "
-        f"{rate_null_words(test)}, for every common rate and any person-time."
-    ]
-
-
-def rate_result_claims(result: RateResult) -> list[str]:
-    decision = "rejects" if result.reject_null else "does not reject"
-    return [
-        f"For the observed events ({result.events.describe()}), both binomial tails at the "
-        f"exposed share of person-time, about {float(result.events.share):.4g}, equal the Lean "
-        "definitions; the "
-        f"exact two-sided p-value is about {float(result.p_value):.4g}.",
-        f"The test {decision} equal rates at level {result.test.alpha}, as membership in the "
-        "formal rejection event says.",
-        rate_claims(result.test)[0],
-    ]
-
-
 def rate_result_assumptions(result: RateResult) -> tuple[str, ...]:
     return (*rate_assumptions(result.test), EVENTS_MATCH)
-
-
-def rate_ratio_claims(interval: RateRatioInterval) -> list[str]:
-    lower, upper = interval.bounds
-    span = (
-        f"[{float(lower):.4g}, {float(upper):.4g}]"
-        if upper is not None
-        else f"[{float(lower):.4g}, no finite upper bound)"
-    )
-    return [
-        "For every pair of rates, the exact confidence set for the exposed share of events "
-        f"contains it with probability at least {interval.level}, averaged over the total "
-        "number of events.",
-        f"For the observed events ({interval.events.describe()}), whenever the set contains "
-        f"the share, the incidence rate ratio, its odds times {float(interval.scale):.4g} "
-        f"(unexposed over exposed person-time), lies within {span}.",
-    ]
 
 
 def rate_ratio_assumptions(interval: RateRatioInterval) -> tuple[str, ...]:

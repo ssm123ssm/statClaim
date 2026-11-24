@@ -1,919 +1,1021 @@
 {
  "optimal p0=0.05 p1=0.25 0/9, 2/24": {
   "status": "verified",
-  "certificate_id": "c229be97a7b270d4275cf23705d60679fadeb55a68f61e9612dbb7e1135174f1",
+  "certificate_id": "31e4e6aba12228fa8a01e83eb7f51bece9cb6fd19c7390c20f775bf962dd80a0",
   "established": [
-   "The complete two-stage design (stages 9 and 15, continuing above 0 responses and rejecting above 2 in total) rejects with probability at most 1/10 for every response rate at or below 1/20.",
-   "It rejects with probability at least 9/10 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/20 and >= 9/10 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.05 p1=0.25 0/13, 2/20": {
   "status": "verified",
-  "certificate_id": "eb5cb10a2f3c27a7ee4e7422d81b463f78763c158887d15461fa54162f596207",
+  "certificate_id": "45887476efbdc24b3311d652497f7979217b1e16d756b9db162eb2a7e6b894da",
   "established": [
-   "The complete two-stage design (stages 13 and 7, continuing above 0 responses and rejecting above 2 in total) rejects with probability at most 1/10 for every response rate at or below 1/20.",
-   "It rejects with probability at least 9/10 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/20 and >= 9/10 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.05 p1=0.25 0/9, 2/17": {
   "status": "verified",
-  "certificate_id": "e3f3ee9c39bee1ceffcc0929f18ed7428dd653cb20d6ccd8ac0298af3b0425a2",
+  "certificate_id": "84dfcafbbb12d7445d4ec52e5ae9b40eff890f9afc891179b29aad2b1c7c647d",
   "established": [
-   "The complete two-stage design (stages 9 and 8, continuing above 0 responses and rejecting above 2 in total) rejects with probability at most 1/20 for every response rate at or below 1/20.",
-   "It rejects with probability at least 4/5 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/20 and >= 4/5 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.05 p1=0.25 0/12, 2/16": {
   "status": "verified",
-  "certificate_id": "e796a81883a3ea87d9587eb8ebd51ce1988c727f7ec7a56127157936fc69a107",
+  "certificate_id": "01d849f5b276df273917dadadad23451263be1e3dc34f07ebb3fabb5eca7b465",
   "established": [
-   "The complete two-stage design (stages 12 and 4, continuing above 0 responses and rejecting above 2 in total) rejects with probability at most 1/20 for every response rate at or below 1/20.",
-   "It rejects with probability at least 4/5 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/20 and >= 4/5 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.05 p1=0.25 0/9, 3/30": {
   "status": "verified",
-  "certificate_id": "679775dd5633470509b3cf1c026e7c75d6aad649ff55c0bfd3d6fb357e0f2385",
+  "certificate_id": "3dd726b03769873e5a803da321b814361d1ebb4d3ab933dc1f50f2bbcf0e1631",
   "established": [
-   "The complete two-stage design (stages 9 and 21, continuing above 0 responses and rejecting above 3 in total) rejects with probability at most 1/20 for every response rate at or below 1/20.",
-   "It rejects with probability at least 9/10 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/20 and >= 9/10 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.05 p1=0.25 0/15, 3/25": {
   "status": "verified",
-  "certificate_id": "e5b09eb1508106f5aa0b67b4b32b8002b12e4dbea732ab35daaa1b771fdc907a",
+  "certificate_id": "6c7d5c41a9b34ff7558bf126e35b38c4481801c1f540b9e9121d3e88735dd729",
   "established": [
-   "The complete two-stage design (stages 15 and 10, continuing above 0 responses and rejecting above 3 in total) rejects with probability at most 1/20 for every response rate at or below 1/20.",
-   "It rejects with probability at least 9/10 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/20 and >= 9/10 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.10 p1=0.30 1/12, 5/35": {
   "status": "verified",
-  "certificate_id": "dd08ceb19992292319b48e01e8f1ebbd161dfebcb4f0a7e2da6405fb92bef3da",
+  "certificate_id": "3fe40b8d429116726735782e38a9afd560769729c4f2aa2a4ead8095aa6d5ae5",
   "established": [
-   "The complete two-stage design (stages 12 and 23, continuing above 1 responses and rejecting above 5 in total) rejects with probability at most 1/10 for every response rate at or below 1/10.",
-   "It rejects with probability at least 9/10 at the response rate 3/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/10 and >= 9/10 at the response rate 3/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.10 p1=0.30 1/16, 4/25": {
   "status": "verified",
-  "certificate_id": "abe637d8e35305e358427a7887021d1a5bf09878bd1463a9d864384af7929fe6",
+  "certificate_id": "7998440616c41a3b9a6f4a31f922c663e2a5fa9ef85b3367d468139bdc31a2fb",
   "established": [
-   "The complete two-stage design (stages 16 and 9, continuing above 1 responses and rejecting above 4 in total) rejects with probability at most 1/10 for every response rate at or below 1/10.",
-   "It rejects with probability at least 9/10 at the response rate 3/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/10 and >= 9/10 at the response rate 3/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.10 p1=0.30 1/10, 5/29": {
   "status": "verified",
-  "certificate_id": "90a8daea14194edf627cc5dad9ccc65ac9f2c6c7da230a5b4bee785946878647",
+  "certificate_id": "1ef3c6ae9dc67883aec7006ca26b850c411c7359da33f52eb3c3457f805c976c",
   "established": [
-   "The complete two-stage design (stages 10 and 19, continuing above 1 responses and rejecting above 5 in total) rejects with probability at most 1/20 for every response rate at or below 1/10.",
-   "It rejects with probability at least 4/5 at the response rate 3/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/10 and >= 4/5 at the response rate 3/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.10 p1=0.30 1/15, 5/25": {
   "status": "verified",
-  "certificate_id": "840b4079b80ea68592406917ad8947be9be1e431f74fe410dc778378166197b5",
+  "certificate_id": "d4caf7a51a186bc373f43f34bfcd8a66c3e95d8765b813ce1fc95b95080dd401",
   "established": [
-   "The complete two-stage design (stages 15 and 10, continuing above 1 responses and rejecting above 5 in total) rejects with probability at most 1/20 for every response rate at or below 1/10.",
-   "It rejects with probability at least 4/5 at the response rate 3/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/10 and >= 4/5 at the response rate 3/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.10 p1=0.30 2/18, 6/35": {
   "status": "verified",
-  "certificate_id": "5d977524a7e434d1d35852f3a492b58cb6f7eccde1052c5eaae577d88683496d",
+  "certificate_id": "ec5f9aeaf7ffe4cff41708e7c378d9f38f958f696dc8e874a6a1d7765b93c06c",
   "established": [
-   "The complete two-stage design (stages 18 and 17, continuing above 2 responses and rejecting above 6 in total) rejects with probability at most 1/20 for every response rate at or below 1/10.",
-   "It rejects with probability at least 9/10 at the response rate 3/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/10 and >= 9/10 at the response rate 3/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.10 p1=0.30 2/22, 6/33": {
   "status": "verified",
-  "certificate_id": "cf8375afd29c26081910c3a585d534304a76c7b7d42470378589f010d3b95756",
+  "certificate_id": "c257d1d57b81f1c6e707aef68599f4bd3913e215a62ccdddfaf7f4a131fd266d",
   "established": [
-   "The complete two-stage design (stages 22 and 11, continuing above 2 responses and rejecting above 6 in total) rejects with probability at most 1/20 for every response rate at or below 1/10.",
-   "It rejects with probability at least 9/10 at the response rate 3/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/10 and >= 9/10 at the response rate 3/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.20 p1=0.40 3/17, 10/37": {
   "status": "verified",
-  "certificate_id": "e3aed635f59582897eab4c604ff84ea581af2274c522b61a935f8396d84e20d6",
+  "certificate_id": "1538704f77af9594719848b144b0773281265933c27b5780005c8be75700f9f4",
   "established": [
-   "The complete two-stage design (stages 17 and 20, continuing above 3 responses and rejecting above 10 in total) rejects with probability at most 1/10 for every response rate at or below 1/5.",
-   "It rejects with probability at least 9/10 at the response rate 2/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/5 and >= 9/10 at the response rate 2/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.20 p1=0.40 3/19, 10/36": {
   "status": "verified",
-  "certificate_id": "ae679c688d44fe0d1ecbd33e29cf704076b63b982e80e29e56e4c66b50ca42f3",
+  "certificate_id": "49229e1039f0f01e8eb67024eaf54ea21ea77dcf664ea83b69a45953a412c308",
   "established": [
-   "The complete two-stage design (stages 19 and 17, continuing above 3 responses and rejecting above 10 in total) rejects with probability at most 1/10 for every response rate at or below 1/5.",
-   "It rejects with probability at least 9/10 at the response rate 2/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/5 and >= 9/10 at the response rate 2/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.20 p1=0.40 3/13, 12/43": {
   "status": "verified",
-  "certificate_id": "02f34fce50033a93155e433a7939f9ae30eac522d65ec927be27f657c3e2e8ce",
+  "certificate_id": "01c809be2146cb51d9d2a65727e439d32ae26195df9b9b86484c0cde5d8fe8cf",
   "established": [
-   "The complete two-stage design (stages 13 and 30, continuing above 3 responses and rejecting above 12 in total) rejects with probability at most 1/20 for every response rate at or below 1/5.",
-   "It rejects with probability at least 4/5 at the response rate 2/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/5 and >= 4/5 at the response rate 2/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.20 p1=0.40 4/18, 10/33": {
   "status": "verified",
-  "certificate_id": "3c485d74441a1ad35cb46a830e8ad422a0805c47a59d9bd4b703c8cd1ce66f75",
+  "certificate_id": "afe1b691ad3ba37fd8282bb2bfd0de151833367f1af2311ace215cd319501b50",
   "established": [
-   "The complete two-stage design (stages 18 and 15, continuing above 4 responses and rejecting above 10 in total) rejects with probability at most 1/20 for every response rate at or below 1/5.",
-   "It rejects with probability at least 4/5 at the response rate 2/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/5 and >= 4/5 at the response rate 2/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.20 p1=0.40 4/19, 15/54": {
   "status": "verified",
-  "certificate_id": "1b1a988a8380b60648cee8143aa12a1007bc3469721ba99fc38ed8f6fedfccfa",
+  "certificate_id": "ef0718d43c3b0e92ca546ce39a259e22f77c61d5f9b2d3d4550cb87d4bf470bf",
   "established": [
-   "The complete two-stage design (stages 19 and 35, continuing above 4 responses and rejecting above 15 in total) rejects with probability at most 1/20 for every response rate at or below 1/5.",
-   "It rejects with probability at least 9/10 at the response rate 2/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/5 and >= 9/10 at the response rate 2/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.20 p1=0.40 5/24, 13/45": {
   "status": "verified",
-  "certificate_id": "eb4d4b0699de8ebfd39a8d11c16b52ddf085857fdbb58cc7cfa61957c097596e",
+  "certificate_id": "4fdb746215e31e6800a6229a64436772988f6a852b8f0c278276beacce1e6d6a",
   "established": [
-   "The complete two-stage design (stages 24 and 21, continuing above 5 responses and rejecting above 13 in total) rejects with probability at most 1/20 for every response rate at or below 1/5.",
-   "It rejects with probability at least 9/10 at the response rate 2/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/5 and >= 9/10 at the response rate 2/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.30 p1=0.50 7/22, 17/46": {
   "status": "verified",
-  "certificate_id": "ba21fd3a32955b11a5f336ef78c59574563a88434dae895f0358d64b9e4d4c3d",
+  "certificate_id": "874391e8378bfb2f2008d4d3cb90c782eb1f8b29271ef2b4dfce9005503f8f81",
   "established": [
-   "The complete two-stage design (stages 22 and 24, continuing above 7 responses and rejecting above 17 in total) rejects with probability at most 1/10 for every response rate at or below 3/10.",
-   "It rejects with probability at least 9/10 at the response rate 1/2."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 3/10 and >= 9/10 at the response rate 1/2.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.30 p1=0.50 7/28, 15/39": {
   "status": "verified",
-  "certificate_id": "3d737a41fc98ffa3b067dbac86bb2bff20ac583aef96229ee64f3cef957dc8a8",
+  "certificate_id": "0c19932a6510316d3df2ccf0ee3a1e9de0c3bf9df6f408ea82163044de5c576c",
   "established": [
-   "The complete two-stage design (stages 28 and 11, continuing above 7 responses and rejecting above 15 in total) rejects with probability at most 1/10 for every response rate at or below 3/10.",
-   "It rejects with probability at least 9/10 at the response rate 1/2."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 3/10 and >= 9/10 at the response rate 1/2.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.30 p1=0.50 5/15, 18/46": {
   "status": "verified",
-  "certificate_id": "27a7a595b949c8b5a084fe7aca659327614cb3cb279295d2eceb5638871a3067",
+  "certificate_id": "1ae873e0dcf1f4b0221ad4eb53cc7ea98a0e366fadda2eb2b038298c68603936",
   "established": [
-   "The complete two-stage design (stages 15 and 31, continuing above 5 responses and rejecting above 18 in total) rejects with probability at most 1/20 for every response rate at or below 3/10.",
-   "It rejects with probability at least 4/5 at the response rate 1/2."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/10 and >= 4/5 at the response rate 1/2.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.30 p1=0.50 6/19, 16/39": {
   "status": "verified",
-  "certificate_id": "c40b3387c4fbb13bc86028c31d585b33df78d03dec76b42243bb43a3211b67a6",
+  "certificate_id": "ac7b4d5b1c89cca6daccde37b546f1f7d9890d0f59a43778212a2b0ae16d2b48",
   "established": [
-   "The complete two-stage design (stages 19 and 20, continuing above 6 responses and rejecting above 16 in total) rejects with probability at most 1/20 for every response rate at or below 3/10.",
-   "It rejects with probability at least 4/5 at the response rate 1/2."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/10 and >= 4/5 at the response rate 1/2.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.30 p1=0.50 8/24, 24/63": {
   "status": "verified",
-  "certificate_id": "81bf814ca1b3edfa847e60907948d664dffc04d6a35be1208e8a35558a9c4fa7",
+  "certificate_id": "72d39efcb266f9069161a21408890cba26ace0a01720cd6c910670b7d1b60db2",
   "established": [
-   "The complete two-stage design (stages 24 and 39, continuing above 8 responses and rejecting above 24 in total) rejects with probability at most 1/20 for every response rate at or below 3/10.",
-   "It rejects with probability at least 9/10 at the response rate 1/2."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/10 and >= 9/10 at the response rate 1/2.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.30 p1=0.50 7/24, 21/53": {
   "status": "verified",
-  "certificate_id": "ba00fa64a1feff83ca7b354e94255c894434930775dc18b7b92a6629f9cfd79f",
+  "certificate_id": "d6bf793b1a24bd9bbc3c5c7735e5d997ad3e6254723328466099df979365daa2",
   "established": [
-   "The complete two-stage design (stages 24 and 29, continuing above 7 responses and rejecting above 21 in total) rejects with probability at most 1/20 for every response rate at or below 3/10.",
-   "It rejects with probability at least 9/10 at the response rate 1/2."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/10 and >= 9/10 at the response rate 1/2.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.40 p1=0.60 7/18, 22/46": {
   "status": "verified",
-  "certificate_id": "d292c5699c0a11a6f12f06580882caa35c62a074a679d2d391834c87f98ad7fa",
+  "certificate_id": "f79dfa6ffc5044de81efee8b1607d4437075fd96552ff564b36c39895154c002",
   "established": [
-   "The complete two-stage design (stages 18 and 28, continuing above 7 responses and rejecting above 22 in total) rejects with probability at most 1/10 for every response rate at or below 2/5.",
-   "It rejects with probability at least 9/10 at the response rate 3/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 2/5 and >= 9/10 at the response rate 3/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.40 p1=0.60 11/28, 20/41": {
   "status": "verified",
-  "certificate_id": "bb58fadfa88beb5e6055693abfe29454a93943f51950f88067ba999f5b03309a",
+  "certificate_id": "50e96c26ce7b72227076f3f945fa8b92fe05880cf15df350fb59cd9d2f7e8ab7",
   "established": [
-   "The complete two-stage design (stages 28 and 13, continuing above 11 responses and rejecting above 20 in total) rejects with probability at most 1/10 for every response rate at or below 2/5.",
-   "It rejects with probability at least 9/10 at the response rate 3/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 2/5 and >= 9/10 at the response rate 3/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.40 p1=0.60 7/16, 23/46": {
   "status": "verified",
-  "certificate_id": "9f1f13c4897a9d95e484d54fb22322ec9382011280446acf02c6383f7f06bbc1",
+  "certificate_id": "2cbf4e9b45514ff55acfe51a2ac47dbb2163191eb8fe7b268aad8c491c81f0aa",
   "established": [
-   "The complete two-stage design (stages 16 and 30, continuing above 7 responses and rejecting above 23 in total) rejects with probability at most 1/20 for every response rate at or below 2/5.",
-   "It rejects with probability at least 4/5 at the response rate 3/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 2/5 and >= 4/5 at the response rate 3/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.40 p1=0.60 17/34, 20/39": {
   "status": "verified",
-  "certificate_id": "660cdfe161097de86b49b6afeebae444b134243a62dabb569399202526d1dc3f",
+  "certificate_id": "61cd4055fce8108997c49283059c3f5b9d785ab0a7ad1c87ce2488564a2acaa3",
   "established": [
-   "The complete two-stage design (stages 34 and 5, continuing above 17 responses and rejecting above 20 in total) rejects with probability at most 1/20 for every response rate at or below 2/5.",
-   "It rejects with probability at least 4/5 at the response rate 3/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 2/5 and >= 4/5 at the response rate 3/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.40 p1=0.60 11/25, 32/66": {
   "status": "verified",
-  "certificate_id": "976250c6886f0b114f09d4e76d5bab3e4000536e6e7811ca6af6aca96d163216",
+  "certificate_id": "b384167e0352c9b8c23140e94c2a123ad39ffaf46ff05cf986ab8a870763dcb1",
   "established": [
-   "The complete two-stage design (stages 25 and 41, continuing above 11 responses and rejecting above 32 in total) rejects with probability at most 1/20 for every response rate at or below 2/5.",
-   "It rejects with probability at least 9/10 at the response rate 3/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 2/5 and >= 9/10 at the response rate 3/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.40 p1=0.60 12/29, 27/54": {
   "status": "verified",
-  "certificate_id": "1e40756fa7c7b636020a27359364ceb9f30334b0a5e8f461cc7137e06189fcbf",
+  "certificate_id": "e732ffd03eef3d09cbfa1276e908295bbacdc2405185b23b36f86086be86b294",
   "established": [
-   "The complete two-stage design (stages 29 and 25, continuing above 12 responses and rejecting above 27 in total) rejects with probability at most 1/20 for every response rate at or below 2/5.",
-   "It rejects with probability at least 9/10 at the response rate 3/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 2/5 and >= 9/10 at the response rate 3/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.50 p1=0.70 11/21, 26/45": {
   "status": "verified",
-  "certificate_id": "c0a2f1e9bfb725266fa0b24606adf7405add4950da51f679dbb172e97f597983",
+  "certificate_id": "27ef155e413b1be3387ff1077c17c5f83657f94ff3a21b95da3bad1d9e291dae",
   "established": [
-   "The complete two-stage design (stages 21 and 24, continuing above 11 responses and rejecting above 26 in total) rejects with probability at most 1/10 for every response rate at or below 1/2.",
-   "It rejects with probability at least 9/10 at the response rate 7/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/2 and >= 9/10 at the response rate 7/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.50 p1=0.70 11/23, 23/39": {
   "status": "verified",
-  "certificate_id": "7ea59526e02a020fd05f72745fc1e3783bcea9382e8fb633a4e142f4687a1a35",
+  "certificate_id": "cb72c0fdc3e2d646f9702aae20d5f2517cf65bf8fd3b4f099318111f48cc21d5",
   "established": [
-   "The complete two-stage design (stages 23 and 16, continuing above 11 responses and rejecting above 23 in total) rejects with probability at most 1/10 for every response rate at or below 1/2.",
-   "It rejects with probability at least 9/10 at the response rate 7/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/2 and >= 9/10 at the response rate 7/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.50 p1=0.70 8/15, 26/43": {
   "status": "verified",
-  "certificate_id": "20fa562a36757bf3c8eb9afab40db1d382f4d826101f8daf2d9bb7d2e80d0cdc",
+  "certificate_id": "4dd545bb55cf30fd59fc1099dd2a971a82b484da439e19d04668d2405182c983",
   "established": [
-   "The complete two-stage design (stages 15 and 28, continuing above 8 responses and rejecting above 26 in total) rejects with probability at most 1/20 for every response rate at or below 1/2.",
-   "It rejects with probability at least 4/5 at the response rate 7/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/2 and >= 4/5 at the response rate 7/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.50 p1=0.70 12/23, 23/37": {
   "status": "verified",
-  "certificate_id": "ab9db2d6882cc606be6226e8a70c0e2880db58a2ba9feb54118f3949d97222b0",
+  "certificate_id": "7dcb3d8acab085ad90f2a1b4390fa7a0d63ae488ffeaafeda260c7443e100b01",
   "established": [
-   "The complete two-stage design (stages 23 and 14, continuing above 12 responses and rejecting above 23 in total) rejects with probability at most 1/20 for every response rate at or below 1/2.",
-   "It rejects with probability at least 4/5 at the response rate 7/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/2 and >= 4/5 at the response rate 7/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.50 p1=0.70 13/24, 36/61": {
   "status": "verified",
-  "certificate_id": "4719d466fe0a3c6e0e6b90261ce490df6afbdb2dab72cb6c1df0b41f6ac0d371",
+  "certificate_id": "d506e9575642f97c628a2e4772588dca3308d6c3f38c21857ada3b7f54d9d369",
   "established": [
-   "The complete two-stage design (stages 24 and 37, continuing above 13 responses and rejecting above 36 in total) rejects with probability at most 1/20 for every response rate at or below 1/2.",
-   "It rejects with probability at least 9/10 at the response rate 7/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/2 and >= 9/10 at the response rate 7/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.50 p1=0.70 14/27, 32/53": {
   "status": "verified",
-  "certificate_id": "66d38e07b1b539eda3d73947b8ab11c79f2bfdbcd93997466635607567435839",
+  "certificate_id": "892ceec57f073218b5ab3d478344e1cc9fc186bdd6a4c50d1083cc7928d86796",
   "established": [
-   "The complete two-stage design (stages 27 and 26, continuing above 14 responses and rejecting above 32 in total) rejects with probability at most 1/20 for every response rate at or below 1/2.",
-   "It rejects with probability at least 9/10 at the response rate 7/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/2 and >= 9/10 at the response rate 7/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.60 p1=0.80 6/11, 26/38": {
   "status": "verified",
-  "certificate_id": "84e76213c02f1d416a0dba98321b3281f9f190e9e3f39a72b08f9746fe5fd9ff",
+  "certificate_id": "916761bda48a4462d41616c464c00d4825e7fa3b90dfc99ab59e8cf5c06405ab",
   "established": [
-   "The complete two-stage design (stages 11 and 27, continuing above 6 responses and rejecting above 26 in total) rejects with probability at most 1/10 for every response rate at or below 3/5.",
-   "It rejects with probability at least 9/10 at the response rate 4/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 3/5 and >= 9/10 at the response rate 4/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.60 p1=0.80 18/27, 24/35": {
   "status": "verified",
-  "certificate_id": "139335b79966a969f6c52f416c1ef27a24fca229abb458e1cca8d5101e7f99cb",
+  "certificate_id": "f23e62cddff311dc03379b0f29ad75c4d7121dbbb5476424674f1a705b3af899",
   "established": [
-   "The complete two-stage design (stages 27 and 8, continuing above 18 responses and rejecting above 24 in total) rejects with probability at most 1/10 for every response rate at or below 3/5.",
-   "It rejects with probability at least 9/10 at the response rate 4/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 3/5 and >= 9/10 at the response rate 4/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.60 p1=0.80 7/11, 30/43": {
   "status": "verified",
-  "certificate_id": "5fcd7f73333cf553f3eaa05d591a828ba63d99410a6f00f3fea7ca7651729e1b",
+  "certificate_id": "66e2b6cb06732d453153adc441a67899c697257dcb5057e78cb61ce346c0f387",
   "established": [
-   "The complete two-stage design (stages 11 and 32, continuing above 7 responses and rejecting above 30 in total) rejects with probability at most 1/20 for every response rate at or below 3/5.",
-   "It rejects with probability at least 4/5 at the response rate 4/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/5 and >= 4/5 at the response rate 4/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.60 p1=0.80 8/13, 25/35": {
   "status": "verified",
-  "certificate_id": "9f6bae35d094ab1671c7ef95f48381a033cac3aafebcd1ecd2e1d702d27726ae",
+  "certificate_id": "229168a5b2ab7a09400444fcf6a8040d46d7256948272c812f350bc04509d55f",
   "established": [
-   "The complete two-stage design (stages 13 and 22, continuing above 8 responses and rejecting above 25 in total) rejects with probability at most 1/20 for every response rate at or below 3/5.",
-   "It rejects with probability at least 4/5 at the response rate 4/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/5 and >= 4/5 at the response rate 4/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.60 p1=0.80 12/19, 37/53": {
   "status": "verified",
-  "certificate_id": "4ef0d38b9d83d58f86131283c0d763bc352f825913911591167916a6f5212ee4",
+  "certificate_id": "6ee7ac6e7415d714af0f4b83035ca2e5d72645283b3e1cd69ee50840fc4f98a0",
   "established": [
-   "The complete two-stage design (stages 19 and 34, continuing above 12 responses and rejecting above 37 in total) rejects with probability at most 1/20 for every response rate at or below 3/5.",
-   "It rejects with probability at least 9/10 at the response rate 4/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/5 and >= 9/10 at the response rate 4/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.60 p1=0.80 15/26, 32/45": {
   "status": "verified",
-  "certificate_id": "7cd27327bc77366fe9b4ead873963be254f86176b8a5f15eb9b9bb6b2de91b0d",
+  "certificate_id": "5589460dec4b5ac581e76638c8097e2afa49f2ae95f2c21f64725f6cbd5fd416",
   "established": [
-   "The complete two-stage design (stages 26 and 19, continuing above 15 responses and rejecting above 32 in total) rejects with probability at most 1/20 for every response rate at or below 3/5.",
-   "It rejects with probability at least 9/10 at the response rate 4/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/5 and >= 9/10 at the response rate 4/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.70 p1=0.90 6/9, 22/28": {
   "status": "verified",
-  "certificate_id": "9ac15ea7a74914db6ae382ad232bd63d18b824c2dbf488c90d14a83ffb144dc9",
+  "certificate_id": "5998a8ce05e37f6d1924633bd8582af2fa271b15a4cce83f49e98817dca8e941",
   "established": [
-   "The complete two-stage design (stages 9 and 19, continuing above 6 responses and rejecting above 22 in total) rejects with probability at most 1/10 for every response rate at or below 7/10.",
-   "It rejects with probability at least 9/10 at the response rate 9/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 7/10 and >= 9/10 at the response rate 9/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.70 p1=0.90 11/16, 20/25": {
   "status": "verified",
-  "certificate_id": "bdcd43c937c5248b27e5c08d8e13d9dd86cf15804e55ec6c5e2577b350d4d915",
+  "certificate_id": "08b076fce65c25f2952cae910e78fe59f1a1a9b1b66afaafb978e047fed9f2da",
   "established": [
-   "The complete two-stage design (stages 16 and 9, continuing above 11 responses and rejecting above 20 in total) rejects with probability at most 1/10 for every response rate at or below 7/10.",
-   "It rejects with probability at least 9/10 at the response rate 9/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 7/10 and >= 9/10 at the response rate 9/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.70 p1=0.90 4/6, 22/27": {
   "status": "verified",
-  "certificate_id": "48e7243b0e04f2e71a2103ce45aa11fda5ee7574781d41b1e0f535c180f3a6a4",
+  "certificate_id": "d45d26ced411c1300300416167ba1883fb156672f36156049aed95018ad45c7c",
   "established": [
-   "The complete two-stage design (stages 6 and 21, continuing above 4 responses and rejecting above 22 in total) rejects with probability at most 1/20 for every response rate at or below 7/10.",
-   "It rejects with probability at least 4/5 at the response rate 9/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 7/10 and >= 4/5 at the response rate 9/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.70 p1=0.90 19/23, 21/26": {
   "status": "verified",
-  "certificate_id": "6c1f89b7890c1126d9d35826f4f26319cc19d593468fa1ed4c5a28e585f2c227",
+  "certificate_id": "43e8b8472b2e593593cef9756e70ae2da2326e747faf4e25c492e304c57a5125",
   "established": [
-   "The complete two-stage design (stages 23 and 3, continuing above 19 responses and rejecting above 21 in total) rejects with probability at most 1/20 for every response rate at or below 7/10.",
-   "It rejects with probability at least 4/5 at the response rate 9/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 7/10 and >= 4/5 at the response rate 9/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.70 p1=0.90 11/15, 29/36": {
   "status": "verified",
-  "certificate_id": "2b7565135ce136f2b74290a0caacfa65f59a988acab9adeaa0b3492d460eccd9",
+  "certificate_id": "ea26d60650f73c9032e99b90069e298ff133fa95ad6e4edcafa89ed26926f9e6",
   "established": [
-   "The complete two-stage design (stages 15 and 21, continuing above 11 responses and rejecting above 29 in total) rejects with probability at most 1/20 for every response rate at or below 7/10.",
-   "It rejects with probability at least 9/10 at the response rate 9/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 7/10 and >= 9/10 at the response rate 9/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.70 p1=0.90 13/18, 26/32": {
   "status": "verified",
-  "certificate_id": "717856e1168c72eb43cef958cf84caf4c5c871cd539c9dd3908457eddebfe6e0",
+  "certificate_id": "d11dc6b5734d47c1f52e060f7d50a2d174660dc0bcda5c5df2030ddba00d6458",
   "established": [
-   "The complete two-stage design (stages 18 and 14, continuing above 13 responses and rejecting above 26 in total) rejects with probability at most 1/20 for every response rate at or below 7/10.",
-   "It rejects with probability at least 9/10 at the response rate 9/10."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 7/10 and >= 9/10 at the response rate 9/10.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.05 p1=0.20 0/12, 3/37": {
   "status": "verified",
-  "certificate_id": "40cc594db7bb16deeda92186c463bdb876299a0556fcb6ec6d9683c5f278bf82",
+  "certificate_id": "57ea1a629ac7eb415553f6263b5cf58ac8f9e38f6842698e1e6a18b8e775eb41",
   "established": [
-   "The complete two-stage design (stages 12 and 25, continuing above 0 responses and rejecting above 3 in total) rejects with probability at most 1/10 for every response rate at or below 1/20.",
-   "It rejects with probability at least 9/10 at the response rate 1/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/20 and >= 9/10 at the response rate 1/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.05 p1=0.20 0/18, 3/32": {
   "status": "verified",
-  "certificate_id": "73f796b52131a1df5fc0063633885437220d0bd032a112aa576dc2c3a28037bc",
+  "certificate_id": "5585c68f0181b999d0d945931f1c631ccf97c462a7eceb6ba86da709975896ae",
   "established": [
-   "The complete two-stage design (stages 18 and 14, continuing above 0 responses and rejecting above 3 in total) rejects with probability at most 1/10 for every response rate at or below 1/20.",
-   "It rejects with probability at least 9/10 at the response rate 1/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/20 and >= 9/10 at the response rate 1/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.05 p1=0.20 0/10, 3/29": {
   "status": "verified",
-  "certificate_id": "04aabad0435ac9f703331d210ce558469f4ba674e22af168fd2265f681cbeef6",
+  "certificate_id": "5531a387341e19337ac2141fbcd546544b25cdddd5c7d8ab86e92edc04283787",
   "established": [
-   "The complete two-stage design (stages 10 and 19, continuing above 0 responses and rejecting above 3 in total) rejects with probability at most 1/20 for every response rate at or below 1/20.",
-   "It rejects with probability at least 4/5 at the response rate 1/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/20 and >= 4/5 at the response rate 1/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.05 p1=0.20 0/13, 3/27": {
   "status": "verified",
-  "certificate_id": "52608d21b2dacd402c3e343c664a8e9523545ea5fa3e2ced6f41961c60776c51",
+  "certificate_id": "e0a8e64e3ed351bdde05cd9487da13e1a34b840ab53440703008574b800e5715",
   "established": [
-   "The complete two-stage design (stages 13 and 14, continuing above 0 responses and rejecting above 3 in total) rejects with probability at most 1/20 for every response rate at or below 1/20.",
-   "It rejects with probability at least 4/5 at the response rate 1/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/20 and >= 4/5 at the response rate 1/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.05 p1=0.20 1/21, 4/41": {
   "status": "verified",
-  "certificate_id": "6fd9d9273973f06a93bfbaae4ef19de015022542f2ec14df548840b38c7e22a3",
+  "certificate_id": "cdd683502cec74d01ec09852bae64ab0176a73acf80f23f0395ac6f98e6d2413",
   "established": [
-   "The complete two-stage design (stages 21 and 20, continuing above 1 responses and rejecting above 4 in total) rejects with probability at most 1/20 for every response rate at or below 1/20.",
-   "It rejects with probability at least 9/10 at the response rate 1/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/20 and >= 9/10 at the response rate 1/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.05 p1=0.20 1/29, 4/38": {
   "status": "verified",
-  "certificate_id": "c016959565e60f7a9b491b31a755df7383579a35e2b629c2362a13f42ebdd7e4",
+  "certificate_id": "8c3722de889b88a546703cf05642d4c55f50b9e3219021c4dfc13f8c4e0c4fea",
   "established": [
-   "The complete two-stage design (stages 29 and 9, continuing above 1 responses and rejecting above 4 in total) rejects with probability at most 1/20 for every response rate at or below 1/20.",
-   "It rejects with probability at least 9/10 at the response rate 1/5."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/20 and >= 9/10 at the response rate 1/5.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.10 p1=0.25 2/21, 7/50": {
   "status": "verified",
-  "certificate_id": "b2ee9698cac72c8be006543cc6be379c884c38ca14423d17253512feafb7cb96",
+  "certificate_id": "2e3cb06ad7b3f91575f97ed8a66da5b78d44ef961719af036111cf90a46df770",
   "established": [
-   "The complete two-stage design (stages 21 and 29, continuing above 2 responses and rejecting above 7 in total) rejects with probability at most 1/10 for every response rate at or below 1/10.",
-   "It rejects with probability at least 9/10 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/10 and >= 9/10 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.10 p1=0.25 2/27, 6/40": {
   "status": "verified",
-  "certificate_id": "72b7e3241ef2a014c0694b9f10bf0b6383d1a55ca3977bc6d1d7a9fbf720261d",
+  "certificate_id": "71bead8423d36e98a2d3be8b5f527dfd7e3c26a80de7a89445e1f312bc58fd78",
   "established": [
-   "The complete two-stage design (stages 27 and 13, continuing above 2 responses and rejecting above 6 in total) rejects with probability at most 1/10 for every response rate at or below 1/10.",
-   "It rejects with probability at least 9/10 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/10 and >= 9/10 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.10 p1=0.25 2/18, 7/43": {
   "status": "verified",
-  "certificate_id": "a6bab266b802253ea5813dd0ee6e251c6b402c6d890b74b0825d71cb83b9eefc",
+  "certificate_id": "54cec06159c3e5ed8329ef328c61e2be5a4d2d8659d65eb7defcefa9547e2b35",
   "established": [
-   "The complete two-stage design (stages 18 and 25, continuing above 2 responses and rejecting above 7 in total) rejects with probability at most 1/20 for every response rate at or below 1/10.",
-   "It rejects with probability at least 4/5 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/10 and >= 4/5 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.10 p1=0.25 2/22, 7/40": {
   "status": "verified",
-  "certificate_id": "7dc4550da17d7b9f0d87b74ec656e4392c9f8a44ec43c0648c1501a6c5ec517a",
+  "certificate_id": "262656bd04766a5dd5c6ef77221b2d87cbb1b8ebdaf94bdab612a37cfdb50e90",
   "established": [
-   "The complete two-stage design (stages 22 and 18, continuing above 2 responses and rejecting above 7 in total) rejects with probability at most 1/20 for every response rate at or below 1/10.",
-   "It rejects with probability at least 4/5 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/10 and >= 4/5 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.10 p1=0.25 2/21, 10/66": {
   "status": "verified",
-  "certificate_id": "912f230506bbf64a728496794fd1c1f5856d683b9f13fae2f1b67500ed993b22",
+  "certificate_id": "bfb78067fa885ac171bdf8133cd84703c4db8af8810e0b3c62474de516cfa97e",
   "established": [
-   "The complete two-stage design (stages 21 and 45, continuing above 2 responses and rejecting above 10 in total) rejects with probability at most 1/20 for every response rate at or below 1/10.",
-   "It rejects with probability at least 9/10 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/10 and >= 9/10 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.10 p1=0.25 3/31, 9/55": {
   "status": "verified",
-  "certificate_id": "12ce1f2950980430105a830ab5921cfda3e04ecc9bef35bc41aaf230ea2f0b60",
+  "certificate_id": "f72741305a7f6d95909da17a9f74c18e26a9ebc1fb35898418534cf32e453257",
   "established": [
-   "The complete two-stage design (stages 31 and 24, continuing above 3 responses and rejecting above 9 in total) rejects with probability at most 1/20 for every response rate at or below 1/10.",
-   "It rejects with probability at least 9/10 at the response rate 1/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/10 and >= 9/10 at the response rate 1/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.20 p1=0.35 5/27, 16/63": {
   "status": "verified",
-  "certificate_id": "2285cd270219cec4d83f417316ad34d9fd84ceb2bf514efa329cacb1978f7547",
+  "certificate_id": "7e94ef5789b9a6e6a090845774eb0ab5a8d46efcdc945630fb146eeedda39cac",
   "established": [
-   "The complete two-stage design (stages 27 and 36, continuing above 5 responses and rejecting above 16 in total) rejects with probability at most 1/10 for every response rate at or below 1/5.",
-   "It rejects with probability at least 9/10 at the response rate 7/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/5 and >= 9/10 at the response rate 7/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.20 p1=0.35 6/33, 15/58": {
   "status": "verified",
-  "certificate_id": "f49bb59eeae5d2c41f56bd16813a50d6ceee07ad24f049309f273f06d2cb1192",
+  "certificate_id": "ba3281fb3a911fdb6b37f294c3d5638e0fece534bb8db9d9ceffae4f82aaa25a",
   "established": [
-   "The complete two-stage design (stages 33 and 25, continuing above 6 responses and rejecting above 15 in total) rejects with probability at most 1/10 for every response rate at or below 1/5.",
-   "It rejects with probability at least 9/10 at the response rate 7/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/5 and >= 9/10 at the response rate 7/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.20 p1=0.35 5/22, 19/72": {
   "status": "verified",
-  "certificate_id": "64194b025d82fba3d830b0e07cfd3c687eaf453711d145d0606e151a0bdcb926",
+  "certificate_id": "68b9a11f6715bb735f543df0f463ffdd91a9cf6de5c992972a2778ecb9e0f103",
   "established": [
-   "The complete two-stage design (stages 22 and 50, continuing above 5 responses and rejecting above 19 in total) rejects with probability at most 1/20 for every response rate at or below 1/5.",
-   "It rejects with probability at least 4/5 at the response rate 7/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/5 and >= 4/5 at the response rate 7/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.20 p1=0.35 6/31, 15/53": {
   "status": "verified",
-  "certificate_id": "d59b4affbbd7f19e2a9a598b2bbff1a1bf3505cd59946df1aabb96f12e25a998",
+  "certificate_id": "95a30b94591c4e2f9b5a5ad6e1cb41cf92d43747cfeea89340d476f9a3e978a3",
   "established": [
-   "The complete two-stage design (stages 31 and 22, continuing above 6 responses and rejecting above 15 in total) rejects with probability at most 1/20 for every response rate at or below 1/5.",
-   "It rejects with probability at least 4/5 at the response rate 7/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/5 and >= 4/5 at the response rate 7/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.20 p1=0.35 8/37, 22/83": {
   "status": "verified",
-  "certificate_id": "c177ae43ec1a11a9f2a7b2e1a123d1d4bafcd52ca569ffd01a9915f0f9096ed5",
+  "certificate_id": "b796659c7dfb1de3958df995b1b6fa80a27ae492e63f56432a565d1ad88ae9b8",
   "established": [
-   "The complete two-stage design (stages 37 and 46, continuing above 8 responses and rejecting above 22 in total) rejects with probability at most 1/20 for every response rate at or below 1/5.",
-   "It rejects with probability at least 9/10 at the response rate 7/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/5 and >= 9/10 at the response rate 7/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.20 p1=0.35 8/42, 21/77": {
   "status": "verified",
-  "certificate_id": "c612853d125dd91f3d8c71e08634419f28a89e33f43621a60494473b69c8325a",
+  "certificate_id": "f6daebc77cb064d862fe529a0d2f1853a333d02ba4de3e5ade7e4cc9781e1fa3",
   "established": [
-   "The complete two-stage design (stages 42 and 35, continuing above 8 responses and rejecting above 21 in total) rejects with probability at most 1/20 for every response rate at or below 1/5.",
-   "It rejects with probability at least 9/10 at the response rate 7/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/5 and >= 9/10 at the response rate 7/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.30 p1=0.45 9/30, 29/82": {
   "status": "verified",
-  "certificate_id": "d231ebf919cfb2bf2f415602ac49beda8a73a152b1f5067bc5d64f18135f9ed8",
+  "certificate_id": "b749295a328dfebdf474fad34dc6c5e3d96c6620169c48a077b164a679cb03a9",
   "established": [
-   "The complete two-stage design (stages 30 and 52, continuing above 9 responses and rejecting above 29 in total) rejects with probability at most 1/10 for every response rate at or below 3/10.",
-   "It rejects with probability at least 9/10 at the response rate 9/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 3/10 and >= 9/10 at the response rate 9/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.30 p1=0.45 16/50, 25/69": {
   "status": "verified",
-  "certificate_id": "b80de5e2c3d6c79cb33a6720768fee2c69b5810e49bf8d30bf7fd31f2f44b776",
+  "certificate_id": "cbdaf376e0058d4c9ae40fb0630704225b2b64fd4b0860d1d3af7eaf985b7922",
   "established": [
-   "The complete two-stage design (stages 50 and 19, continuing above 16 responses and rejecting above 25 in total) rejects with probability at most 1/10 for every response rate at or below 3/10.",
-   "It rejects with probability at least 9/10 at the response rate 9/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 3/10 and >= 9/10 at the response rate 9/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.30 p1=0.45 9/27, 30/81": {
   "status": "verified",
-  "certificate_id": "e6b19cb6c60f659bceb17a2778a32d76dac4ae380f931a0357748bb51c63f8a2",
+  "certificate_id": "433d3e5d8883b9e15d2b71aeea7f29658e27fb72e5adb381d9560b22c0cbc8a3",
   "established": [
-   "The complete two-stage design (stages 27 and 54, continuing above 9 responses and rejecting above 30 in total) rejects with probability at most 1/20 for every response rate at or below 3/10.",
-   "It rejects with probability at least 4/5 at the response rate 9/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/10 and >= 4/5 at the response rate 9/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.30 p1=0.45 16/46, 25/65": {
   "status": "verified",
-  "certificate_id": "4afe9fe5fa996f283ee375c30587e0d97ea330f0e685df08a9191b5b83a9cd51",
+  "certificate_id": "fe6cfbcf091d5ea84c8f257f33067af7134a820018bfd32e42e52d003b884bcd",
   "established": [
-   "The complete two-stage design (stages 46 and 19, continuing above 16 responses and rejecting above 25 in total) rejects with probability at most 1/20 for every response rate at or below 3/10.",
-   "It rejects with probability at least 4/5 at the response rate 9/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/10 and >= 4/5 at the response rate 9/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.30 p1=0.45 13/40, 40/110": {
   "status": "verified",
-  "certificate_id": "4d9c53bf8a50d3e072c2f2254002de1afb9f9625dedddae782df5094e4855b89",
+  "certificate_id": "a9d12bdaecc6a968a1812856a6955f132af7dee275db7d4ef9066a89df53ed91",
   "established": [
-   "The complete two-stage design (stages 40 and 70, continuing above 13 responses and rejecting above 40 in total) rejects with probability at most 1/20 for every response rate at or below 3/10.",
-   "It rejects with probability at least 9/10 at the response rate 9/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/10 and >= 9/10 at the response rate 9/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.30 p1=0.45 27/77, 33/88": {
   "status": "verified",
-  "certificate_id": "cfb86af163b1d954ddea66db8e8ef895af909a404a8ddd117842ef0638a7ca54",
+  "certificate_id": "adb0b3c0e9520aa74e3486fe01c1235292c51691d7b8af966ee92939aca132c8",
   "established": [
-   "The complete two-stage design (stages 77 and 11, continuing above 27 responses and rejecting above 33 in total) rejects with probability at most 1/20 for every response rate at or below 3/10.",
-   "It rejects with probability at least 9/10 at the response rate 9/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/10 and >= 9/10 at the response rate 9/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.40 p1=0.55 16/38, 40/88": {
   "status": "verified",
-  "certificate_id": "6ad3f31a6ed2492813082579158cb0a2a30213054e0a901dee555db7172dc2d4",
+  "certificate_id": "2283691657ad71d0f5728afc3dda85f17f7a487b64f8125b2652633423533ee4",
   "established": [
-   "The complete two-stage design (stages 38 and 50, continuing above 16 responses and rejecting above 40 in total) rejects with probability at most 1/10 for every response rate at or below 2/5.",
-   "It rejects with probability at least 9/10 at the response rate 11/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 2/5 and >= 9/10 at the response rate 11/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.40 p1=0.55 18/45, 34/73": {
   "status": "verified",
-  "certificate_id": "e4c78b84e85ccb179ce8f0b7d21a4dee2abc6eb281db0268405eaed7b5c8eb06",
+  "certificate_id": "9266e0389b6eee5b9dc19d23cf5a135edaa3a2a1494056888ee91f5ddcfad259",
   "established": [
-   "The complete two-stage design (stages 45 and 28, continuing above 18 responses and rejecting above 34 in total) rejects with probability at most 1/10 for every response rate at or below 2/5.",
-   "It rejects with probability at least 9/10 at the response rate 11/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 2/5 and >= 9/10 at the response rate 11/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.40 p1=0.55 11/26, 40/84": {
   "status": "verified",
-  "certificate_id": "a713c29ebf81d7f36de9a7241644edd583ef1d11499743977969651259e87f60",
+  "certificate_id": "6d4ac973f55d63e2ad5c2738dcbaaafe3b528ee6011c2d41f4c3dc60f6525a89",
   "established": [
-   "The complete two-stage design (stages 26 and 58, continuing above 11 responses and rejecting above 40 in total) rejects with probability at most 1/20 for every response rate at or below 2/5.",
-   "It rejects with probability at least 4/5 at the response rate 11/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 2/5 and >= 4/5 at the response rate 11/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.40 p1=0.55 28/59, 34/70": {
   "status": "verified",
-  "certificate_id": "27cb516edf2bbb5123b856dc4d9b41b3db4cc2f0121ceb40ebdf7641a3f947c7",
+  "certificate_id": "4e4789716a3d240ef4f53050cf42e6cad11130745b3db8ebc6e8472ef2df0d0e",
   "established": [
-   "The complete two-stage design (stages 59 and 11, continuing above 28 responses and rejecting above 34 in total) rejects with probability at most 1/20 for every response rate at or below 2/5.",
-   "It rejects with probability at least 4/5 at the response rate 11/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 2/5 and >= 4/5 at the response rate 11/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.40 p1=0.55 19/45, 49/104": {
   "status": "verified",
-  "certificate_id": "2ed8a9b5b2f5955b1a3023c3bde516dcb9749acd6adbd4e604abc4aa806e7169",
+  "certificate_id": "e50e4459f8345874e72cfc1152e558766793356a3fa02742f732e0cdd443db22",
   "established": [
-   "The complete two-stage design (stages 45 and 59, continuing above 19 responses and rejecting above 49 in total) rejects with probability at most 1/20 for every response rate at or below 2/5.",
-   "It rejects with probability at least 9/10 at the response rate 11/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 2/5 and >= 9/10 at the response rate 11/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.40 p1=0.55 24/62, 45/94": {
   "status": "verified",
-  "certificate_id": "a3c27c79b3455507f01301a1b486b143a643bef7ca1745b3713592d6ba66e5e9",
+  "certificate_id": "9a547c4452e89cf8297f0d687315e6fc36928daa9ac8a8114fd320096f2b05c9",
   "established": [
-   "The complete two-stage design (stages 62 and 32, continuing above 24 responses and rejecting above 45 in total) rejects with probability at most 1/20 for every response rate at or below 2/5.",
-   "It rejects with probability at least 9/10 at the response rate 11/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 2/5 and >= 9/10 at the response rate 11/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.50 p1=0.65 18/35, 47/84": {
   "status": "verified",
-  "certificate_id": "289edbd124c9baf40e15db1de10334dce5c0c2a762132412a8edd73f70f4dfda",
+  "certificate_id": "5f8e734b779486d41d9f01a643304d586b9b7cd31ff50d9ff828cbd926472ad2",
   "established": [
-   "The complete two-stage design (stages 35 and 49, continuing above 18 responses and rejecting above 47 in total) rejects with probability at most 1/10 for every response rate at or below 1/2.",
-   "It rejects with probability at least 9/10 at the response rate 13/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/2 and >= 9/10 at the response rate 13/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.50 p1=0.65 19/40, 41/72": {
   "status": "verified",
-  "certificate_id": "c5b9846e55f1f126155b9fda90526990f6aae7fd112bab7636834b0908230f10",
+  "certificate_id": "82335d1688f79d81220a3003c35498fd65c193b1c5c531adf8fd32a4d8158195",
   "established": [
-   "The complete two-stage design (stages 40 and 32, continuing above 19 responses and rejecting above 41 in total) rejects with probability at most 1/10 for every response rate at or below 1/2.",
-   "It rejects with probability at least 9/10 at the response rate 13/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 1/2 and >= 9/10 at the response rate 13/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.50 p1=0.65 15/28, 48/83": {
   "status": "verified",
-  "certificate_id": "eb02788c4a49b143771b1482aba1a242a1353d66f51bdc52110581ffd0c14880",
+  "certificate_id": "2e9e6cdf71b757b9eb0bb3586d6915d5b9be62d5dacbd70fdb416aad48636b46",
   "established": [
-   "The complete two-stage design (stages 28 and 55, continuing above 15 responses and rejecting above 48 in total) rejects with probability at most 1/20 for every response rate at or below 1/2.",
-   "It rejects with probability at least 4/5 at the response rate 13/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/2 and >= 4/5 at the response rate 13/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.50 p1=0.65 39/66, 40/68": {
   "status": "verified",
-  "certificate_id": "8c2f3328b157cca988627b9b96677a7edfc14a8aff53334eb88076667a96a883",
+  "certificate_id": "aa68bfaba0d5d278842543cad1f91d463ddd9a03caaade9a509f14008cc8c62b",
   "established": [
-   "The complete two-stage design (stages 66 and 2, continuing above 39 responses and rejecting above 40 in total) rejects with probability at most 1/20 for every response rate at or below 1/2.",
-   "It rejects with probability at least 4/5 at the response rate 13/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/2 and >= 4/5 at the response rate 13/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.50 p1=0.65 22/42, 60/105": {
   "status": "verified",
-  "certificate_id": "6f4cf2116749f8efba2f4c5fa3b8766d1814edc2130e624654e4426f797de92c",
+  "certificate_id": "d84502a4535799345f7b5bb9ff9cf4004bad790346061941055fb55d01badeff",
   "established": [
-   "The complete two-stage design (stages 42 and 63, continuing above 22 responses and rejecting above 60 in total) rejects with probability at most 1/20 for every response rate at or below 1/2.",
-   "It rejects with probability at least 9/10 at the response rate 13/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/2 and >= 9/10 at the response rate 13/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.50 p1=0.65 28/57, 54/93": {
   "status": "verified",
-  "certificate_id": "1cfe45bb7b6144ce718f21c528dad261cc8c01c1c0f301f12fa5666447e0428d",
+  "certificate_id": "55b00a1ba205da17dc085f452811c1a23cd6bcab3c39d68b9af1a76adadabbb6",
   "established": [
-   "The complete two-stage design (stages 57 and 36, continuing above 28 responses and rejecting above 54 in total) rejects with probability at most 1/20 for every response rate at or below 1/2.",
-   "It rejects with probability at least 9/10 at the response rate 13/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 1/2 and >= 9/10 at the response rate 13/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.60 p1=0.75 21/34, 47/71": {
   "status": "verified",
-  "certificate_id": "a123a025a210d41ebfa3546f4f501f9b98215bbbba7c4db80038e5b1e05d6456",
+  "certificate_id": "7e25bd57d9e466a4d50a18dd24e6e1665ced449f5449a2c69837b887bee2567c",
   "established": [
-   "The complete two-stage design (stages 34 and 37, continuing above 21 responses and rejecting above 47 in total) rejects with probability at most 1/10 for every response rate at or below 3/5.",
-   "It rejects with probability at least 9/10 at the response rate 3/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 3/5 and >= 9/10 at the response rate 3/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.60 p1=0.75 25/43, 43/64": {
   "status": "verified",
-  "certificate_id": "35b090b32b8c68f86a538ee1e8580f587d25430978ab89577ae288a4ae3018f2",
+  "certificate_id": "68711d8baed8595fd7b6438667ede5d27e1956b9a5d2e37deb742f9952e18bb5",
   "established": [
-   "The complete two-stage design (stages 43 and 21, continuing above 25 responses and rejecting above 43 in total) rejects with probability at most 1/10 for every response rate at or below 3/5.",
-   "It rejects with probability at least 9/10 at the response rate 3/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 3/5 and >= 9/10 at the response rate 3/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.60 p1=0.75 17/27, 46/67": {
   "status": "verified",
-  "certificate_id": "e686ecbef40207d77d04525a753dfba88cfc2779ed4bb887a46ce5e75a4a8be7",
+  "certificate_id": "b95a9a9417b391f9256b6fb73c60be369c36cb83bbf9c463a8b49fd62fd6116f",
   "established": [
-   "The complete two-stage design (stages 27 and 40, continuing above 17 responses and rejecting above 46 in total) rejects with probability at most 1/20 for every response rate at or below 3/5.",
-   "It rejects with probability at least 4/5 at the response rate 3/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/5 and >= 4/5 at the response rate 3/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.60 p1=0.75 18/30, 43/62": {
   "status": "verified",
-  "certificate_id": "930ab42996465ae8867e8cfbd2dbea4784e9b7e19ef0a43a97bee604740f6658",
+  "certificate_id": "83ed2d4853773da4833129e4163b6c94d08258bed4c8e7bdc81f107c4efc6b4b",
   "established": [
-   "The complete two-stage design (stages 30 and 32, continuing above 18 responses and rejecting above 43 in total) rejects with probability at most 1/20 for every response rate at or below 3/5.",
-   "It rejects with probability at least 4/5 at the response rate 3/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/5 and >= 4/5 at the response rate 3/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.60 p1=0.75 21/34, 64/95": {
   "status": "verified",
-  "certificate_id": "cb8d60ef5bbc714258a70bbd177160358d585a467144b3f71cf54602040bb94b",
+  "certificate_id": "2d854a8aa0d47c5b8d6c93c24bf0a966f0ae0da0752016780bc0e4713f10a10e",
   "established": [
-   "The complete two-stage design (stages 34 and 61, continuing above 21 responses and rejecting above 64 in total) rejects with probability at most 1/20 for every response rate at or below 3/5.",
-   "It rejects with probability at least 9/10 at the response rate 3/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/5 and >= 9/10 at the response rate 3/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.60 p1=0.75 48/72, 57/84": {
   "status": "verified",
-  "certificate_id": "eab5c554ec0912d47342f7592a8214bc2ad97e405ec8012dc91e4e95fae58582",
+  "certificate_id": "edc0053be63a307374dc3b2b00d0ec094a3960ee5dffc690f1ce0003ebdd15c1",
   "established": [
-   "The complete two-stage design (stages 72 and 12, continuing above 48 responses and rejecting above 57 in total) rejects with probability at most 1/20 for every response rate at or below 3/5.",
-   "It rejects with probability at least 9/10 at the response rate 3/4."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 3/5 and >= 9/10 at the response rate 3/4.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.70 p1=0.85 14/20, 45/59": {
   "status": "verified",
-  "certificate_id": "8d47926b72030f7296d8c9dd64a393ba0f0b44bd9266cd649506438803dc05cc",
+  "certificate_id": "c30e75a838ca6b563df121c4da5f88f44614dc01dca0c2416f54c74d4e563f02",
   "established": [
-   "The complete two-stage design (stages 20 and 39, continuing above 14 responses and rejecting above 45 in total) rejects with probability at most 1/10 for every response rate at or below 7/10.",
-   "It rejects with probability at least 9/10 at the response rate 17/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 7/10 and >= 9/10 at the response rate 17/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.70 p1=0.85 15/22, 40/52": {
   "status": "verified",
-  "certificate_id": "27d2fdf75336da181798c19fd5a3d6a376240334ddc697dcb3255541a19b4d62",
+  "certificate_id": "bbb71da83dfbaff1275711367145eff423b8ca784a494320739004260dce1194",
   "established": [
-   "The complete two-stage design (stages 22 and 30, continuing above 15 responses and rejecting above 40 in total) rejects with probability at most 1/10 for every response rate at or below 7/10.",
-   "It rejects with probability at least 9/10 at the response rate 17/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 7/10 and >= 9/10 at the response rate 17/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.70 p1=0.85 14/19, 46/59": {
   "status": "verified",
-  "certificate_id": "d0a9718e46375356d68c116e48524a95e19520db7c34936b2aa4fe40095c1d6e",
+  "certificate_id": "1d2b48e5371c7ed98ef524b83a25a482ea7bbce493fa760aa31cd531d6e1d87c",
   "established": [
-   "The complete two-stage design (stages 19 and 40, continuing above 14 responses and rejecting above 46 in total) rejects with probability at most 1/20 for every response rate at or below 7/10.",
-   "It rejects with probability at least 4/5 at the response rate 17/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 7/10 and >= 4/5 at the response rate 17/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.70 p1=0.85 16/23, 39/49": {
   "status": "verified",
-  "certificate_id": "29b5c7928f6a8dbad1a2070f29c3040f988e34c7f681c1bb12192cbd6712872e",
+  "certificate_id": "74a4316c45f7c480e6d42ae73681af8707bd07c6b137ba8d97048888d792aced",
   "established": [
-   "The complete two-stage design (stages 23 and 26, continuing above 16 responses and rejecting above 39 in total) rejects with probability at most 1/20 for every response rate at or below 7/10.",
-   "It rejects with probability at least 4/5 at the response rate 17/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 7/10 and >= 4/5 at the response rate 17/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.70 p1=0.85 18/25, 61/79": {
   "status": "verified",
-  "certificate_id": "f5fa485885ff00b2c9daea230c4884bebd41cfdb9665272808cdf7db386f3beb",
+  "certificate_id": "8972d5bcaeef8c35190b852ca6eb26ddd59057ccddb5b162e8fb4538a2940377",
   "established": [
-   "The complete two-stage design (stages 25 and 54, continuing above 18 responses and rejecting above 61 in total) rejects with probability at most 1/20 for every response rate at or below 7/10.",
-   "It rejects with probability at least 9/10 at the response rate 17/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 7/10 and >= 9/10 at the response rate 17/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.70 p1=0.85 33/44, 53/68": {
   "status": "verified",
-  "certificate_id": "a7cb8cb2ba2e8092b586d1bad2eb5e843cf05e174097c291b66adcd9159b640c",
+  "certificate_id": "c6d36adc15301fcf3a47e51fb0f10feb50499cd5f14e2c5562eed6f252877078",
   "established": [
-   "The complete two-stage design (stages 44 and 24, continuing above 33 responses and rejecting above 53 in total) rejects with probability at most 1/20 for every response rate at or below 7/10.",
-   "It rejects with probability at least 9/10 at the response rate 17/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 7/10 and >= 9/10 at the response rate 17/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.80 p1=0.95 5/7, 27/31": {
   "status": "verified",
-  "certificate_id": "c49d8b589c0f472ed9bc00a58a82d0ea5214130b35a33721ebd6691175632391",
+  "certificate_id": "a5fb79ddf2bbde82619a27434551bb56dc2124f8fd077f416143b8e7c3d0cb67",
   "established": [
-   "The complete two-stage design (stages 7 and 24, continuing above 5 responses and rejecting above 27 in total) rejects with probability at most 1/10 for every response rate at or below 4/5.",
-   "It rejects with probability at least 9/10 at the response rate 19/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 4/5 and >= 9/10 at the response rate 19/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.80 p1=0.95 5/7, 27/31": {
   "status": "verified",
-  "certificate_id": "e764996dca4ce703b08300619ccc1a35026e847eb28538fc73a9bef74980c0de",
+  "certificate_id": "b3d0eb266086019650eda43a369ed5f1f0d29e1b15d10839b9913a22595a091b",
   "established": [
-   "The complete two-stage design (stages 7 and 24, continuing above 5 responses and rejecting above 27 in total) rejects with probability at most 1/10 for every response rate at or below 4/5.",
-   "It rejects with probability at least 9/10 at the response rate 19/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/10 for every response rate at or below 4/5 and >= 9/10 at the response rate 19/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.80 p1=0.95 7/9, 26/29": {
   "status": "verified",
-  "certificate_id": "a0257cf430a7aa29c7ecb7082bbad43499a4856ad64b2a42f599da16e16c0a3f",
+  "certificate_id": "988245f114a88c11543266697d62b2516c172c994d7186fd4b86c470f90f8dec",
   "established": [
-   "The complete two-stage design (stages 9 and 20, continuing above 7 responses and rejecting above 26 in total) rejects with probability at most 1/20 for every response rate at or below 4/5.",
-   "It rejects with probability at least 4/5 at the response rate 19/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 4/5 and >= 4/5 at the response rate 19/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.80 p1=0.95 7/9, 26/29": {
   "status": "verified",
-  "certificate_id": "d93678261bcd3119ef83ca4fe0d24c3ff480798ca70b411f02cc67f7690439dd",
+  "certificate_id": "33d35b195fa6208ac2f56a97256e46efe79d37078724c81a12488cb1d8801318",
   "established": [
-   "The complete two-stage design (stages 9 and 20, continuing above 7 responses and rejecting above 26 in total) rejects with probability at most 1/20 for every response rate at or below 4/5.",
-   "It rejects with probability at least 4/5 at the response rate 19/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 4/5 and >= 4/5 at the response rate 19/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "optimal p0=0.80 p1=0.95 16/19, 37/42": {
   "status": "verified",
-  "certificate_id": "07356dd1684b81fbe80f531f22318b3decfe5c78731078c8a4e007a31766af16",
+  "certificate_id": "3c59530dfffeee80bd23bf048e7ff71c5a6c3161e2bb4203126134aac20f7a59",
   "established": [
-   "The complete two-stage design (stages 19 and 23, continuing above 16 responses and rejecting above 37 in total) rejects with probability at most 1/20 for every response rate at or below 4/5.",
-   "It rejects with probability at least 9/10 at the response rate 19/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 4/5 and >= 9/10 at the response rate 19/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  },
  "minimax p0=0.80 p1=0.95 31/35, 35/40": {
   "status": "verified",
-  "certificate_id": "edb8597b01a7efb16a6db12dfeb655f4491627371f3cc04716ae78d3d701a976",
+  "certificate_id": "718296f3185609bc05bb3c41aed0f41b0b6f9a825dede08cb793c7b46278f9b4",
   "established": [
-   "The complete two-stage design (stages 35 and 5, continuing above 31 responses and rejecting above 35 in total) rejects with probability at most 1/20 for every response rate at or below 4/5.",
-   "It rejects with probability at least 9/10 at the response rate 19/20."
+   "Proved in Lean: Complete two-stage policy: rejection probability <= 1/20 for every response rate at or below 4/5 and >= 9/10 at the response rate 19/20.",
+   "Also proved in Lean: the stage sizes; the power at the planning point.",
+   "The program's declarations meet 3 contract facts, each decided by Lean."
   ],
   "diagnostics": []
  }

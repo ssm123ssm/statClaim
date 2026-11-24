@@ -22,8 +22,6 @@ from statclaim.planning import MAX_ONE_ARM, BinomialInterval, _audit
 from statclaim.randomisation import PRESPECIFIED
 
 MATCHED_KIND = "statclaim_matched_certificate"
-MATCHED_RESULT_KIND = "statclaim_matched_result_certificate"
-MATCHED_INTERVAL_KIND = "statclaim_matched_interval_certificate"
 TEST_ID = "mcnemar_exact"
 TEST_VERSION = "0.1.0"
 NULL_STATEMENT = "conditional_odds_ratio = 1"

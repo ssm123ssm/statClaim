@@ -16,12 +16,11 @@ from dataclasses import dataclass
 from fractions import Fraction
 from math import comb, prod
 
-from statclaim.fisher import parse_alpha, validate_alpha
+from statclaim.fisher import validate_alpha
 from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.planning import _audit
 
-RANDOMISATION_KIND = "statclaim_randomisation_certificate"
 TEST_ID = "randomisation"
 TEST_VERSION = "0.1.0"
 NULL_ID = "no_effect"
@@ -246,64 +245,6 @@ def splits_needed(alpha: Fraction) -> int:
     return -(-alpha.denominator // alpha.numerator) if alpha > 0 else 0
 
 
-def randomisation_payload(test: RandomisationTest) -> dict:
-    payload = {
-        "schema_version": 1,
-        "scope": "randomisation_test",
-        "design": {
-            "module": test.module,
-            "unit": test.unit,
-            "units": test.units,
-            "treated_units": test.treated,
-            "n_control": test.n_control,
-            "n_treatment": test.n_treatment,
-            "randomisation": "complete",
-            "stopping": "fixed",
-        },
-        "analysis": {
-            "test": TEST_ID,
-            "test_version": TEST_VERSION,
-            "null": NULL_ID,
-            "alpha": str(test.alpha),
-            # A string: the count can have more digits than a JSON reader keeps.
-            "splits": str(test.splits),
-        },
-    }
-    if test.draws is not None:
-        payload["analysis"]["draws"] = test.draws
-    if test.population is not None:
-        payload["design"]["population"] = test.population
-    if test.grouped:
-        design = payload["design"]
-        design["randomisation"] = test.scheme
-        if test.strata:
-            design["strata"] = [list(stratum) for stratum in test.strata]
-        if test.block_size is not None:
-            design["block_size"] = test.block_size
-    return payload
-
-
-def parse_randomisation_payload(payload: dict) -> RandomisationTest:
-    design, analysis = payload["design"], payload["analysis"]
-    test = RandomisationTest(
-        design["units"],
-        design["treated_units"],
-        parse_alpha(analysis["alpha"]),
-        design["unit"],
-        design["module"],
-        design["n_control"],
-        design["n_treatment"],
-        design["randomisation"],
-        tuple(tuple(stratum) for stratum in design.get("strata", ())),
-        design.get("block_size"),
-        analysis.get("draws"),
-        design.get("population"),
-    )
-    if payload != randomisation_payload(test):
-        raise ValueError("Bound randomisation-test inputs are inconsistent.")
-    return test
-
-
 def randomisation_assumptions(test: RandomisationTest) -> tuple[str, ...]:
     """How units were randomised, the prespecified analysis, who is analysed and how the
     p-value counts, and the null. They depend only on the scheme, draws and population."""
@@ -314,63 +255,10 @@ def randomisation_assumptions(test: RandomisationTest) -> tuple[str, ...]:
     return (randomised, PRESPECIFIED, AS_DRAWN if test.draws else AS_RANDOMISED, SHARP_NULL)
 
 
-def randomisation_theorems(test: RandomisationTest) -> list[str]:
-    return GROUPED_THEOREMS if test.grouped else THEOREMS
-
-
 def general_theorem(test: RandomisationTest) -> str:
     if test.draws:
         return DRAWN_GENERAL_THEOREM
     return GROUPED_GENERAL_THEOREM if test.grouped else GENERAL_THEOREM
-
-
-def _drawn_claims(test: RandomisationTest, law: str) -> list[str]:
-    plural, plus = test.unit_words, test.draws + 1
-    return [
-        law,
-        f"No Monte Carlo p-value is below 1/{plus}, which does not exceed the level "
-        f"{test.alpha}, so the test can reject.",
-        f"For every test statistic fixed in advance, the Monte Carlo p-value, the share of the "
-        f"observed assignment and {test.draws} assignments drawn independently and uniformly, "
-        "with replacement, whose statistic is at least the observed one, is at most "
-        f"{test.alpha} with probability at most {test.alpha} whenever {NULL_STATEMENT}.",
-        f"The bound holds for any number of draws, whatever the outcomes are and however the "
-        f"{plural} affect one another; no distribution is assumed.",
-    ]
-
-
-def randomisation_claims(test: RandomisationTest) -> list[str]:
-    plural = test.unit_words
-    if test.draws:
-        kind = "assignments" if test.grouped else "splits"
-        return _drawn_claims(
-            test,
-            f"Under {test.scheme} randomisation of {test.describe()}, the {test.splits} "
-            f"possible {kind} are equally likely, and that uniform law is a probability law.",
-        )
-    if test.grouped:
-        return [
-            f"Under {test.scheme} randomisation of {test.describe()}, the {test.splits} possible "
-            "assignments are equally likely, and that uniform law is a probability law.",
-            f"No p-value is below 1/{test.splits}, which does not exceed the level "
-            f"{test.alpha}, so the test can reject.",
-            "For every test statistic fixed in advance, the randomisation p-value, the share of "
-            "possible assignments whose statistic is at least the observed one, is at most "
-            f"{test.alpha} with probability at most {test.alpha} whenever {NULL_STATEMENT}.",
-            f"The bound holds whatever the outcomes are and however the {plural} affect one "
-            "another; no distribution is assumed.",
-        ]
-    return [
-        f"Under complete randomisation of {test.describe()}, the {test.splits} possible splits "
-        "are equally likely, and that uniform law is a probability law.",
-        f"No p-value is below 1/{test.splits}, which does not exceed the level {test.alpha}, "
-        "so the test can reject.",
-        f"For every test statistic fixed in advance, the randomisation p-value, the share of "
-        "splits whose statistic is at least the observed one, is at most "
-        f"{test.alpha} with probability at most {test.alpha} whenever {NULL_STATEMENT}.",
-        f"The bound holds whatever the outcomes are and however the {plural} affect one "
-        "another; no distribution is assumed.",
-    ]
 
 
 def render_randomisation_proof(test: RandomisationTest, input_sha256: str) -> str:

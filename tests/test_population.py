@@ -27,9 +27,7 @@ from statclaim.methods.identify import identify
 from statclaim.randomisation import (
     POPULATION,
     RandomisationTest,
-    parse_randomisation_payload,
     randomisation_assumptions,
-    randomisation_payload,
     render_randomisation_proof,
 )
 
@@ -167,17 +165,12 @@ def test_a_forged_per_protocol_derivation_fails_the_check():
     assert check_derivation(dropped)
 
 
-def test_the_certificate_binds_the_population():
+def test_a_randomisation_test_covers_every_randomised_unit():
     test = RandomisationTest(
         12, 6, Fraction(1, 20), "cluster", "two_arm_continuous", 120, 120, population="randomised"
     )
-    payload = randomisation_payload(test)
-    assert payload["design"]["population"] == "randomised"
-    assert parse_randomisation_payload(payload) == test
     assert POPULATION in randomisation_assumptions(test)
     assert "theorem checked_typeI" in render_randomisation_proof(test, "0" * 64)
-    plain = RandomisationTest(12, 6, Fraction(1, 20), "cluster", "two_arm_continuous", 120, 120)
-    assert "population" not in randomisation_payload(plain)["design"]
     with pytest.raises(ValueError, match="every randomised unit"):
         RandomisationTest(
             12,
@@ -189,10 +182,6 @@ def test_the_certificate_binds_the_population():
             120,
             population="per_protocol",
         )
-    altered = copy.deepcopy(payload)
-    altered["design"]["population"] = "per_protocol"
-    with pytest.raises(ValueError):
-        parse_randomisation_payload(altered)
 
 
 @pytest.mark.parametrize(

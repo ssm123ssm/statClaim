@@ -1,4 +1,4 @@
-.PHONY: setup check python-check lean-check integration-check reference-check demo verify-demo objects-demo design-demo design-objects-demo alpha-demo family-demo composition-demo language-demo language-family-demo language-result-demo editor-check
+.PHONY: setup check python-check lean-check integration-check reference-check objects-demo design-objects-demo composition-demo language-demo language-family-demo language-result-demo editor-check
 
 setup:
 	uv sync --locked
@@ -102,20 +102,10 @@ tutorial-check:
 reference-check:
 	uv run --locked python scripts/compare_with_r.py
 
-demo:
-	uv run --locked statclaim test examples/fixed_sample.toml --control-successes 10 --treatment-successes 25
 
-verify-demo:
-	uv run --locked statclaim verify examples/fixed_sample.toml --control-successes 10 --treatment-successes 25
 
-design-demo:
-	uv run --locked statclaim verify-design examples/fixed_sample.toml
 
-alpha-demo:
-	uv run --locked statclaim verify-design examples/fixed_sample_alpha.toml
 
-family-demo:
-	uv run --locked statclaim verify-family examples/two_outcomes.toml
 
 composition-demo:
 	lake build

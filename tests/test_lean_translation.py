@@ -405,6 +405,34 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
             ("ObservationalDesign.cross_sectional", "ObservationalDesign.case_control"),
         )
     )
+    # One false number per exact module that a run proves, in the claim's own statement.
+    matched = corpus_checker().translation(ROOT / "examples/matched_case_control.stat").lean
+    cases.append(
+        (
+            matched,
+            "a reversed McNemar decision",
+            (
+                "220 (analysis_level.value : ℝ)) ↔ False) :=",
+                "220 (analysis_level.value : ℝ)) ↔ True) :=",
+            ),
+        )
+    )
+    rates = corpus_checker().translation(ROOT / "examples/incidence_rates.stat").lean
+    cases.append(
+        (
+            rates,
+            "a reversed rate-test decision",
+            ("(test_level.value : ℝ))) ↔ False) :=", "(test_level.value : ℝ))) ↔ True) :="),
+        )
+    )
+    blocks = corpus_checker().translation(ROOT / "examples/stratified_randomisation.stat").lean
+    cases.append(
+        (
+            blocks,
+            "a wrong count of assignments by blocks",
+            ("]).card = 2176782336", "]).card = 2176782337"),
+        )
+    )
     for source, label, (old, new) in cases:
         assert old in source, label
         lean_file = tmp_path / "Mutated.lean"

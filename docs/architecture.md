@@ -28,17 +28,17 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   The language builds their constructors and contracts from this registry.
 - `composition.py`: families whose members are assumed and whose combination
   Lean checks.
-- `lean_translation/`: the translation of whole programs to Lean, in progress
+- `lean_translation/`: the translation of whole programs to Lean
   ([proposal](proposals/lean-translation.md)). `table.py` says what each
   constructor and operation becomes in Lean; `denote.py` decides what a compiled
-  program states (`exact.py` for exact tests, with the theorems in `statements.py`, which
-  `verify`'s certificate templates share), `prove.py` how each statement is proved, and `grades.py` how a
-  claim's grade follows from the premises its proof uses; `program.py` writes
-  the file and lists what it does not translate yet. `scripts/check_lean_translation.py` translates every
-  example and replication study and checks them with Lean, in `make lean-check`.
-  `rejection.py` defers Python's contract checks so a program Python refuses still
-  reaches Lean; `scripts/check_lean_rejections.py` checks that Lean refuses each
-  injected error and refused corpus program too, or says why it need not.
+  program states (`exact.py` for exact tests, with their theorems in
+  `statements.py`), `prove.py` how each statement is proved, and `grades.py` how a
+  claim's grade follows from the premises its proof uses; `program.py` writes the
+  file. `certificate.py` makes it a certificate, which `verification.py` builds,
+  audits and replays, and `program_evidence.py` gives each verified claim of a run
+  its evidence from it. `rejection.py` defers Python's contract checks so a refused
+  program still reaches Lean. `scripts/check_lean_translation.py` and
+  `scripts/check_lean_rejections.py` run both on the corpus in `make lean-check`.
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.

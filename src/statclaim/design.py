@@ -1,12 +1,10 @@
 """Parse the initial design vocabulary without claiming mathematical verification."""
 
-import tomllib
 from dataclasses import dataclass
 from fractions import Fraction
-from pathlib import Path
 from typing import Literal
 
-from statclaim.fisher import ALPHA, ALTERNATIVES, parse_alpha, test_id, validate_alpha
+from statclaim.fisher import ALPHA, ALTERNATIVES, test_id, validate_alpha
 
 
 @dataclass(frozen=True)
@@ -27,30 +25,6 @@ class Design:
                 raise ValueError(f"{name} must be a positive integer.")
         if self.stopping not in ("fixed", "data_dependent"):
             raise ValueError("stopping must be 'fixed' or 'data_dependent'.")
-
-
-def load_design(path: Path) -> Design:
-    with path.open("rb") as handle:
-        data = tomllib.load(handle)
-    if set(data) not in ({"design"}, {"design", "analysis"}) or not isinstance(
-        data.get("design"), dict
-    ):
-        raise ValueError("Expected exactly one [design] table.")
-    fields = data["design"]
-    expected = {"module", "n_control", "n_treatment", "stopping"}
-    if set(fields) != expected:
-        raise ValueError(f"[design] must contain exactly: {', '.join(sorted(expected))}.")
-    if fields["module"] != "two_arm_binomial":
-        raise ValueError("Only the two_arm_binomial module is recognized.")
-    analysis = data.get("analysis", {"alpha": str(ALPHA)})
-    if not isinstance(analysis, dict) or set(analysis) != {"alpha"}:
-        raise ValueError("[analysis] must contain exactly alpha.")
-    return Design(
-        fields["n_control"],
-        fields["n_treatment"],
-        fields["stopping"],
-        parse_alpha(analysis["alpha"]),
-    )
 
 
 def inspect_design(design: Design) -> dict:

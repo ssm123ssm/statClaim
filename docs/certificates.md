@@ -1,192 +1,81 @@
 # Certificate and replay guide
 
-`statclaim check examples/fisher.stat --output .statclaim/my-program` retains
-the source and typed program in a parent run directory and builds the whole
-program in Lean once, as `statclaim_program_certificate` in `lean/`: every
-verified claim takes its evidence from it. Replay it with `check-certificate`.
-The parent `run.json` is a source/IR provenance report, not a mathematical
-certificate. See the [file-language guide](stat-language.md).
-
-Planning claims issue `statclaim_planning_certificate` (a fixed design's Type I
-bound and its power at one point) and `statclaim_policy_certificate` (a complete
-single-arm design). `statclaim_binomial_result_certificate` covers an observed
-one-sample result, `statclaim_two_stage_result_certificate` the decision of a
-two-stage design, and `statclaim_binomial_interval_certificate` an exact
-confidence interval. `statclaim_difference_interval_certificate` covers an
-interval for a difference of two proportions, and
-`statclaim_margin_test_certificate` an exact test with a margin.
-`statclaim_randomisation_certificate` covers a randomisation test of the sharp
-null for the declared numbers of units. All replay with `check-certificate`.
-
-`statclaim report study.stat --lean` issues `statclaim_program_certificate` for a
-whole program. Its inputs are the source and the canonical program it compiles
-to; its proof is the program's Lean translation, followed by the same audit of
-every contract fact and claim. Each claim's grade must follow from the premises
-Lean lists for its proof, when issued and on replay. Replay compiles and
-translates the source again, so a certificate from another translator version is
-refused.
-
-The TOML commands below (`verify-design`, `verify-family`, `verify-result` and
-their `inspect` counterparts) predate the file language. They still work but are
-no longer listed in `statclaim --help`; prefer `.stat` files.
-
-Design and family workflows need no observations. Fisher's alpha is configurable
-as an exact string in the optional `[analysis]` table; it defaults to `1/20`.
-The bound in the generated proof and certificate uses that declared value.
-
-The primary design workflow is:
+Every Lean certificate StatClaim issues is a certificate of a whole program,
+`statclaim_program_certificate`. `statclaim check` builds one for each run that
+verifies a claim; `statclaim report --lean` builds one on request. Replay either
+with `check-certificate`.
 
 ```sh
-uv run --locked statclaim verify-design examples/fixed_sample.toml \
-  --output .statclaim/my-design
-uv run --locked statclaim check-certificate .statclaim/my-design
+uv run --locked statclaim check examples/fisher_result.stat --output .statclaim/my-run
+uv run --locked statclaim check-certificate .statclaim/my-run/lean
 ```
 
-`verify-design` constructs the declared model, fixed sampling plan, and Fisher
-analysis through the shared Lean objects. It checks positive sizes, the fixed
-plan, the sampling compatibility contract, the core design claim, and the uniform
-Type I error bound at the declared alpha for every common success probability in `[0, 1]`.
+## What it proves
 
-The resulting `statclaim_design_certificate` has `verification_scope: "design"`
-in its report and no calculation or decision. Its inputs contain the design,
-procedure identifier/version, equal-proportions null, and the exact chosen threshold.
-It certifies only the named design properties under explicit assumptions.
+The certificate's inputs are the source and the canonical program it compiles to.
+Its proof, `Proof.lean`, is the program's translation to Lean
+([proposal](proposals/lean-translation.md)):
 
-`verify-family` issues a third kind, `statclaim_family_certificate`, with
-`verification_scope: "family"` in its report. It composes the declared Fisher analyses
-using the generic Bonferroni theorem. Its retained proof quantifies over all
-joint sampling-law families satisfying the explicitly declared binomial marginal
-contracts and all joint parameters, including mixed true/false nulls. No
-independence between outcomes is assumed. The sum of the exact allocated
-levels must be at most the requested family bound. Every sampling plan must be
-fixed for this adapter. See the [multiple-testing guide](multiple-testing.md).
+- a definition for each declaration, and each contract fact Python checks,
+  stated as a theorem Lean decides;
+- the premises the claims rest on: the level of each cited or declared test, a
+  graph's cited rule, and the level of an exact test inside a combination;
+- one theorem per verified claim, and a final theorem that the premises imply
+  every claim and can hold together.
 
-Observed data and execution correctness are a separate, optional workflow.
+Each claim's grade comes from the premises its proof uses: none is proved; only
+members' premises, under a combination Lean proves, is conditional; its own cited
+or declared premise is cited or declared. The certificate records each claim with
+its grade and the line it comes from, and the grades must be the ones Lean's
+dependencies give, when issued and on replay.
 
-`verify-result` (or its original name, `verify`) closes the calculation-to-theorem
-path by having Lean independently check the values proposed by Python. This avoids making correctness of Python's
-recurrence an assumption of the numerical result. The application parser and
-mapping to the displayed report remain explicit trusted components.
+A claim whose proof Lean rejects is left out: the inputs name it, it stays
+unresolved in the run, and the rest is built again in `lean-proved/`. An error in
+the declarations themselves leaves every claim unresolved.
 
-## Issue and recheck
-
-After `make setup`, from the source project folder:
-
-```sh
-uv run --locked statclaim verify-result examples/fixed_sample.toml \
-  --control-successes 10 --treatment-successes 25 \
-  --output .statclaim/my-example
-uv run --locked statclaim check-certificate .statclaim/my-example
-```
-
-The output directory must not exist, so a previous certificate cannot be silently
-overwritten. Without `--output`, a unique directory is created under
-`.statclaim/certificates/`. The directory is ignored by Git. The JSON response gives
-its absolute location and the certificate's content identifier.
-
-Use `--project /path/to/statClaim` when running from elsewhere. Verification needs
-the Lean source project and its dependencies even if the Python CLI was installed
-from a wheel. `--timeout` is a positive, finite number of seconds per backend
-command, with default `120`. Verification can be expensive for large tables;
-timeouts remain unresolved rather than falling back to unverified evidence.
-
-## Properties checked
-
-Each mode emits its own set of explicit theorems in `Proof.lean`. Family
-certificates check positive sizes, the allocation inequality, conditional marginal
-Fisher bounds, and the strong familywise claim. They retain the assumed
-marginal-law equalities as explicit hypotheses of the theorem. Design-only
-certificates verify the declarations and general guarantee, without any supplied
-counts or numerical results. Per-result certificates (`statclaim_per_result_certificate`)
-add the following checks:
-
-1. Positive declared arm sizes and observed counts within their bounds.
-2. Support bounds equal to those of the formal hypergeometric definition.
-3. The exact proposed p-value equal to the formal Fisher p-value.
-4. The exact proposed observed table probability equal to the formal probability.
-5. The reported decision equivalent to membership in the formal rejection event.
-6. The general Type I error guarantee instantiated at the declared arm sizes.
-
-Integer arithmetic uses factorial-based binomial coefficients whose equivalence
-to the specification is proved in `StatClaim/Computation.lean`. Cross-product
-equalities certify proposed fractions, using Lean's kernel reduction. There is no
-`native_decide` or native-evaluation axiom in the checked proofs.
-
-Before declaring completion, the generated checker collects transitive assumptions
-of all theorems required for the selected mode and permits only `propext`,
-`Classical.choice`, and `Quot.sound`.
-The process must exit successfully and emit the input-specific audited completion
-marker. A zero exit code by itself is insufficient.
+Before Lean prints its completion marker, which is bound to the inputs' SHA-256,
+an audit checks that every contract fact, claim and the final theorem use no
+axiom beyond `propext`, `Classical.choice` and `Quot.sound`. A zero exit code by
+itself is insufficient. There is no `native_decide`.
 
 ## Bundle contents
 
 | File | Purpose |
 | --- | --- |
-| `inputs.json` | Canonical design and analysis; additionally the exact result for per-result certificates |
-| `Proof.lean` | Human-reviewable statements and proofs for those exact inputs |
-| `Proof.olean` | Compiled checked proof artifact |
-| `transcript.log` | Build, environment, dependency, and Lean command transcript |
-| `certificate.json` | Named claims, assumptions, trust boundary, versions, and hashes |
+| `inputs.json` | The source, the canonical program, and any claims left out |
+| `Proof.lean` | The translation and the audit, for review |
+| `Proof.olean` | The compiled, checked proof |
+| `transcript.log` | Build, environment, dependency and Lean transcript |
+| `certificate.json` | Claims with their grades, premises, trust boundary, versions and hashes |
 
-The input SHA-256 is computed from a deterministic JSON serialization of the
-parsed design request, or the declaration and result for a per-result check. It
-binds their semantics, rather than the original TOML whitespace or comments.
-The certificate identifier is a deterministic digest
-of the certificate fields excluding the identifier itself; creation time means
-separate issuances can have different identifiers.
-
-The certificate records the actual Lean version, pinned toolchain, dependency
-revisions, and StatClaim version. Dependency checkouts must match their pinned Git
-revisions and have no local changes or untracked files. It records hashes of the
-local Lean sources, application Python sources, Lake configuration/manifest, and
-compiled project library. Source and artifact snapshots are checked again after
-the proof to detect changes during verification.
+The output directory must not exist. Without `--output`, `check` creates one under
+`.statclaim/programs/` and `report --lean` under `.statclaim/certificates/`. Use
+`--project` to point at a checkout from elsewhere, and `--timeout` for seconds per
+backend command.
 
 ## Replay and integrity
 
-`check-certificate` validates the certificate digest and file manifest, reconstructs
-all derived input/result fields, and regenerates the expected Lean statements. It
-then requires the same source snapshot, toolchain pin, dependency pins, and module
-version, rebuilds the local library, and reruns the proof and transitive audit.
-It leaves the original bundle unchanged.
+`check-certificate` checks the certificate's digest and file hashes, compiles the
+source again and requires the same canonical program, translates it again and
+requires the same `Proof.lean`, then reruns Lean with the same toolchain,
+dependency pins and StatClaim version, and checks the grades again. It leaves the
+bundle unchanged. A self-consistent set of rehashed files cannot pass: the proof
+must be the one the inputs state, and Lean must check it.
 
-Replay selects a fixed scope from the certificate kind and validates its claims,
-assumptions, theorem names, and canonical inputs against that scope. A design
-certificate cannot be promoted to evidence about an observed result by changing
-its metadata or recomputing hashes.
+Certificates of the earlier, per-claim kinds replay with the StatClaim version that
+issued them.
 
-Current compiled project artifacts are checked for stability during replay. The
-original compiled artifact hashes remain provenance records; replay's mathematical
-evidence comes from rechecking the retained source against the bound definitions.
-It does not infer proof validity from the old transcript or compiled artifact hash.
-
-If source code changes after issuance, restore the bound source snapshot before
-replaying that bundle, or issue a new certificate for the changed version. A
-self-consistent set of modified hashes cannot make a false value pass: Lean still
-has to prove the proposed value against the definitions.
-
-The bundles are not digitally signed and do not establish authorship. Hashes bind
-content and detect alterations; they do not authenticate the local installation
-or the provenance of historical metadata. The local toolchain, imported artifacts,
-statistical meaning of definitions, and application binding code are trusted.
+The bundles are not signed and do not establish authorship. The local toolchain,
+the statistical meaning of the Lean definitions, the translator's statements and
+the application binding code are trusted; see the proposal's trusted base.
 
 ## Assumptions and failures
 
-The mathematical guarantee assumes independent binomial samples and positive
-sizes fixed before outcomes. It bounds error under the equal-proportions null,
-without asserting the null is true for a real study. For per-result certificates,
-the supplied counts are additionally assumed to come from that declared procedure.
-Verification does not establish
-that these real-world conditions hold, or certify power, coverage, or every
-execution of the Python program.
+A certificate proves its claims for the study as declared, under the listed
+premises and assumptions. It does not show that the real study meets them, and it
+certifies no Python calculation beyond the values its claims state.
 
-Data-dependent stopping receives no fixed-sample certificate and no endorsed
-procedure-level decision. Its justification remains unresolved; that does not
-demonstrate inflated error.
-
-An invalid proof, missing marker, dependency mismatch, changing sources/artifacts,
-or backend timeout produces no `certificate.json`. The failed attempt may retain
-its inputs, proof source, transcript, and `failure.json` for diagnosis. The report
-remains `unresolved_obligation`, with `certificate_issued: false`. Malformed input
-and existing output-directory errors use exit code `2`; incomplete verification
-uses `1`; successful issuance or replay uses `0`.
+An invalid proof, a missing marker, a dependency mismatch, sources that change
+during the check, or a timeout produces no `certificate.json`; the attempt keeps
+its inputs, proof, transcript and `failure.json` for diagnosis, and the claims stay
+unresolved.

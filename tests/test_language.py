@@ -5,8 +5,6 @@ from pathlib import Path
 import pytest
 
 from statclaim.cli import main
-from statclaim.design import load_design
-from statclaim.family import load_family
 from statclaim.language import (
     MODULES,
     OPERATION_BACKENDS,
@@ -25,7 +23,7 @@ from statclaim.language import (
 )
 from statclaim.language_runner import check_source, render_report
 from statclaim.language_syntax import Source, parse
-from statclaim.verification import VerificationError, design_payload, family_payload
+from statclaim.verification import VerificationError
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,26 +37,20 @@ def source(name="fisher.stat"):
     return Source((ROOT / folder / name).read_text(), name)
 
 
-def test_fisher_language_lowers_to_existing_canonical_design():
+def test_fisher_language_elaborates_with_source_locations():
     program, diagnostics = elaborate(source())
     assert diagnostics == []
     analysis = program.requests[0].claim.subject
     assert isinstance(analysis, AnalysisIR)
-    assert design_payload(analysis.lower()) == design_payload(
-        load_design(ROOT / "examples/fixed_sample.toml")
-    )
     assert program.bindings[-1].dependencies == ("plan", "null")
     assert program.to_dict()["bindings"][-1]["argument_sources"]["alpha"]["line"] == 9
 
 
-def test_family_language_lowers_to_existing_canonical_family():
+def test_family_language_elaborates_to_a_family():
     program, diagnostics = elaborate(source("two_outcomes.stat"))
     assert diagnostics == []
     family = program.requests[0].claim.subject
     assert isinstance(family, FamilyIR)
-    assert family_payload(family.lower()) == family_payload(
-        load_family(ROOT / "examples/two_outcomes.toml")
-    )
 
 
 def test_module_registry_extends_vocabulary_without_parser_changes(monkeypatch):

@@ -1,12 +1,10 @@
 """Declarations for a family of Fisher analyses with explicit marginal contracts."""
 
-import tomllib
 from dataclasses import dataclass
 from fractions import Fraction
-from pathlib import Path
 
 from statclaim.design import Design
-from statclaim.fisher import parse_alpha, validate_alpha
+from statclaim.fisher import validate_alpha
 
 MAX_ENDPOINTS = 20
 
@@ -47,44 +45,6 @@ class FisherFamily:
             e.design.stopping == "fixed" and e.design.alternative == "two_sided"
             for e in self.endpoints
         )
-
-
-def load_family(path: Path) -> FisherFamily:
-    with path.open("rb") as handle:
-        data = tomllib.load(handle)
-    if set(data) != {"family", "analyses"} or not isinstance(data["family"], dict):
-        raise ValueError("Expected [family] and two or more [[analyses]] tables.")
-    settings = data["family"]
-    if set(settings) != {"module", "alpha", "joint_law"}:
-        raise ValueError("[family] requires exactly module, alpha, and joint_law.")
-    if settings["module"] != "bonferroni" or settings["joint_law"] != "binomial_marginals":
-        raise ValueError("Use module='bonferroni' and joint_law='binomial_marginals'.")
-    if not isinstance(data["analyses"], list):
-        raise ValueError("Expected [[analyses]] tables.")
-    endpoints = []
-    for fields in data["analyses"]:
-        if not isinstance(fields, dict) or set(fields) != {
-            "name",
-            "n_control",
-            "n_treatment",
-            "stopping",
-            "alpha",
-        }:
-            raise ValueError(
-                "Each analysis requires name, n_control, n_treatment, stopping, alpha."
-            )
-        endpoints.append(
-            Endpoint(
-                fields["name"],
-                Design(
-                    fields["n_control"],
-                    fields["n_treatment"],
-                    fields["stopping"],
-                    parse_alpha(fields["alpha"]),
-                ),
-            )
-        )
-    return FisherFamily(parse_alpha(settings["alpha"]), tuple(endpoints))
 
 
 def inspect_family(family: FisherFamily) -> dict:

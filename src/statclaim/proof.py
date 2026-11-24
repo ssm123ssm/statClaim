@@ -8,7 +8,6 @@ import re
 from fractions import Fraction
 
 from statclaim.design import Design
-from statclaim.family import FisherFamily
 from statclaim.fisher import FisherResult, validate_alpha
 from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.statements import CERTIFICATE as C
@@ -119,79 +118,6 @@ open StatClaim StatClaim.Modules
 
 end StatClaimCertificate
 {_audit(ONE_SIDED_RESULT_THEOREMS, input_sha256)}"""
-
-
-FAMILY_CHECKED_THEOREMS = [
-    "checked_sizes",
-    "checked_allocation",
-    "checked_marginals",
-    "checked_family",
-]
-
-
-def render_family_proof(family: FisherFamily, input_sha256: str) -> str:
-    if not family.supported:
-        raise ValueError("A Fisher family certificate requires fixed sampling for every analysis.")
-    if family.allocated_alpha > family.alpha:
-        raise ValueError("The allocated alpha exceeds the requested familywise bound.")
-    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
-        raise ValueError("Expected a SHA-256 input identifier.")
-    count = len(family.endpoints)
-    sizes, levels = [], []
-    for endpoint in family.endpoints:
-        design = endpoint.design
-        numerator, denominator = design.alpha.as_integer_ratio()
-        sizes.append(f"⟨{design.n_control}, {design.n_treatment}, by decide, by decide⟩")
-        levels.append(f"⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩")
-    numerator, denominator = family.alpha.as_integer_ratio()
-    separator = ",\n    "
-    names = ", ".join(f"``StatClaimCertificate.{name}" for name in FAMILY_CHECKED_THEOREMS)
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical family SHA-256: {input_sha256}
--- The theorem is conditional on the explicitly quantified marginal-law contract.
-namespace StatClaimCertificate
-open StatClaim
-open Modules.FisherFamilyN
-
-def designs : Fin {count} → FixedSampleDesign :=
-  ![{separator.join(sizes)}]
-def levels : Fin {count} → SignificanceLevel :=
-  ![{separator.join(levels)}]
-def familyLevel : ℚ := ({numerator} : ℚ) / {denominator}
-
-theorem checked_sizes (i : Fin {count}) :
-    0 < (designs i).nControl ∧ 0 < (designs i).nTreatment :=
-  ⟨(designs i).controlPositive, (designs i).treatmentPositive⟩
-
-theorem checked_allocation : ∑ i, (levels i).value ≤ familyLevel := by
-  norm_num [Fin.sum_univ_succ, levels, familyLevel]
-
-theorem checked_marginals (law : Core.SamplingLaw (Parameters {count}) (Outcomes {count}))
-    (matching : MarginalContract designs law) :
-    (family designs levels law).marginalBounds :=
-  marginal_bounds designs levels law matching
-
-theorem checked_family (law : Core.SamplingLaw (Parameters {count}) (Outcomes {count}))
-    (matching : MarginalContract designs law) :
-    ((family designs levels law).familywiseClaim (familyLevel : ℝ)).statement :=
-  strong_control designs levels familyLevel checked_allocation law matching
-
-end StatClaimCertificate
-
-open Lean Elab Command in
-run_cmd do
-  let allowed := #[``propext, ``Classical.choice, ``Quot.sound]
-  for theoremName in #[{names}] do
-    match ← getConstInfo theoremName with
-    | .thmInfo _ => pure ()
-    | _ => throwError "Expected a theorem: {{theoremName}}"
-    for dependency in ← collectAxioms theoremName do
-      unless allowed.contains dependency do
-        throwError "Unexpected assumption {{dependency}} in {{theoremName}}"
-  logInfo "STATCLAIM_CHECKED {input_sha256}"
-"""
 
 
 def render_design_proof(design: Design, input_sha256: str) -> str:

@@ -27,7 +27,6 @@ from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.planning import MAX_ONE_ARM, DifferenceInterval, _audit
 from statclaim.randomisation import PRESPECIFIED
 
-ASSOCIATION_KIND = "statclaim_association_certificate"
 RESULT_KIND = "statclaim_association_result_certificate"
 INTERVAL_KIND = "statclaim_effect_interval_certificate"
 TEST_ID = "fisher_exact"

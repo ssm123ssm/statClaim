@@ -23,30 +23,23 @@ from math import comb
 from typing import Literal
 
 from statclaim.association import (
-    NOT_CAUSAL,
-    TEST_ID,
-    TEST_VERSION,
     AssociationTest,
-    association_assumptions,
     null_words,
 )
-from statclaim.fisher import fraction_record, parse_alpha
-from statclaim.incidence import MAX_EVENTS, RateTest, rate_assumptions, rate_null_words
+from statclaim.fisher import fraction_record
+from statclaim.incidence import MAX_EVENTS, RateTest
 from statclaim.lean_translation import statements as S
 from statclaim.lean_translation.statements import CERTIFICATE as C
-from statclaim.matched import MatchedTest, matched_assumptions
-from statclaim.matched import null_words as matched_null_words
+from statclaim.matched import MatchedTest
 from statclaim.planning import (
     MAX_PER_ARM,
     MAX_RATIO,
-    SMALLEST,
     _audit,
     _lean_list,
     fisher_cuts,
     fisher_rejection_probability,
 )
 
-PLAN_KIND = "statclaim_association_planning_certificate"
 GENERAL_THEOREM = "StatClaim.Modules.AssociationPower.power_of_check"
 # Kernel checking enumerates every table, as for the trial Fisher analysis.
 MAX_GROUP = MAX_PER_ARM
@@ -215,73 +208,6 @@ def search_groups(
     return None, high - low + 1
 
 
-def plan_payload(plan: AssociationPowerPlan) -> dict:
-    test = plan.test
-    first_key, second_key = POINT_KEYS[plan.design]
-    payload = {
-        "schema_version": 1,
-        "scope": "association_planning",
-        "request": plan.request,
-        "design": {
-            "kind": test.design,
-            "groups": list(test.groups),
-            "exposure": test.exposure,
-            "outcome": test.outcome,
-            "stopping": "fixed",
-        },
-        "analysis": {
-            "test": TEST_ID,
-            "test_version": TEST_VERSION,
-            "null": "no_association",
-            "alpha": str(test.alpha),
-        },
-        "target": {
-            first_key: str(plan.p_first),
-            second_key: str(plan.p_second),
-            "minimum_power": str(plan.minimum_power),
-            "maximum_typeI": str(plan.maximum_typeI),
-        },
-    }
-    if plan.search is not None:
-        low_key, high_key, ratio_key = SEARCH_KEYS[plan.design]
-        payload["search"] = {low_key: plan.search[0], high_key: plan.search[1]}
-        if plan.ratio != 1:
-            payload["search"][ratio_key] = plan.ratio
-        if plan.minimal:
-            payload["search"]["claim"] = SMALLEST
-    return payload
-
-
-def parse_plan_payload(payload: dict) -> AssociationPowerPlan:
-    design, target, search = payload["design"], payload["target"], payload.get("search")
-    kind = design["kind"]
-    if kind not in DESIGNS:
-        raise ValueError("Unsupported design for exact association power.")
-    first_key, second_key = POINT_KEYS[kind]
-    low_key, high_key, ratio_key = SEARCH_KEYS[kind]
-    plan = AssociationPowerPlan(
-        AssociationTest(
-            kind,
-            parse_alpha(payload["analysis"]["alpha"]),
-            tuple(design["groups"]),
-            None,
-            design["exposure"],
-            design["outcome"],
-        ),
-        *(
-            parse_alpha(target[name])
-            for name in (first_key, second_key, "minimum_power", "maximum_typeI")
-        ),
-        payload["request"],
-        (search[low_key], search[high_key]) if search else None,
-        bool(search) and search.get("claim") == SMALLEST,
-        search.get(ratio_key, 1) if search else 1,
-    )
-    if payload != plan_payload(plan):
-        raise ValueError("Bound planning inputs are inconsistent.")
-    return plan
-
-
 def plan_theorems(plan: AssociationPowerPlan) -> list[str]:
     return THEOREMS + ["checked_smaller"] if plan.minimal else list(THEOREMS)
 
@@ -324,46 +250,6 @@ def _each(design: str, ratio: int) -> str:
     if design == "cohort":
         return f", {ratio} unexposed for each exposed"
     return f", {ratio} controls per case"
-
-
-def plan_claims(plan: AssociationPowerPlan) -> list[str]:
-    first, second = plan.test.groups
-    sizes = _sizes_words(plan.design, first, second)
-    common = "common risk" if plan.design == "cohort" else "common probability of exposure"
-    claims = [
-        f"Fisher's exact test of no association between {plan.test.exposure} and "
-        f"{plan.test.outcome}, with {sizes} and alpha {plan.test.alpha}, has Type I error at "
-        f"most {plan.maximum_typeI} whenever {null_words(plan.test)}, for every {common} in "
-        "[0, 1].",
-        f"Its power is at least {plan.minimum_power} when "
-        f"{point_words(plan.test, plan.p_first, plan.p_second)}.",
-    ]
-    if plan.search is None:
-        return claims
-    low, high = plan.search
-    second_name = GROUPS[plan.design][1]
-    each = _each(plan.design, plan.ratio)
-    if plan.minimal:
-        claims.append(
-            f"No candidate with {low} to {second - 1} {second_name}{each}{',' if each else ''} "
-            "reaches that "
-            f"power, so {sizes} is the smallest sufficient candidate in the range {low} to "
-            f"{high}. Nothing is claimed outside the range."
-        )
-    else:
-        claims.append(
-            f"{sizes[0].upper()}{sizes[1:]} are therefore sufficient among candidates with "
-            f"{low} to {high} {second_name}{each}. Minimality is not claimed."
-        )
-    return claims
-
-
-def plan_assumptions(plan: AssociationPowerPlan) -> list[str]:
-    return [*association_assumptions(plan.test), PLANNING_POINT]
-
-
-def plan_limitations() -> list[str]:
-    return [NOT_CAUSAL]
 
 
 def _ratio(value: Fraction) -> str:
@@ -455,7 +341,6 @@ end StatClaimCertificate
 # Two-sided exact binomial tests: McNemar's test and the rate test ----------------------------
 MATCHED_KIND = "statclaim_matched_planning_certificate"
 RATE_KIND = "statclaim_rate_planning_certificate"
-MATCHED_THEOREM = "StatClaim.Modules.BinomialPower.pairs_power_of_check"
 RATE_THEOREM = "StatClaim.Modules.BinomialPower.power_of_check"
 # Pairs in a planned matched study: the kernel sums both tails for every number discordant.
 MAX_PLANNED_PAIRS = 400
@@ -489,13 +374,6 @@ def region_numerator(n: int, a: int, d: int, low: int, high: int) -> int:
     """Numerator of the probability of a count below low or from high up, at the share a/d;
     the denominator is d ** n."""
     return sum(comb(n, x) * a**x * (d - a) ** (n - x) for x in range(n + 1) if x < low or high <= x)
-
-
-def _parse_number(text: str) -> Fraction:
-    """An exact positive number from a bound payload, such as an odds ratio or person-time."""
-    if not isinstance(text, str) or not text.replace("/", "", 1).isdigit():
-        raise ValueError("Expected an exact number written as an integer or a fraction.")
-    return Fraction(text)
 
 
 def _positive(value: Fraction, name: str) -> None:
@@ -688,175 +566,15 @@ def search_events(plan: RatePowerPlan, low: int, high: int, minimal: bool = Fals
     return None, high - low + 1
 
 
-def _target(plan) -> dict:
-    return {"minimum_power": str(plan.minimum_power), "maximum_typeI": str(plan.maximum_typeI)}
-
-
-def _search(plan, low_key: str, high_key: str) -> dict:
-    search = {low_key: plan.search[0], high_key: plan.search[1]}
-    if plan.minimal:
-        search["claim"] = SMALLEST
-    return search
-
-
-def matched_plan_payload(plan: MatchedPowerPlan) -> dict:
-    test = plan.test
-    payload = {
-        "schema_version": 1,
-        "scope": "matched_planning",
-        "request": plan.request,
-        "design": {
-            "kind": "matched_case_control",
-            "pairs": test.pairs,
-            "exposure": test.exposure,
-            "outcome": test.outcome,
-            "stopping": "fixed",
-        },
-        "analysis": {
-            "test": "mcnemar_exact",
-            "test_version": "0.1.0",
-            "null": "no_association",
-            "alpha": str(test.alpha),
-        },
-        "target": {
-            "discordant": str(plan.discordant),
-            "odds_ratio": str(plan.odds_ratio),
-            **_target(plan),
-        },
-    }
-    if plan.search is not None:
-        payload["search"] = _search(plan, "min_pairs", "max_pairs")
-    return payload
-
-
-def parse_matched_plan_payload(payload: dict) -> MatchedPowerPlan:
-    design, target, search = payload["design"], payload["target"], payload.get("search")
-    plan = MatchedPowerPlan(
-        MatchedTest(
-            design["pairs"],
-            parse_alpha(payload["analysis"]["alpha"]),
-            design["exposure"],
-            design["outcome"],
-        ),
-        parse_alpha(target["discordant"]),
-        _parse_number(target["odds_ratio"]),
-        parse_alpha(target["minimum_power"]),
-        parse_alpha(target["maximum_typeI"]),
-        payload["request"],
-        (search["min_pairs"], search["max_pairs"]) if search else None,
-        bool(search) and search.get("claim") == SMALLEST,
-    )
-    if payload != matched_plan_payload(plan):
-        raise ValueError("Bound planning inputs are inconsistent.")
-    return plan
-
-
-def rate_plan_payload(plan: RatePowerPlan) -> dict:
-    test = plan.test
-    payload = {
-        "schema_version": 1,
-        "scope": "rate_planning",
-        "request": plan.request,
-        "design": {
-            "kind": "person_time_cohort",
-            "events": plan.events,
-            "exposure": test.exposure,
-            "outcome": test.outcome,
-            "stopping": "fixed",
-        },
-        "analysis": {
-            "test": "rate_exact",
-            "test_version": "0.1.0",
-            "null": "no_association",
-            "alpha": str(test.alpha),
-        },
-        "target": {
-            "exposed_time": str(plan.exposed_time),
-            "unexposed_time": str(plan.unexposed_time),
-            "rate_ratio": str(plan.rate_ratio),
-            **_target(plan),
-        },
-    }
-    if plan.search is not None:
-        payload["search"] = _search(plan, "min_events", "max_events")
-    return payload
-
-
-def parse_rate_plan_payload(payload: dict) -> RatePowerPlan:
-    design, target, search = payload["design"], payload["target"], payload.get("search")
-    plan = RatePowerPlan(
-        RateTest(parse_alpha(payload["analysis"]["alpha"]), design["exposure"], design["outcome"]),
-        *(_parse_number(target[name]) for name in ("exposed_time", "unexposed_time", "rate_ratio")),
-        design["events"],
-        parse_alpha(target["minimum_power"]),
-        parse_alpha(target["maximum_typeI"]),
-        payload["request"],
-        (search["min_events"], search["max_events"]) if search else None,
-        bool(search) and search.get("claim") == SMALLEST,
-    )
-    if payload != rate_plan_payload(plan):
-        raise ValueError("Bound planning inputs are inconsistent.")
-    return plan
-
-
 def binomial_plan_theorems(plan) -> list[str]:
     names = ["checked_typeI", "checked_region", "checked_power"]
     return names + ["checked_smaller"] if plan.minimal else names
-
-
-def _smaller_claim(plan, size: int, unit: str) -> list[str]:
-    if plan.search is None:
-        return []
-    low, high = plan.search
-    if plan.minimal:
-        return [
-            f"No candidate with {low} to {size - 1} {unit} reaches that power, so {size} "
-            f"{unit} is the smallest sufficient candidate in the range {low} to {high}. "
-            "Nothing is claimed outside the range."
-        ]
-    return [
-        f"{size} {unit} are therefore sufficient among candidates with {low} to {high} {unit}. "
-        "Minimality is not claimed."
-    ]
-
-
-def matched_plan_claims(plan: MatchedPowerPlan) -> list[str]:
-    test = plan.test
-    return [
-        f"McNemar's exact test of no association between {test.exposure} and {test.outcome}, "
-        f"with {test.pairs} pairs and alpha {test.alpha}, has Type I error at most "
-        f"{plan.maximum_typeI} whenever {matched_null_words(test)}, for every probability that "
-        "a pair is discordant.",
-        f"Its power is at least {plan.minimum_power} when a pair is discordant with probability "
-        f"{plan.discordant} and the conditional odds ratio is {plan.odds_ratio}.",
-        *_smaller_claim(plan, test.pairs, "pairs"),
-    ]
-
-
-def rate_plan_claims(plan: RatePowerPlan) -> list[str]:
-    test = plan.test
-    return [
-        f"The exact test of no association between {test.exposure} and {test.outcome}, at "
-        f"alpha {test.alpha}, has Type I error at most {plan.maximum_typeI} whenever "
-        f"{rate_null_words(test)}, for every common rate and any person-time.",
-        f"Given {plan.events} events, its power is at least {plan.minimum_power} when the rate "
-        f"ratio is {plan.rate_ratio} and {plan.share} of the person-time is exposed.",
-        *_smaller_claim(plan, plan.events, "events"),
-    ]
-
-
-def matched_plan_assumptions(plan: MatchedPowerPlan) -> list[str]:
-    return [*matched_assumptions(plan.test), PLANNING_POINT]
 
 
 RATE_EVENTS = (
     "Power is given the planned total number of events; the total itself varies with the "
     "rates and the person-time."
 )
-
-
-def rate_plan_assumptions(plan: RatePowerPlan) -> list[str]:
-    return [*rate_assumptions(plan.test), PLANNING_POINT, RATE_EVENTS]
 
 
 def _level_lean(alpha: Fraction) -> str:
@@ -995,9 +713,6 @@ end StatClaimCertificate
 {_audit(binomial_plan_theorems(plan), input_sha256)}"""
 
 
-# Designs that fix only the total -------------------------------------------------------------
-TOTAL_KIND = "statclaim_total_planning_certificate"
-TOTAL_THEOREM = "StatClaim.Modules.AssociationPower.total_power_of_check"
 TOTAL_THEOREMS = ["checked_size", "checked_parts", "checked_typeI", "checked_power"]
 # Participants in all: the kernel checks Fisher's region for every number exposed.
 MAX_TOTAL = 150
@@ -1124,96 +839,12 @@ def search_totals(plan: TotalPowerPlan, low: int, high: int):
     return None, high - low + 1
 
 
-def total_plan_payload(plan: TotalPowerPlan) -> dict:
-    test = plan.test
-    first_key, second_key = TOTAL_POINT_KEYS[plan.design]
-    payload = {
-        "schema_version": 1,
-        "scope": "total_planning",
-        "request": plan.request,
-        "design": {
-            "kind": test.design,
-            "n": test.n,
-            "exposure": test.exposure,
-            "outcome": test.outcome,
-            "stopping": "fixed",
-        },
-        "analysis": {
-            "test": TEST_ID,
-            "test_version": TEST_VERSION,
-            "null": "no_association",
-            "alpha": str(test.alpha),
-        },
-        "target": {
-            "exposed_share": str(plan.exposed_share),
-            first_key: str(plan.p_first),
-            second_key: str(plan.p_second),
-            **_target(plan),
-        },
-    }
-    if plan.search is not None:
-        payload["search"] = {"min_n": plan.search[0], "max_n": plan.search[1]}
-    return payload
-
-
-def parse_total_plan_payload(payload: dict) -> TotalPowerPlan:
-    design, target, search = payload["design"], payload["target"], payload.get("search")
-    kind = design["kind"]
-    if kind not in TOTAL_POINT_KEYS:
-        raise ValueError("Unsupported design for exact power with only the total fixed.")
-    first_key, second_key = TOTAL_POINT_KEYS[kind]
-    plan = TotalPowerPlan(
-        AssociationTest(
-            kind,
-            parse_alpha(payload["analysis"]["alpha"]),
-            None,
-            design["n"],
-            design["exposure"],
-            design["outcome"],
-        ),
-        *(
-            parse_alpha(target[name])
-            for name in (first_key, second_key, "exposed_share", "minimum_power", "maximum_typeI")
-        ),
-        payload["request"],
-        (search["min_n"], search["max_n"]) if search else None,
-    )
-    if payload != total_plan_payload(plan):
-        raise ValueError("Bound planning inputs are inconsistent.")
-    return plan
-
-
 def total_point_words(test: AssociationTest, p_first, p_second, share) -> str:
     noun = "risk" if test.design == "cohort" else "prevalence"
     return (
         f"{share} of participants are exposed to {test.exposure} and the {noun} of "
         f"{test.outcome} is {p_second} with it and {p_first} without it"
     )
-
-
-def total_plan_claims(plan: TotalPowerPlan) -> list[str]:
-    test = plan.test
-    kind = "cross-sectional sample" if plan.design == "cross_sectional" else "cohort"
-    claims = [
-        f"Fisher's exact test of no association between {test.exposure} and {test.outcome}, "
-        f"in a {kind} of {test.n} with alpha {test.alpha}, has Type I error at most "
-        f"{plan.maximum_typeI} whenever {null_words(test)}, for every probability of exposure "
-        f"and every common probability of {test.outcome}, averaged over the number exposed.",
-        f"Its power is at least {plan.minimum_power} when "
-        f"{total_point_words(test, plan.p_first, plan.p_second, plan.exposed_share)}, averaged "
-        "over the number exposed.",
-    ]
-    if plan.search is not None:
-        low, high = plan.search
-        claims.append(
-            f"A total of {test.n} is therefore sufficient among totals from {low} to {high}. "
-            "Minimality is not claimed."
-        )
-    return claims
-
-
-def total_plan_assumptions(plan: TotalPowerPlan) -> list[str]:
-    return [*association_assumptions(plan.test), PLANNING_POINT]
 
 
 def render_total_plan_proof(plan: TotalPowerPlan, input_sha256: str) -> str:

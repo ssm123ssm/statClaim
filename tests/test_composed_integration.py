@@ -101,19 +101,6 @@ def test_large_sample_members_make_the_family_approximate(tmp_path):
     assert any("sum of the slacks" in claim for claim in evidence["established_properties"])
 
 
-def test_lean_rejects_an_overallocated_composition(tmp_path):
-    from fractions import Fraction
-
-    from statclaim.composition import Component, Composition, render_composition_proof
-
-    members = tuple(
-        Component(name, Fraction(1, 20), "finite_sample", "cited", "tests.t/t_test version 1", "x")
-        for name in ("a", "b")
-    )
-    with pytest.raises(ValueError, match="do not fit"):
-        render_composition_proof(Composition(Fraction(1, 20), members), "0" * 64)
-
-
 def test_interim_look_design_gets_a_conditional_overall_error_bound(tmp_path):
     path = ROOT / "examples/interim_look.stat"
     report = check_source(

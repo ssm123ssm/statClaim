@@ -23,27 +23,17 @@ from statclaim.planning import (
     TwoStagePlan,
     TwoStageResult,
     TwoStageRule,
-    difference_payload,
     fisher_rejection_probability,
     interval_payload,
-    margin_payload,
     margin_rejection_probability,
-    parse_difference_payload,
     parse_interval_payload,
-    parse_margin_payload,
-    parse_planning_payload,
-    parse_policy_payload,
     parse_result_payload,
-    parse_stage_result_payload,
-    planning_payload,
-    policy_payload,
     render_margin_proof,
     render_planning_proof,
     result_payload,
     search_equal_arms,
     search_one_sample,
     search_two_stage,
-    stage_result_payload,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,13 +97,7 @@ def test_error_under_the_null_respects_alpha():
         assert fisher_rejection_probability(12, 9, ALPHA, rate, rate) <= ALPHA
 
 
-def test_planning_payload_round_trip_and_tampering():
-    plan = PowerPlan(Design(36, 36, "fixed", ALPHA), *RATES, Fraction(4, 5), ALPHA)
-    payload = planning_payload(plan)
-    assert parse_planning_payload(payload) == plan
-    payload["target"]["extra"] = "1"
-    with pytest.raises(ValueError):
-        parse_planning_payload(payload)
+def test_plans_that_cannot_hold_are_refused():
     with pytest.raises(ValueError):
         PowerPlan(Design(36, 36, "fixed", ALPHA), RATES[0], RATES[0], Fraction(4, 5), ALPHA)
     with pytest.raises(ValueError):
@@ -148,7 +132,6 @@ def test_two_stage_matches_direct_enumeration():
     values = plan.evaluate()
     assert values["typeI_target_met"] and values["power_target_met"]
     assert plan.expected_sample_size(plan.null_rate) < 43
-    assert parse_policy_payload(policy_payload(plan)) == plan
 
 
 def test_posterior_rule_matches_uniform_prior_closed_form():
@@ -317,14 +300,9 @@ def test_one_sample_critical_value_is_the_smallest_valid_one():
         assert plan.rejection_probability(plan.null_rate) == null_tail(n, plan.critical)
 
 
-def test_one_sample_search_and_payload():
+def test_one_sample_search():
     plan, evaluated = search_one_sample(one_sample(), 10, 60)
     assert (plan.n, plan.critical, evaluated) == (35, 12, 26)
-    assert parse_policy_payload(policy_payload(plan)) == plan
-    tampered = policy_payload(plan)
-    tampered["design"]["critical_value"] = 11
-    with pytest.raises(ValueError):
-        parse_policy_payload(tampered)
     assert search_one_sample(one_sample(), 10, 20)[0] is None
     with pytest.raises(ValueError):
         one_sample(alternative_rate=Fraction(1, 10))
@@ -365,16 +343,13 @@ def test_cuts_reproduce_the_reference_rejection_region():
             assert region[x][y] == reference
 
 
-def test_smallest_claim_is_bound_into_the_payload():
+def test_a_minimal_search_proves_no_smaller_candidate():
     plan, _ = search_equal_arms(ALPHA, *RATES, Fraction(4, 5), ALPHA, 2, 40, True)
-    payload = planning_payload(plan)
-    assert payload["search"]["claim"] == "smallest_in_range"
-    assert parse_planning_payload(payload).minimal
     assert "checked_smaller" in render_planning_proof(plan, "0" * 64)
     sufficient, _ = search_equal_arms(ALPHA, *RATES, Fraction(4, 5), ALPHA, 2, 40)
     assert "checked_smaller" not in render_planning_proof(sufficient, "0" * 64)
     one, _ = search_one_sample(one_sample(), 10, 60, True)
-    assert parse_policy_payload(policy_payload(one)).minimal
+    assert one.minimal
 
 
 def test_one_sample_result_matches_direct_tail(tmp_path):
@@ -443,9 +418,6 @@ def test_unequal_allocation_search():
     # Every smaller candidate was evaluated and falls short.
     for controls in range(10, 26):
         assert fisher_rejection_probability(controls, 2 * controls, ALPHA, *RATES) < Fraction(4, 5)
-    payload = planning_payload(plan)
-    assert payload["search"]["treatment_per_control"] == 2
-    assert parse_planning_payload(payload) == plan
     assert "⟨n, 2 * n," in render_planning_proof(plan, "0" * 64)
     with pytest.raises(ValueError):
         PowerPlan(
@@ -507,11 +479,6 @@ def test_two_stage_results_follow_the_declared_rule(tmp_path):
     result = TwoStageResult(13, 30, rule, null, 5, 9)
     exact = simon().rejection_probability(null)
     assert exact <= result.error_bound < exact + Fraction(1, 10_000)
-    payload = stage_result_payload(result)
-    assert parse_stage_result_payload(payload) == result
-    payload["result"]["decision"] = "do_not_reject_null"
-    with pytest.raises(ValueError):
-        parse_stage_result_payload(payload)
     text = (ROOT / "examples/two_stage_result.stat").read_text().split("let verification")[0]
     assert run(text, tmp_path)["values"]["decision"] == "reject_null"
     header = text.split("let data")[0]
@@ -538,15 +505,16 @@ def test_one_declaration_cannot_stand_for_two_outcomes():
     assert compiled(text).status == "elaborated"
 
 
-def test_help_lists_stat_commands_and_keeps_legacy_ones_working(capsys):
+def test_help_lists_the_stat_commands_only(capsys):
     from statclaim.cli import main
 
     with pytest.raises(SystemExit):
         main(["--help"])
     listed = capsys.readouterr().out
-    assert "explain" in listed and "verify-design" in listed.split("older TOML")[1]
-    assert "Certify the design" not in listed
-    assert main(["inspect", str(ROOT / "examples/fixed_sample.toml")]) == 1
+    assert "explain" in listed and "check-certificate" in listed
+    assert "verify-design" not in listed and "TOML" not in listed
+    with pytest.raises(SystemExit):
+        main(["verify-design", "design.toml"])
 
 
 def test_difference_interval_combines_two_exact_arm_intervals(tmp_path):
@@ -561,11 +529,6 @@ def test_difference_interval_combines_two_exact_arm_intervals(tmp_path):
     assert interval.lower < Fraction(24, 50) - Fraction(12, 50) < interval.upper
     assert DifferenceInterval(20, 30, 0, 30, level).upper == 1
     assert DifferenceInterval(40, 40, 40, 0, level).lower == -1
-    payload = difference_payload(interval)
-    assert parse_difference_payload(payload) == interval
-    payload["result"]["lower"] = "0"
-    with pytest.raises(ValueError):
-        parse_difference_payload(payload)
     with pytest.raises(ValueError):
         DifferenceInterval(50, 50, 51, 0, level)
     with pytest.raises(ValueError):
@@ -635,16 +598,9 @@ def test_one_sided_language_contract_and_planning(tmp_path):
         Fraction(1, 40), *RATES, Fraction(4, 5), Fraction(1, 40), 20, 60, True, 1, "greater"
     )
     assert plan.design.n_control == 36 and plan.design.alternative == "greater"
-    payload = planning_payload(plan)
-    assert payload["analysis"]["null"] == "treatment_at_most_control"
-    assert parse_planning_payload(payload) == plan
     proof = render_planning_proof(plan, "0" * 64)
     assert "FisherOneSided.typeI_of_hints" in proof and "checked_sections" in proof
-    from statclaim.verification import _profile
 
-    assumptions = _profile("statclaim_planning_certificate", payload)["assumptions"]
-    assert any("at most the control's" in line for line in assumptions)
-    assert not any("equal success probabilities" in line for line in assumptions)
     values = run(
         ONE_SIDED
         + "let data = observe(analysis=analysis, control_successes=1, treatment_successes=9)\n"
@@ -695,26 +651,14 @@ def test_margin_test_error_is_bounded_over_the_null():
     assert test.cells[-1] == 1000 and list(test.cells) == sorted(set(test.cells))
 
 
-def test_margin_payload_carries_the_test_and_rejects_changes():
+def test_the_margin_proof_carries_the_test():
     test = MarginTest(
         30, 30, Fraction(-1, 10), Fraction(1, 40),
         Fraction(4, 5), Fraction(4, 5), Fraction(1, 10), Fraction(1, 40), (24, 26),
     )  # fmt: skip
-    payload = margin_payload(test)
-    assert parse_margin_payload(payload) == test
     proof = render_margin_proof(test, "0" * 64)
     assert "typeI_of_cells" in proof and "checked_decision" in proof and "checked_power" in proof
     # A more liberal threshold list no longer satisfies the cell bounds.
-    liberal = [max(0, t - 3) for t in payload["analysis"]["thresholds"]]
-    altered = {**payload, "analysis": {**payload["analysis"], "thresholds": liberal}}
-    with pytest.raises(ValueError):
-        parse_margin_payload(altered)
-    decreasing = list(payload["analysis"]["thresholds"])
-    decreasing[5], decreasing[6] = decreasing[6] + 1, decreasing[5]
-    with pytest.raises(ValueError):
-        parse_margin_payload(
-            {**payload, "analysis": {**payload["analysis"], "thresholds": decreasing}}
-        )
     with pytest.raises(ValueError):
         MarginTest(30, 30, Fraction(-1, 10), Fraction(1, 40), Fraction(1, 2), Fraction(2, 5),
                    Fraction(1, 2), Fraction(1, 40))  # fmt: skip

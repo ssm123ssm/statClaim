@@ -18,18 +18,10 @@ from statclaim.incidence import (
     RateRatioInterval,
     RateResult,
     RateTest,
-    parse_proportion_payload,
-    parse_rate_payload,
-    parse_rate_ratio_payload,
-    parse_rate_result_payload,
     proportion_assumptions,
-    proportion_payload,
     rate_assumptions,
-    rate_payload,
     rate_ratio_assumptions,
-    rate_ratio_payload,
     rate_result_assumptions,
-    rate_result_payload,
     render_rate_proof,
     render_rate_ratio_proof,
     render_rate_result_proof,
@@ -180,44 +172,6 @@ def test_rates_and_proportions_calculate_exactly(tmp_path):
 
 EVENTS_OBJECT = ObservedEvents(48, Fraction(12500), 61, Fraction(31000), "night shifts", "cancer")
 TEST_OBJECT = RateTest(Fraction(1, 20), "night shifts", "cancer")
-
-
-def test_payloads_round_trip_and_reject_tampering():
-    def version(payload):
-        payload["analysis"]["test_version"] = "9"
-
-    def decision(payload):
-        payload["result"]["reject_null"] = not payload["result"]["reject_null"]
-
-    def lower(payload):
-        payload["interval"]["lower"] = "0"
-
-    def bounds(payload):
-        payload["result"]["lower"] = "0"
-
-    estimate = ProportionEstimate("prevalence", "cross_sectional", 800, 152, Fraction(19, 20))
-    for build, parse, value, tamper in [
-        (rate_payload, parse_rate_payload, TEST_OBJECT, version),
-        (
-            rate_result_payload,
-            parse_rate_result_payload,
-            RateResult(TEST_OBJECT, EVENTS_OBJECT),
-            decision,
-        ),
-        (
-            rate_ratio_payload,
-            parse_rate_ratio_payload,
-            RateRatioInterval(EVENTS_OBJECT, Fraction(19, 20)),
-            lower,
-        ),
-        (proportion_payload, parse_proportion_payload, estimate, bounds),
-    ]:
-        payload = build(value)
-        assert parse(copy.deepcopy(payload)) == value
-        changed = copy.deepcopy(payload)
-        tamper(changed)
-        with pytest.raises(ValueError):
-            parse(changed)
 
 
 def test_proofs_tails_and_assumptions():

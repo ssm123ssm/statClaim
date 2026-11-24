@@ -1,4 +1,4 @@
-# The same family as two_outcomes.toml, using the common declaration grammar.
+# Two Fisher analyses under one familywise error bound, by Bonferroni.
 use models.two_arm_binomial
 use sampling
 use tests.fisher
