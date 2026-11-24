@@ -31,7 +31,7 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
 - `lean_translation/`: the translation of whole programs to Lean, in progress
   ([proposal](proposals/lean-translation.md)). `table.py` says what each
   constructor and operation becomes in Lean; `denote.py` decides what a compiled
-  program states, `prove.py` how each statement is proved, and `grades.py` how a
+  program states (`exact.py` for exact tests), `prove.py` how each statement is proved, and `grades.py` how a
   claim's grade follows from the premises its proof uses; `program.py` writes
   the file and lists what it does not translate yet. `scripts/check_lean_translation.py` translates every
   example and replication study and checks them with Lean, in `make lean-check`.

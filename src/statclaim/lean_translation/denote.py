@@ -15,9 +15,11 @@ slack of each cited or declared test. Premise names start with their kind, `cite
 import json
 from dataclasses import dataclass, field
 from fractions import Fraction
+from typing import Any
 
 from statclaim.language import (
     AnalysisIR,
+    AssociationAnalysisIR,
     AssociationNullIR,
     CitedAnalysisIR,
     CitedAssociationIR,
@@ -30,14 +32,18 @@ from statclaim.language import (
     OutcomeNullIR,
     PlanIR,
     ProgramIR,
+    RandomisationAnalysisIR,
+    RateAnalysisIR,
     SequentialIR,
     VerificationResultIR,
     normalize,
 )
 from statclaim.language.ir import TwoArmModelIR
 from statclaim.language_compiler import requirements
+from statclaim.lean_translation import exact
 from statclaim.lean_translation.emit import Namer, comment, rational, real
 from statclaim.lean_translation.emit import name as lean
+from statclaim.lean_translation.exact import ExactAnalysis
 from statclaim.methods import METHODS
 
 CORE = "StatClaim.Core"
@@ -251,7 +257,8 @@ class Abstract:
 class Contract:
     name: str
     facts: list[str]
-    check: str  # decide, norm_num, fisher_null, fisher_requires or comment
+    check: str  # decide, norm_num, fisher_null, fisher_requires, same_null, splits,
+    # grouped_splits or comment
     unfold: str = ""  # a definition norm_num may unfold
     predicate: str = ""  # fisher_null: the declared binomial null
     compatible: str = ""  # fisher_requires: the compatibility that meets the requirement
@@ -305,9 +312,10 @@ class Claim:
     request_id: int
     grade: str  # the grade the translator expects Lean's dependencies to give
     own: str | None = None  # the claim's own premise: a single cited or declared test, or a graph
-    analysis: Analysis | None = None
+    analysis: "Analysis | ExactAnalysis | None" = None
     combination: Combination | None = None
     leaves: list[Analysis] = field(default_factory=list)
+    space: str = ""  # a namespace of its own, for the checks an exact test's proof uses
 
 
 @dataclass
@@ -450,12 +458,13 @@ class Denoter:
         self.memo[k] = result
         return result
 
-    def analysis(self, ir: object, preferred: str | None = None) -> Analysis:
+    def analysis(self, ir: object, preferred: str | None = None) -> "Analysis | ExactAnalysis":
         # One declaration, one test: two identical declarations are two endpoints, as
         # Python's combinations count them, so tests are told apart by declaration.
         k = f"analysis:{id(ir)}"
         if k in self.memo:
             return self.memo[k]  # type: ignore[return-value]
+        result: Analysis | ExactAnalysis
         if isinstance(ir, CitedAnalysisIR):
             result = self.cited(ir, preferred)
         elif isinstance(ir, CitedAssociationIR):
@@ -463,9 +472,149 @@ class Denoter:
         elif isinstance(ir, AnalysisIR) and ir.alternative == "two_sided":
             result = self.fisher(ir, preferred)
         else:
-            raise Untranslated(f"{type(ir).__name__} analyses are not translated yet.")
+            result = self.exact(ir, preferred)
         self.memo[k] = result
         return result
+
+    def exact(self, ir: object, preferred: str | None) -> ExactAnalysis:
+        """An exact test and its Type I claim. See `exact.py`."""
+        if not exact.is_exact(ir):
+            raise Untranslated(f"{type(ir).__name__} analyses are not translated yet.")
+        if exact.stopping(ir) != "fixed":
+            raise Untranslated(
+                "An exact test's guarantee is for a fixed design; this design stops on the data."
+            )
+        base = self.own(preferred, "analysis")
+        test: Any = (
+            ir.margin_test(observed=None)
+            if isinstance(ir, AnalysisIR) and (ir.alternative == "margin")
+            else ir.lower()  # type: ignore[attr-defined]
+        )
+        level = self.namer.fresh(f"{base}_level")
+        self.out.defs.append(
+            f"def {lean(level)} : StatClaim.SignificanceLevel :=\n  {exact.level(test.alpha)}"
+        )
+        names: dict[str, str] = {}
+        bound = exact.bound(lean(level))
+        modules = exact.MODULES
+        if isinstance(ir, AnalysisIR):
+            kind = "one_sided" if ir.alternative == "greater" else "margin"
+            design = self.design(ir.plan)
+            if design.model.abstract:
+                raise Untranslated(
+                    "This exact test needs the binomial model of independent participants."
+                )
+            null = self.null(ir.hypothesis)
+            sizes = lean(design.model.sizes)
+            names["sizes"] = sizes
+            if kind == "one_sided":
+                term = f"{modules}.FisherOneSided.analysis {sizes} {lean(level)}"
+            else:
+                thresholds = self.namer.fresh(f"{base}_thresholds")
+                names["thresholds"] = lean(thresholds)
+                listed = ", ".join(str(t) for t in test.thresholds)
+                # The test itself: with x control successes, reject at the x-th threshold.
+                self.out.defs.append(f"def {lean(thresholds)} : List ℕ := [{listed}]")
+                term = (
+                    f"{modules}.DifferenceTest.analysis {sizes} {lean(thresholds)} "
+                    f"{rational(test.margin)}"
+                )
+            self.out.defs.append(f"noncomputable def {lean(base)} :=\n  {term}")
+            self.out.contracts.append(
+                Contract(
+                    self.namer.fresh(f"{base}_null"),
+                    [f"∀ parameter, {null.ref()} parameter ↔ {lean(base)}.hypothesis parameter"],
+                    "same_null",
+                )
+            )
+            statement = f"({lean(base)}.typeIClaim {bound}).statement"
+        elif isinstance(ir, AssociationAnalysisIR) and test.groups is not None:
+            kind = "groups"
+            first, second = test.groups
+            for suffix in ("groups", "study", "design", "compatible"):
+                names[suffix] = lean(self.namer.fresh(f"{base}_{suffix}"))
+            self.out.defs += [
+                "-- Fixed groups make the table two independent binomial counts, and no\n"
+                "-- association makes their probabilities equal: the model of Fisher's test\n"
+                "-- (StatClaim.Modules.Association).\n"
+                f"def {names['groups']} : StatClaim.FixedSampleDesign :=\n"
+                f"  ⟨{first}, {second}, by decide, by decide⟩",
+                f"noncomputable def {names['study']} := {BINOMIAL}.model {names['groups']}",
+                f"noncomputable def {names['design']} :=\n"
+                f"  {CORE}.StudyDesign.fixed {names['study']}",
+                f"noncomputable def {names['compatible']} :\n"
+                f"    {CORE}.Compatibility {names['design']} :=\n"
+                f"  {CORE}.Compatibility.fixed _",
+                f"noncomputable def {lean(base)} :=\n"
+                f"  {FISHER}.analysis {names['groups']} {names['design']} {lean(level)}",
+            ]
+            statement = f"({lean(base)}.typeIClaim {names['compatible']} {bound}).statement"
+        elif isinstance(ir, AssociationAnalysisIR):
+            kind = "mixture"
+            # Only the total is fixed: the number exposed is binomial too.
+            statement = (
+                f"∀ q p : unitInterval, ({modules}.Association.mixtureLaw {test.n} q p).real\n"
+                f"      ({modules}.Association.mixtureRejection {test.n} {lean(level)}.value) ≤ "
+                f"{bound}"
+            )
+        elif isinstance(ir, RandomisationAnalysisIR):
+            kind = "randomisation"
+            self.randomisation_contracts(base, test)
+            statement = exact.randomisation(test, lean(level))
+        elif isinstance(ir, RateAnalysisIR):
+            kind = "rate"
+            # For every total rate and every share of person-time, under equal rates.
+            statement = (
+                f"∀ (total : NNReal) (share : unitInterval),\n"
+                f"      ({modules}.Incidence.ratesLaw total share).real\n"
+                f"        ({modules}.Incidence.given (fun n =>\n"
+                f"          {modules}.Incidence.rejectionAt share n {bound})) ≤ {bound}"
+            )
+        else:
+            kind = "matched"
+            # For every probability that a pair is discordant, under no association.
+            statement = (
+                f"∀ δ : unitInterval,\n"
+                f"      ({modules}.Matched.pairsLaw {test.pairs} δ {modules}.Matched.half).real\n"
+                f"        ({modules}.Matched.pairsRejection {test.pairs} {bound}) ≤ {bound}"
+            )
+        return ExactAnalysis(base, kind, lean(level), statement, test, names)
+
+    def randomisation_contracts(self, base: str, test) -> None:
+        """The assignment is valid, and the level is attainable: some p-value can reach it."""
+        modules = exact.MODULES
+        if test.grouped:
+            groups = "[" + ", ".join(f"({size}, {treated})" for size, treated in test.groups) + "]"
+            self.out.contracts.append(
+                Contract(
+                    self.namer.fresh(f"{base}_groups"),
+                    [f"∀ group ∈ ({groups} : {modules}.Randomisation.Groups), group.2 ≤ group.1"],
+                    "decide",
+                )
+            )
+            splits = f"({modules}.Randomisation.groupedSplits {groups}).card = {test.splits}"
+            check = "grouped_splits"
+        else:
+            self.out.contracts.append(
+                Contract(
+                    self.namer.fresh(f"{base}_sizes"),
+                    [f"0 < {test.treated}", f"{test.treated} < {test.units}"],
+                    "decide",
+                )
+            )
+            splits = (
+                f"({modules}.Randomisation.splits {test.units} {test.treated}).card = {test.splits}"
+            )
+            check = "splits"
+        self.out.contracts.append(Contract(self.namer.fresh(f"{base}_splits"), [splits], check))
+        smallest = f"(1 : ℚ) / {test.draws + 1 if test.draws else test.splits}"
+        self.out.contracts.append(
+            Contract(
+                self.namer.fresh(f"{base}_attainable"),
+                [f"{smallest} ≤ {rational(test.alpha)}"],
+                "norm_num",
+            )
+        )
 
     def tested(
         self, base: str, kind: str, model: Model, null: Null, alpha: Fraction, scope: str
@@ -635,7 +784,21 @@ class Denoter:
         return Analysis(base, "fisher", model, design, null, ir.alpha, "finite_sample", level=level)
 
     # Claims -----------------------------------------------------------------------------
-    def type_i(self, name: str, request_id: int, analysis: Analysis) -> None:
+    def type_i(self, name: str, request_id: int, analysis: "Analysis | ExactAnalysis") -> None:
+        if isinstance(analysis, ExactAnalysis):
+            space = self.namer.fresh(f"{name}_checks")
+            self.out.claims.append(
+                Claim(
+                    name,
+                    analysis.statement,
+                    "typeI",
+                    request_id,
+                    "proved",
+                    analysis=analysis,
+                    space=space,
+                )
+            )
+            return
         compatible = analysis.design.compatible
         if compatible is None:
             raise Untranslated(
@@ -713,6 +876,10 @@ class Denoter:
                 parts.append(Part(kind, member.alpha, combination=inner))
                 continue
             analysis = self.analysis(member)
+            if isinstance(analysis, ExactAnalysis):
+                raise Untranslated(
+                    f"Exact member {analysis.name} joins combinations in a later part."
+                )
             if analysis.design.compatible is None:
                 raise Untranslated(f"Member {analysis.name} has no sampling law to combine.")
             parts.append(Part("leaf", member.alpha, analysis, len(leaves)))
@@ -853,7 +1020,9 @@ class Denoter:
                     self.design(value, binding.name)
                 elif isinstance(value, (OutcomeNullIR, HypothesisIR, AssociationNullIR)):
                     self.null(value, binding.name)
-                elif isinstance(value, (CitedAnalysisIR, AnalysisIR, CitedAssociationIR)):
+                elif isinstance(value, (CitedAnalysisIR, AnalysisIR, CitedAssociationIR)) or (
+                    exact.is_exact(value)
+                ):
                     self.analysis(value, binding.name)
                 elif isinstance(value, (FamilyIR, ComposedFamilyIR)):
                     self.combination(value, [])

@@ -43,6 +43,7 @@ def render(denotation: Denotation, label: str) -> str:
         if fact.check == "comment":
             out += [f"-- {fact.facts[0]}", ""]
             continue
+        out += prove.options(fact)
         out += [
             f"theorem {lean(fact.name)} :\n    " + " ∧\n    ".join(fact.facts) + " :=",
             f"  {prove.contract(fact)}",
@@ -56,6 +57,7 @@ def render(denotation: Denotation, label: str) -> str:
     out.append("")
     for claim in denotation.claims:
         proof = prove.claim(claim)
+        out += prove.checks(claim)
         head = f"theorem {lean(claim.name)} (i : Instance) (premises : Premises i) :"
         if proof.startswith("by\n"):
             out += [head, f"    {claim.statement} := by", proof.removeprefix("by\n"), ""]

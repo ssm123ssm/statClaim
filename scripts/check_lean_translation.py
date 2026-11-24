@@ -11,6 +11,10 @@ compiler rejects is not translated; its rejection is checked separately.
 
 Lean also lists the premises each claim's proof uses. The grade they give must equal the
 grade the translator expects and the status Python reports for the claim (`best_status`).
+
+Each exact test's claim must imply the statement its certificate template checks for
+`verify` today (test 5 of the proposal): the template's body is placed beside the program,
+and an `example` derives the template's theorem from the program's claim.
 """
 
 import re
@@ -19,21 +23,31 @@ import sys
 import tempfile
 from pathlib import Path
 
+from statclaim.association import render_association_proof
+from statclaim.incidence import render_rate_proof
 from statclaim.language import ComposedFamilyIR
 from statclaim.language_compiler import compile_source
 from statclaim.language_inspection import best_status
 from statclaim.language_syntax import Source
 from statclaim.language_values import STATUS_GRADES
+from statclaim.lean_translation.denote import Claim, denote
+from statclaim.lean_translation.emit import name as lean
+from statclaim.lean_translation.exact import ExactAnalysis
 from statclaim.lean_translation.grades import grade
 from statclaim.lean_translation.program import Translation, translate
+from statclaim.matched import render_matched_proof
+from statclaim.planning import render_margin_proof
+from statclaim.proof import render_design_proof
+from statclaim.randomisation import render_randomisation_proof
 
 ROOT = Path(__file__).resolve().parents[1]
 PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
 # Translations reviewed as diffs: an exact test, cited tests of both scopes, a declared
 # test, a design whose stopping rule leaves its claim unresolved, a cited test of
 # association in a survey, a family of a proved and a cited test, a fixed sequence, a
-# design with two looks, a graphical procedure, and the COPD hierarchy, which nests a graph
-# in a sequence.
+# design with two looks, a graphical procedure, the COPD hierarchy, which nests a graph
+# in a sequence, and exact tests: one-sided Fisher, association with fixed groups, and
+# randomisation.
 PINNED = (
     "examples/paper/fisher_design.stat",
     "examples/t_test.stat",
@@ -45,6 +59,9 @@ PINNED = (
     "replication/comparison/sequential.stat",
     "examples/recycling.stat",
     "replication/copd/design_cited.stat",
+    "examples/one_sided.stat",
+    "examples/case_control.stat",
+    "examples/randomisation.stat",
 )
 
 
@@ -116,9 +133,93 @@ def grade_problems(results: dict[str, tuple[Path, Translation]], output: str) ->
     return problems
 
 
-def block(path: Path, result: Translation) -> str:
+# The template `verify` uses today for each kind of exact test.
+TEMPLATES = {
+    "one_sided": render_design_proof,
+    "margin": render_margin_proof,
+    "groups": render_association_proof,
+    "mixture": render_association_proof,
+    "randomisation": render_randomisation_proof,
+    "rate": render_rate_proof,
+    "matched": render_matched_proof,
+}
+
+
+def template_body(analysis: ExactAnalysis) -> str:
+    """The template's options and declarations, without its imports or audit."""
+    lines = TEMPLATES[analysis.kind](analysis.test, "0" * 64).splitlines()
+    start = lines.index("namespace StatClaimCertificate")
+    end = lines.index("end StatClaimCertificate")
+    options = [line for line in lines[:start] if line.startswith("set_option ")]
+    return "\n".join([*options, *lines[start + 1 : end]]).strip("\n")
+
+
+def equivalence(claim: Claim) -> str:
+    """An `example` deriving the template's theorem from the program's claim."""
+    analysis = claim.analysis
+    assert isinstance(analysis, ExactAnalysis)
+    space, name, level = f"template_{claim.name}", lean(claim.name), analysis.level
+    if analysis.kind == "margin":
+        proof = [
+            f"  have claim := {name} i premises",
+            f"  have same : {space}.declaredAnalysis = {lean(analysis.name)} := by",
+            f"    unfold {space}.declaredAnalysis {lean(analysis.name)}",
+            "    congr 1",
+            "    all_goals norm_num",
+            "  rw [same]",
+            "  intro parameter null",
+            "  refine le_trans (claim parameter null) ?_",
+            f"  norm_num [{level}]",
+        ]
+    elif analysis.kind == "groups":
+        names = analysis.names
+        proof = [
+            "  intro p",
+            f"  have claim := {name} i premises (p, p) rfl",
+            # The sampling law of a fixed design is the model's law.
+            "  change ((StatClaim.Modules.TwoArmBinomial.model "
+            f"{names['groups']}).law (p, p)).real",
+            f"    (StatClaim.Modules.Fisher.procedure {names['groups']} {level}).rejectionEvent ≤ _"
+            " at claim",
+            f"  rw [StatClaim.Modules.TwoArmBinomial.law_under_null {names['groups']} (p, p) rfl,",
+            f"    StatClaim.Modules.Fisher.rejectionEvent_eq {names['groups']} {level}] at claim",
+            "  exact claim",
+        ]
+    elif analysis.kind == "randomisation":
+        proof = [
+            "  intro _ _ _ statistic outcomes sharp",
+            f"  exact {name} i premises statistic outcomes sharp",
+        ]
+    else:
+        proof = [f"  exact {name} i premises"]
+    return "\n".join(
+        [
+            f"namespace {space}",
+            "",
+            template_body(analysis),
+            "",
+            f"end {space}",
+            "",
+            "example (i : Instance) (premises : Premises i) :",
+            f"    type_of% @{space}.checked_typeI := by",
+            *proof,
+            "",
+        ]
+    )
+
+
+def equivalences(path: Path) -> list[str]:
+    """One for each exact test's claim in the program."""
+    program = compiled(path)
+    assert program is not None
+    claims = denote(program).claims
+    return [equivalence(claim) for claim in claims if isinstance(claim.analysis, ExactAnalysis)]
+
+
+def block(path: Path, result: Translation, extra: list[str] = []) -> str:  # noqa: B006
     name = namespace(path)
-    return f"namespace {name}\n\n{result.lean}\nend {name}\n"
+    tail = "".join(f"{text}\n" for text in extra)
+    return f"namespace {name}\n\n{result.lean}\n{tail}end {name}\n"
 
 
 def pinned(path: str) -> Path:
@@ -126,7 +227,7 @@ def pinned(path: str) -> Path:
 
 
 def main() -> int:
-    blocks, claims, skipped, rejected = [], 0, 0, 0
+    blocks, claims, skipped, rejected, templates = [], 0, 0, 0, 0
     results: dict[str, tuple[Path, Translation]] = {}
     for path in corpus():
         result = translation(path)
@@ -134,7 +235,9 @@ def main() -> int:
             rejected += 1
             continue
         results[label(path)] = (path, result)
-        blocks.append(block(path, result))
+        extra = equivalences(path)
+        templates += len(extra)
+        blocks.append(block(path, result, extra))
         claims += len(result.claims)
         skipped += len(result.skipped)
     print(
@@ -162,7 +265,10 @@ def main() -> int:
         print(f"Lean rejected the translated corpus ({len(errors)} errors):")
         print("\n".join(lines[:60]))
         return 1
-    print("Lean accepted every translated program.")
+    print(
+        f"Lean accepted every translated program, and each of the {templates} exact tests' "
+        "claims implies the statement its template checks."
+    )
     problems = grade_problems(results, run.stdout + run.stderr)
     if problems:
         print(f"{len(problems)} claims have grades that disagree:")

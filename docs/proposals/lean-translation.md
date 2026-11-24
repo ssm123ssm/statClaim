@@ -58,6 +58,16 @@ Decisions taken in milestone 4 (2026-11-23):
   sequence passes only when every member rejects, whenever one of its nulls is
   true (`looks_member`, `family_member`, `sequence_member`). A family or graph is
   translated as a member only of a fixed sequence.
+- Milestone 5, part 1 done: Type I claims of the single exact tests, 84 claims
+  in all. `exact.py` states them: one-sided Fisher and the margin test as Type I
+  claims on their module's analysis; a test of association with fixed groups as
+  Fisher's claim on two binomial counts, the bridge from the association module
+  to the core objects; randomisation, rate, matched and cross-sectional tests
+  as their module's bound under the declared assignment or sample. `prove.py`
+  writes their numerical checks (one-sided hints, margin cells). For each of the
+  19 corpus claims, the corpus check derives the statement the template checks
+  today from the translated claim (test 5). Parts 2 to 4: result and interval
+  claims, planning claims, then template retirement.
 
 ## Goal
 
@@ -218,6 +228,7 @@ hold for the study's actual tests.
   in Lean: calculated or simulated".
 - `denote.py` (trusted): walks the bindings in order and decides every
   statement: abstract parts, definitions, contract facts, premises and claims.
+  `exact.py` (trusted) states the claims of exact tests.
 - `prove.py` (untrusted): the proof of each statement.
 - `grades.py` (trusted): the dependency collector, and the grade rule that
   reads its output.
@@ -410,7 +421,7 @@ Trusted, kept small and reviewed line by line:
 | Definitions behind statements | `StatClaim/Core/`, and the definitions (not the proofs) in `StatClaim/Modules/`: laws, rejection events, policies, null predicates, claim propositions | They fix what every theorem means | Statistical and formal review |
 | Interface library | `StatClaim/Interface/` | `LevelPremise`, its slack and the program-theorem shape: one wrong inequality empties every cited composition | Size budget, review, instances checked in known cases |
 | Premise data and generator | The registry fields that state guarantees (relation, scope, bound, null form), `scripts/update_lean_premises.py`, `StatClaim/Generated/Methods.lean` | They decide what each cited guarantee says in Lean | Method version fixture, `--check`, reviewed diffs of the generated file |
-| Translator denotation | `lean_translation/denote.py`: the Lean term each declaration denotes and the proposition each claim becomes; `table.py` says which constructors have one | A wrong entry gives a proof of the wrong statement | Table-driven, golden files, template equivalence |
+| Translator denotation | `lean_translation/denote.py` and `exact.py`: the Lean term each declaration denotes and the proposition each claim becomes; `table.py` says which constructors have one | A wrong entry gives a proof of the wrong statement | Table-driven, golden files, template equivalence |
 | Values from source | The parser, elaboration of values and `language.normalize` | The statement must be about the study the source describes | Source and canonical input kept in each certificate; readings show each value in words; round-trip tests |
 | Grade from premises | `lean_translation/grades.py`: the grade rule, and the dependency collector that lists the premises each claim's proof uses | Together they decide the evidence grade shown | Exhaustive tests over premise kinds, with proofs that use and avoid each one |
 | Certificate checks | The audit, completion marker, input binding and replay in `verification.py` | They decide whether a build counts | Existing tests, including tampered bundles |

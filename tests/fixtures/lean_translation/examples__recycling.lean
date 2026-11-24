@@ -49,6 +49,22 @@ noncomputable def design_1_compatible (i : Instance) :
 def null_1 (i : Instance) :=
   i.everyone.null StatClaim.Generated.NullKey.mean_difference_at_most.shape (0 : ℚ)
 
+def onset_level : StatClaim.SignificanceLevel :=
+  ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩
+
+noncomputable def design_2 :=
+  StatClaim.Core.StudyDesign.fixed responders
+
+noncomputable def design_2_compatible :
+    StatClaim.Core.Compatibility design_2 :=
+  StatClaim.Core.Compatibility.fixed _
+
+def null_2 : StatClaim.Core.Hypothesis StatClaim.Modules.TwoArmBinomial.Parameters :=
+  StatClaim.Modules.TwoArmBinomial.proportionDifferenceAtMost (0 : ℚ)
+
+noncomputable def onset :=
+  StatClaim.Modules.FisherOneSided.analysis responders_sizes onset_level
+
 -- Contract facts the Python compiler checks, decided by Lean.
 
 theorem trough_not_worse_contract :
@@ -145,6 +161,10 @@ theorem capacity_values :
     (0 : ℚ) < ((1 : ℚ) / 40) ∧
     ((1 : ℚ) / 40) < 1 :=
   by norm_num
+
+theorem onset_null :
+    ∀ parameter, null_2 parameter ↔ onset.hypothesis parameter :=
+  fun parameter => Iff.rfl
 
 /-- The premises the claims rest on: cited and declared guarantees. -/
 structure Premises (i : Instance) : Prop where

@@ -140,6 +140,40 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     assert "inspiratory_capacity_ni_test" in copd.lean  # one declaration, one test
     trial = checker.translation(ROOT / "examples/confirmatory_trial.stat")
     assert trial.claims["overall_claim"] == "conditional"  # looks nested in a sequence
+    # Exact tests are proved by their modules, with their numerical checks in Lean.
+    exact = {
+        "examples/one_sided.stat": {"guarantee_claim": "proved"},
+        "examples/non_inferiority.stat": {"guarantee_claim": "proved"},
+        "examples/case_control.stat": {"checked_claim": "proved"},
+        "examples/cross_sectional.stat": {
+            "survey_checked_claim": "proved",
+            "cohort_checked_claim": "proved",
+        },
+        "examples/randomisation.stat": {"individual_claim": "proved", "by_clinic_claim": "proved"},
+        "examples/incidence_rates.stat": {"design_claim_claim": "proved"},
+        "examples/tutorial/25_matched_pairs.stat": {"design_claim_claim": "proved"},
+    }
+    for path, claims in exact.items():
+        assert checker.translation(ROOT / path).claims == claims, path
+    # A test of association with fixed groups is Fisher's test on two binomial counts.
+    assert (
+        "Fisher.analysis analysis_groups"
+        in checker.translation(ROOT / "examples/case_control.stat").lean
+    )
+    adaptive_exact = checker.translation(ROOT / "examples/one_sided.stat")
+    assert "FisherOneSided.typeI_of_hints" in adaptive_exact.lean
+
+
+def test_every_exact_claim_is_checked_against_its_template():
+    checker = corpus_checker()
+    found = [
+        text
+        for path in checker.corpus()
+        if checker.translation(path) is not None
+        for text in checker.equivalences(path)
+    ]
+    assert len(found) == 19
+    assert all("type_of% @template_" in text for text in found)
 
 
 def test_a_grade_follows_from_the_premises_a_proof_uses():
@@ -202,6 +236,35 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
             (
                 "((1 : ℚ) / 2) + ((1 : ℚ) / 2) + (0 : ℚ) ≤ 1",
                 "((3 : ℚ) / 5) + ((1 : ℚ) / 2) + (0 : ℚ) ≤ 1",
+            ),
+        )
+    )
+    randomisation = corpus_checker().translation(ROOT / "examples/randomisation.stat").lean
+    cases.append(
+        (
+            randomisation,
+            "a level no randomisation p-value can reach",
+            ("(1 : ℚ) / 924 ≤ ((1 : ℚ) / 20)", "(1 : ℚ) / 924 ≤ ((1 : ℚ) / 1000)"),
+        )
+    )
+    cases.append(
+        (
+            randomisation,
+            "a wrong count of possible assignments",
+            (
+                "(StatClaim.Modules.Randomisation.splits 12 6).card = 924",
+                "(StatClaim.Modules.Randomisation.splits 12 6).card = 925",
+            ),
+        )
+    )
+    margin = corpus_checker().translation(ROOT / "examples/non_inferiority.stat").lean
+    cases.append(
+        (
+            margin,
+            "a margin test that rejects more often than its level allows",
+            (
+                "analysis_thresholds : List ℕ := [0, 0, 2, 3,",
+                "analysis_thresholds : List ℕ := [0, 0, 0, 0,",
             ),
         )
     )

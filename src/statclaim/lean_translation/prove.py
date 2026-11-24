@@ -25,6 +25,8 @@ from statclaim.lean_translation.denote import (
 )
 from statclaim.lean_translation.emit import name as lean
 from statclaim.lean_translation.emit import rational, real
+from statclaim.lean_translation.exact import MODULES, ExactAnalysis
+from statclaim.planning import MARGIN_CHUNK, fisher_bounds, margin_grid
 
 
 def contract(fact: Contract) -> str:
@@ -38,7 +40,28 @@ def contract(fact: Contract) -> str:
         return f"fun parameter => {BINOMIAL}.proportionDifference_zero_iff parameter"
     if fact.check == "fisher_requires":
         return f"⟨{fact.compatible}⟩"
+    if fact.check == "same_null":
+        return "fun parameter => Iff.rfl"
+    if fact.check == "splits":
+        return (
+            f"by\n    rw [{MODULES}.Randomisation.splits_card,\n"
+            "      Nat.choose_eq_factorial_div_factorial (by decide)]\n    decide +kernel"
+        )
+    if fact.check == "grouped_splits":
+        return (
+            f"by\n    rw [{MODULES}.Randomisation.groupedSplits_card _ (by decide)]\n"
+            "    decide +kernel"
+        )
     raise ValueError(f"No proof for a {fact.check} contract.")
+
+
+# Kernel checks of exact tests count many tables; the templates use the same limits.
+HEAVY = "set_option maxRecDepth 100000 in\nset_option maxHeartbeats 20000000 in"
+
+
+def options(fact: Contract) -> list[str]:
+    """Options a contract's proof needs."""
+    return HEAVY.splitlines() if fact.check in ("splits", "grouped_splits") else []
 
 
 def premise(given: Premise) -> str:
@@ -160,6 +183,8 @@ def prove_combination(combination: Combination, lines: list[str], counter: list[
 
 def claim(statement: Claim) -> str:
     analysis = statement.analysis
+    if isinstance(analysis, ExactAnalysis):
+        return exact_proof(analysis, statement.space)
     if statement.kind == "typeI" and statement.combination is None:
         assert analysis is not None and analysis.design.compatible is not None
         compatible = analysis.design.compatible.ref()
@@ -201,3 +226,137 @@ def claim(statement: Claim) -> str:
     final = prove_combination(combination, lines, [0])
     lines.append(f"  exact {final}")
     return "\n".join(lines)
+
+
+# Exact tests ------------------------------------------------------------------------------
+def checks(statement: Claim) -> list[str]:
+    """The kernel checks an exact test's proof uses, in the claim's own namespace."""
+    analysis = statement.analysis
+    if not isinstance(analysis, ExactAnalysis) or analysis.kind not in ("one_sided", "margin"):
+        return []
+    test, names, space = analysis.test, analysis.names, lean(statement.space)
+    sizes = names["sizes"]
+    numerator, denominator = test.alpha.as_integer_ratio()
+    lines = [f"namespace {space}", ""]
+    if analysis.kind == "one_sided":
+        listed = ", ".join(
+            str(b) for b in fisher_bounds(test.n_control, test.n_treatment, test.alpha)
+        )
+        lines += [
+            f"def bounds : List ℕ := [{listed}]",
+            "",
+            HEAVY,
+            f"theorem region : {MODULES}.FisherOneSided.HintsValid {sizes}.nControl",
+            f"    {sizes}.nTreatment {numerator} {denominator} bounds := by",
+            "  decide +kernel",
+            "",
+            HEAVY,
+            f"theorem sections : {MODULES}.FisherOneSided.HintSections {sizes}.nControl",
+            f"    {sizes}.nTreatment bounds := by",
+            "  decide +kernel",
+        ]
+    else:
+        nc, nt = test.n_control, test.n_treatment
+        grid, shift = margin_grid(test.margin)
+        up, down = max(shift, 0), max(-shift, 0)
+        thresholds = names["thresholds"]
+        check = (
+            f"({MODULES}.DifferenceTest.cellCheck {nc} {nt} {thresholds} {grid} {up} {down} "
+            f"{numerator} {denominator})"
+        )
+        boundaries = list(test.cells)
+        chunks = [boundaries[i : i + MARGIN_CHUNK] for i in range(0, len(boundaries), MARGIN_CHUNK)]
+        starts = [down, *(chunk[-1] for chunk in chunks[:-1])]
+        for index, (start, chunk) in enumerate(zip(starts, chunks, strict=True)):
+            lines += [
+                f"def cells{index} : List ℕ := [{', '.join(str(c) for c in chunk)}]",
+                HEAVY,
+                f"theorem chunk{index} :",
+                f"    {MODULES}.DifferenceTest.cellsOk {check} {start} cells{index} = true := by",
+                "  decide +kernel",
+                "",
+            ]
+        lines.append(
+            "def cells : List ℕ := " + " ++ ".join(f"cells{i}" for i in range(len(chunks)))
+        )
+        joined = f"chunk{len(chunks) - 1}"
+        for index in range(len(chunks) - 2, -1, -1):
+            joined = (
+                f"({MODULES}.DifferenceTest.cellsOk_append _ cells{index} {starts[index]} "
+                f"{starts[index + 1]} _ (by decide) chunk{index} {joined})"
+            )
+        margin = f"(((({up} : ℕ) : ℚ) - (({down} : ℕ) : ℚ)) / (({grid} : ℕ) : ℚ))"
+        lines += [
+            "",
+            HEAVY,
+            "theorem cells_bound :",
+            f"    (({MODULES}.DifferenceTest.analysis {sizes} {thresholds} {margin}).typeIClaim",
+            f"      ((({numerator} : ℕ) : ℝ) / (({denominator} : ℕ) : ℝ))).statement :=",
+            f"  {MODULES}.DifferenceTest.typeI_of_cells {sizes} {thresholds} (by decide) {grid}",
+            f"    (by decide) {up} {down} (by decide) {numerator} {denominator} (by decide) cells",
+            f"    (by decide) {joined} (by decide)",
+        ]
+    return [*lines, "", f"end {space}", ""]
+
+
+def exact_proof(analysis: ExactAnalysis, space: str) -> str:
+    """An exact test's claim, from its module's theorem and the kernel checks."""
+    test, names, level = analysis.test, analysis.names, analysis.level
+    nonnegative = f"{level}.nonnegative"
+    if analysis.kind == "one_sided":
+        numerator, denominator = test.alpha.as_integer_ratio()
+        return (
+            f"{MODULES}.FisherOneSided.typeI_of_hints {names['sizes']} {level} {numerator} "
+            f"{denominator}\n    (by decide) (by norm_num [{level}]) {lean(space)}.bounds "
+            f"{lean(space)}.region {lean(space)}.sections"
+        )
+    if analysis.kind == "margin":
+        grid, shift = margin_grid(test.margin)
+        up, down = max(shift, 0), max(-shift, 0)
+        return "\n".join(
+            [
+                "by",
+                f"  have same : {rational(test.margin)} =",
+                f"      (((({up} : ℕ) : ℚ) - (({down} : ℕ) : ℚ)) / (({grid} : ℕ) : ℚ)) := by",
+                "    norm_num",
+                f"  unfold {lean(analysis.name)}",
+                "  rw [same]",
+                "  intro parameter null",
+                f"  refine le_trans ({lean(space)}.cells_bound parameter null) ?_",
+                f"  norm_num [{level}]",
+            ]
+        )
+    if analysis.kind == "groups":
+        return (
+            f"{FISHER}.typeI_statement {names['groups']} {names['design']} "
+            f"{names['compatible']} {level}"
+        )
+    if analysis.kind == "mixture":
+        return (
+            f"fun q p => {MODULES}.Association.mixture_typeI_le_alpha {test.n} q p _ {nonnegative}"
+        )
+    if analysis.kind == "rate":
+        return (
+            f"fun total share => {MODULES}.Incidence.typeI total share _ "
+            f"(by exact_mod_cast {nonnegative})"
+        )
+    if analysis.kind == "matched":
+        return (
+            f"fun δ => {MODULES}.Matched.typeI {test.pairs} δ _ (by exact_mod_cast {nonnegative})"
+        )
+    # Randomisation: for every statistic and all outcomes under the sharp null.
+    if test.grouped:
+        groups = "[" + ", ".join(f"({a}, {b})" for a, b in test.groups) + "]"
+        support = f"{MODULES}.Randomisation.groupedSplits {groups}"
+        direct = f"{MODULES}.Randomisation.groupedTypeI_of_level {groups}"
+    else:
+        units, treated = test.units, test.treated
+        support = f"{MODULES}.Randomisation.splits {units} {treated}"
+        direct = f"{MODULES}.Randomisation.typeI_of_level {units} {treated}"
+    if test.draws:
+        applied = f"{MODULES}.Randomisation.drawnRejection_le_of_level ({support}) {test.draws}"
+    else:
+        applied = direct
+    return (
+        f"fun statistic outcomes sharp =>\n    {applied} statistic outcomes sharp _ {nonnegative}"
+    )
