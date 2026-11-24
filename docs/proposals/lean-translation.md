@@ -111,6 +111,18 @@ Decisions taken in milestone 4 (2026-11-23):
   test's assumptions (generated from the registry), a fixed sequence's levels, and the
   question and order of a design's looks.
 
+- Milestone 6, part 2 done: the compatibility certificate.
+  `statclaim report FILE --lean` translates the program and builds it as
+  `statclaim_program_certificate` (`lean_translation/certificate.py`, built and
+  replayed by `verification.py`): its inputs are the source and the canonical
+  program; its proof is the translation followed by the audit of every contract fact,
+  claim and the program theorem; each claim's grade from Lean's dependencies must equal
+  the translation's, when issued and on replay. The report opens with a Lean check:
+  each claim's Lean grade beside Python's, refutations, and what is not translated.
+  A program Python accepts and Lean does not is a failure naming both (exit 1).
+  Decided: the certificate is made on request (`report --lean`, and the studio), not
+  by every `check`, since it costs a Lean build.
+
 Where the templates stand after milestone 5 (2026-11-23): every theorem an exact
 certificate claims is stated once, in `statements.py`, and both `verify` and the
 translator use it. What remains of each template is its definitions and its
@@ -477,7 +489,7 @@ Trusted, kept small and reviewed line by line:
 | Values from source | The parser, elaboration of values and `language.normalize` | The statement must be about the study the source describes | Source and canonical input kept in each certificate; readings show each value in words; round-trip tests |
 | Grade from premises | `lean_translation/grades.py`: the grade rule, and the dependency collector that lists the premises each claim's proof uses | Together they decide the evidence grade shown | Exhaustive tests over premise kinds, with proofs that use and avoid each one |
 | Certificate checks | The audit, completion marker, input binding and replay in `verification.py` | They decide whether a build counts | Existing tests, including tampered bundles |
-| Result binding | The translator's map from Lean names to declarations, and the report | A proof must be shown against the claim it proves | A test that every result maps to its own declaration |
+| Result binding | The translator's map from Lean names to declarations (`lean_translation/certificate.py`), and the report | A proof must be shown against the claim it proves | A test that every result maps to its own declaration |
 
 Not trusted: a bug here causes a failed build, a missed result or a poor
 message, never a false certificate.
@@ -560,7 +572,7 @@ Each milestone ends tested on the corpus, documented and pushed.
 ## Open questions
 
 - Should `statclaim check` always produce the compatibility certificate, or
-  only on request? It costs a Lean build.
+  only on request? It costs a Lean build. Decided in milestone 6: on request.
 - What is the CI time budget for the corpus build, and does it need its own
   shard?
 - How are premises named so names stay stable across versions? Proposed:

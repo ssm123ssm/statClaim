@@ -1168,6 +1168,16 @@ class Denoter:
             )
         )
 
+    def no_law_of(self, subject: object) -> str:
+        """The theorem that the subject's design has no sampling law, if it has one."""
+        plan = getattr(subject, "plan", None)
+        if not isinstance(plan, PlanIR):
+            return ""
+        try:
+            return self.design(plan).no_law
+        except Untranslated:
+            return ""
+
     # The program ------------------------------------------------------------------------
     def run(self) -> Denotation:
         holders: dict[int, str] = {}
@@ -1208,7 +1218,15 @@ class Denoter:
                 # when testing that it refuses to (`rejection.py`).
                 open_requirements = requirements(self.program, request)
                 if open_requirements and not self.ask:
-                    raise Untranslated(open_requirements[0].message)
+                    message = open_requirements[0].message
+                    theorem = self.no_law_of(request.claim.subject)
+                    if theorem and open_requirements[0].code == "sampling_scope":
+                        raise Refuted(
+                            f"{message} Lean proves the design supplies no sampling law "
+                            f"({lean(theorem)}).",
+                            theorem,
+                        )
+                    raise Untranslated(message)
                 name = self.namer.fresh(f"{holder}_claim")
                 subject = request.claim.subject
                 if request.claim.kind == "typeI" and isinstance(subject, SequentialIR):

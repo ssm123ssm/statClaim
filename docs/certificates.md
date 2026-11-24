@@ -19,6 +19,14 @@ interval for a difference of two proportions, and
 `statclaim_randomisation_certificate` covers a randomisation test of the sharp
 null for the declared numbers of units. All replay with `check-certificate`.
 
+`statclaim report study.stat --lean` issues `statclaim_program_certificate` for a
+whole program. Its inputs are the source and the canonical program it compiles
+to; its proof is the program's Lean translation, followed by the same audit of
+every contract fact and claim. Each claim's grade must follow from the premises
+Lean lists for its proof, when issued and on replay. Replay compiles and
+translates the source again, so a certificate from another translator version is
+refused.
+
 The TOML commands below (`verify-design`, `verify-family`, `verify-result` and
 their `inspect` counterparts) predate the file language. They still work but are
 no longer listed in `statclaim --help`; prefer `.stat` files.

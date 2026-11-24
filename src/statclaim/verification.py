@@ -214,8 +214,36 @@ ONE_SIDED_CLAIMS = [
 ]
 
 
+PROGRAM_KIND = "statclaim_program_certificate"
+
+
+def _program_profile(payload: dict) -> dict:
+    """A whole program's compatibility certificate (lean_translation/certificate.py)."""
+    from statclaim.lean_translation import certificate
+
+    try:
+        stated = certificate.profile(payload)
+    except certificate.Unchecked as error:
+        raise VerificationError("binding", str(error)) from error
+    return {
+        "schema_version": 1,
+        "kind": PROGRAM_KIND,
+        # Each claim keeps its own grade: a cited claim in a checked program stays cited.
+        "status": "program_checked_under_premises",
+        **stated,
+        "trusted_components": [
+            *TRUSTED_COMPONENTS,
+            "The translator's statement of each declaration and claim "
+            "(lean_translation/denote.py, exact.py, statements.py) and the grade rule.",
+        ],
+        "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"],
+    }
+
+
 def _profile(kind: str, payload: dict) -> dict:
     """Only these built-in scopes may select claims and generated proof obligations."""
+    if kind == PROGRAM_KIND:
+        return _program_profile(payload)
     one_sided = kind in (
         "statclaim_per_result_certificate",
         "statclaim_design_certificate",
@@ -593,6 +621,13 @@ def _fraction_from_record(record: dict) -> Fraction:
 
 def _proof_for_payload(kind: str, payload: dict) -> str:
     input_id = digest(canonical_bytes(payload))
+    if kind == PROGRAM_KIND:
+        from statclaim.lean_translation import certificate
+
+        try:
+            return certificate.proof(payload, input_id)
+        except certificate.Unchecked as error:
+            raise VerificationError("binding", str(error)) from error
     if kind == "statclaim_per_result_certificate":
         design, result = _parse_payload(payload)
         return render_proof(design, result, input_id)
@@ -862,7 +897,7 @@ def _check_proof(
     logs: list[str],
     *,
     compile_output: bool,
-) -> None:
+) -> str:
     args = ["lake", "env", "lean", f"--root={bundle}"]
     if compile_output:
         args += ["-o", str(bundle / "Proof.olean")]
@@ -870,6 +905,19 @@ def _check_proof(
     output = _run(args, project, timeout, logs, "proof")
     if f"STATCLAIM_CHECKED {input_id}" not in output.splitlines():
         raise VerificationError("proof", "Lean did not emit the expected audited-proof marker.")
+    return output
+
+
+def _check_grades(kind: str, payload: dict, output: str) -> None:
+    """A program certificate's claims must have the grades their proofs' premises give."""
+    if kind != PROGRAM_KIND:
+        return
+    from statclaim.lean_translation import certificate
+
+    try:
+        certificate.check_grades(payload, output)
+    except certificate.Unchecked as error:
+        raise VerificationError("grades", str(error)) from error
 
 
 def _check_stable(
@@ -884,6 +932,15 @@ def _check_stable(
         raise VerificationError("binding", "Sources or compiled artifacts changed during checking.")
     if _dependencies(project, timeout, logs) != environment["dependencies"]:
         raise VerificationError("binding", "Dependency revisions changed during checking.")
+
+
+def certify_program(
+    payload: dict, *, project: Path, output: Path | None = None, timeout: float = 120
+) -> tuple[dict, Path]:
+    """Certify a whole program: its declarations are compatible as Lean states them, and
+    each translated claim follows from its premises with the grade Lean's proof gives it.
+    `payload` comes from `lean_translation.certificate.payload`."""
+    return _certify_payload(payload, PROGRAM_KIND, project=project, output=output, timeout=timeout)
 
 
 def certify_result(
@@ -1160,7 +1217,8 @@ def _certify_payload(
     (bundle / "Proof.lean").write_text(proof_source)
     try:
         sources, artifacts, environment = _prepare(project, timeout, logs)
-        _check_proof(bundle, input_id, project, timeout, logs, compile_output=True)
+        output = _check_proof(bundle, input_id, project, timeout, logs, compile_output=True)
+        _check_grades(kind, payload, output)
         _check_stable(project, sources, artifacts, environment, timeout, logs)
         if (bundle / "Proof.lean").read_text() != proof_source or canonical_bytes(
             json.loads((bundle / "inputs.json").read_text())
@@ -1246,7 +1304,8 @@ def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict
             raise VerificationError(
                 "binding", "The pinned environment differs from the certificate."
             )
-    _check_proof(bundle, input_id, project, timeout, logs, compile_output=False)
+    output = _check_proof(bundle, input_id, project, timeout, logs, compile_output=False)
+    _check_grades(certificate["kind"], payload, output)
     _check_stable(project, sources, artifacts, environment, timeout, logs)
     for name, expected in files.items():
         if digest((bundle / name).read_bytes()) != expected:

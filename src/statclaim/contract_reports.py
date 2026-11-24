@@ -1,7 +1,8 @@
 """Explanations, study reports and change-impact analysis built on derivations.
 
-Nothing here runs a calculation or Lean. Every derivation shown has been passed
-through the independent checker first, and the result of that check is shown.
+Nothing here runs a calculation or Lean; `lean_report.py` adds the Lean section a report
+shows when asked. Every derivation shown has been passed through the independent checker
+first, and the result of that check is shown.
 """
 
 from statclaim.derivation_checker import check_derivation
@@ -194,7 +195,10 @@ def report_markdown(report: dict) -> str:
         "",
         f"Compilation status: `{report['status']}`",
         "",
-        "This report covers compatibility of the declarations. It is not a proof of any "
+        "This report covers compatibility of the declarations, which the Lean check below "
+        "proves as Lean states them. The other sections are Python's reading, not proofs."
+        if report.get("lean", {}).get("status") == "checked"
+        else "This report covers compatibility of the declarations. It is not a proof of any "
         "statistical guarantee. Claims below are established only by `verify(...)`.",
         "",
         "Even a verified claim concerns the study as declared in this file, under the "
@@ -202,6 +206,10 @@ def report_markdown(report: dict) -> str:
         "after seeing data, participants excluded after randomisation, or repeated "
         "measurements counted as separate participants are invisible unless declared.",
         "",
+    ]
+    if "lean" in report:
+        lines += lean_markdown(report["lean"])
+    lines += [
         "## Summary",
         "",
         "| Declaration | Contract | Unresolved obligations | Independently checked |",
@@ -290,6 +298,58 @@ def report_markdown(report: dict) -> str:
     for entry in report["contracts"]:
         lines += [explanation_markdown(entry), ""]
     return "\n".join(lines).rstrip() + "\n"
+
+
+GRADE_WORDS = {
+    "proved": "uses no premise",
+    "conditional": "proved from its members' premises",
+    "cited": "rests on its cited premise",
+    "declared": "rests on the author's declared premise",
+}
+
+
+def lean_markdown(lean: dict) -> list[str]:
+    """The report's Lean section (`lean_report.lean_check`)."""
+    lines = ["## Lean check", ""]
+    if lean["status"] != "checked":
+        return [*lines, lean["message"], ""]
+    facts, claims = len(lean["contract_facts"]), lean["claims"]
+    lines += [
+        f"Lean checked this program: its {facts} contract facts hold, and each claim below "
+        "follows from the premises its proof uses. Lean's grade comes from those premises. "
+        f"Certificate `{lean['certificate_id'][:12]}` is in "
+        f"`{lean['certificate_directory']}`; `statclaim check-certificate` replays it.",
+        "",
+    ]
+    if claims:
+        lines += ["| Claim | Line | Lean | Python |", "| --- | --- | --- | --- |"]
+        lines += [
+            f"| `{c['claim']}` | {c['source']['line']} | {c['grade']}: "
+            f"{GRADE_WORDS[c['grade']]} | {c['python']} |"
+            for c in claims
+        ]
+        lines.append("")
+        if any(c["grade"] != c["python"] for c in claims):
+            lines += [
+                "Where the two differ, Lean's grade stands: Python grades a combination by "
+                "assuming its members, while Lean proves the members it can.",
+                "",
+            ]
+    if lean["premises"]:
+        lines += ["Premises: " + ", ".join(f"`{name}`" for name in lean["premises"]) + ".", ""]
+    if lean["refuted"]:
+        lines += [
+            f"- `{holder}`: Lean proves its design supplies no sampling law (`{theorem}`), "
+            "so no claim is stated."
+            for holder, theorem in lean["refuted"].items()
+        ]
+        lines.append("")
+    others = {k: v for k, v in lean["not_translated"].items() if k not in lean["refuted"]}
+    if others:
+        lines += ["Not in Lean yet:", ""]
+        lines += [f"- `{name}`: {reason}" for name, reason in others.items()]
+        lines.append("")
+    return lines
 
 
 def _contract_state(entry: dict | None) -> str:

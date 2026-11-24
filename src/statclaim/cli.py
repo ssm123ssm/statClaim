@@ -158,6 +158,18 @@ def main(argv: list[str] | None = None) -> int:
     report_command.add_argument("source", type=Path)
     report_command.add_argument("--output", type=Path, help="Write the report to this file")
     report_command.add_argument("--json", action="store_true")
+    report_command.add_argument(
+        "--lean",
+        action="store_true",
+        help="Also build and audit the program's compatibility certificate in Lean",
+    )
+    report_command.add_argument(
+        "--project", type=Path, default=Path.cwd(), help="StatClaim checkout for --lean"
+    )
+    report_command.add_argument(
+        "--certificate", type=Path, help="New directory for the --lean certificate"
+    )
+    report_command.add_argument("--timeout", type=float, default=600)
     impact_command = commands.add_parser(
         "impact", help="List the contracts and claims affected by a change between two files"
     )
@@ -225,13 +237,25 @@ def main(argv: list[str] | None = None) -> int:
                     print("No validated contract to explain.")
                 return 0 if entries and all(entry["checked"] for entry in entries) else 1
             report = study_report(compilation, str(options.source))
+            if options.lean:
+                from statclaim.lean_report import lean_check
+
+                source = Source(options.source.read_bytes().decode("utf-8"), str(options.source))
+                report["lean"] = lean_check(
+                    source,
+                    project=options.project,
+                    output=options.certificate,
+                    timeout=options.timeout,
+                )
             text = json.dumps(report, indent=2) if options.json else report_markdown(report)
             if options.output:
                 options.output.write_text(text if text.endswith("\n") else text + "\n")
                 print(f"Report written to {options.output}")
             else:
                 print(text)
-            return 2 if report["status"] == "invalid" else 0
+            if report["status"] == "invalid":
+                return 2
+            return 1 if report.get("lean", {}).get("status") in ("failed", "unavailable") else 0
         if options.command in ("check", "compile"):
             source = Source(
                 options.source.read_bytes().decode("utf-8"), str(options.source.resolve())
