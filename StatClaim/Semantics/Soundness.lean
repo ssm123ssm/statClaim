@@ -114,7 +114,7 @@ theorem fisher_bound (sizes : FixedSampleDesign) (alpha : SignificanceLevel)
 
 mutual
 theorem Test.outside_bound (i : Instance) (σ : JointStudy Θ Ω) :
-    ∀ (t : Test) (ws : Views Θ Ω (t.leaves i.laws)), t.check = true →
+    ∀ (t : Test) (ws : Views Θ Ω (t.leaves i)), t.check = true →
       Premise.AllHold i t.premises → AllMarginals σ _ ws → Bound σ (t.outside i σ ws) t.alpha
   | .fisher _ design _ alpha, ws, _, _, marginals => by
     refine ⟨le_refl 0, fun θ holds => ?_⟩
@@ -124,6 +124,10 @@ theorem Test.outside_bound (i : Instance) (σ : JointStudy Θ Ω) :
     have premise := premises.1
     exact ⟨Scope.permits_nonnegative premise.1,
       MemberView.bound ws.1 marginals.1 (i.test name design.model).measurable premise.2⟩
+  | .associated name _ design _ alpha _, ws, _, premises, marginals => by
+    have premise := premises.1
+    exact ⟨Scope.permits_nonnegative premise.1,
+      MemberView.bound ws.1 marginals.1 (i.studyTest name design.model).measurable premise.2⟩
   | .bonferroni _ members alpha, ws, contracts, premises, marginals => by
     simp only [Test.check, Bool.and_eq_true, decide_eq_true_eq] at contracts
     have each := Test.members_bound i σ members ws contracts.1.1 premises marginals
@@ -147,7 +151,7 @@ theorem Test.outside_bound (i : Instance) (σ : JointStudy Θ Ω) :
 termination_by structural t => t
 
 theorem Test.members_bound (i : Instance) (σ : JointStudy Θ Ω) :
-    ∀ (ts : List Test) (ws : Views Θ Ω (Test.leavesOf i.laws ts)), Test.checkAll ts = true →
+    ∀ (ts : List Test) (ws : Views Θ Ω (Test.leavesOf i ts)), Test.checkAll ts = true →
       Premise.AllHold i (Test.premisesOf ts) → AllMarginals σ _ ws → ∀ k,
         0 ≤ (Test.members i σ ts ws).slacks k ∧ ∀ θ, (Test.members i σ ts ws).nulls k θ →
           (σ.law θ).real ((Test.members i σ ts ws).rejects k) ≤
@@ -177,6 +181,12 @@ theorem Request.sound (q : Request) (contracts : q.check = true) (fixed : q.test
     | fisher _ design _ alpha =>
       exact Modules.Fisher.typeI_statement design.model.sizes _ (Core.Compatibility.fixed _) alpha
     | assumed name guarantee design null alpha =>
+      have premise := premises.1
+      simp only [Test.typeI]
+      split
+      · next finite => exact typeI_of_finite_premise _ finite premise
+      · exact typeI_of_premise _ premise
+    | associated name method design null alpha adjusted =>
       have premise := premises.1
       simp only [Test.typeI]
       split

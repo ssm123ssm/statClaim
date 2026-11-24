@@ -14,7 +14,7 @@ from fractions import Fraction
 
 from statclaim.lean_translation.denote import IGNORED
 from statclaim.lean_translation.emit import rational
-from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES
+from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
 
 SEMANTICS = "StatClaim.Semantics"
 MARKER = "STATCLAIM_PROGRAM"
@@ -41,14 +41,40 @@ DECLARED = "declared_test"
 DECLARED_FIELDS = {"method", "scope", "references"}
 SCOPES = {"finite_sample": "finiteSample", "asymptotic": "largeSample"}
 # Bindings the semantics declares: tests and combinations, whose contracts it checks.
-DECLARATIONS = ("AnalysisIR", "CitedAnalysisIR", "ComposedFamilyIR")
+DECLARATIONS = ("AnalysisIR", "CitedAnalysisIR", "CitedAssociationIR", "ComposedFamilyIR")
 # Bindings with no contract of their own: two-arm models, designs and nulls (read inside
 # the tests that use them), claims, and every value the translator gives no meaning of its
 # own (results, observed data, planning inputs). A binding of any other typed kind keeps
 # the program out of the semantics, so no contract today's certificate checks is left out.
-PASSIVE = frozenset(
-    {"ModelIR", "OutcomeModelIR", "PlanIR", "HypothesisIR", "OutcomeNullIR", "ClaimIR", *IGNORED}
+STUDIES = (
+    "CrossSectionalStudyIR",
+    "CohortStudyIR",
+    "CaseControlStudyIR",
+    "MatchedStudyIR",
+    "PersonTimeStudyIR",
 )
+PASSIVE = frozenset(
+    {
+        "ModelIR",
+        "OutcomeModelIR",
+        "PlanIR",
+        "HypothesisIR",
+        "OutcomeNullIR",
+        "AssociationNullIR",
+        "ClaimIR",
+        *STUDIES,
+        *IGNORED,
+    }
+)
+# What an observational study declares: its design, the sizes it fixes, its variables,
+# and how they were measured and sampled. Scales and surveys must be ones the registry's
+# methods name, so Lean has them.
+STUDY_SIZES = ("n", "cases", "controls", "exposed", "unexposed", "pairs")
+DESIGNS = sorted({d for m in OBSERVATIONAL.values() for d in m.designs})
+SCALES = sorted(
+    {s for m in OBSERVATIONAL.values() for s in (*m.outcome_scales, *m.exposure_scales)}
+)
+SURVEYS = sorted({s for m in OBSERVATIONAL.values() for s in m.surveys})
 
 
 class Outside(Exception):
@@ -135,6 +161,42 @@ def model(value: object) -> str:
     return "{ " + ", ".join(parts) + " }"
 
 
+def study(value: object) -> str:
+    optional = {*STUDY_SIZES, "exposure_scale", "outcome_scale", "survey", "clusters"}
+    record = fields(value, {"study", "exposure", "outcome"}, "A study", optional)
+    if record["study"] not in DESIGNS:
+        raise Outside(f"The study design {record['study']!r} is not in the semantics.")
+    parts = [f"design := .{record['study']}"]
+    parts += [
+        f"{size} := some {count(record[size], 'A size')}" for size in STUDY_SIZES if size in record
+    ]
+    parts += [
+        f"exposure := {string(record['exposure'])}",
+        f"outcome := {string(record['outcome'])}",
+    ]
+    for key, field, known in (
+        ("exposure_scale", "exposureScale", SCALES),
+        ("outcome_scale", "outcomeScale", SCALES),
+        ("survey", "survey", SURVEYS),
+    ):
+        if key in record:
+            if record[key] not in known:
+                raise Outside(
+                    f"The {key.replace('_', ' ')} {record[key]!r} is not in the semantics."
+                )
+            parts.append(f"{field} := .{record[key]}")
+    if "clusters" in record:
+        parts.append(f"clusters := some {count(record['clusters'], 'A count')}")
+    return "{ " + ", ".join(parts) + " }"
+
+
+def study_design(value: object) -> str:
+    record = fields(value, {"model", "stopping"}, "A design")
+    if record["stopping"] not in STOPPING:
+        raise Outside(f"The stopping rule {record['stopping']!r} is not one the semantics reads.")
+    return f"{{ model := {study(record['model'])}, stopping := .{record['stopping']} }}"
+
+
 def design(value: object) -> str:
     record = fields(value, {"model", "stopping"}, "A design")
     if record["stopping"] not in STOPPING:
@@ -183,7 +245,14 @@ def test(name: object, value: object) -> str:
             return f".graphical {label}\n    {listed}\n    {shares} {level(record['alpha'])}"
         return f".{COMBINATIONS[method]} {label}\n    {listed}\n    {level(record['alpha'])}"
     declared = isinstance(value, dict) and value.get("test") == DECLARED
+    association = isinstance(value, dict) and value.get("test") in OBSERVATIONAL
+    if association:
+        return associated(label, value)
     record = fields(value, ANALYSIS | (DECLARED_FIELDS if declared else set()), "An analysis")
+    cited = METHODS.get(record["test"])
+    known = record["test"] == "fisher" or declared or (cited is not None and cited.grade == "cited")
+    if not known:
+        raise Outside(f"The test {record['test']!r} is not in the semantics yet.")
     parts = (
         f"{design(record['design'])}\n      {null(record['null'])}\n      {level(record['alpha'])}"
     )
@@ -198,10 +267,27 @@ def test(name: object, value: object) -> str:
             f"[{references}])"
         )
         return f".assumed {label} {guarantee}\n      {parts}"
-    cited = METHODS.get(record["test"])
-    if cited is None or cited.grade != "cited":
-        raise Outside(f"The test {record['test']!r} is not in the semantics yet.")
+    assert cited is not None
     return f".assumed {label} (.cited StatClaim.Generated.Methods.{cited.key})\n      {parts}"
+
+
+def associated(label: str, value: object) -> str:
+    """A cited test of association in an observational study."""
+    record = fields(value, ANALYSIS, "An analysis", {"adjusted_for"})
+    method = OBSERVATIONAL[record["test"]]
+    null_record = fields(record["null"], {"predicate", "model"}, "A null")
+    if null_record["predicate"] != "no_association":
+        raise Outside(f"The null {null_record['predicate']!r} is not one a study has.")
+    covariates = record.get("adjusted_for", [])
+    if not isinstance(covariates, list) or not covariates and "adjusted_for" in record:
+        raise Outside("A test's covariates are not a list of names.")
+    adjusted = ", ".join(string(c, "A covariate") for c in covariates)
+    return (
+        f".associated {label} StatClaim.Generated.Methods.{method.key}\n"
+        f"      {study_design(record['design'])}\n"
+        f"      {{ model := {study(null_record['model'])} }}\n"
+        f"      {level(record['alpha'])} [{adjusted}]"
+    )
 
 
 def verify_claims(program: dict) -> list:

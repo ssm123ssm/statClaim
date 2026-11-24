@@ -47,7 +47,21 @@ def rowFits (index : ℕ) (row : List ℚ) : Bool :=
 def Test.single : Test → Bool
   | .fisher .. => true
   | .assumed .. => true
+  | .associated .. => true
   | _ => false
+
+/-- What a cited test of association's minimum total counts: the pairs of a matched
+study, nothing for a person-time cohort, otherwise the fixed group sizes or `n`. -/
+def Study.total (study : Study) : Option ℕ :=
+  match study.design with
+  | .matched_case_control => study.pairs
+  | .person_time_cohort => none
+  | .case_control => some (study.cases.getD 0 + study.controls.getD 0)
+  | .cohort =>
+    match study.exposed, study.unexposed with
+    | some exposed, some unexposed => some (exposed + unexposed)
+    | _, _ => study.n
+  | .cross_sectional => study.n
 
 mutual
 def Test.check : Test → Bool
@@ -69,6 +83,19 @@ def Test.check : Test → Bool
     (match method.nullValue with
       | none => true
       | some value => decide (null.value = some value)) &&
+    decide (0 < alpha.value) && decide (alpha.value < 1)
+  | .associated _ method design null alpha adjusted =>
+    let study := design.model
+    decide (null.model = study) && method.designs.contains study.design &&
+    method.outcomeScales.contains study.outcomeScale &&
+    method.exposureScales.contains study.exposureScale && method.surveys.contains study.survey &&
+    (match study.total with
+      | some total => decide (method.minTotal ≤ total)
+      | none => true) &&
+    (match method.minClusters with
+      | some least => study.survey != .cluster || decide (least ≤ study.clusters.getD 0)
+      | none => true) &&
+    (adjusted.isEmpty || method.covariates) &&
     decide (0 < alpha.value) && decide (alpha.value < 1)
   | .bonferroni _ members alpha =>
     Test.checkAll members && members.all Test.single &&

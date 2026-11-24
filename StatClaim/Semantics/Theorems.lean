@@ -19,7 +19,9 @@ noncomputable section
 /-- A one-point instance: trivial laws, tests and graphs that never reject, no slack. -/
 noncomputable def Instance.trivial : Instance where
   laws := fun _ => { Parameter := Unit, Outcome := Unit, model := TwoArmModel.trivial }
+  studies := fun _ => { Parameter := Unit, Outcome := Unit, model := ObservationalModel.trivial }
   test := fun _ _ => TestInterface.neverRejects _
+  studyTest := fun _ _ => TestInterface.neverRejects _
   slack := fun _ => 0
   graph := fun _ _ _ _ _ _ _ _ _ => ∅
 
@@ -36,6 +38,8 @@ theorem Marginals.intro {Θ Ω : Type} [MeasurableSpace Ω] (σ : JointStudy Θ 
 theorem Premise.trivial_holds (q : Premise) : q.Holds Instance.trivial := by
   cases q with
   | level name method model null alpha =>
+    exact neverRejects_meets_level _ _ _ _ alpha.nonnegative
+  | association name method study alpha =>
     exact neverRejects_meets_level _ _ _ _ alpha.nonnegative
   | graph name members alpha =>
     refine ⟨?_, ?_⟩

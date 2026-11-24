@@ -57,12 +57,32 @@ def Model.encode (model : Model) : Json :=
     optional "measurements" toJson model.measurements ++
     optional "outcome_name" Json.str model.name
 
+def Study.encode (study : Study) : Json :=
+  Json.mkObj <|
+    [("study", Json.str study.design.key)] ++
+    optional "n" toJson study.n ++ optional "cases" toJson study.cases ++
+    optional "controls" toJson study.controls ++ optional "exposed" toJson study.exposed ++
+    optional "unexposed" toJson study.unexposed ++ optional "pairs" toJson study.pairs ++
+    [("exposure", Json.str study.exposure), ("outcome", Json.str study.outcome)] ++
+    (if study.exposureScale = .binary then [] else
+      [("exposure_scale", Json.str study.exposureScale.key)]) ++
+    (if study.outcomeScale = .binary then [] else
+      [("outcome_scale", Json.str study.outcomeScale.key)]) ++
+    (if study.survey = .simple_random then [] else [("survey", Json.str study.survey.key)]) ++
+    optional "clusters" toJson study.clusters
+
 def Stopping.encode : Stopping → Json
   | .fixed => Json.str "fixed"
   | .data_dependent => Json.str "data_dependent"
 
 def Design.encode (design : Design) : Json :=
   Json.mkObj [("model", design.model.encode), ("stopping", design.stopping.encode)]
+
+def StudyDesign.encode (design : StudyDesign) : Json :=
+  Json.mkObj [("model", design.model.encode), ("stopping", design.stopping.encode)]
+
+def StudyNull.encode (null : StudyNull) : Json :=
+  Json.mkObj [("predicate", Json.str "no_association"), ("model", null.model.encode)]
 
 def Null.encode (null : Null) : Json :=
   Json.mkObj <|
@@ -100,6 +120,12 @@ mutual
 def Test.encode : Test → Json
   | .fisher _ design null alpha => analysis "fisher" design null alpha
   | .assumed _ guarantee design null alpha => assumedJson guarantee design null alpha
+  | .associated _ method design null alpha adjusted =>
+    Json.mkObj <|
+      [("test", Json.str method.key), ("design", design.encode), ("null", null.encode),
+        ("alpha", ratJson alpha.value)] ++
+      (if adjusted.isEmpty then [] else
+        [("adjusted_for", Json.arr (adjusted.map Json.str).toArray)])
   | .bonferroni _ members alpha => combination "bonferroni" alpha (Json.arr (Test.encodeMembers members).toArray)
   | .graphical _ members weights rows alpha =>
     combination "graphical" alpha (Json.arr (Test.encodeMembers members).toArray)
@@ -128,6 +154,7 @@ def Request.encode (request : Request) : Json :=
 def Test.binding : Test → String
   | .fisher .. => "AnalysisIR"
   | .assumed .. => "CitedAnalysisIR"
+  | .associated .. => "CitedAssociationIR"
   | _ => "ComposedFamilyIR"
 
 /-- The claims of a program's `verify` requests, in order, and its declarations. -/

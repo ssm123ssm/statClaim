@@ -78,8 +78,12 @@ def adapter(denotation: Denotation) -> str:
     for part in denotation.abstracts:
         source = denotation.sources[part.name]
         field = lean(part.name)
-        if source[0] == "model":
-            law = f"(i.laws {data.model(source[1])})"
+        if source[0] in ("model", "study"):
+            law = (
+                f"(i.laws {data.model(source[1])})"
+                if source[0] == "model"
+                else f"(i.studies {data.study(source[1])})"
+            )
             lines += [
                 f"def Instance.{part.parameter} (i : Instance) : Type := {law}.Parameter",
                 f"def Instance.{part.outcome} (i : Instance) : Type := {law}.Outcome",
@@ -87,6 +91,11 @@ def adapter(denotation: Denotation) -> str:
                 f"  {law}.space",
                 f"def Instance.{field} (i : Instance) := {law}.model",
             ]
+        elif source[0] == "test" and "study" in source[2]:
+            lines.append(
+                f"def Instance.{field} (i : Instance) :=\n"
+                f"  i.studyTest {data.string(source[1])} {data.study(source[2])}"
+            )
         elif source[0] == "test":
             lines.append(
                 f"def Instance.{field} (i : Instance) :=\n"

@@ -88,6 +88,43 @@ def test_the_writer_refuses_what_it_does_not_read():
     assert family["method"] == "bonferroni"  # the original is unchanged
 
 
+def test_observational_studies_are_written_with_what_they_declare():
+    program = canonical("examples/complex_survey.stat")
+    data = program_data(program)
+    assert '.associated "weighted" StatClaim.Generated.Methods.survey_linear' in data
+    assert "survey := .weighted" in data and '["age", "sex", "income"]' in data
+
+    def changed(change) -> dict:
+        copied = copy.deepcopy(program)
+        change(verify_claims(copied)[0]["subject"]["design"]["model"])
+        return copied
+
+    def unknown_field(study):
+        study["region"] = "north"
+
+    def unknown_scale(study):
+        study["outcome_scale"] = "ordinal"
+
+    for change in (unknown_field, unknown_scale):
+        with pytest.raises(Outside):
+            program_data(changed(change))
+
+
+def test_a_cited_test_of_association_is_certified_through_the_semantics():
+    from statclaim.language_syntax import Source as SyntaxSource
+    from statclaim.lean_translation import certificate
+
+    path = "examples/complex_survey.stat"
+    inputs = certificate.payload(SyntaxSource((ROOT / path).read_text(), path))
+    assert certificate.semantic(inputs) is not None
+    [claim] = certificate.claims(inputs)
+    assert (claim["claim"], claim["grade"], claim["premise"]) == (
+        "typeI(weighted)",
+        "cited",
+        "cited_weighted_level",
+    )
+
+
 def test_binding_compares_the_printed_form_with_the_canonical_claims():
     program = canonical("examples/mixed_endpoints.stat")
     claims = {"claims": verify_claims(program), "declarations": declarations(program)}

@@ -74,6 +74,22 @@ def AbstractModel.view (model : AbstractModel) : View :=
     base := model.model.toModel
     null := fun null => model.model.null null.key.shape (null.value.getD 0) }
 
+/-- An observational study whose law Lean does not fix. -/
+structure AbstractStudy where
+  Parameter : Type
+  Outcome : Type
+  [space : MeasurableSpace Outcome]
+  model : ObservationalModel Parameter Outcome
+
+attribute [instance] AbstractStudy.space
+
+/-- A study as its tests see it: its only null is no association. -/
+def AbstractStudy.view (study : AbstractStudy) : View :=
+  { Parameter := study.Parameter
+    Outcome := study.Outcome
+    base := study.model.toModel
+    null := fun _ => study.model.noAssociation }
+
 /-- A binary model of independent participants measured once has the binomial law; any
 other model has the law the instance gives it, as the translator decides. -/
 def Model.view (laws : Model → AbstractModel) : Model → View
@@ -90,7 +106,9 @@ def Views (Θ Ω : Type) [MeasurableSpace Ω] : List View → Type
 Lean does not fix, and a rejection event, slack and procedure for each test name. -/
 structure Instance where
   laws : Model → AbstractModel
+  studies : Study → AbstractStudy
   test : String → (model : Model) → TestInterface (model.view laws).Outcome
+  studyTest : String → (study : Study) → TestInterface (studies study).Outcome
   slack : String → ℝ
   graph : String → (vs : List View) → (m : ℕ) → ∀ (Θ Ω : Type) [MeasurableSpace Ω],
     JointStudy Θ Ω → Views Θ Ω vs → Fin m → Set Ω
@@ -106,17 +124,18 @@ def fisherAnalysis (sizes : FixedSampleDesign) (alpha : SignificanceLevel) :=
 
 mutual
 /-- The models of a test's single tests, in order. -/
-def Test.leaves (laws : Model → AbstractModel) : Test → List View
+def Test.leaves (i : Instance) : Test → List View
   | .fisher _ design _ _ => [binomialView design.model.sizes]
-  | .assumed _ _ design _ _ => [design.model.view laws]
-  | .bonferroni _ members _ => Test.leavesOf laws members
-  | .graphical _ members _ _ _ => Test.leavesOf laws members
-  | .sequence _ members _ => Test.leavesOf laws members
+  | .assumed _ _ design _ _ => [design.model.view i.laws]
+  | .associated _ _ design _ _ _ => [(i.studies design.model).view]
+  | .bonferroni _ members _ => Test.leavesOf i members
+  | .graphical _ members _ _ _ => Test.leavesOf i members
+  | .sequence _ members _ => Test.leavesOf i members
 termination_by structural t => t
 
-def Test.leavesOf (laws : Model → AbstractModel) : List Test → List View
+def Test.leavesOf (i : Instance) : List Test → List View
   | [] => []
-  | t :: ts => Test.leaves laws t ++ Test.leavesOf laws ts
+  | t :: ts => Test.leaves i t ++ Test.leavesOf i ts
 termination_by structural ts => ts
 end
 
@@ -139,7 +158,7 @@ structure Members (Θ Ω : Type) [MeasurableSpace Ω] (n : ℕ) where
 
 mutual
 def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
-    (σ : JointStudy Θ Ω) : (t : Test) → Views Θ Ω (t.leaves i.laws) → Outside Θ Ω
+    (σ : JointStudy Θ Ω) : (t : Test) → Views Θ Ω (t.leaves i) → Outside Θ Ω
   | .fisher _ design _ alpha, ws =>
     { null := fun θ => (fisherAnalysis design.model.sizes alpha).hypothesis (ws.1.parameter θ)
       reject :=
@@ -149,13 +168,17 @@ def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
     { null := fun θ => null.denote i.laws design.model (ws.1.parameter θ)
       reject := ws.1.outcome ⁻¹' (i.test name design.model).reject
       slack := i.slack name }
+  | .associated name _ design _ _ _, ws =>
+    { null := fun θ => (i.studies design.model).model.noAssociation (ws.1.parameter θ)
+      reject := ws.1.outcome ⁻¹' (i.studyTest name design.model).reject
+      slack := i.slack name }
   | .bonferroni _ members _, ws =>
     { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
       reject := ⋂ k, (Test.members i σ members ws).rejects k
       slack := ∑ k, (Test.members i σ members ws).slacks k }
   | .graphical name members _ _ _, ws =>
     { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
-      reject := ⋂ k, i.graph name (Test.leavesOf i.laws members) members.length Θ Ω σ ws k
+      reject := ⋂ k, i.graph name (Test.leavesOf i members) members.length Θ Ω σ ws k
       slack := i.slack name }
   | .sequence _ members _, ws =>
     { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
@@ -164,7 +187,7 @@ def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
 termination_by structural t => t
 
 def Test.members (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
-    (σ : JointStudy Θ Ω) : (ts : List Test) → Views Θ Ω (Test.leavesOf i.laws ts) →
+    (σ : JointStudy Θ Ω) : (ts : List Test) → Views Θ Ω (Test.leavesOf i ts) →
     Members Θ Ω ts.length
   | [], _ => ⟨![], ![], ![]⟩
   | t :: ts, ws =>
@@ -209,23 +232,29 @@ def Test.typeI (i : Instance) : Test → Prop
       (match guarantee.scope with
         | .finiteSample => (alpha.value : ℝ)
         | .largeSample => (alpha.value : ℝ) + i.slack name)
+  | .associated name method design _ alpha _ =>
+    typeIClaim (Core.Compatibility.fixed (i.studies design.model).view.base)
+      (i.studies design.model).model.noAssociation (i.studyTest name design.model)
+      (match method.scope with
+        | .finiteSample => (alpha.value : ℝ)
+        | .largeSample => (alpha.value : ℝ) + i.slack name)
   | _ => False
 
 /-- The familywise claim of a combination, over every joint study whose marginals are
 its members' laws. -/
 def Test.familywise (i : Instance) : Test → Prop
   | .bonferroni _ members alpha =>
-    Joint (Test.leavesOf i.laws members) fun σ ws =>
+    Joint (Test.leavesOf i members) fun σ ws =>
       familywiseClaim σ.law ((Test.members i σ members ws).nulls)
         ((Test.members i σ members ws).rejects)
         ((alpha.value : ℝ) + ∑ k, (Test.members i σ members ws).slacks k)
   | .graphical name members _ _ alpha =>
-    Joint (Test.leavesOf i.laws members) fun σ ws =>
+    Joint (Test.leavesOf i members) fun σ ws =>
       familywiseClaim σ.law ((Test.members i σ members ws).nulls)
-        (i.graph name (Test.leavesOf i.laws members) members.length _ _ σ ws)
+        (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
         ((alpha.value : ℝ) + i.slack name)
   | .sequence _ members alpha =>
-    Joint (Test.leavesOf i.laws members) fun σ ws =>
+    Joint (Test.leavesOf i members) fun σ ws =>
       sequenceClaim σ.law ((Test.members i σ members ws).nulls)
         ((Test.members i σ members ws).rejects)
         ((alpha.value : ℝ) + ∑ k, (Test.members i σ members ws).slacks k)
@@ -237,6 +266,7 @@ law. -/
 def Test.fixed : Test → Bool
   | .fisher _ design .. => design.stopping == .fixed
   | .assumed _ _ design .. => design.stopping == .fixed
+  | .associated _ _ design .. => design.stopping == .fixed
   | .bonferroni _ members _ => Test.allFixed members
   | .graphical _ members _ _ _ => Test.allFixed members
   | .sequence _ members _ => Test.allFixed members
@@ -261,15 +291,19 @@ def Request.Holds (i : Instance) (request : Request) : Prop :=
 inductive Premise where
   | level (name : String) (guarantee : Guarantee) (model : Model) (null : Null)
       (alpha : SignificanceLevel)
+  | association (name : String) (method : Generated.AssociationMethod) (study : Study)
+      (alpha : SignificanceLevel)
   | graph (name : String) (members : List Test) (alpha : SignificanceLevel)
 
 def Premise.name : Premise → String
   | .level name .. => name
+  | .association name .. => name
   | .graph name .. => name
 
 def Test.finiteSample : Test → Bool
   | .fisher .. => true
   | .assumed _ guarantee .. => guarantee.scope == .finiteSample
+  | .associated _ method .. => method.scope == .finiteSample
   | _ => false
 
 /-- What a premise assumes: an assumed test's level, or a graph's familywise bound. -/
@@ -277,19 +311,23 @@ def Premise.Holds (i : Instance) : Premise → Prop
   | .level name guarantee model null alpha =>
     LevelPremise guarantee.scope (model.view i.laws).base.law (null.denote i.laws model)
       (i.test name model) alpha.value (i.slack name)
+  | .association name method study alpha =>
+    LevelPremise method.scope (i.studies study).model.law (i.studies study).model.noAssociation
+      (i.studyTest name study) alpha.value (i.slack name)
   | .graph name members alpha =>
     (match members.all Test.finiteSample with
       | true => Scope.finiteSample
       | false => Scope.largeSample).permits (i.slack name) ∧
-    Joint (Test.leavesOf i.laws members) fun σ ws =>
+    Joint (Test.leavesOf i members) fun σ ws =>
       familywiseClaim σ.law ((Test.members i σ members ws).nulls)
-        (i.graph name (Test.leavesOf i.laws members) members.length _ _ σ ws)
+        (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
         ((alpha.value : ℝ) + i.slack name)
 
 mutual
 def Test.premises : Test → List Premise
   | .fisher .. => []
   | .assumed name guarantee design null alpha => [.level name guarantee design.model null alpha]
+  | .associated name method design _ alpha _ => [.association name method design.model alpha]
   | .bonferroni _ members _ => Test.premisesOf members
   | .graphical name members _ _ alpha => Test.premisesOf members ++ [.graph name members alpha]
   | .sequence _ members _ => Test.premisesOf members

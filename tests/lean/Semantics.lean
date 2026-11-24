@@ -3,8 +3,8 @@ import StatClaim
 /-!
 The semantics of `StatClaim.Semantics` on two programs, as data written by
 `lean_translation/data.py`: `examples/mixed_endpoints.stat` and
-`replication/copd/design_cited.stat`. Their claims are proved by the soundness theorem
-alone. Changed copies of the first show what the contracts and the meaning refuse.
+`replication/copd/design_cited.stat`, and the observational study of
+`examples/complex_survey.stat`. Their claims are proved by the soundness theorem alone. Changed copies of the first show what the contracts and the meaning refuse.
 `scripts/check_lean_semantics.py` checks every program the semantics covers against
 today's translation.
 -/
@@ -442,3 +442,71 @@ example : [program.grade 0, program.grade 1, program.grade 2] = [.cited, .condit
   decide +kernel
 
 end Copd
+
+namespace Survey
+
+def program : StatClaim.Semantics.Program where
+  requests := [
+  .typeI (.associated "weighted" StatClaim.Generated.Methods.survey_linear
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted }, stopping := .fixed }
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted } }
+      ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ ["age", "sex", "income"])]
+  declarations := [
+  .associated "weighted" StatClaim.Generated.Methods.survey_linear
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted }, stopping := .fixed }
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted } }
+      ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ ["age", "sex", "income"]]
+
+theorem contracts : program.Contracts := by decide +kernel
+
+theorem claim_0 : program.Claim 0 :=
+  StatClaim.Semantics.Program.sound program contracts 0 (by decide +kernel)
+
+example : [program.grade 0] = [.cited] := by decide +kernel
+
+/-- A test of a continuous outcome applied to a binary one. -/
+def binaryOutcome : StatClaim.Semantics.Program where
+  requests := [
+  .typeI (.associated "weighted" StatClaim.Generated.Methods.survey_linear
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", survey := .weighted }, stopping := .fixed }
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", survey := .weighted } }
+      ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ ["age", "sex", "income"])]
+  declarations := [
+  .associated "weighted" StatClaim.Generated.Methods.survey_linear
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted }, stopping := .fixed }
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted } }
+      ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ ["age", "sex", "income"]]
+
+example : ¬ binaryOutcome.Contracts := by decide +kernel
+
+/-- A cluster survey with fewer clusters than the method needs. -/
+def fewClusters : StatClaim.Semantics.Program where
+  requests := [
+  .typeI (.associated "weighted" StatClaim.Generated.Methods.survey_linear
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .cluster, clusters := some 12 }, stopping := .fixed }
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .cluster, clusters := some 12 } }
+      ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ ["age", "sex", "income"])]
+  declarations := [
+  .associated "weighted" StatClaim.Generated.Methods.survey_linear
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted }, stopping := .fixed }
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted } }
+      ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ ["age", "sex", "income"]]
+
+example : ¬ fewClusters.Contracts := by decide +kernel
+
+/-- Covariates for a method that takes none. -/
+def unadjustable : StatClaim.Semantics.Program where
+  requests := [
+  .typeI (.associated "weighted" StatClaim.Generated.Methods.pearson_correlation
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted }, stopping := .fixed }
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted } }
+      ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ ["age", "sex", "income"])]
+  declarations := [
+  .associated "weighted" StatClaim.Generated.Methods.survey_linear
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted }, stopping := .fixed }
+      { model := { design := .cross_sectional, n := some 8000, exposure := "sugary drinks", outcome := "waist circumference", outcomeScale := .continuous, survey := .weighted } }
+      ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩ ["age", "sex", "income"]]
+
+example : ¬ unadjustable.Contracts := by decide +kernel
+
+end Survey

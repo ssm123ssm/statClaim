@@ -64,6 +64,35 @@ structure Null where
   value : Option ℚ := none
   deriving DecidableEq
 
+/-- An observational study as declared: what its design fixed, the exposure and the
+outcome, and how they were measured and sampled. A size the design does not fix is
+absent, as in the canonical program. -/
+structure Study where
+  design : Generated.ObservationalDesign
+  n : Option ℕ := none
+  cases : Option ℕ := none
+  controls : Option ℕ := none
+  exposed : Option ℕ := none
+  unexposed : Option ℕ := none
+  pairs : Option ℕ := none
+  exposure : String
+  outcome : String
+  exposureScale : Generated.Scale := .binary
+  outcomeScale : Generated.Scale := .binary
+  survey : Generated.Survey := .simple_random
+  clusters : Option ℕ := none
+  deriving DecidableEq
+
+structure StudyDesign where
+  model : Study
+  stopping : Stopping
+  deriving DecidableEq
+
+/-- No association between a study's exposure and outcome: the only null of a study. -/
+structure StudyNull where
+  model : Study
+  deriving DecidableEq
+
 /-- Where an assumed test's guarantee comes from: a method in the registry, or the
 author's own declaration, with the scope and references the file gives. -/
 inductive Guarantee where
@@ -79,6 +108,10 @@ inductive Test where
   /-- A test whose level is a premise: cited from the registry or declared by the author. -/
   | assumed (name : String) (guarantee : Guarantee) (design : Design) (null : Null)
       (alpha : SignificanceLevel)
+  /-- A cited test of association in an observational study, adjusted for the listed
+  covariates. -/
+  | associated (name : String) (method : Generated.AssociationMethod) (design : StudyDesign)
+      (null : StudyNull) (alpha : SignificanceLevel) (adjusted : List String)
   | bonferroni (name : String) (members : List Test) (alpha : SignificanceLevel)
   | graphical (name : String) (members : List Test) (weights : List ℚ)
       (transitions : List (List ℚ)) (alpha : SignificanceLevel)
@@ -101,6 +134,7 @@ def Request.test : Request → Test
 def Test.name : Test → String
   | .fisher name .. => name
   | .assumed name .. => name
+  | .associated name .. => name
   | .bonferroni name .. => name
   | .graphical name .. => name
   | .sequence name .. => name
@@ -108,6 +142,7 @@ def Test.name : Test → String
 def Test.alpha : Test → ℚ
   | .fisher _ _ _ alpha => alpha.value
   | .assumed _ _ _ _ alpha => alpha.value
+  | .associated _ _ _ _ alpha _ => alpha.value
   | .bonferroni _ _ alpha => alpha.value
   | .graphical _ _ _ _ alpha => alpha.value
   | .sequence _ _ alpha => alpha.value

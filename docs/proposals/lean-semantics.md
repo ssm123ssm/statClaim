@@ -82,6 +82,15 @@ What the spike changed in the design:
   fact is dropped. 40 corpus programs switch; `TRANSLATION_VERSION` is 2. Other
   programs keep the translation, with the premise collector.
 
+- Milestone 2 done. Part 3: observational studies (`Study`, with the sizes its design
+  fixes, its variables, scales, survey and clusters) and cited tests of association
+  (`Test.associated`), with the translator's contract facts: design, scales and survey
+  against the method's lists, the minimum total and clusters, and covariates. A study's
+  law is an `ObservationalModel` the instance gives, and its null is no association.
+  Exact tests of association (Fisher's exact, McNemar's and the rate test) are exact
+  claims, so they wait for phase 2. 47 corpus programs switch, with 45 claims, each
+  agreeing with today's translation. Trusted Lean: 865 lines.
+
 What milestone 1 changed:
 
 - **Laws are keyed by the whole model.** The spike keyed them by arm sizes, so two

@@ -16,8 +16,8 @@ The certificate's inputs are the source and the canonical program it compiles to
 
 **Programs the semantics covers**
 ([proposal](proposals/lean-semantics.md)): two-sided Fisher tests, cited and declared
-tests of two-arm models, Bonferroni families, graphical procedures and fixed
-sequences. `Proof.lean` writes the program as Lean data and proves:
+tests of two-arm models, cited tests of association in observational studies,
+Bonferroni families, graphical procedures and fixed sequences. `Proof.lean` writes the program as Lean data and proves:
 
 - `contracts`: every declared test and combination meets its contracts, and every
   claim has its shape, decided by `decide +kernel`;

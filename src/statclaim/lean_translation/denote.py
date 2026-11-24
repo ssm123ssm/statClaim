@@ -454,6 +454,7 @@ class Denoter:
         if isinstance(ir, ObservationalStudyIR):
             # Cited tests of association need no law; exact ones come with milestone 5.
             result = self.abstract(self.own(preferred, "study"), "ObservationalModel", ir.design)
+            self.out.sources[result.name] = ("study", normalize(ir))
         else:
             assignment, measured = ir.assignment, ir.measured
             # A binomial law needs independent participants measured once; otherwise the
@@ -828,6 +829,14 @@ class Denoter:
         self.out.contracts.append(Contract(self.namer.fresh(f"{base}_contract"), facts, "decide"))
         self.level_range(base, ir.alpha, [])
         test, slack, premise = self.tested(base, "cited", model, null, ir.alpha, f"{entry}.scope")
+        name = self.names.get(id(ir), preferred)
+        self.out.sources.update(
+            {
+                lean(test): ("test", name, normalize(study)),
+                lean(slack): ("slack", name),
+                premise: ("level", name),
+            }
+        )
         return Analysis(
             base, "cited", model, design, null, ir.alpha, method.scope, test, slack, premise
         )

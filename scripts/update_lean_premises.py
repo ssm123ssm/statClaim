@@ -227,8 +227,29 @@ def render() -> str:
         ((feature, strings(ids)) for feature, ids in CONTRADICTED_BY.items()),
     )
     lines += enum("ObservationalDesign", "The observational designs cited tests fit.", designs)
+    lines += mapping(
+        "key",
+        "Each case's name, as the canonical program writes it.",
+        "ObservationalDesign",
+        "String",
+        ((case, f'"{identifier(case)}"') for case in designs),
+    )
     lines += enum("Scale", "The scales of an observational outcome or exposure.", scales)
+    lines += mapping(
+        "key",
+        "Each case's name, as the canonical program writes it.",
+        "Scale",
+        "String",
+        ((case, f'"{identifier(case)}"') for case in scales),
+    )
     lines += enum("Survey", "The sampling designs of an observational study.", surveys)
+    lines += mapping(
+        "key",
+        "Each case's name, as the canonical program writes it.",
+        "Survey",
+        "String",
+        ((case, f'"{identifier(case)}"') for case in surveys),
+    )
     lines += [RECORDS, "namespace Methods", ""]
     for method in trials:
         lines += trial(method)

@@ -111,11 +111,24 @@ inductive ObservationalDesign where
   | person_time_cohort
   deriving DecidableEq, Repr
 
+/-- Each case's name, as the canonical program writes it. -/
+def ObservationalDesign.key : ObservationalDesign → String
+  | .case_control => "case_control"
+  | .cohort => "cohort"
+  | .cross_sectional => "cross_sectional"
+  | .matched_case_control => "matched_case_control"
+  | .person_time_cohort => "person_time_cohort"
+
 /-- The scales of an observational outcome or exposure. -/
 inductive Scale where
   | binary
   | continuous
   deriving DecidableEq, Repr
+
+/-- Each case's name, as the canonical program writes it. -/
+def Scale.key : Scale → String
+  | .binary => "binary"
+  | .continuous => "continuous"
 
 /-- The sampling designs of an observational study. -/
 inductive Survey where
@@ -124,6 +137,13 @@ inductive Survey where
   | stratified
   | weighted
   deriving DecidableEq, Repr
+
+/-- Each case's name, as the canonical program writes it. -/
+def Survey.key : Survey → String
+  | .cluster => "cluster"
+  | .simple_random => "simple_random"
+  | .stratified => "stratified"
+  | .weighted => "weighted"
 
 /-- A cited test of a two-arm trial, as the method registry describes it. -/
 structure TrialMethod where
