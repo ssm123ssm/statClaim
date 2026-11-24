@@ -158,6 +158,11 @@ Decisions taken in milestone 4 (2026-11-23):
   certificates now check the program certificate, and the Lean-rejects-a-false-number
   tests moved to the translation's mutation test.
 
+- The studio's separate Lean check is gone: since `check` builds the program
+  certificate, Run checks shows what that build showed (contract facts, refutations,
+  what is not translated, any grade Python gives otherwise), and `/api/lean` is
+  removed. `report --lean` stays for the command line.
+
 ## Goal
 
 Every `.stat` program translates to a Lean file whose final theorem states that

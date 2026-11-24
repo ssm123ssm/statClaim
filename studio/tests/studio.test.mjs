@@ -1238,23 +1238,32 @@ test('a check block says what its run found, with the numbers', async () => {
   window.happyDOM.close();
 });
 
-test('the whole study is checked in Lean from the Results tab', async t => {
+test('a run shows what its one Lean build of the whole study checked', async t => {
   const window = new Window({url: 'http://localhost/'});
   const {document} = window;
   t.after(() => window.happyDOM.close());
   install(window);
-  let asked = 0;
-  const canned = {
-    status: 'checked', certificate_id: 'a'.repeat(64), certificate_directory: '/tmp/lean-certificate',
-    contract_facts: ['analysis_null', 'analysis_contract'], premises: [], refuted: {},
+  const source = {path: '<studio>/01_first_claim.stat', line: 12, column: 20, end_line: 12, end_column: 32};
+  const lean = {
+    status: 'checked', certificate_id: 'a'.repeat(64), certificate_directory: '/tmp/run/lean',
+    contract_facts: ['analysis_null', 'analysis_contract'], premises: [], refuted: {}, omitted: [],
     not_translated: {request_2: 'result claims of this kind are not translated yet.'},
     claims: [{claim: 'typeI(analysis)', name: 'verification', theorem: 'StatClaimProgram.verification_claim',
-      request_id: 1, grade: 'proved', python: 'proved', premise: null,
-      source: {path: '<studio>/01_first_claim.stat', line: 12, column: 20, end_line: 12, end_column: 32}}],
+      request_id: 1, grade: 'proved', python: 'proved', premise: null, source}],
   };
+  const run = claims => ({
+    status: 'verified', run_directory: '/tmp/run', certificate_issued: true, diagnostics: [], values: {},
+    requests: [{
+      request_id: 1, operation: 'verify', claim: 'typeI', subject: 'analysis', name: 'verification', status: 'verified',
+      source, weakest_link: {grade: 'proved', parts: ['the claim']}, evidence: {grade: 'proved', scope: 'finite_sample'},
+      established: [], assumptions: [], references: [], certificate: '/tmp/run/lean', calculation: null, decision: null, message: null,
+    }],
+    lean: {...lean, claims},
+  });
+  let canned = run(lean.claims);
   globalThis.fetch = async (url, options = {}) => {
-    if (url === '/api/lean') { asked++; return new Response(JSON.stringify(canned)); }
-    return dispatch(url, options);
+    assert.notEqual(url, '/api/lean', 'there is no separate Lean check');
+    return url === '/api/run' ? new Response(JSON.stringify(canned)) : dispatch(url, options);
   };
   document.body.innerHTML = shell();
   await import(new URL('editor.js?lean', platform));
@@ -1267,29 +1276,28 @@ test('the whole study is checked in Lean from the Results tab', async t => {
   picker.dispatchEvent(new window.Event('change', {bubbles: true}));
   await until(() => host.querySelector('.stack[data-name="verification"]'), 'lesson 1 did not open');
   await ready();
-  // Before any run, the Results tab offers the Lean check of the whole study.
+  // Before a run there is nothing to show, and nothing else to press.
   el('tab-results').click();
   const section = () => el('results').querySelector('.results-lean');
-  assert.match(section().textContent, /Lean decides every contract fact/);
-  const go = [...section().querySelectorAll('button')].find(b => /Check in Lean/.test(b.textContent));
-  assert.ok(go && !go.disabled);
-  go.click();
-  await until(() => section()?.dataset.state === 'checked', 'the Lean check never finished');
-  assert.equal(asked, 1);
-  assert.match(section().textContent, /its 2 contract facts hold/);
-  const row = section().querySelector('.results-lean-claims li');
-  assert.equal(row.querySelector('.use-chip').textContent, 'verification');
-  assert.equal(row.querySelector('.outcome').dataset.tone, 'proved');
-  assert.equal(row.querySelector('.results-lean-python'), null, 'the same grade is said once');
+  assert.equal(section(), null);
+  assert.ok(![...el('results').querySelectorAll('button')].some(b => /Lean/.test(b.textContent)));
+  el('runChecks').click();
+  await until(() => section()?.dataset.state === 'checked', 'the run never showed its Lean build');
+  assert.match(section().textContent, /One Lean build checked the whole study: 2 contract facts hold, and 1 claim follows/);
+  assert.equal(section().querySelector('.results-lean-python'), null, 'a grade Python agrees with is said once, on its entry');
   assert.match(section().textContent, /1 part not in Lean yet/);
   assert.ok(section().querySelector('.entry-cert'), 'the certificate path can be copied');
-  // An edit leaves the check in place, marked as about the earlier version.
+  // A grade Python gives otherwise is named, as a defect.
+  canned = run([{...lean.claims[0], python: 'conditional'}]);
+  el('runChecks').click();
+  await until(() => section()?.querySelector('.results-lean-python'), 'the disagreement was not shown');
+  assert.match(section().querySelector('.results-lean-python').textContent, /verification Lean grades it proved; Python grades it conditional/);
+  // An edit leaves it in place, marked as about the earlier version.
   const size = host.querySelector('.stack[data-name="study"] input[aria-label="n control"]');
   size.value = '60';
   size.dispatchEvent(new window.Event('change', {bubbles: true}));
   await ready();
-  assert.match(section().textContent, /changed after this Lean check/);
-  assert.match([...section().querySelectorAll('button')].map(b => b.textContent).join(' '), /Check again/);
+  assert.ok(section().classList.contains('stale'));
 });
 
 test('values a run fills in show on their blocks', async t => {
@@ -2009,11 +2017,7 @@ test('a studio without Lean says what needs it and where proofs can be built', a
   el('leanChip').click();
   assert.ok(dialog(), 'the chip opens it');
   dialog().querySelector('.lean-head .icon-btn').click();
-  // The Lean check of the whole study says where to get Lean, and opens the same dialog.
-  const lean = el('results').querySelector('.results-lean');
-  assert.match(lean.textContent, /where it is installed/);
-  lean.querySelector('.results-lean-get').click();
-  assert.ok(dialog(), 'the Lean check opens it');
+  assert.equal(el('results').querySelector('.results-lean'), null, 'no Lean build, so no whole-study section');
 });
 
 test('a link opens a shipped study, and the address follows the open study', async t => {

@@ -1258,81 +1258,28 @@ async function runChecks() {
     if (!seen) openLeanHelp(unproved);
   }
 }
-// The whole study in Lean, as `statclaim report --lean` checks it: Lean decides every contract
-// fact, and each claim's grade comes from the premises its proof uses.
-async function checkInLean() {
-  const doc = active;
-  if (!doc || doc.leanRunning || !capabilities.lean || !canRun(doc)) return;
-  const source = doc.source;
-  const started = Date.now();
-  doc.leanRunning = true;
-  renderResults();
-  openTab('results', true);
-  try {
-    doc.lean = {source, result: await api('lean', {source, name: doc.name}), seconds: (Date.now() - started) / 1000};
-  } catch (error) {
-    doc.lean = {source, result: {status: 'failed', message: error.message}};
-  }
-  doc.leanRunning = false;
-  if (doc !== active) return;
-  renderResults();
-  const {status, claims = []} = doc.lean.result;
-  toast(status === 'checked' ? 'Lean checked the study' + (claims.length ? ' and ' + plural(claims.length, 'claim') : '') :
-    status === 'failed' ? 'Lean did not accept the study' : doc.lean.result.message);
-}
-const LEAN_GRADE_STATUS = {proved: 'verified'};
-function leanSection(doc) {
+// What the run's one Lean build of the whole study shows, as `statclaim report --lean` says it:
+// the contract facts Lean decides, what it refutes and what is not in Lean yet. Each claim's
+// grade is on its own entry below; a claim is named here only where Python grades it otherwise.
+function leanSection(run, stale) {
+  const result = run.result?.lean;
+  if (!result) return null;
   const section = el('section', 'results-lean');
-  const head = el('div', 'results-lean-head');
-  head.append(el('h3', 'results-sub', 'Whole study in Lean'));
-  section.append(head);
-  if (!capabilities.lean) {
-    const note = el('p', 'results-note', 'Lean can check every declaration and claim of the study at once, where it is installed.');
-    const way = button('', () => openLeanHelp(), 'btn small results-lean-get');
-    way.append(icon('lock'), el('span', '', 'How to get Lean'));
-    section.append(note, way);
-    return section;
-  }
-  const go = button('', () => checkInLean(), 'btn small');
-  go.append(icon('check'), el('span', '', doc.lean ? 'Check again' : 'Check in Lean'));
-  go.disabled = Boolean(doc.leanRunning) || !canRun(doc);
-  head.append(go);
-  if (doc.leanRunning) {
-    const wait = el('p', 'results-note results-lean-wait');
-    wait.append(el('span', 'run-spinner'), el('span', '', 'Lean is checking every declaration and claim. One build, usually 5 to 30 seconds.'));
-    section.append(wait);
-    return section;
-  }
-  if (!doc.lean) {
-    section.append(el('p', 'results-note', 'Lean decides every contract fact, proves each claim it can, and grades it by the premises its proof uses.'));
-    return section;
-  }
-  const {result} = doc.lean;
-  if (doc.lean.source !== doc.source) {
-    const note = el('div', 'results-stale');
-    note.append(icon('alert'), el('span', '', 'The study changed after this Lean check. It describes the earlier version.'));
-    section.append(note);
-  }
-  if (result.status !== 'checked') {
-    section.append(messageBlock(result.message || 'Lean did not check the study.', 'result-message'));
-    return section;
-  }
-  const claims = result.claims || [];
   section.dataset.state = 'checked';
-  section.append(el('p', 'results-lean-summary', 'Lean checked this study: its ' + plural(result.contract_facts.length, 'contract fact') +
-    ' hold' + (result.contract_facts.length === 1 ? 's' : '') + (claims.length ? ', and each claim below follows from the premises its proof uses.' : '.')));
-  if (claims.length) {
-    const rows = el('ul', 'results-lean-claims');
-    for (const claim of claims) {
-      const row = el('li');
-      const chip = button(claim.name || claim.claim, () => reveal(claim.source), 'use-chip');
-      chip.title = 'Show ' + claim.claim + ' on the canvas, line ' + claim.source.line;
-      setFamily(chip, doc.view?.result.bindings?.[claim.name]?.type || 'VerificationResult');
-      row.append(chip, outcomeBadge({status: LEAN_GRADE_STATUS[claim.grade] || claim.grade}));
-      if (claim.python !== claim.grade) row.append(el('span', 'results-lean-python', 'Python: ' + claim.python));
-      rows.append(row);
-    }
-    section.append(rows);
+  if (stale || result.outdated) section.classList.add('stale');
+  section.append(el('h3', 'results-sub', 'Whole study in Lean'));
+  const claims = result.claims || [];
+  const facts = result.contract_facts.length;
+  const omitted = result.omitted || [];
+  section.append(el('p', 'results-lean-summary', 'One Lean build checked the whole study: ' + plural(facts, 'contract fact') +
+    (facts === 1 ? ' holds' : ' hold') + (claims.length ? ', and ' + plural(claims.length, 'claim') + (claims.length === 1 ? ' follows from the premises its proof uses.' : ' follow from the premises their proofs use.') : '.') +
+    (omitted.length ? ' Lean did not prove ' + plural(omitted.length, 'claim') + ', so ' + (omitted.length === 1 ? 'it stays' : 'they stay') + ' open.' : '')));
+  for (const claim of claims.filter(claim => claim.python !== claim.grade)) {
+    const row = el('p', 'results-note results-lean-python');
+    const chip = button(claim.name || claim.claim, () => reveal(claim.source), 'use-chip');
+    chip.title = 'Show ' + claim.claim + ' on the canvas, line ' + claim.source.line;
+    row.append(chip, ' Lean grades it ' + claim.grade + '; Python grades it ' + claim.python + '. This disagreement is a defect; please report it.');
+    section.append(row);
   }
   for (const [name, theorem] of Object.entries(result.refuted || {})) {
     const row = el('p', 'results-note');
@@ -1397,7 +1344,8 @@ function mergeRun(previous, source, fresh) {
   return {
     source, seconds: previous.seconds, recalculated: true, outdated,
     result: {...fresh, requests, values, status: kept ? previous.result.status : fresh.status,
-      run_directory: kept ? previous.result.run_directory : null, certificate_issued: kept && previous.result.certificate_issued},
+      run_directory: kept ? previous.result.run_directory : null, certificate_issued: kept && previous.result.certificate_issued,
+      lean: kept && previous.result.lean ? {...previous.result.lean, outdated: true} : null},
   };
 }
 function copyButton(text) {
@@ -1440,7 +1388,7 @@ function renderResults(focus) {
     const go = button('', () => runChecks(), 'btn primary');
     go.append(icon('play'), 'Run checks');
     go.disabled = !canRun(active);
-    empty.append(go, leanSection(active));
+    empty.append(go);
     const legend = el('dl', 'grade-legend');
     for (const [grade, info] of Object.entries(catalog.evidence_grades || {})) {
       const row = el('div');
@@ -1502,7 +1450,8 @@ function renderResults(focus) {
     note.append(again);
     box.append(note);
   }
-  box.append(leanSection(active));
+  const lean = leanSection(run, stale);
+  if (lean) box.append(lean);
   // Each check looks as it does on the canvas: its block's hat, with what the run found underneath.
   const list = el('ol', 'result-entries');
   let worst = 'proved';
@@ -2061,7 +2010,6 @@ function commands() {
   const list = [];
   const add = (group, label, run, {hint, keys, family, words} = {}) => list.push({group, label, run, hint, keys, family, words});
   add('Actions', 'Run checks', () => runChecks(), {keys: '⌘↵', hint: canRun(active) ? '' : 'nothing to run, or errors to fix'});
-  if (capabilities.lean) add('Actions', 'Check the whole study in Lean', () => checkInLean(), {hint: 'every contract fact and claim', words: 'lean certificate compatibility proof report'});
   const counts = blockers(active);
   if (counts && (counts.gaps || counts.errors)) add('Actions', 'Go to the next problem', () => nextProblem(), {keys: 'F8', hint: errorWords(counts)});
   add('Actions', active?.handle ? 'Save to ' + active.name : 'Save', () => save(), {keys: '⌘S'});

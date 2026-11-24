@@ -46,14 +46,22 @@ def lean_check(
             ),
             "certificate_directory": None if error.bundle is None else str(error.bundle),
         }
+    return described(issued, bundle, compilation.program)
+
+
+def described(issued: dict, bundle: Path, program) -> dict:
+    """What an issued program certificate shows: the contract facts Lean decides, each
+    claim with Lean's grade beside Python's, the claims Lean did not prove, what Lean
+    refutes and what is not translated. `statclaim check` issues the same certificate."""
+    inputs = issued["inputs"]
     summary = certificate.summary(inputs)
-    requests = compilation.program.requests
     for claim in summary["claims"]:
-        status = best_status(requests[claim["request_id"] - 1].claim)
+        status = best_status(program.requests[claim["request_id"] - 1].claim)
         claim["python"] = STATUS_GRADES.get(status, status)
     return {
         "status": "checked",
         "certificate_id": issued["certificate_id"],
         "certificate_directory": str(bundle),
         **summary,
+        "omitted": list(inputs.get("omitted", [])),
     }

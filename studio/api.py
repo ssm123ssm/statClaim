@@ -52,6 +52,7 @@ from statclaim.language_syntax import (
     Span,
     parse,
 )
+from statclaim.lean_report import described
 from statclaim.lsp_features import Document
 from statclaim.reference import PARAMETER_CHOICES
 from statclaim.verification import lean_available
@@ -1121,22 +1122,6 @@ def holders(studio):
     return holder
 
 
-def lean_document(source, backend):
-    """Check the whole study in Lean, as `statclaim report --lean` does: the contract facts
-    Lean decides, each claim's grade from its proof's premises, and what Lean refutes."""
-    if not backend.lean:
-        return {"status": "unavailable", "message": needs_lean(backend)}
-    from statclaim.lean_report import lean_check
-
-    studio = Source(source.text, "<studio>/" + Path(source.path).name)
-    with RUN_LOCK:
-        result = lean_check(studio, project=backend.project, timeout=600)
-    holder = holders(studio)
-    for claim in result.get("claims", []):
-        claim["name"] = holder(claim["source"])
-    return result
-
-
 def reads_result(value):
     """Whether a value reads a field of a check's result, so only a run can know it.
 
@@ -1224,7 +1209,20 @@ def run_document(source, backend, only=None):
         "diagnostics": report["diagnostics"],
         "run_directory": report.get("run_directory"),
         "certificate_issued": report["certificate_issued"],
+        "lean": whole_study(report.get("lean_certificate"), program, holder),
     }
+
+
+def whole_study(bundle, program, holder):
+    """What the run's one Lean build of the study shows, as `statclaim report --lean` says
+    it, with each claim named by its block; None when the run built nothing in Lean."""
+    if not bundle:
+        return None
+    issued = json.loads((Path(bundle) / "certificate.json").read_text())
+    shown = described(issued, Path(bundle), program)
+    for claim in shown["claims"]:
+        claim["name"] = holder(claim["source"])
+    return shown
 
 
 def language_feature(kind, source, line, character):
@@ -1268,7 +1266,7 @@ GETS = {
     "block-fits": lambda backend: block_fits(),
     "capabilities": capabilities,
 }
-POSTS = {"parse", "compile", "run", "lean", "explain", "fits", "complete", "hover"}
+POSTS = {"parse", "compile", "run", "explain", "fits", "complete", "hover"}
 
 
 def handle(method: str, path: str, payload: object, backend: Backend) -> tuple[int, object]:
@@ -1303,8 +1301,6 @@ def handle(method: str, path: str, payload: object, backend: Backend) -> tuple[i
             return 200, compile_document(source)
         if path == "run":
             return 200, run_document(source, backend, only=only)
-        if path == "lean":
-            return 200, lean_document(source, backend)
         if path == "explain":
             return 200, explain_document(source, payload.get("declaration"))
         if path == "fits":
@@ -1312,7 +1308,7 @@ def handle(method: str, path: str, payload: object, backend: Backend) -> tuple[i
         return 200, language_feature(path, source, *position)
     except Exception:
         traceback.print_exc(file=sys.stderr)
-        failure = {"run": "The run", "lean": "The Lean check"}.get(path, "Compilation")
+        failure = "The run" if path == "run" else "Compilation"
         return 500, {"error": failure + " failed internally."}
 
 

@@ -466,7 +466,7 @@ def check_source(
                 source, project=project, output=directory / "lean", timeout=timeout
             )
         except (ValueError, KeyError, OSError):
-            program_run = None  # each claim falls back to a certificate of its own
+            program_run = None  # every claim is left unresolved
         if program_run is not None and program_run.bundle is not None:
             report["lean_certificate"] = str(program_run.bundle)
     for index, (request, blockers) in enumerate(zip(program.requests, obligations, strict=True), 1):
