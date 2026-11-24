@@ -10,6 +10,7 @@ split over members.
 
 from typing import Any
 
+from statclaim import association, incidence, matched, planning
 from statclaim.association import render_association_proof
 from statclaim.incidence import render_rate_proof
 from statclaim.lean_translation.denote import (
@@ -62,6 +63,8 @@ def contract(fact: Contract) -> str:
     raise ValueError(f"No proof for a {fact.check} contract.")
 
 
+# Matching a result's part to its template's theorem may unfold a law over many counts.
+DEEP = "set_option maxRecDepth 100000 in"
 # Kernel checks of exact tests count many tables; the templates use the same limits.
 HEAVY = "set_option maxRecDepth 100000 in\nset_option maxHeartbeats 20000000 in"
 
@@ -256,6 +259,16 @@ def template(kind: str, source: Any) -> str:
         "randomisation": render_randomisation_proof,
         "rate": render_rate_proof,
         "matched": render_matched_proof,
+        "association_result": association.render_result_proof,
+        "rate_result": incidence.render_rate_result_proof,
+        "matched_result": matched.render_result_proof,
+        "one_sample_result": planning.render_result_proof,
+        "stage_result": planning.render_stage_result_proof,
+        "binomial_interval": planning.render_interval_proof,
+        "difference_interval": planning.render_difference_proof,
+        "effect_interval": association.render_interval_proof,
+        "rate_ratio": incidence.render_rate_ratio_proof,
+        "matched_interval": matched.render_interval_proof,
     }
     return renderers[kind](source, digest)
 

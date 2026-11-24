@@ -97,6 +97,7 @@ theorem checked_decision :
 
 end outcome_claim_checks
 
+set_option maxRecDepth 100000 in
 theorem outcome_claim (i : Instance) (premises : Premises i) :
     (0 < 36 ∧ 0 < 36 ∧ 4 ≤ 36 ∧ 14 ≤ 36) ∧
     (StatClaim.Modules.FisherOneSided.lowerPValue 36 36 18 4 = (4212885 : ℚ) / 650576834) ∧

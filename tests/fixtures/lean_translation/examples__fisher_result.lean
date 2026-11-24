@@ -82,6 +82,7 @@ theorem checked_typeI (p : unitInterval) :
 
 end request_2_claim_checks
 
+set_option maxRecDepth 100000 in
 theorem request_2_claim (i : Instance) (premises : Premises i) :
     (0 < 100 ∧ 0 < 100 ∧ 10 ≤ 100 ∧ 25 ≤ 100) ∧
     (∀ (k : ℕ), k ∈ StatClaim.hypergeometricSupport 100 100 35 ↔

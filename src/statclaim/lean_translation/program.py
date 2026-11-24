@@ -58,6 +58,9 @@ def render(denotation: Denotation, label: str) -> str:
     for claim in denotation.claims:
         proof = prove.claim(claim)
         out += prove.checks(claim)
+        if claim.result is not None:
+            # Matching a part to its template's theorem may unfold a law over many counts.
+            out.append(prove.DEEP)
         head = f"theorem {lean(claim.name)} (i : Instance) (premises : Premises i) :"
         if proof.startswith("by\n"):
             out += [head, f"    {claim.statement} := by", proof.removeprefix("by\n"), ""]

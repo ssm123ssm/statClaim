@@ -144,14 +144,23 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     exact = {
         "examples/one_sided.stat": {"guarantee_claim": "proved", "outcome_claim": "proved"},
         "examples/non_inferiority.stat": {"guarantee_claim": "proved", "outcome_claim": "proved"},
-        "examples/case_control.stat": {"checked_claim": "proved"},
+        "examples/case_control.stat": {"checked_claim": "proved", "odds_claim": "proved"},
         "examples/cross_sectional.stat": {
             "survey_checked_claim": "proved",
             "cohort_checked_claim": "proved",
+            "prevalence_claim": "proved",
         },
         "examples/randomisation.stat": {"individual_claim": "proved", "by_clinic_claim": "proved"},
-        "examples/incidence_rates.stat": {"design_claim_claim": "proved"},
-        "examples/tutorial/25_matched_pairs.stat": {"design_claim_claim": "proved"},
+        "examples/incidence_rates.stat": {
+            "design_claim_claim": "proved",
+            "result_claim": "proved",
+            "ratio_claim": "proved",
+        },
+        "examples/tutorial/25_matched_pairs.stat": {
+            "design_claim_claim": "proved",
+            "tested_claim": "proved",
+            "odds_claim": "proved",
+        },
     }
     for path, claims in exact.items():
         assert checker.translation(ROOT / path).claims == claims, path
@@ -167,6 +176,16 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     result = checker.translation(ROOT / "examples/fisher_result.stat")
     assert result.claims == {"request_2_claim": "proved"}  # calculate requests claim nothing
     assert "StatClaim.hypergeometricPValue 100 100 35 10 =" in result.lean
+    # The other results and the intervals, each in its template's parts.
+    observed = {
+        "examples/cohort.stat": {"result_claim": "proved", "ratio_claim": "proved"},
+        "examples/matched_case_control.stat": {"result_claim": "proved", "odds_claim": "proved"},
+        "examples/difference_interval.stat": {"verification_claim": "proved"},
+        "examples/one_sample_result.stat": {"verification_claim": "proved"},
+        "examples/two_stage_result.stat": {"verification_claim": "proved"},
+    }
+    for path, claims in observed.items():
+        assert checker.translation(ROOT / path).claims == claims, path
 
 
 def test_every_exact_claim_is_checked_against_its_template():
@@ -177,7 +196,7 @@ def test_every_exact_claim_is_checked_against_its_template():
         if checker.translation(path) is not None
         for text in checker.equivalences(path)
     ]
-    assert len(found) == 27
+    assert len(found) == 51
     assert all("type_of% @template_" in text for text in found)
 
 
@@ -275,6 +294,17 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
             result,
             "a reversed decision",
             ("((1 : ℚ) / 20)) ↔ True)", "((1 : ℚ) / 20)) ↔ False)"),
+        )
+    )
+    interval = corpus_checker().translation(ROOT / "examples/difference_interval.stat").lean
+    cases.append(
+        (
+            interval,
+            "an interval narrower than its data allow",
+            (
+                "((6443 : ℕ) : ℝ) / ((10000 : ℕ) : ℝ) - ((1189",
+                "((6000 : ℕ) : ℝ) / ((10000 : ℕ) : ℝ) - ((1189",
+            ),
         )
     )
     margin = corpus_checker().translation(ROOT / "examples/non_inferiority.stat").lean

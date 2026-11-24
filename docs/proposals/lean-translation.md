@@ -74,6 +74,10 @@ Decisions taken in milestone 4 (2026-11-23):
   today: counts, the p-value Python reports, the decision and the guarantee. The
   template's proofs are kept as untrusted proof material, and Lean checks that
   each proves its part. Only `verify` requests become claims.
+- Milestone 5, part 2 done: every result and interval claim in the corpus, 116
+  claims in all: results of association, rate, matched, one-sample and
+  two-stage tests, and exact binomial, difference, effect, rate-ratio and
+  matched intervals. Families whose members include exact tests wait for part 3.
 
 ## Goal
 

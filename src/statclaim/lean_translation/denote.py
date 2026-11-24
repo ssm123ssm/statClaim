@@ -21,12 +21,14 @@ from statclaim.language import (
     AnalysisIR,
     AssociationAnalysisIR,
     AssociationNullIR,
+    AssociationResultIR,
     CitedAnalysisIR,
     CitedAssociationIR,
     ClaimIR,
     ComposedFamilyIR,
     FamilyIR,
     HypothesisIR,
+    MatchedResultIR,
     ModelIR,
     ObservationalStudyIR,
     ObservationIR,
@@ -35,6 +37,7 @@ from statclaim.language import (
     ProgramIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
+    RateResultIR,
     SequentialIR,
     VerificationResultIR,
     normalize,
@@ -83,8 +86,13 @@ IGNORED = {
     "AssignmentIR",
     "OutcomeIR",
     "StratumIR",
-    # Observed counts are stated with the result claim that reads them.
+    # Observed data are stated with the result or interval claim that reads them.
     "ObservationIR",
+    "OneSampleObservationIR",
+    "TwoStageObservationIR",
+    "AssociationTableIR",
+    "ObservedEventsIR",
+    "MatchedPairsIR",
 }
 
 
@@ -1009,19 +1017,26 @@ class Denoter:
                 found += self.graphs(part.combination)
         return found
 
-    def result(self, name: str, request_id: int, subject: ObservationIR) -> None:
-        """Observed counts: the p-value and decision Python reports, and the guarantee."""
-        if subject.analysis.plan.stopping != "fixed":
+    def result(self, name: str, request_id: int, subject: object) -> None:
+        """Observed data: the values Python reports, and the guarantee they rest on."""
+        analysis = getattr(subject, "analysis", None)
+        plan = getattr(analysis if analysis is not None else subject, "plan", None)
+        if getattr(plan, "stopping", "fixed") != "fixed":
             raise Untranslated(
-                "A result's p-value is exact for a fixed design; this design stops on the data."
+                "A result is exact for a fixed design; this design stops on the data."
             )
-        analysis = self.analysis(subject.analysis)
-        stated = exact.result(subject, analysis)
+        # A result that restates its test's guarantee names the program's declaration of it.
+        named = (ObservationIR, AssociationResultIR, RateResultIR, MatchedResultIR)
+        declared = self.analysis(analysis) if isinstance(subject, named) else None
+        if isinstance(subject, ObservationIR):
+            stated = exact.result(subject, declared)
+        else:
+            stated = exact.other_result(subject, declared)
         self.out.claims.append(
             Claim(
                 name,
                 stated.statement(),
-                "result",
+                "interval" if isinstance(subject, exact.INTERVALS) else "result",
                 request_id,
                 "proved",
                 space=self.namer.fresh(f"{name}_checks"),
@@ -1078,8 +1093,8 @@ class Denoter:
                     self.type_i(name, request_id, self.analysis(subject))
                 elif request.claim.kind == "familywise":
                     self.familywise(name, request_id, request.claim.subject)
-                elif request.claim.kind == "result" and isinstance(
-                    request.claim.subject, ObservationIR
+                elif request.claim.kind in ("result", "interval") and isinstance(
+                    request.claim.subject, (ObservationIR, *exact.RESULTS, *exact.INTERVALS)
                 ):
                     self.result(name, request_id, request.claim.subject)
                 else:

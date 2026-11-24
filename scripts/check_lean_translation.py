@@ -33,7 +33,7 @@ from statclaim.lean_translation.emit import name as lean
 from statclaim.lean_translation.exact import ExactAnalysis
 from statclaim.lean_translation.grades import grade
 from statclaim.lean_translation.program import Translation, translate
-from statclaim.lean_translation.prove import projection, template, template_body
+from statclaim.lean_translation.prove import DEEP, projection, template, template_body
 
 ROOT = Path(__file__).resolve().parents[1]
 PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
@@ -42,7 +42,7 @@ PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
 # association in a survey, a family of a proved and a cited test, a fixed sequence, a
 # design with two looks, a graphical procedure, the COPD hierarchy, which nests a graph
 # in a sequence, exact tests (one-sided Fisher, association with fixed groups,
-# randomisation) and a result for observed counts.
+# randomisation), a result for observed counts and an interval.
 PINNED = (
     "examples/paper/fisher_design.stat",
     "examples/t_test.stat",
@@ -58,6 +58,7 @@ PINNED = (
     "examples/case_control.stat",
     "examples/randomisation.stat",
     "examples/fisher_result.stat",
+    "examples/difference_interval.stat",
 )
 
 
@@ -137,7 +138,7 @@ def equivalence(claim: Claim) -> str:
         parts = claim.result.parts
         text = template(claim.result.kind, claim.result.source)
         examples = [
-            f"example (i : Instance) (premises : Premises i) :\n"
+            f"{DEEP}\nexample (i : Instance) (premises : Premises i) :\n"
             f"    type_of% @{space}.checked_{part} :=\n"
             f"  ({name} i premises){projection(index, len(parts))}\n"
             for index, (part, _) in enumerate(parts)

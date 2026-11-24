@@ -37,9 +37,58 @@ theorem checked_claim (i : Instance) (premises : Premises i) :
     (analysis.typeIClaim analysis_compatible (analysis_level.value : ℝ)).statement :=
   StatClaim.Modules.Fisher.typeI_statement analysis_groups analysis_design analysis_compatible analysis_level
 
+namespace odds_claim_checks
+
+set_option maxRecDepth 8192
+set_option maxHeartbeats 2000000
+open StatClaim StatClaim.Modules
+
+theorem checked_coverage (pc pt : unitInterval) :
+    (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (productBinomial 240 120 pc pt).real
+      ({a | pc ∈ BinomialInterval.confidenceSet 240 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) a} ×ˢ
+        {b | pt ∈ BinomialInterval.confidenceSet 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) b}) := by
+  have joint := BinomialInterval.joint_coverage 240 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) (by positivity)
+    (by norm_num) pc pt
+  exact le_trans (by norm_num) joint
+
+theorem checked_interval (pc pt : unitInterval)
+    (control : pc ∈ BinomialInterval.confidenceSet 240 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) 112)
+    (treatment : pt ∈ BinomialInterval.confidenceSet 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) 64)
+    (positive : 0 < (pc : ℝ)) (below : (pc : ℝ) < 1) (treatedBelow : (pt : ℝ) < 1) :
+    Association.odds (((1069 : ℕ) : ℝ) / ((2500 : ℕ) : ℝ)) / Association.odds (((5409 : ℕ) : ℝ) / ((10000 : ℕ) : ℝ)) ≤ Association.odds pt / Association.odds pc ∧
+      Association.odds pt / Association.odds pc ≤ Association.odds (((637 : ℕ) : ℝ) / ((1000 : ℕ) : ℝ)) / Association.odds (((787 : ℕ) : ℝ) / ((2000 : ℕ) : ℝ)) := by
+  have bound := Association.odds_ratio_contains 240 120 112 64 253 20000 (by decide)
+    787 2000 (by decide) (by decide) 5409 10000 (by decide) (by decide) 1069 2500 (by decide) (by decide) 637 1000 (by decide) (by decide)
+    (Or.inr (by decide +kernel)) (Or.inr (by decide +kernel)) (Or.inr (by decide +kernel)) (Or.inr (by decide +kernel)) pc pt control treatment positive below treatedBelow
+  exact ⟨bound.2.1 (by decide), bound.2.2 (by decide) (by decide)⟩
+
+end odds_claim_checks
+
+set_option maxRecDepth 100000 in
+theorem odds_claim (i : Instance) (premises : Premises i) :
+    (∀ (pc pt : unitInterval), (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 240 120 pc pt).real
+      ({a | pc ∈ StatClaim.Modules.BinomialInterval.confidenceSet 240 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) a} ×ˢ
+        {b | pt ∈ StatClaim.Modules.BinomialInterval.confidenceSet 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) b})) ∧
+    (∀ (pc pt : unitInterval)
+      (control : pc ∈ StatClaim.Modules.BinomialInterval.confidenceSet 240 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) 112)
+      (treatment : pt ∈ StatClaim.Modules.BinomialInterval.confidenceSet 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) 64)
+      (positive : 0 < (pc : ℝ)) (below : (pc : ℝ) < 1) (treatedBelow : (pt : ℝ) < 1),
+      StatClaim.Modules.Association.odds (((1069 : ℕ) : ℝ) / ((2500 : ℕ) : ℝ)) / StatClaim.Modules.Association.odds (((5409 : ℕ) : ℝ) / ((10000 : ℕ) : ℝ)) ≤ StatClaim.Modules.Association.odds pt / StatClaim.Modules.Association.odds pc ∧
+      StatClaim.Modules.Association.odds pt / StatClaim.Modules.Association.odds pc ≤ StatClaim.Modules.Association.odds (((637 : ℕ) : ℝ) / ((1000 : ℕ) : ℝ)) / StatClaim.Modules.Association.odds (((787 : ℕ) : ℝ) / ((2000 : ℕ) : ℝ))) :=
+  ⟨odds_claim_checks.checked_coverage, odds_claim_checks.checked_interval⟩
+
 /-- What the program claims. -/
 def Claims (i : Instance) : Prop :=
-  (analysis.typeIClaim analysis_compatible (analysis_level.value : ℝ)).statement
+  ((analysis.typeIClaim analysis_compatible (analysis_level.value : ℝ)).statement) ∧
+  ((∀ (pc pt : unitInterval), (((19 : ℕ) : ℝ) / ((20 : ℕ) : ℝ)) ≤ (StatClaim.productBinomial 240 120 pc pt).real
+      ({a | pc ∈ StatClaim.Modules.BinomialInterval.confidenceSet 240 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) a} ×ˢ
+        {b | pt ∈ StatClaim.Modules.BinomialInterval.confidenceSet 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) b})) ∧
+    (∀ (pc pt : unitInterval)
+      (control : pc ∈ StatClaim.Modules.BinomialInterval.confidenceSet 240 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) 112)
+      (treatment : pt ∈ StatClaim.Modules.BinomialInterval.confidenceSet 120 (((253 : ℕ) : ℝ) / ((20000 : ℕ) : ℝ)) 64)
+      (positive : 0 < (pc : ℝ)) (below : (pc : ℝ) < 1) (treatedBelow : (pt : ℝ) < 1),
+      StatClaim.Modules.Association.odds (((1069 : ℕ) : ℝ) / ((2500 : ℕ) : ℝ)) / StatClaim.Modules.Association.odds (((5409 : ℕ) : ℝ) / ((10000 : ℕ) : ℝ)) ≤ StatClaim.Modules.Association.odds pt / StatClaim.Modules.Association.odds pc ∧
+      StatClaim.Modules.Association.odds pt / StatClaim.Modules.Association.odds pc ≤ StatClaim.Modules.Association.odds (((637 : ℕ) : ℝ) / ((1000 : ℕ) : ℝ)) / StatClaim.Modules.Association.odds (((787 : ℕ) : ℝ) / ((2000 : ℕ) : ℝ))))
 
 /-- One instance meeting every premise, so the claims are not vacuous. -/
 noncomputable def witness : Instance where
@@ -48,7 +97,7 @@ noncomputable def witness : Instance where
   study := StatClaim.Interface.ObservationalModel.trivial
 
 theorem program : StatClaim.Interface.ProgramTheorem Premises Claims where
-  implies := fun i premises => checked_claim i premises
+  implies := fun i premises => ⟨checked_claim i premises, odds_claim i premises⟩
   satisfiable := ⟨witness, ⟨⟩⟩
 
 -- The premises each claim's proof uses, following this program's own constants.
@@ -57,7 +106,7 @@ run_cmd do
   let env ← getEnv
   let structureName := ``Premises
   let fields := getStructureFields env structureName
-  for (short, claim) in [("checked_claim", ``checked_claim)] do
+  for (short, claim) in [("checked_claim", ``checked_claim), ("odds_claim", ``odds_claim)] do
     let found ← IO.mkRef ({} : NameSet)
     let mut seen : NameSet := {}
     let mut stack := [claim]
