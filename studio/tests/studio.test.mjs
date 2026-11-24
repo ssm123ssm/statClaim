@@ -1238,6 +1238,60 @@ test('a check block says what its run found, with the numbers', async () => {
   window.happyDOM.close();
 });
 
+test('the whole study is checked in Lean from the Results tab', async t => {
+  const window = new Window({url: 'http://localhost/'});
+  const {document} = window;
+  t.after(() => window.happyDOM.close());
+  install(window);
+  let asked = 0;
+  const canned = {
+    status: 'checked', certificate_id: 'a'.repeat(64), certificate_directory: '/tmp/lean-certificate',
+    contract_facts: ['analysis_null', 'analysis_contract'], premises: [], refuted: {},
+    not_translated: {request_2: 'result claims of this kind are not translated yet.'},
+    claims: [{claim: 'typeI(analysis)', name: 'verification', theorem: 'StatClaimProgram.verification_claim',
+      request_id: 1, grade: 'proved', python: 'proved', premise: null,
+      source: {path: '<studio>/01_first_claim.stat', line: 12, column: 20, end_line: 12, end_column: 32}}],
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    if (url === '/api/lean') { asked++; return new Response(JSON.stringify(canned)); }
+    return dispatch(url, options);
+  };
+  document.body.innerHTML = shell();
+  await import(new URL('editor.js?lean', platform));
+  const el = id => document.getElementById(id);
+  const host = el('lessonBlocks');
+  const picker = el('lesson');
+  const ready = () => until(() => !host.inert && el('report').dataset.state !== 'pending', 'editor stayed busy');
+  await until(() => !picker.disabled && host.querySelector('.stack'), 'editor never loaded');
+  picker.value = '01_first_claim.stat';
+  picker.dispatchEvent(new window.Event('change', {bubbles: true}));
+  await until(() => host.querySelector('.stack[data-name="verification"]'), 'lesson 1 did not open');
+  await ready();
+  // Before any run, the Results tab offers the Lean check of the whole study.
+  el('tab-results').click();
+  const section = () => el('results').querySelector('.results-lean');
+  assert.match(section().textContent, /Lean decides every contract fact/);
+  const go = [...section().querySelectorAll('button')].find(b => /Check in Lean/.test(b.textContent));
+  assert.ok(go && !go.disabled);
+  go.click();
+  await until(() => section()?.dataset.state === 'checked', 'the Lean check never finished');
+  assert.equal(asked, 1);
+  assert.match(section().textContent, /its 2 contract facts hold/);
+  const row = section().querySelector('.results-lean-claims li');
+  assert.equal(row.querySelector('.use-chip').textContent, 'verification');
+  assert.equal(row.querySelector('.outcome').dataset.tone, 'proved');
+  assert.equal(row.querySelector('.results-lean-python'), null, 'the same grade is said once');
+  assert.match(section().textContent, /1 part not in Lean yet/);
+  assert.ok(section().querySelector('.entry-cert'), 'the certificate path can be copied');
+  // An edit leaves the check in place, marked as about the earlier version.
+  const size = host.querySelector('.stack[data-name="study"] input[aria-label="n control"]');
+  size.value = '60';
+  size.dispatchEvent(new window.Event('change', {bubbles: true}));
+  await ready();
+  assert.match(section().textContent, /changed after this Lean check/);
+  assert.match([...section().querySelectorAll('button')].map(b => b.textContent).join(' '), /Check again/);
+});
+
 test('values a run fills in show on their blocks', async t => {
   const window = new Window({url: 'http://localhost/'});
   const {document} = window;
@@ -1954,6 +2008,12 @@ test('a studio without Lean says what needs it and where proofs can be built', a
   assert.equal(dialog(), null, 'clicking outside closes it');
   el('leanChip').click();
   assert.ok(dialog(), 'the chip opens it');
+  dialog().querySelector('.lean-head .icon-btn').click();
+  // The Lean check of the whole study says where to get Lean, and opens the same dialog.
+  const lean = el('results').querySelector('.results-lean');
+  assert.match(lean.textContent, /where it is installed/);
+  lean.querySelector('.results-lean-get').click();
+  assert.ok(dialog(), 'the Lean check opens it');
 });
 
 test('a link opens a shipped study, and the address follows the open study', async t => {

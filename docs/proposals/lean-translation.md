@@ -1,6 +1,6 @@
 # Proposal: translating StatClaim programs to Lean
 
-Status: approved 2026-11-23; in progress.
+Status: approved 2026-11-23; milestones 1 to 6 done.
 
 Progress:
 
@@ -122,6 +122,13 @@ Decisions taken in milestone 4 (2026-11-23):
   A program Python accepts and Lean does not is a failure naming both (exit 1).
   Decided: the certificate is made on request (`report --lean`, and the studio), not
   by every `check`, since it costs a Lean build.
+
+- Milestone 6 done: the studio's Results tab checks the whole study in Lean
+  (`/api/lean`, as `report --lean`), where Lean is available, and lists each claim by
+  its block with its Lean grade; elsewhere it says how to get Lean. Milestone 4's
+  expectation that Python would report all-proved combinations as proved has no
+  corpus case yet: the combinations whose members are all proved have exact members,
+  which combinations do not translate yet. The report shows both grades meanwhile.
 
 Where the templates stand after milestone 5 (2026-11-23): every theorem an exact
 certificate claims is stated once, in `statements.py`, and both `verify` and the

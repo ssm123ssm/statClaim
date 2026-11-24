@@ -417,6 +417,29 @@ def test_without_lean_a_proof_says_it_needs_lean_and_the_rest_runs(backend, tmp_
     assert result["status"] == "unresolved_obligation"
 
 
+@pytest.mark.parametrize("backend", [editor.BROWSER, editor.Backend.local(Path("/nonexistent"))])
+def test_without_lean_the_lean_check_says_what_to_do(backend):
+    text = (ROOT / "examples/mixed_endpoints.stat").read_text()
+    status, result = editor.handle("POST", "lean", {"source": text, "name": "m.stat"}, backend)
+    assert status == 200 and result["status"] == "unavailable"
+    assert result["message"] == editor.needs_lean(backend)
+
+
+@pytest.mark.lean
+def test_the_lean_check_names_each_claim_by_its_block():
+    text = (ROOT / "examples/mixed_endpoints.stat").read_text()
+    backend = editor.Backend.local(ROOT)
+    if not backend.lean:
+        pytest.skip("Lean required")
+    status, result = editor.handle("POST", "lean", {"source": text, "name": "m.stat"}, backend)
+    assert status == 200 and result["status"] == "checked"
+    assert {c["claim"]: c["grade"] for c in result["claims"]} == {
+        "familywise(endpoints)": "conditional",
+        "typeI(response)": "proved",
+    }
+    assert {c["name"] for c in result["claims"]} == {"family", "primary"}
+
+
 def test_the_capabilities_say_what_needs_lean_and_where_to_go():
     found = editor.capabilities(editor.BROWSER)
     assert found["where"] == "browser" and found["lean"] is False

@@ -1106,6 +1106,37 @@ def parse_document(source):
     }
 
 
+def holders(studio):
+    """The `let` that holds a check at a span, so the page can show it as on the canvas."""
+    statements, _ = parse(studio)
+
+    def holder(span):
+        here = (span["line"], span["column"])
+        for statement in statements:
+            s = statement.span
+            if (s.line, s.column) <= here <= (s.end_line, s.end_column):
+                return statement.name
+        return None
+
+    return holder
+
+
+def lean_document(source, backend):
+    """Check the whole study in Lean, as `statclaim report --lean` does: the contract facts
+    Lean decides, each claim's grade from its proof's premises, and what Lean refutes."""
+    if not backend.lean:
+        return {"status": "unavailable", "message": needs_lean(backend)}
+    from statclaim.lean_report import lean_check
+
+    studio = Source(source.text, "<studio>/" + Path(source.path).name)
+    with RUN_LOCK:
+        result = lean_check(studio, project=backend.project, timeout=600)
+    holder = holders(studio)
+    for claim in result.get("claims", []):
+        claim["name"] = holder(claim["source"])
+    return result
+
+
 def reads_result(value):
     """Whether a value reads a field of a check's result, so only a run can know it.
 
@@ -1144,17 +1175,7 @@ def run_document(source, backend, only=None):
                 (request["report"].get("certificate") or {}).pop("directory", None)
         else:
             report = check_source(studio, project=backend.project, timeout=300)
-    statements, _ = parse(studio)
-
-    def holder(span):
-        """The `let` that holds a check, so the Results tab can show it as on the canvas."""
-        here = (span["line"], span["column"])
-        for statement in statements:
-            s = statement.span
-            if (s.line, s.column) <= here <= (s.end_line, s.end_column):
-                return statement.name
-        return None
-
+    holder = holders(studio)
     requests = []
     for request in report["requests"]:
         details = request["report"]
@@ -1247,7 +1268,7 @@ GETS = {
     "block-fits": lambda backend: block_fits(),
     "capabilities": capabilities,
 }
-POSTS = {"parse", "compile", "run", "explain", "fits", "complete", "hover"}
+POSTS = {"parse", "compile", "run", "lean", "explain", "fits", "complete", "hover"}
 
 
 def handle(method: str, path: str, payload: object, backend: Backend) -> tuple[int, object]:
@@ -1282,6 +1303,8 @@ def handle(method: str, path: str, payload: object, backend: Backend) -> tuple[i
             return 200, compile_document(source)
         if path == "run":
             return 200, run_document(source, backend, only=only)
+        if path == "lean":
+            return 200, lean_document(source, backend)
         if path == "explain":
             return 200, explain_document(source, payload.get("declaration"))
         if path == "fits":
@@ -1289,7 +1312,7 @@ def handle(method: str, path: str, payload: object, backend: Backend) -> tuple[i
         return 200, language_feature(path, source, *position)
     except Exception:
         traceback.print_exc(file=sys.stderr)
-        failure = "The run" if path == "run" else "Compilation"
+        failure = {"run": "The run", "lean": "The Lean check"}.get(path, "Compilation")
         return 500, {"error": failure + " failed internally."}
 
 

@@ -685,6 +685,15 @@ button:disabled { cursor: default; }
 .assumption-tag[data-status="declared"] { background: var(--ok-bg); color: var(--ok); }
 .assumption-tag[data-status="assumed"] { background: var(--warn-bg); color: var(--warn); }
 .results-values { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+/* The whole study in Lean: a button, then each claim's grade from its proof. */
+.results-lean { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); align-self: stretch; }
+.results-lean-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.results-lean-summary { margin: 0; color: var(--text); }
+.results-lean-wait { display: flex; align-items: center; gap: 8px; }
+.results-lean-claims { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.results-lean-claims li { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.results-lean-python { font-size: 12px; color: var(--muted); }
+.btn.results-lean-get { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
 .results-sub { margin: 0; font: 750 11px var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
 .value-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .value-list li { display: flex; align-items: center; gap: 8px; min-width: 0; }
