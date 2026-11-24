@@ -18,7 +18,7 @@ noncomputable section
 
 /-- A one-point instance: trivial laws, tests and graphs that never reject, no slack. -/
 noncomputable def Instance.trivial : Instance where
-  laws := fun _ _ => { Parameter := Unit, Outcome := Unit, model := TwoArmModel.trivial }
+  laws := fun _ => { Parameter := Unit, Outcome := Unit, model := TwoArmModel.trivial }
   test := fun _ _ => TestInterface.neverRejects _
   slack := fun _ => 0
   graph := fun _ _ _ _ _ _ _ _ _ => ∅

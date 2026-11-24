@@ -3,9 +3,9 @@ import StatClaim
 set_option linter.unusedVariables false
 
 /-!
-Two programs stated by the semantics of `StatClaim.Semantics` (milestone 0 of
-docs/proposals/lean-semantics.md): `examples/mixed_endpoints.stat` and
-`replication/copd/design_cited.stat`.
+Two programs stated by the semantics of `StatClaim.Semantics`
+(docs/proposals/lean-semantics.md): `examples/mixed_endpoints.stat` and
+`replication/copd/design_cited.stat`, as data written by `lean_translation/data.py`.
 
 Each `Old` namespace is the pinned translation of today's translator, with its
 abstract parts read off the semantics' instance and each claim taking only the
@@ -16,13 +16,13 @@ premises it uses. The semantics' claims are proved with those proofs, and Lean a
 namespace MixedEndpoints.Old
 
 abbrev Instance := StatClaim.Semantics.Instance
-def Instance.scores_Parameter (i : Instance) : Type := (i.laws 120 120).Parameter
-def Instance.scores_Outcome (i : Instance) : Type := (i.laws 120 120).Outcome
-instance (i : Instance) : MeasurableSpace i.scores_Outcome := (i.laws 120 120).space
+def Instance.scores_Parameter (i : Instance) : Type := (i.laws { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }).Parameter
+def Instance.scores_Outcome (i : Instance) : Type := (i.laws { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }).Outcome
+instance (i : Instance) : MeasurableSpace i.scores_Outcome := (i.laws { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }).space
 def Instance.scores (i : Instance) : StatClaim.Interface.TwoArmModel i.scores_Parameter i.scores_Outcome :=
-  (i.laws 120 120).model
+  (i.laws { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }).model
 def Instance.symptoms_test (i : Instance) : StatClaim.Interface.TestInterface i.scores_Outcome :=
-  i.test "symptoms" (.continuous 120 120)
+  i.test "symptoms" { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }
 def Instance.symptoms_slack (i : Instance) : ℝ := i.slack "symptoms"
 
 def responders_sizes : StatClaim.FixedSampleDesign :=
@@ -148,14 +148,22 @@ namespace MixedEndpoints
 
 open StatClaim StatClaim.Semantics
 
-/-- The program as data: what Python writes. -/
-def response : Test := .fisher "response" ⟨120, 120, by decide, by decide⟩ ⟨.equal_proportions, 0⟩
-  ⟨(1 : ℚ) / 40, by norm_num, by norm_num⟩
-def symptoms : Test := .cited "symptoms" Generated.Methods.t_test (.continuous 120 120)
-  ⟨.equal_means, 0⟩ ⟨(1 : ℚ) / 40, by norm_num, by norm_num⟩
-def family : SignificanceLevel := ⟨(1 : ℚ) / 20, by norm_num, by norm_num⟩
-def program : Program :=
-  ⟨[.familywise (.bonferroni "endpoints" [response, symptoms] family), .typeI response]⟩
+/-- The program as data, as `lean_translation/data.py` writes it. -/
+def program : StatClaim.Semantics.Program := ⟨[
+  .familywise (.bonferroni "endpoints"
+    [.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "symptoms" StatClaim.Generated.Methods.t_test
+      { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+  .typeI (.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩)]⟩
 
 theorem contracts : program.Contracts := by decide +kernel
 
@@ -173,18 +181,105 @@ example (i : Instance) : Old.Claims i ↔ program.claimAt 0 i ∧ program.claimA
 example (i : Instance) (h : program.Using i [0]) : Old.Premises i := ⟨h.1⟩
 example (i : Instance) (h : Old.Premises i) : program.Using i [0] := ⟨h.1, trivial⟩
 
-/-! Lean refuses what breaks a contract or overstates a grade. -/
+/-! Lean refuses what breaks a contract or overstates a grade, in data written by
+`data.py` from the program with one change. -/
 
-def level40 : SignificanceLevel := ⟨(1 : ℚ) / 40, by norm_num, by norm_num⟩
+/-- The family's level below its members' sum. -/
+def overallocated : StatClaim.Semantics.Program := ⟨[
+  .familywise (.bonferroni "endpoints"
+    [.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "symptoms" StatClaim.Generated.Methods.t_test
+      { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩),
+  .typeI (.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩)]⟩
 
-example : ¬ (Program.mk [.familywise (.bonferroni "endpoints" [response, symptoms] level40)]).Contracts := by
-  decide +kernel
-example : ¬ (Program.mk [.typeI (.cited "symptoms" Generated.Methods.t_test (.continuous 120 120)
-    ⟨.mean_difference_at_least, 0⟩ level40)]).Contracts := by
-  decide +kernel
-example : ¬ (Program.mk [.typeI (.cited "symptoms" Generated.Methods.t_test (.continuous 1 1)
-    ⟨.equal_means, 0⟩ level40)]).Contracts := by
-  decide +kernel
+example : ¬ overallocated.Contracts := by decide +kernel
+
+/-- A null the t-test does not support. -/
+def unsupported : StatClaim.Semantics.Program := ⟨[
+  .familywise (.bonferroni "endpoints"
+    [.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "symptoms" StatClaim.Generated.Methods.t_test
+      { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_least, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, value := some (0 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+  .typeI (.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩)]⟩
+
+example : ¬ unsupported.Contracts := by decide +kernel
+
+/-- Fewer participants than the t-test needs. -/
+def tooFew : StatClaim.Semantics.Program := ⟨[
+  .familywise (.bonferroni "endpoints"
+    [.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "symptoms" StatClaim.Generated.Methods.t_test
+      { model := { outcome := .continuous, sizes := ⟨1, 1, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨1, 1, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+  .typeI (.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩)]⟩
+
+example : ¬ tooFew.Contracts := by decide +kernel
+
+/-- A null about another model than the design's. -/
+def otherModel : StatClaim.Semantics.Program := ⟨[
+  .familywise (.bonferroni "endpoints"
+    [.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "symptoms" StatClaim.Generated.Methods.t_test
+      { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨121, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+  .typeI (.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩)]⟩
+
+example : ¬ otherModel.Contracts := by decide +kernel
+
+/-- A design that stops by a rule depending on the data supplies no law: its claim is
+`False`. -/
+def adaptive : StatClaim.Semantics.Program := ⟨[
+  .familywise (.bonferroni "endpoints"
+    [.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "symptoms" StatClaim.Generated.Methods.t_test
+      { model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .equal_means, model := { outcome := .continuous, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 20), by norm_num, by norm_num⟩),
+  .typeI (.fisher "response"
+      { model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ }, stopping := .data_dependent }
+      { key := .equal_proportions, model := { outcome := .binary, sizes := ⟨120, 120, by decide, by decide⟩ } }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩)]⟩
+
+example (i : Instance) : ¬ adaptive.claimAt 1 i := id
+
 example : program.grade 0 [0] ≠ .proved := by decide +kernel
 
 /-- The premises can hold together: proved once, for every program. -/
@@ -194,28 +289,43 @@ end MixedEndpoints
 
 namespace Copd.Old
 
+set_option linter.unusedVariables false
+
 abbrev Instance := StatClaim.Semantics.Instance
-def Instance.per_protocol_Parameter (i : Instance) : Type := (i.laws 440 440).Parameter
-def Instance.per_protocol_Outcome (i : Instance) : Type := (i.laws 440 440).Outcome
-instance (i : Instance) : MeasurableSpace i.per_protocol_Outcome := (i.laws 440 440).space
+def Instance.per_protocol_Parameter (i : Instance) : Type := (i.laws { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }).Parameter
+def Instance.per_protocol_Outcome (i : Instance) : Type := (i.laws { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }).Outcome
+instance (i : Instance) : MeasurableSpace i.per_protocol_Outcome := (i.laws { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }).space
 def Instance.per_protocol (i : Instance) :
     StatClaim.Interface.TwoArmModel i.per_protocol_Parameter i.per_protocol_Outcome :=
-  (i.laws 440 440).model
-def Instance.full_set_Parameter (i : Instance) : Type := (i.laws 500 500).Parameter
-def Instance.full_set_Outcome (i : Instance) : Type := (i.laws 500 500).Outcome
-instance (i : Instance) : MeasurableSpace i.full_set_Outcome := (i.laws 500 500).space
+  (i.laws { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }).model
+def Instance.full_set_Parameter (i : Instance) : Type := (i.laws { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }).Parameter
+def Instance.full_set_Outcome (i : Instance) : Type := (i.laws { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }).Outcome
+instance (i : Instance) : MeasurableSpace i.full_set_Outcome := (i.laws { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }).space
 def Instance.full_set (i : Instance) :
     StatClaim.Interface.TwoArmModel i.full_set_Parameter i.full_set_Outcome :=
-  (i.laws 500 500).model
+  (i.laws { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }).model
 def Instance.trough_fev1_ni_test (i : Instance) : StatClaim.Interface.TestInterface i.per_protocol_Outcome :=
-  i.test "trough_fev1_ni" (.continuous 440 440)
+  i.test "trough_fev1_ni" { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }
 def Instance.trough_fev1_ni_slack (i : Instance) : ℝ := i.slack "trough_fev1_ni"
 def Instance.peak_fev1_ni_test (i : Instance) : StatClaim.Interface.TestInterface i.per_protocol_Outcome :=
-  i.test "peak_fev1_ni" (.continuous 440 440)
+  i.test "peak_fev1_ni" { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }
 def Instance.peak_fev1_ni_slack (i : Instance) : ℝ := i.slack "peak_fev1_ni"
 def Instance.peak_fev1_sup_test (i : Instance) : StatClaim.Interface.TestInterface i.full_set_Outcome :=
-  i.test "peak_fev1_sup" (.continuous 500 500)
+  i.test "peak_fev1_sup" { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }
 def Instance.peak_fev1_sup_slack (i : Instance) : ℝ := i.slack "peak_fev1_sup"
+def Instance.inspiratory_capacity_ni_test (i : Instance) : StatClaim.Interface.TestInterface i.per_protocol_Outcome :=
+  i.test "inspiratory_capacity_ni" { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }
+def Instance.inspiratory_capacity_ni_slack (i : Instance) : ℝ := i.slack "inspiratory_capacity_ni"
+def Instance.tdi_ni_test (i : Instance) : StatClaim.Interface.TestInterface i.per_protocol_Outcome :=
+  i.test "tdi_ni" { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }
+def Instance.tdi_ni_slack (i : Instance) : ℝ := i.slack "tdi_ni"
+def Instance.emsci_ni_test (i : Instance) : StatClaim.Interface.TestInterface i.per_protocol_Outcome :=
+  i.test "emsci_ni" { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }
+def Instance.emsci_ni_slack (i : Instance) : ℝ := i.slack "emsci_ni"
+def Instance.onset_of_action_sup_test (i : Instance) :
+    StatClaim.Interface.TestInterface StatClaim.Modules.TwoArmBinomial.Counts :=
+  i.test "onset_of_action_sup" { outcome := .binary, sizes := ⟨500, 500, by decide, by decide⟩ }
+def Instance.onset_of_action_sup_slack (i : Instance) : ℝ := i.slack "onset_of_action_sup"
 def Instance.graph_procedure (i : Instance) (Θ Ω : Type) [MeasurableSpace Ω]
     (σ : StatClaim.Interface.JointStudy Θ Ω)
     (v₀ : StatClaim.Interface.MemberView Θ Ω i.per_protocol_Parameter i.per_protocol_Outcome)
@@ -223,23 +333,10 @@ def Instance.graph_procedure (i : Instance) (Θ Ω : Type) [MeasurableSpace Ω]
     (v₂ : StatClaim.Interface.MemberView Θ Ω i.full_set_Parameter i.full_set_Outcome) :
     Fin 3 → Set Ω :=
   i.graph "co_primary"
-    [(StatClaim.Semantics.Model.continuous 440 440).view i.laws,
-      (StatClaim.Semantics.Model.continuous 440 440).view i.laws,
-      (StatClaim.Semantics.Model.continuous 500 500).view i.laws] 3 Θ Ω σ (v₀, v₁, v₂, PUnit.unit)
+    [StatClaim.Semantics.Model.view i.laws { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ },
+      StatClaim.Semantics.Model.view i.laws { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ },
+      StatClaim.Semantics.Model.view i.laws { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }] 3 Θ Ω σ (v₀, v₁, v₂, PUnit.unit)
 def Instance.graph_slack (i : Instance) : ℝ := i.slack "co_primary"
-def Instance.inspiratory_capacity_ni_test (i : Instance) : StatClaim.Interface.TestInterface i.per_protocol_Outcome :=
-  i.test "inspiratory_capacity_ni" (.continuous 440 440)
-def Instance.inspiratory_capacity_ni_slack (i : Instance) : ℝ := i.slack "inspiratory_capacity_ni"
-def Instance.onset_of_action_sup_test (i : Instance) :
-    StatClaim.Interface.TestInterface StatClaim.Modules.TwoArmBinomial.Counts :=
-  i.test "onset_of_action_sup" (.binomial ⟨500, 500, by decide, by decide⟩)
-def Instance.onset_of_action_sup_slack (i : Instance) : ℝ := i.slack "onset_of_action_sup"
-def Instance.tdi_ni_test (i : Instance) : StatClaim.Interface.TestInterface i.per_protocol_Outcome :=
-  i.test "tdi_ni" (.continuous 440 440)
-def Instance.tdi_ni_slack (i : Instance) : ℝ := i.slack "tdi_ni"
-def Instance.emsci_ni_test (i : Instance) : StatClaim.Interface.TestInterface i.per_protocol_Outcome :=
-  i.test "emsci_ni" (.continuous 440 440)
-def Instance.emsci_ni_slack (i : Instance) : ℝ := i.slack "emsci_ni"
 
 def full_set_binary_sizes : StatClaim.FixedSampleDesign :=
   ⟨500, 500, by decide, by decide⟩
@@ -637,27 +734,58 @@ namespace Copd
 
 open StatClaim StatClaim.Semantics
 
-/-- The program as data: what Python writes. -/
-def level : SignificanceLevel := ⟨(1 : ℚ) / 40, by norm_num, by norm_num⟩
-def trough : Test := .cited "trough_fev1_ni" Generated.Methods.mmrm_test_one_sided
-  (.continuous 440 440) ⟨.mean_difference_at_most, (-50 : ℚ)⟩ level
-def peak : Test := .cited "peak_fev1_ni" Generated.Methods.mmrm_test_one_sided
-  (.continuous 440 440) ⟨.mean_difference_at_most, (-50 : ℚ)⟩ level
-def superiority : Test := .cited "peak_fev1_sup" Generated.Methods.mmrm_test_one_sided
-  (.continuous 500 500) ⟨.mean_difference_at_most, (0 : ℚ)⟩ level
-def coPrimary : Test := .graphical "co_primary" [trough, peak, superiority]
-  [(1 : ℚ) / 2, (1 : ℚ) / 2, 0] [[0, 1, 0], [0, 0, 1], [1, 0, 0]] level
-def capacity : Test := .cited "inspiratory_capacity_ni" Generated.Methods.mmrm_test_one_sided
-  (.continuous 440 440) ⟨.mean_difference_at_most, (-50 : ℚ)⟩ level
-def onset : Test := .cited "onset_of_action_sup" Generated.Methods.logistic_regression_one_sided
-  (.binomial ⟨500, 500, by decide, by decide⟩) ⟨.proportion_difference_at_most, (0 : ℚ)⟩ level
-def tdi : Test := .cited "tdi_ni" Generated.Methods.mmrm_test_one_sided
-  (.continuous 440 440) ⟨.mean_difference_at_most, (-1 : ℚ)⟩ level
-def emsci : Test := .cited "emsci_ni" Generated.Methods.mmrm_test_one_sided
-  (.continuous 440 440) ⟨.mean_difference_at_most, ((-1 : ℚ) / 10)⟩ level
-def trial : Test := .sequence "trial" [coPrimary, capacity, onset, tdi, emsci] level
-
-def program : Program := ⟨[.familywise coPrimary, .familywise trial, .typeI onset]⟩
+/-- The program as data, as `lean_translation/data.py` writes it. -/
+def program : StatClaim.Semantics.Program := ⟨[
+  .familywise (.graphical "co_primary"
+    [.cited "trough_fev1_ni" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "peak_fev1_ni" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "peak_fev1_sup" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]] ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩),
+  .familywise (.sequence "trial"
+    [.graphical "co_primary"
+    [.cited "trough_fev1_ni" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "peak_fev1_ni" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "peak_fev1_sup" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]] ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "inspiratory_capacity_ni" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "onset_of_action_sup" StatClaim.Generated.Methods.logistic_regression_one_sided
+      { model := { outcome := .binary, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .proportion_difference_at_most, model := { outcome := .binary, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "tdi_ni" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-1 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    .cited "emsci_ni" StatClaim.Generated.Methods.mmrm_test_one_sided
+      { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some ((-1 : ℚ) / 10) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
+    ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩),
+  .typeI (.cited "onset_of_action_sup" StatClaim.Generated.Methods.logistic_regression_one_sided
+      { model := { outcome := .binary, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
+      { key := .proportion_difference_at_most, model := { outcome := .binary, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
+      ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩)]⟩
 
 theorem contracts : program.Contracts := by decide +kernel
 

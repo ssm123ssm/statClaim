@@ -176,7 +176,21 @@ def render() -> str:
     units = sorted({m.unit for m in trials})
     lines = [PREAMBLE]
     lines += enum("OutcomeKind", "The outcome kinds of two-arm models.", OUTCOMES)
+    lines += mapping(
+        "constructor",
+        "The constructor of each outcome kind's two-arm model, as the canonical program names it.",
+        "OutcomeKind",
+        "String",
+        ((key, f'"{identifier(outcome.constructor)}"') for key, outcome in OUTCOMES.items()),
+    )
     lines += enum("NullKey", "The null forms of two-arm outcomes.", NULL_FORMS)
+    lines += mapping(
+        "key",
+        "The name of each null form, as the canonical program writes it.",
+        "NullKey",
+        "String",
+        ((key, f'"{identifier(key)}"') for key in NULL_FORMS),
+    )
     lines += mapping(
         "outcome",
         "The outcome each null form belongs to.",

@@ -40,52 +40,63 @@ structure AbstractModel where
 
 attribute [instance] AbstractModel.space
 
-/-- A model as its tests see it. -/
+/-- A model as its tests see it: its law, and how it reads a null. -/
 structure View where
   Parameter : Type
   Outcome : Type
   [space : MeasurableSpace Outcome]
   base : Core.Model Parameter Outcome
+  /-- The parameters at which a null holds. A null form the model has no reading for is
+  read as `True`, the strongest claim; the contracts refuse such programs. -/
+  null : Null → Core.Hypothesis Parameter
 
 attribute [instance] View.space
 
-def Model.view (laws : ℕ → ℕ → AbstractModel) : Model → View
-  | .binomial sizes =>
-    { Parameter := Modules.TwoArmBinomial.Parameters
-      Outcome := Modules.TwoArmBinomial.Counts
-      base := Modules.TwoArmBinomial.model sizes }
-  | .continuous control treatment =>
-    { Parameter := (laws control treatment).Parameter
-      Outcome := (laws control treatment).Outcome
-      base := (laws control treatment).model.toModel }
+def binomialNull (null : Null) : Core.Hypothesis Modules.TwoArmBinomial.Parameters :=
+  match null.key with
+  | .equal_proportions => Modules.TwoArmBinomial.equalProportions
+  | .proportion_difference => Modules.TwoArmBinomial.proportionDifference (null.value.getD 0)
+  | .proportion_difference_at_most =>
+    Modules.TwoArmBinomial.proportionDifferenceAtMost (null.value.getD 0)
+  | _ => fun _ => True
+
+/-- The binomial model Lean defines, at the given arm sizes. -/
+def binomialView (sizes : FixedSampleDesign) : View :=
+  { Parameter := Modules.TwoArmBinomial.Parameters
+    Outcome := Modules.TwoArmBinomial.Counts
+    base := Modules.TwoArmBinomial.model sizes
+    null := binomialNull }
+
+/-- A model whose law the instance gives: a null is a statement about its effect. -/
+def AbstractModel.view (model : AbstractModel) : View :=
+  { Parameter := model.Parameter
+    Outcome := model.Outcome
+    base := model.model.toModel
+    null := fun null => model.model.null null.key.shape (null.value.getD 0) }
+
+/-- A binary model has the binomial law; any other has the law the instance gives it. -/
+def Model.view (laws : Model → AbstractModel) : Model → View
+  | { outcome := .binary, sizes, .. } => binomialView sizes
+  | model => (laws model).view
 
 /-- One view of a joint study for each listed model. -/
 def Views (Θ Ω : Type) [MeasurableSpace Ω] : List View → Type
   | [] => PUnit
   | v :: vs => MemberView Θ Ω v.Parameter v.Outcome × Views Θ Ω vs
 
-/-- Everything a program leaves open: the laws of continuous models, the rejection
-events and slacks of cited tests, and the procedures of graphs. -/
+/-- Everything a program leaves open, the same for every program: a law for each model
+Lean does not fix, and a rejection event, slack and procedure for each test name. -/
 structure Instance where
-  laws : ℕ → ℕ → AbstractModel
+  laws : Model → AbstractModel
   test : String → (model : Model) → TestInterface (model.view laws).Outcome
   slack : String → ℝ
   graph : String → (vs : List View) → (m : ℕ) → ∀ (Θ Ω : Type) [MeasurableSpace Ω],
     JointStudy Θ Ω → Views Θ Ω vs → Fin m → Set Ω
 
-/-- The parameters at which a null holds. A null form a model has no reading for is read
-as `True`, the strongest claim; the contracts refuse such programs. -/
-def Null.denote (laws : ℕ → ℕ → AbstractModel) (null : Null) :
-    (model : Model) → Core.Hypothesis (model.view laws).Parameter
-  | .binomial _ =>
-    match null.key with
-    | .equal_proportions => Modules.TwoArmBinomial.equalProportions
-    | .proportion_difference => Modules.TwoArmBinomial.proportionDifference null.value
-    | .proportion_difference_at_most =>
-      Modules.TwoArmBinomial.proportionDifferenceAtMost null.value
-    | _ => fun _ => True
-  | .continuous control treatment =>
-    (laws control treatment).model.null null.key.shape null.value
+/-- The parameters at which a null holds, as the model reads it. -/
+def Null.denote (laws : Model → AbstractModel) (null : Null) (model : Model) :
+    Core.Hypothesis (model.view laws).Parameter :=
+  (model.view laws).null null
 
 /-- The two-sided Fisher test on a fixed design, as its module defines it. -/
 def fisherAnalysis (sizes : FixedSampleDesign) (alpha : SignificanceLevel) :=
@@ -93,15 +104,15 @@ def fisherAnalysis (sizes : FixedSampleDesign) (alpha : SignificanceLevel) :=
 
 mutual
 /-- The models of a test's single tests, in order. -/
-def Test.leaves (laws : ℕ → ℕ → AbstractModel) : Test → List View
-  | .fisher _ sizes _ _ => [(Model.binomial sizes).view laws]
-  | .cited _ _ model _ _ => [model.view laws]
+def Test.leaves (laws : Model → AbstractModel) : Test → List View
+  | .fisher _ design _ _ => [binomialView design.model.sizes]
+  | .cited _ _ design _ _ => [design.model.view laws]
   | .bonferroni _ members _ => Test.leavesOf laws members
   | .graphical _ members _ _ _ => Test.leavesOf laws members
   | .sequence _ members _ => Test.leavesOf laws members
 termination_by structural t => t
 
-def Test.leavesOf (laws : ℕ → ℕ → AbstractModel) : List Test → List View
+def Test.leavesOf (laws : Model → AbstractModel) : List Test → List View
   | [] => []
   | t :: ts => Test.leaves laws t ++ Test.leavesOf laws ts
 termination_by structural ts => ts
@@ -127,13 +138,14 @@ structure Members (Θ Ω : Type) [MeasurableSpace Ω] (n : ℕ) where
 mutual
 def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
     (σ : JointStudy Θ Ω) : (t : Test) → Views Θ Ω (t.leaves i.laws) → Outside Θ Ω
-  | .fisher _ sizes _ alpha, ws =>
-    { null := fun θ => (fisherAnalysis sizes alpha).hypothesis (ws.1.parameter θ)
-      reject := ws.1.outcome ⁻¹' (fisherAnalysis sizes alpha).procedure.rejectionEvent
+  | .fisher _ design _ alpha, ws =>
+    { null := fun θ => (fisherAnalysis design.model.sizes alpha).hypothesis (ws.1.parameter θ)
+      reject :=
+        ws.1.outcome ⁻¹' (fisherAnalysis design.model.sizes alpha).procedure.rejectionEvent
       slack := 0 }
-  | .cited name _ model null _, ws =>
-    { null := fun θ => null.denote i.laws model (ws.1.parameter θ)
-      reject := ws.1.outcome ⁻¹' (i.test name model).reject
+  | .cited name _ design null _, ws =>
+    { null := fun θ => null.denote i.laws design.model (ws.1.parameter θ)
+      reject := ws.1.outcome ⁻¹' (i.test name design.model).reject
       slack := i.slack name }
   | .bonferroni _ members _, ws =>
     { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
@@ -186,12 +198,12 @@ def Joint (vs : List View)
 /-- The Type I claim of a single test, under its design's sampling law. A cited test
 with a large-sample guarantee carries its slack. -/
 def Test.typeI (i : Instance) : Test → Prop
-  | .fisher _ sizes _ alpha =>
-    ((fisherAnalysis sizes alpha).typeIClaim (Core.Compatibility.fixed _)
+  | .fisher _ design _ alpha =>
+    ((fisherAnalysis design.model.sizes alpha).typeIClaim (Core.Compatibility.fixed _)
       (alpha.value : ℝ)).statement
-  | .cited name method model null alpha =>
-    typeIClaim (Core.Compatibility.fixed (model.view i.laws).base) (null.denote i.laws model)
-      (i.test name model)
+  | .cited name method design null alpha =>
+    typeIClaim (Core.Compatibility.fixed (design.model.view i.laws).base)
+      (null.denote i.laws design.model) (i.test name design.model)
       (match method.scope with
         | .finiteSample => (alpha.value : ℝ)
         | .largeSample => (alpha.value : ℝ) + i.slack name)
@@ -217,9 +229,32 @@ def Test.familywise (i : Instance) : Test → Prop
         ((alpha.value : ℝ) + ∑ k, (Test.members i σ members ws).slacks k)
   | _ => False
 
-def Request.Holds (i : Instance) : Request → Prop
-  | .typeI t => t.typeI i
-  | .familywise t => t.familywise i
+mutual
+/-- Every single test in a test stops at fixed sizes, so its design supplies the model's
+law. -/
+def Test.fixed : Test → Bool
+  | .fisher _ design .. => design.stopping == .fixed
+  | .cited _ _ design .. => design.stopping == .fixed
+  | .bonferroni _ members _ => Test.allFixed members
+  | .graphical _ members _ _ _ => Test.allFixed members
+  | .sequence _ members _ => Test.allFixed members
+termination_by structural t => t
+
+def Test.allFixed : List Test → Bool
+  | [] => true
+  | t :: ts => Test.fixed t && Test.allFixed ts
+termination_by structural ts => ts
+end
+
+/-- What a request claims. A design that stops by a rule depending on the data supplies
+no sampling law, so no claim about it can be stated: such a request claims `False`. -/
+def Request.Holds (i : Instance) (request : Request) : Prop :=
+  match request.test.fixed with
+  | true =>
+    match request with
+    | .typeI t => t.typeI i
+    | .familywise t => t.familywise i
+  | false => False
 
 inductive Premise where
   | level (name : String) (method : Generated.TrialMethod) (model : Model) (null : Null)
@@ -252,7 +287,7 @@ def Premise.Holds (i : Instance) : Premise → Prop
 mutual
 def Test.premises : Test → List Premise
   | .fisher .. => []
-  | .cited name method model null alpha => [.level name method model null alpha]
+  | .cited name method design null alpha => [.level name method design.model null alpha]
   | .bonferroni _ members _ => Test.premisesOf members
   | .graphical name members _ _ alpha => Test.premisesOf members ++ [.graph name members alpha]
   | .sequence _ members _ => Test.premisesOf members

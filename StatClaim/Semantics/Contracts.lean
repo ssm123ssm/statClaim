@@ -17,17 +17,27 @@ namespace StatClaim.Semantics
 
 open MeasureTheory StatClaim.Interface
 
-def Model.outcome : Model → Generated.OutcomeKind
-  | .binomial _ => .binary
-  | .continuous .. => .continuous
+/-- Whole clusters were assigned, in a model whose law the instance gives. -/
+def Model.clustered (model : Model) : Bool :=
+  model.outcome != .binary && model.clusters.isSome
 
-def Model.control : Model → ℕ
-  | .binomial sizes => sizes.nControl
-  | .continuous control _ => control
+/-- The declared design features a test's assumptions can contradict. -/
+def Model.features (model : Model) : List Generated.DesignFeature :=
+  (match model.measurements with
+    | some count => if 1 < count then [.repeated_measures] else []
+    | none => []) ++
+  (if model.clusters.isSome then [.clusters] else [])
 
-def Model.treatment : Model → ℕ
-  | .binomial sizes => sizes.nTreatment
-  | .continuous _ treatment => treatment
+/-- What a cited test's minimum sizes count, in each arm. -/
+def Model.counts (model : Model) (unit : Generated.CountUnit) : ℕ × ℕ :=
+  match unit with
+  | .cluster => model.clusters.getD (0, 0)
+  | .participant => (model.sizes.nControl, model.sizes.nTreatment)
+
+/-- A null fits a test on a design: it is about the design's model, and it has a value
+exactly when its form takes one. -/
+def Null.fits (null : Null) (design : Design) : Bool :=
+  decide (null.model = design.model) && decide (null.value.isSome = null.key.takesValue)
 
 /-- A row of a graph passes nothing to its own test, nothing negative, and at most all. -/
 def rowFits (index : ℕ) (row : List ℚ) : Bool :=
@@ -35,15 +45,22 @@ def rowFits (index : ℕ) (row : List ℚ) : Bool :=
 
 mutual
 def Test.check : Test → Bool
-  | .fisher _ _ null _ => decide (null.key = .equal_proportions)
-  | .cited _ method model null alpha =>
-    method.nulls.contains null.key && decide (null.key.outcome = method.outcome) &&
-    decide (model.outcome = method.outcome) && decide (method.unit = .participant) &&
-    decide (method.minPerArm ≤ model.control) && decide (method.minPerArm ≤ model.treatment) &&
-    decide (method.minTotal ≤ model.control + model.treatment) &&
+  | .fisher _ design null _ =>
+    null.fits design && decide (design.model.outcome = .binary) &&
+    decide (null.key = .equal_proportions) && design.model.features.isEmpty
+  | .cited _ method design null alpha =>
+    let counts := design.model.counts method.unit
+    null.fits design && method.nulls.contains null.key &&
+    decide (null.key.outcome = method.outcome) &&
+    decide (design.model.outcome = method.outcome) &&
+    decide (method.unit = if design.model.clustered then .cluster else .participant) &&
+    decide (method.minPerArm ≤ counts.1) && decide (method.minPerArm ≤ counts.2) &&
+    decide (method.minTotal ≤ counts.1 + counts.2) &&
+    design.model.features.all (fun feature =>
+      method.assumptions.all fun assumption => !(feature.contradicts.contains assumption)) &&
     (match method.nullValue with
       | none => true
-      | some value => decide (value = null.value)) &&
+      | some value => decide (null.value = some value)) &&
     decide (0 < alpha.value) && decide (alpha.value < 1)
   | .bonferroni _ members alpha =>
     Test.checkAll members && decide ((members.map Test.alpha).sum ≤ alpha.value)

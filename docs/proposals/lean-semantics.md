@@ -26,11 +26,24 @@ Progress:
   and grades by `decide +kernel` cost nothing measurable; the extra time is Lean
   comparing the semantic claim of the sequence with its proof.
 
+- Milestone 1 done. The data follows the canonical program, field for field, for the
+  kinds milestone 0 covers: a model carries everything it declares, a design and a null
+  each carry their model, and a key the canonical program writes only when declared is
+  an `Option` or a list. `Encode.lean` writes the data's canonical form;
+  `lean_translation/data.py` writes the data from the canonical program and refuses any
+  key it does not know; `data.binding_problem` compares what Lean prints with the
+  canonical program's `verify` claims. `scripts/check_lean_semantics.py`, in
+  `make lean-check`, covers 22 corpus programs: Lean's contracts hold for each by
+  `decide +kernel`, and each one's data encodes to its canonical program. Every other
+  program is listed with the reason it is not covered yet. A Lean test shows that the
+  check catches a writer that misreads one arm's size. Trusted Lean: 670 lines
+  (`Syntax`, `Meaning`, `Contracts`, `Grades`, `Encode`).
+
 What the spike changed in the design:
 
-- **One instance type for every program.** `Instance` gives a law for each pair of
-  arm sizes, and a rejection event and slack for each test name, so the trivial
-  instance meets every program's premises and non-vacuity is one theorem.
+- **One instance type for every program.** `Instance` gives a law for each model, and
+  a rejection event and slack for each test name, so the trivial instance meets every
+  program's premises and non-vacuity is one theorem.
 - **Data carries its proofs.** Sizes are `FixedSampleDesign`s and levels
   `SignificanceLevel`s, written with `by decide` and `by norm_num`, so positive
   sizes and levels in [0, 1] are checked by typing.
@@ -44,6 +57,21 @@ What the spike changed in the design:
   different universes. Every mutual definition now says `termination_by structural`.
 - **`decide +kernel` for contracts.** Plain `decide` cannot reduce rational
   arithmetic; the kernel can.
+
+What milestone 1 changed:
+
+- **Laws are keyed by the whole model.** The spike keyed them by arm sizes, so two
+  models with the same sizes and different declarations, such as clusters, would have
+  shared one law: a statement about fewer studies than Python's.
+- **A design that stops by a rule depending on the data claims `False`.** It supplies
+  no sampling law, so no claim about it can be stated, and none can be certified.
+- **Each view reads its own nulls**, so no definition matches on a model's outcome
+  inside a dependent type.
+- **Key strings come from the registry.** The generator now writes
+  `OutcomeKind.constructor` and `NullKey.key`, which the encoding uses.
+- **Order.** The rest of phase 1's syntax arrives with its meaning, in milestones 2 and
+  3, each with its encoding. The certificate audit starts comparing the encoding when
+  the first programs switch, in milestone 2.
 
 ## Goal
 
@@ -111,9 +139,9 @@ model.
 
 ```lean
 /-- Everything a program leaves open, the same type for every program: a law for
-each pair of arm sizes, and a rejection event and slack for each test name. -/
+each model, and a rejection event and slack for each test name. -/
 structure Instance where
-  laws : ℕ → ℕ → AbstractModel
+  laws : Model → AbstractModel
   test : String → (model : Model) → TestInterface (model.view laws).Outcome
   slack : String → ℝ
   graph : String → (vs : List View) → (m : ℕ) → ∀ (Θ Ω : Type) [MeasurableSpace Ω],

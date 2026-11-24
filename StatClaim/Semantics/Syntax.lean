@@ -4,9 +4,13 @@ public import StatClaim.Design
 public import StatClaim.Generated.Methods
 
 /-!
-A compiled program as Lean data: its models, nulls, tests and requested claims, as
-in the canonical program a certificate binds. Tests are identified by name, and
-continuous models by their arm sizes, as the Python translator identifies them.
+A compiled program as Lean data: its models, designs, nulls, tests and requested
+claims, field for field as in the canonical program a certificate binds. A key the
+canonical program writes only when it is declared is an `Option` or a list here, so
+two different programs never have the same canonical form (`Encode`).
+
+Tests are identified by name, and models by everything they declare, as the Python
+compiler identifies them.
 
 Trusted: with `Meaning`, `Contracts` and `Grades`, this decides what a certificate
 says. See docs/proposals/lean-semantics.md.
@@ -18,22 +22,50 @@ set_option autoImplicit false
 
 namespace StatClaim.Semantics
 
-open MeasureTheory StatClaim.Interface
+instance : DecidableEq FixedSampleDesign := fun a b =>
+  decidable_of_iff (a.nControl = b.nControl ∧ a.nTreatment = b.nTreatment) (by
+    cases a; cases b; simp)
 
-/-- A two-arm model: binomial, with the law Lean defines, or continuous, with a law the
-instance supplies for each pair of arm sizes. -/
-inductive Model where
-  | binomial (sizes : FixedSampleDesign)
-  | continuous (control treatment : ℕ)
+/-- A two-arm model as declared: its outcome, its arm sizes, and whatever else the file
+declares about the assignment and the outcome. -/
+structure Model where
+  outcome : Generated.OutcomeKind
+  sizes : FixedSampleDesign
+  /-- Clusters per arm, when whole clusters were assigned. -/
+  clusters : Option (ℕ × ℕ) := none
+  randomisation : Option String := none
+  /-- Randomised units per arm in each stratum, when strata are declared. -/
+  strata : List (ℕ × ℕ) := []
+  blockSize : Option ℕ := none
+  population : Option String := none
+  better : Option String := none
+  /-- Measurements per participant, when there is more than one. -/
+  measurements : Option ℕ := none
+  /-- The outcome's name, when the file gives one. -/
+  name : Option String := none
+  deriving DecidableEq
 
-/-- A null form and its value; a form without a value uses zero. -/
+/-- How a design stops: at its fixed sizes, or by a rule that depends on the data. -/
+inductive Stopping where
+  | fixed
+  | data_dependent
+  deriving DecidableEq, Repr
+
+structure Design where
+  model : Model
+  stopping : Stopping
+  deriving DecidableEq
+
+/-- A null form, the model it is about, and its value when the form takes one. -/
 structure Null where
   key : Generated.NullKey
-  value : ℚ
+  model : Model
+  value : Option ℚ := none
+  deriving DecidableEq
 
 inductive Test where
-  | fisher (name : String) (sizes : FixedSampleDesign) (null : Null) (alpha : SignificanceLevel)
-  | cited (name : String) (method : Generated.TrialMethod) (model : Model) (null : Null)
+  | fisher (name : String) (design : Design) (null : Null) (alpha : SignificanceLevel)
+  | cited (name : String) (method : Generated.TrialMethod) (design : Design) (null : Null)
       (alpha : SignificanceLevel)
   | bonferroni (name : String) (members : List Test) (alpha : SignificanceLevel)
   | graphical (name : String) (members : List Test) (weights : List ℚ)
@@ -44,6 +76,7 @@ inductive Request where
   | typeI (test : Test)
   | familywise (test : Test)
 
+/-- A program's `verify` requests, in order. -/
 structure Program where
   requests : List Request
 

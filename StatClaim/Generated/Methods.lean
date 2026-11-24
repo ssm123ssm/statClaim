@@ -28,6 +28,12 @@ inductive OutcomeKind where
   | binary
   deriving DecidableEq, Repr
 
+/-- The constructor of each outcome kind's two-arm model, as the canonical program names it. -/
+def OutcomeKind.constructor : OutcomeKind → String
+  | .continuous => "two_arm_continuous"
+  | .survival => "two_arm_survival"
+  | .binary => "two_arm_binomial"
+
 /-- The null forms of two-arm outcomes. -/
 inductive NullKey where
   | equal_means
@@ -38,6 +44,16 @@ inductive NullKey where
   | proportion_difference
   | proportion_difference_at_most
   deriving DecidableEq, Repr
+
+/-- The name of each null form, as the canonical program writes it. -/
+def NullKey.key : NullKey → String
+  | .equal_means => "equal_means"
+  | .mean_difference_at_most => "mean_difference_at_most"
+  | .mean_difference_at_least => "mean_difference_at_least"
+  | .equal_survival => "equal_survival"
+  | .equal_proportions => "equal_proportions"
+  | .proportion_difference => "proportion_difference"
+  | .proportion_difference_at_most => "proportion_difference_at_most"
 
 /-- The outcome each null form belongs to. -/
 def NullKey.outcome : NullKey → OutcomeKind
