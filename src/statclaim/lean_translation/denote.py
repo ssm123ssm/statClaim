@@ -29,6 +29,7 @@ from statclaim.language import (
     HypothesisIR,
     ModelIR,
     ObservationalStudyIR,
+    ObservationIR,
     OutcomeNullIR,
     PlanIR,
     ProgramIR,
@@ -43,7 +44,7 @@ from statclaim.language_compiler import requirements
 from statclaim.lean_translation import exact
 from statclaim.lean_translation.emit import Namer, comment, rational, real
 from statclaim.lean_translation.emit import name as lean
-from statclaim.lean_translation.exact import ExactAnalysis
+from statclaim.lean_translation.exact import ExactAnalysis, ExactResult
 from statclaim.methods import METHODS
 
 CORE = "StatClaim.Core"
@@ -82,6 +83,8 @@ IGNORED = {
     "AssignmentIR",
     "OutcomeIR",
     "StratumIR",
+    # Observed counts are stated with the result claim that reads them.
+    "ObservationIR",
 }
 
 
@@ -316,6 +319,7 @@ class Claim:
     combination: Combination | None = None
     leaves: list[Analysis] = field(default_factory=list)
     space: str = ""  # a namespace of its own, for the checks an exact test's proof uses
+    result: ExactResult | None = None  # a result for observed data, in parts
 
 
 @dataclass
@@ -1005,6 +1009,26 @@ class Denoter:
                 found += self.graphs(part.combination)
         return found
 
+    def result(self, name: str, request_id: int, subject: ObservationIR) -> None:
+        """Observed counts: the p-value and decision Python reports, and the guarantee."""
+        if subject.analysis.plan.stopping != "fixed":
+            raise Untranslated(
+                "A result's p-value is exact for a fixed design; this design stops on the data."
+            )
+        analysis = self.analysis(subject.analysis)
+        stated = exact.result(subject, analysis)
+        self.out.claims.append(
+            Claim(
+                name,
+                stated.statement(),
+                "result",
+                request_id,
+                "proved",
+                space=self.namer.fresh(f"{name}_checks"),
+                result=stated,
+            )
+        )
+
     # The program ------------------------------------------------------------------------
     def run(self) -> Denotation:
         holders: dict[int, str] = {}
@@ -1054,6 +1078,10 @@ class Denoter:
                     self.type_i(name, request_id, self.analysis(subject))
                 elif request.claim.kind == "familywise":
                     self.familywise(name, request_id, request.claim.subject)
+                elif request.claim.kind == "result" and isinstance(
+                    request.claim.subject, ObservationIR
+                ):
+                    self.result(name, request_id, request.claim.subject)
                 else:
                     raise Untranslated(f"{request.claim.kind} claims are not translated yet.")
             except Untranslated as reason:

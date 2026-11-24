@@ -68,6 +68,12 @@ Decisions taken in milestone 4 (2026-11-23):
   19 corpus claims, the corpus check derives the statement the template checks
   today from the translated claim (test 5). Parts 2 to 4: result and interval
   claims, planning claims, then template retirement.
+- Milestone 5, part 2a done: results for observed counts of the tests of two
+  proportions (two-sided and one-sided Fisher, the margin test), 92 claims in
+  all. A result is stated in parts, one for each theorem its template checks
+  today: counts, the p-value Python reports, the decision and the guarantee. The
+  template's proofs are kept as untrusted proof material, and Lean checks that
+  each proves its part. Only `verify` requests become claims.
 
 ## Goal
 

@@ -142,8 +142,8 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     assert trial.claims["overall_claim"] == "conditional"  # looks nested in a sequence
     # Exact tests are proved by their modules, with their numerical checks in Lean.
     exact = {
-        "examples/one_sided.stat": {"guarantee_claim": "proved"},
-        "examples/non_inferiority.stat": {"guarantee_claim": "proved"},
+        "examples/one_sided.stat": {"guarantee_claim": "proved", "outcome_claim": "proved"},
+        "examples/non_inferiority.stat": {"guarantee_claim": "proved", "outcome_claim": "proved"},
         "examples/case_control.stat": {"checked_claim": "proved"},
         "examples/cross_sectional.stat": {
             "survey_checked_claim": "proved",
@@ -162,6 +162,11 @@ def test_claims_carry_their_grades_and_unresolved_claims_say_why():
     )
     adaptive_exact = checker.translation(ROOT / "examples/one_sided.stat")
     assert "FisherOneSided.typeI_of_hints" in adaptive_exact.lean
+    # Results for observed counts: each part is a theorem the template checks today.
+    assert adaptive_exact.claims["outcome_claim"] == "proved"
+    result = checker.translation(ROOT / "examples/fisher_result.stat")
+    assert result.claims == {"request_2_claim": "proved"}  # calculate requests claim nothing
+    assert "StatClaim.hypergeometricPValue 100 100 35 10 =" in result.lean
 
 
 def test_every_exact_claim_is_checked_against_its_template():
@@ -172,7 +177,7 @@ def test_every_exact_claim_is_checked_against_its_template():
         if checker.translation(path) is not None
         for text in checker.equivalences(path)
     ]
-    assert len(found) == 19
+    assert len(found) == 27
     assert all("type_of% @template_" in text for text in found)
 
 
@@ -255,6 +260,21 @@ def test_lean_rejects_a_translation_that_breaks_a_contract_or_overstates_a_claim
                 "(StatClaim.Modules.Randomisation.splits 12 6).card = 924",
                 "(StatClaim.Modules.Randomisation.splits 12 6).card = 925",
             ),
+        )
+    )
+    result = corpus_checker().translation(ROOT / "examples/fisher_result.stat").lean
+    cases.append(
+        (
+            result,
+            "a misreported p-value",
+            ("35 10 = (19912805355158606332329 : ℚ)", "35 10 = (19912805355158606332328 : ℚ)"),
+        )
+    )
+    cases.append(
+        (
+            result,
+            "a reversed decision",
+            ("((1 : ℚ) / 20)) ↔ True)", "((1 : ℚ) / 20)) ↔ False)"),
         )
     )
     margin = corpus_checker().translation(ROOT / "examples/non_inferiority.stat").lean

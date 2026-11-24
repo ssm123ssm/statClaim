@@ -23,8 +23,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-from statclaim.association import render_association_proof
-from statclaim.incidence import render_rate_proof
 from statclaim.language import ComposedFamilyIR
 from statclaim.language_compiler import compile_source
 from statclaim.language_inspection import best_status
@@ -35,10 +33,7 @@ from statclaim.lean_translation.emit import name as lean
 from statclaim.lean_translation.exact import ExactAnalysis
 from statclaim.lean_translation.grades import grade
 from statclaim.lean_translation.program import Translation, translate
-from statclaim.matched import render_matched_proof
-from statclaim.planning import render_margin_proof
-from statclaim.proof import render_design_proof
-from statclaim.randomisation import render_randomisation_proof
+from statclaim.lean_translation.prove import projection, template, template_body
 
 ROOT = Path(__file__).resolve().parents[1]
 PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
@@ -46,8 +41,8 @@ PINNED_DIRECTORY = ROOT / "tests/fixtures/lean_translation"
 # test, a design whose stopping rule leaves its claim unresolved, a cited test of
 # association in a survey, a family of a proved and a cited test, a fixed sequence, a
 # design with two looks, a graphical procedure, the COPD hierarchy, which nests a graph
-# in a sequence, and exact tests: one-sided Fisher, association with fixed groups, and
-# randomisation.
+# in a sequence, exact tests (one-sided Fisher, association with fixed groups,
+# randomisation) and a result for observed counts.
 PINNED = (
     "examples/paper/fisher_design.stat",
     "examples/t_test.stat",
@@ -62,6 +57,7 @@ PINNED = (
     "examples/one_sided.stat",
     "examples/case_control.stat",
     "examples/randomisation.stat",
+    "examples/fisher_result.stat",
 )
 
 
@@ -133,32 +129,25 @@ def grade_problems(results: dict[str, tuple[Path, Translation]], output: str) ->
     return problems
 
 
-# The template `verify` uses today for each kind of exact test.
-TEMPLATES = {
-    "one_sided": render_design_proof,
-    "margin": render_margin_proof,
-    "groups": render_association_proof,
-    "mixture": render_association_proof,
-    "randomisation": render_randomisation_proof,
-    "rate": render_rate_proof,
-    "matched": render_matched_proof,
-}
-
-
-def template_body(analysis: ExactAnalysis) -> str:
-    """The template's options and declarations, without its imports or audit."""
-    lines = TEMPLATES[analysis.kind](analysis.test, "0" * 64).splitlines()
-    start = lines.index("namespace StatClaimCertificate")
-    end = lines.index("end StatClaimCertificate")
-    options = [line for line in lines[:start] if line.startswith("set_option ")]
-    return "\n".join([*options, *lines[start + 1 : end]]).strip("\n")
-
-
 def equivalence(claim: Claim) -> str:
     """An `example` deriving the template's theorem from the program's claim."""
+    space, name = f"template_{claim.name}", lean(claim.name)
+    if claim.result is not None:
+        # Each part of a result is the theorem of the same name in its template.
+        parts = claim.result.parts
+        text = template(claim.result.kind, claim.result.source)
+        examples = [
+            f"example (i : Instance) (premises : Premises i) :\n"
+            f"    type_of% @{space}.checked_{part} :=\n"
+            f"  ({name} i premises){projection(index, len(parts))}\n"
+            for index, (part, _) in enumerate(parts)
+        ]
+        return "\n".join(
+            [f"namespace {space}", "", template_body(text), "", f"end {space}", "", *examples]
+        )
     analysis = claim.analysis
     assert isinstance(analysis, ExactAnalysis)
-    space, name, level = f"template_{claim.name}", lean(claim.name), analysis.level
+    level = analysis.level
     if analysis.kind == "margin":
         proof = [
             f"  have claim := {name} i premises",
@@ -196,7 +185,7 @@ def equivalence(claim: Claim) -> str:
         [
             f"namespace {space}",
             "",
-            template_body(analysis),
+            template_body(template(analysis.kind, analysis.test)),
             "",
             f"end {space}",
             "",
@@ -213,7 +202,11 @@ def equivalences(path: Path) -> list[str]:
     program = compiled(path)
     assert program is not None
     claims = denote(program).claims
-    return [equivalence(claim) for claim in claims if isinstance(claim.analysis, ExactAnalysis)]
+    return [
+        equivalence(claim)
+        for claim in claims
+        if isinstance(claim.analysis, ExactAnalysis) or claim.result is not None
+    ]
 
 
 def block(path: Path, result: Translation, extra: list[str] = []) -> str:  # noqa: B006

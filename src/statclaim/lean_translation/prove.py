@@ -8,6 +8,10 @@ discharges what remains: each member's bound, the arithmetic on levels and the c
 split over members.
 """
 
+from typing import Any
+
+from statclaim.association import render_association_proof
+from statclaim.incidence import render_rate_proof
 from statclaim.lean_translation.denote import (
     BINOMIAL,
     FISHER,
@@ -26,7 +30,10 @@ from statclaim.lean_translation.denote import (
 from statclaim.lean_translation.emit import name as lean
 from statclaim.lean_translation.emit import rational, real
 from statclaim.lean_translation.exact import MODULES, ExactAnalysis
-from statclaim.planning import MARGIN_CHUNK, fisher_bounds, margin_grid
+from statclaim.matched import render_matched_proof
+from statclaim.planning import MARGIN_CHUNK, fisher_bounds, margin_grid, render_margin_proof
+from statclaim.proof import render_design_proof, render_proof
+from statclaim.randomisation import render_randomisation_proof
 
 
 def contract(fact: Contract) -> str:
@@ -182,6 +189,10 @@ def prove_combination(combination: Combination, lines: list[str], counter: list[
 
 
 def claim(statement: Claim) -> str:
+    if statement.result is not None:
+        space = lean(statement.space)
+        parts = ", ".join(f"{space}.checked_{name}" for name, _ in statement.result.parts)
+        return f"⟨{parts}⟩" if len(statement.result.parts) > 1 else parts
     analysis = statement.analysis
     if isinstance(analysis, ExactAnalysis):
         return exact_proof(analysis, statement.space)
@@ -229,8 +240,48 @@ def claim(statement: Claim) -> str:
 
 
 # Exact tests ------------------------------------------------------------------------------
+def template(kind: str, source: Any) -> str:
+    """The certificate `verify` writes today for an exact claim. Within a program its
+    theorems are proof material: each part of the claim is stated in `exact.py`, and Lean
+    checks that the template's theorem proves it."""
+    digest = "0" * 64
+    if kind == "fisher_result":
+        return render_proof(source[0], source[1], digest)
+    renderers: dict[str, Any] = {
+        "one_sided": render_design_proof,
+        "margin": render_margin_proof,
+        "margin_result": render_margin_proof,
+        "groups": render_association_proof,
+        "mixture": render_association_proof,
+        "randomisation": render_randomisation_proof,
+        "rate": render_rate_proof,
+        "matched": render_matched_proof,
+    }
+    return renderers[kind](source, digest)
+
+
+def template_body(text: str) -> str:
+    """A certificate's options and declarations, without its imports or audit."""
+    lines = text.splitlines()
+    start = lines.index("namespace StatClaimCertificate")
+    end = lines.index("end StatClaimCertificate")
+    options = [line for line in lines[:start] if line.startswith("set_option ")]
+    return "\n".join([*options, *lines[start + 1 : end]]).strip("\n")
+
+
+def projection(index: int, count: int) -> str:
+    """The projection of the index-th of count conjuncts."""
+    if count == 1:
+        return ""
+    return ".2" * index + (".1" if index < count - 1 else "")
+
+
 def checks(statement: Claim) -> list[str]:
     """The kernel checks an exact test's proof uses, in the claim's own namespace."""
+    if statement.result is not None:
+        space = lean(statement.space)
+        text = template(statement.result.kind, statement.result.source)
+        return [f"namespace {space}", "", template_body(text), "", f"end {space}", ""]
     analysis = statement.analysis
     if not isinstance(analysis, ExactAnalysis) or analysis.kind not in ("one_sided", "margin"):
         return []
