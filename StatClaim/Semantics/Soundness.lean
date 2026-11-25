@@ -104,8 +104,7 @@ def Test.allocated : Test → Bool
     decide ((members.map Test.alpha).sum ≤ alpha.value) && Test.allAllocated members
   | .looks _ members alpha =>
     decide ((members.map Test.alpha).sum ≤ alpha.value) && Test.allAllocated members
-  | .spending _ members .. => Test.allAllocated members
-  | .graphical _ members _ _ _ => Test.allAllocated members
+  | .procedure _ _ members .. => Test.allAllocated members
   | .sequence _ members _ => Test.allAllocated members
   | _ => true
 termination_by structural t => t
@@ -139,8 +138,8 @@ def Test.emptyHints : (t : Test) → t.Hints
   | .exactStudy _ .fisherGroups .. | .exactStudy _ .fisherMixture ..
   | .exactStudy _ .matched .. | .exactStudy _ .incidence .. => PUnit.unit
   | .bonferroni _ members .. | .looks _ members .. | .sequence _ members .. => Test.emptyMemberHints members
-  | .fisher .. | .randomised .. | .member .. | .assumed .. | .associated .. | .graphical ..
-  | .spending .. | .oneSample .. | .twoStage .. => PUnit.unit
+  | .fisher .. | .randomised .. | .member .. | .assumed .. | .associated .. | .procedure ..
+  | .oneSample .. | .twoStage .. => PUnit.unit
 termination_by structural t => t
 
 def Test.emptyMemberHints : (ts : List Test) → Test.MemberHints ts
@@ -268,14 +267,16 @@ theorem Test.outside_bound (i : Instance) (σ : JointStudy Θ Ω) :
       (by rw [Test.sum_alphas]; exact allocated.1)
     exact ⟨(Finset.sum_nonneg fun k _ => (each k).1 :
       0 ≤ ∑ k, (Test.members i σ members ws).slacks k), looks_member family⟩
-  | .spending name members alpha _, ws, _, _, _, _, premises, marginals => by
-    have rule := ((Premise.allHold_append i _ _).1 premises).2.1
-    have family := (joint_iff _ _).1 rule.2 Θ Ω σ ws marginals
-    exact ⟨Scope.permits_nonnegative rule.1, looks_member family⟩
-  | .graphical name members _ _ alpha, ws, _, _, _, _, premises, marginals => by
-    have graph := ((Premise.allHold_append i _ _).1 premises).2.1
-    have family := (joint_iff _ _).1 graph.2 Θ Ω σ ws marginals
-    exact ⟨Scope.permits_nonnegative graph.1, family_member σ family⟩
+  | .procedure name rule members alpha _ _, ws, _, _, _, _, premises, marginals => by
+    have cited := ((Premise.allHold_append i _ _).1 premises).2.1
+    have family := (joint_iff _ _).1 cited.2 Θ Ω σ ws marginals
+    cases question : rule.question with
+    | looks =>
+      simp only [Test.outside, question]
+      exact ⟨Scope.permits_nonnegative cited.1, looks_member family⟩
+    | family =>
+      simp only [Test.outside, question]
+      exact ⟨Scope.permits_nonnegative cited.1, family_member σ family⟩
   | .sequence _ members alpha, ws, contracts, allocated, hints, checked, premises, marginals => by
     simp only [Test.check, Bool.and_eq_true] at contracts
     simp only [Test.allocated] at allocated
@@ -368,8 +369,13 @@ theorem Request.sound (q : Request) (contracts : q.check = true) (fixed : q.fixe
       simp only [Request.allocated, Request.test, Option.all, Test.allocated, Bool.and_eq_true,
         decide_eq_true_eq] at allocated
       exact Test.union_sound i members alpha checked.1.1.1 allocated.2 allocated.1 hints valid premises
-    | spending name members alpha _ =>
-      exact ((Premise.allHold_append i _ _).1 premises).2.1.2
+    | procedure name rule members alpha _ _ =>
+      cases question : rule.question with
+      | looks =>
+        simp only [Test.typeI, question]
+        exact ((Premise.allHold_append i _ _).1 premises).2.1.2
+      | family =>
+        simp [Request.check, Test.hasTypeI, Test.single, Test.isLooks, question] at contracts
     | _ => simp [Request.check, Test.hasTypeI, Test.single, Test.isLooks] at contracts
   | familywise t =>
     cases t with
@@ -378,8 +384,12 @@ theorem Request.sound (q : Request) (contracts : q.check = true) (fixed : q.fixe
       simp only [Request.allocated, Request.test, Option.all, Test.allocated, Bool.and_eq_true,
         decide_eq_true_eq] at allocated
       exact Test.union_sound i members alpha checked.1 allocated.2 allocated.1 hints valid premises
-    | graphical name members _ _ alpha =>
-      exact ((Premise.allHold_append i _ _).1 premises).2.1.2
+    | procedure name rule members alpha _ _ =>
+      cases question : rule.question with
+      | looks => simp [Request.check, Test.isLooks, question] at contracts
+      | family =>
+        simp only [Test.familywise, question]
+        exact ((Premise.allHold_append i _ _).1 premises).2.1.2
     | sequence _ members alpha =>
       simp only [Request.test, Option.all, Test.check, Bool.and_eq_true] at checked
       simp only [Request.allocated, Request.test, Option.all, Test.allocated] at allocated

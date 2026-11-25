@@ -6,6 +6,15 @@ Start with an issue containing a small `.stat` example and the desired claim.
 A method whose guarantee Lean cannot prove yet is added as a
 [cited method](cited-methods.md) instead; step 4 does not apply to it.
 
+A cited way of combining tests, such as the graphical procedure or another
+error-spending function, needs no new Lean either. Add a `CitedRule` to
+`composition.CITED_RULES`: the constant fields of its canonical form, whether its
+members are looks at one question or a family of questions, whether each member
+uses the whole level or at most it, and whether it takes a graph. Then run
+`uv run python scripts/update_lean_premises.py`. Lean's one constructor for cited
+procedures, `Test.procedure`, reads the rule from `StatClaim/Generated/Methods.lean`,
+and the build checks that the new entry is told apart from the others.
+
 1. Define the model, hypothesis, design and assumptions precisely. Explain which
    combinations must fail and why.
 2. Add a typed object in `language/ir.py`, its builder in the module of its area

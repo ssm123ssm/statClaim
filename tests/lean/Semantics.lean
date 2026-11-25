@@ -306,7 +306,7 @@ namespace Copd
 
 def program : StatClaim.Semantics.Program where
   requests := [
-  .familywise (.graphical "co_primary"
+  .familywise (.procedure "co_primary" .graphical
     [.assumed "trough_fev1_ni" (.cited StatClaim.Generated.Methods.mmrm_test_one_sided)
       { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
@@ -319,9 +319,9 @@ def program : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]] ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩),
+    ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩ [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]]),
   .familywise (.sequence "trial"
-    [.graphical "co_primary"
+    [.procedure "co_primary" .graphical
     [.assumed "trough_fev1_ni" (.cited StatClaim.Generated.Methods.mmrm_test_one_sided)
       { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
@@ -334,7 +334,7 @@ def program : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]] ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩ [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]],
     .assumed "inspiratory_capacity_ni" (.cited StatClaim.Generated.Methods.mmrm_test_one_sided)
       { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
@@ -369,7 +369,7 @@ def program : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
-  .graphical "co_primary"
+  .procedure "co_primary" .graphical
     [.assumed "trough_fev1_ni" (.cited StatClaim.Generated.Methods.mmrm_test_one_sided)
       { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
@@ -382,7 +382,7 @@ def program : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]] ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩ [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]],
   .assumed "inspiratory_capacity_ni" (.cited StatClaim.Generated.Methods.mmrm_test_one_sided)
       { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
@@ -400,7 +400,7 @@ def program : StatClaim.Semantics.Program where
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some ((-1 : ℚ) / 10) }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
   .sequence "trial"
-    [.graphical "co_primary"
+    [.procedure "co_primary" .graphical
     [.assumed "trough_fev1_ni" (.cited StatClaim.Generated.Methods.mmrm_test_one_sided)
       { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }
@@ -413,7 +413,7 @@ def program : StatClaim.Semantics.Program where
       { model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨500, 500, by decide, by decide⟩ }, value := some (0 : ℚ) }
       ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩]
-    [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]] ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩,
+    ⟨((1 : ℚ) / 40), by norm_num, by norm_num⟩ [((1 : ℚ) / 2), ((1 : ℚ) / 2), (0 : ℚ)] [[(0 : ℚ), (1 : ℚ), (0 : ℚ)], [(0 : ℚ), (0 : ℚ), (1 : ℚ)], [(1 : ℚ), (0 : ℚ), (0 : ℚ)]],
     .assumed "inspiratory_capacity_ni" (.cited StatClaim.Generated.Methods.mmrm_test_one_sided)
       { model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, stopping := .fixed }
       { key := .mean_difference_at_most, model := { outcome := .continuous, sizes := ⟨440, 440, by decide, by decide⟩ }, value := some (-50 : ℚ) }

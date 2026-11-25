@@ -23,7 +23,7 @@ from statclaim.methods.assumptions import (
     PRESPECIFIED_SPENDING,
     SINGLE_ANALYSIS,
 )
-from statclaim.methods.boundaries import JENNISON_TURNBULL, LAN_DEMETS
+from statclaim.methods.boundaries import JENNISON_TURNBULL, LAN_DEMETS, SPENDING
 from statclaim.methods.core import SCOPES, Assumption, Guarantee
 
 # How a member's own bound is established. Either way it is a hypothesis here.
@@ -153,6 +153,58 @@ MODES = {
     ),
 }
 DISCHARGED = {key: mode.discharged for key, mode in MODES.items()}
+
+
+@dataclass(frozen=True)
+class CitedRule:
+    """A cited way of combining tests, as Lean reads it.
+
+    Lean has one constructor for every cited rule (`Test.procedure`), and
+    scripts/update_lean_premises.py writes this table into StatClaim/Generated/Methods.lean,
+    so a new rule of these shapes needs no new Lean.
+
+    fields: the constant entries of the canonical form, "method" first.
+    question: "looks" when the members ask one question at several looks (a Type I claim);
+    "family" when they ask several questions (a familywise claim).
+    levels: "equal" when every member uses the whole level; "at_most" when each is at most it.
+    graph: whether the rule takes weights and transitions.
+    scope: "members" when the rule is finite-sample if every member is; else "asymptotic".
+    """
+
+    key: str
+    mode: str
+    fields: tuple[tuple[str, str], ...]
+    question: str
+    levels: str
+    graph: bool
+    scope: str
+
+
+CITED_RULES = (
+    CitedRule(
+        "graphical", "graphical", (("method", "graphical"),), "family", "equal", True, "members"
+    ),
+    *(
+        CitedRule(
+            f"spending_{function}",
+            "spending",
+            (("method", "group_sequential"), ("spending", function)),
+            "looks",
+            "at_most",
+            False,
+            "asymptotic",
+        )
+        for function in SPENDING
+    ),
+)
+
+
+def cited_rule(record: dict) -> CitedRule | None:
+    """The cited rule a combination's canonical form names, if any."""
+    for rule in CITED_RULES:
+        if all(record.get(key) == value for key, value in rule.fields):
+            return rule
+    return None
 
 
 @dataclass(frozen=True)

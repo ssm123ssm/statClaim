@@ -41,7 +41,9 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   `StatClaim/Interface/` holds the objects the semantics is stated in: abstract
   two-arm and observational models, tests seen from outside and their level
   premises, and families over joint studies. `StatClaim/Generated/Methods.lean` is
-  the cited-method registry in Lean, written by `scripts/update_lean_premises.py`.
+  the cited-method registry in Lean, written by `scripts/update_lean_premises.py`,
+  with the cited procedures that combine tests (`composition.CITED_RULES`): Lean has
+  one constructor for all of them, `Test.procedure`.
   `StatClaim/Semantics/` defines each program's claims, premises, grades and
   contracts as functions of the encoded program; exact tests, results, intervals
   and plans share one interface (`Exact.lean`). `Program.sound` proves the claims

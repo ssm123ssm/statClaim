@@ -420,8 +420,10 @@ def Test.canonical : Test → Bool
   | .member _ => false
   | .assumed _ (.cited method) .. => Generated.trialMethods.contains method
   | .associated _ method .. => Generated.associationMethods.contains method
-  | .bonferroni _ members _ none | .looks _ members _ | .spending _ members ..
-  | .graphical _ members .. | .sequence _ members _ => Test.canonicalMembers true members
+  | .bonferroni _ members _ none | .looks _ members _ | .sequence _ members _ =>
+    Test.canonicalMembers true members
+  | .procedure _ rule members _ weights rows =>
+    Test.canonicalMembers true members && (rule.graph || (weights.isEmpty && rows.isEmpty))
   | .bonferroni _ members _ (some _) => Test.canonicalMembers false members
   | _ => true
 termination_by structural t => t
@@ -513,6 +515,66 @@ theorem trial_key_free : ∀ m ∈ Generated.trialMethods, m.key ∉ reservedKey
 theorem association_key_free : ∀ m ∈ Generated.associationMethods,
     m.key ∉ reservedKeys ∧ m.key ∉ trialKeys := by decide +kernel
 
+/-! ## Cited procedures -/
+
+/-- The value a cited procedure's constant entries give a key. -/
+def _root_.StatClaim.Generated.Procedure.field (rule : Generated.Procedure) (key : String) : Option String :=
+  (rule.fields.find? (·.1 == key)).map (·.2)
+
+/-- Every key a cited procedure writes, and every method one names. -/
+def procedureKeys : List String := Generated.procedures.flatMap fun r => r.fields.map (·.1)
+
+def procedureMethods : List String := Generated.procedures.filterMap (·.field "method")
+
+/-- The keys a combination writes itself, and the key of a single test. -/
+def combinationKeys : List String :=
+  ["alpha", "analyses", "composition", "test", "transitions", "weights"]
+
+theorem procedure_listed (rule : Generated.Procedure) : rule ∈ Generated.procedures := by
+  cases rule <;> decide
+
+/-- Registry facts: a procedure's entries tell it from every other, never repeat a key, and
+never use a key the combination writes itself; no procedure names a proved combination. -/
+theorem procedure_determined : ∀ r₁ ∈ Generated.procedures, ∀ r₂ ∈ Generated.procedures,
+    (∀ key ∈ procedureKeys, r₁.field key = r₂.field key) → r₁ = r₂ := by decide +kernel
+
+theorem procedure_keys_nodup : ∀ r ∈ Generated.procedures,
+    (["alpha", "analyses", "composition"] ++ r.fields.map (·.1) ++
+      ["transitions", "weights"]).Nodup := by decide +kernel
+
+theorem procedure_keys_outside : ∀ key ∈ procedureKeys, key ∉ combinationKeys := by
+  decide +kernel
+
+theorem procedure_methods_free :
+    "bonferroni" ∉ procedureMethods ∧ "alpha_spending" ∉ procedureMethods ∧
+      "fixed_sequence" ∉ procedureMethods := by decide +kernel
+
+theorem firstSome_append (key : String) : ∀ a b : List (String × Option Form),
+    firstSome key (a ++ b) = (firstSome key a).or (firstSome key b)
+  | [], b => by simp
+  | (k, v) :: rest, b => by
+    simp only [List.cons_append, firstSome_cons, firstSome_append key rest b]
+    split <;> simp [Option.or_assoc]
+
+theorem firstSome_entries (key : String) (rule : Generated.Procedure) :
+    firstSome key rule.entries = (rule.field key).map Form.str := by
+  unfold Generated.Procedure.entries Generated.Procedure.field
+  induction rule.fields with
+  | nil => rfl
+  | cons head rest ih =>
+    obtain ⟨k, v⟩ := head
+    by_cases same : k = key <;> simp_all
+
+/-- The value a procedure's form gives one of its own keys. -/
+theorem procedure_get {key : String} (outside : key ∉ combinationKeys)
+    (rule : Generated.Procedure) (a m t w : Option Form) :
+    firstSome key ([("alpha", a), ("analyses", m), ("composition", some (.str "conditional"))] ++
+      rule.entries ++ [("transitions", t), ("weights", w)]) = (rule.field key).map Form.str := by
+  simp only [combinationKeys, List.mem_cons, List.not_mem_nil, or_false, not_or] at outside
+  obtain ⟨h₁, h₂, h₃, -, h₄, h₅⟩ := outside
+  rw [firstSome_append, firstSome_append, firstSome_entries]
+  simp [Ne.symm h₁, Ne.symm h₂, Ne.symm h₃, Ne.symm h₄, Ne.symm h₅]
+
 /-- The text a form gives a key. -/
 def Form.text (key : String) (f : Form) : Option String :=
   match f.get key with
@@ -534,8 +596,7 @@ def Form.tag (f : Form) : ℕ :=
   | none =>
     if f.text "method" = some "bonferroni" then 10
     else if f.text "method" = some "alpha_spending" then 12
-    else if f.text "method" = some "graphical" then 13
-    else if f.text "method" = some "group_sequential" then 15
+    else if (f.text "method").any (procedureMethods.contains ·) then 13
     else 14
 
 def Test.tag : Test → ℕ
@@ -550,8 +611,7 @@ def Test.tag : Test → ℕ
   | .associated .. => 9
   | .bonferroni .. => 10
   | .looks .. => 12
-  | .spending .. => 15
-  | .graphical .. => 13
+  | .procedure .. => 13
   | .sequence .. => 14
 
 theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
@@ -572,9 +632,14 @@ theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
     have free := association_key_free m c
     simp only [reservedKeys, List.mem_cons, List.not_mem_nil, or_false, not_or] at free
     simp [Test.form, Form.tag, Form.text, Test.tag, free]
+  | .procedure _ rule .., _ => by
+    cases rule <;> simp [Test.form, Form.tag, Form.text, Test.tag, procedureMethods,
+      Generated.procedures, Generated.Procedure.entries, Generated.Procedure.fields,
+      Generated.Procedure.graph, Generated.Procedure.field]
   | .bonferroni _ _ _ none, _ | .bonferroni _ _ _ (some _), _ | .fisher .., _
-  | .randomised .., _ | .oneSample .., _ | .twoStage .., _ | .looks .., _ | .spending .., _
-  | .graphical .., _ | .sequence .., _ => by simp [Test.form, Form.tag, Form.text, Test.tag]
+  | .randomised .., _ | .oneSample .., _ | .twoStage .., _ | .looks .., _
+  | .sequence .., _ => by
+    simp [Test.form, Form.tag, Form.text, Test.tag, procedure_methods_free]
 
 theorem tag_eq {t₁ t₂ : Test} (c₁ : t₁.canonical) (c₂ : t₂.canonical) (h : t₁.form = t₂.form) :
     t₁.tag = t₂.tag := by
@@ -702,20 +767,37 @@ theorem Test.agree (t₁ t₂ : Test) (c₁ : t₁.canonical = true) (c₂ : t�
     have all := Test.agreeMembers true ms₁ ms₂ c₁ c₂ (by assumption)
     exact ⟨rfl, by simpa [Test.thresholds] using all.length,
       fun th => by rw [all.same (by simpa [Test.thresholds] using th)]⟩
-  -- spending
-  · rename_i ms₁ a₁ s₁ ms₂ a₂ s₂
-    unfold Test.form at h; same_object h as e
-    simp at e; casesm* _ ∧ _; subst_vars
-    simp only [Test.canonical] at c₁ c₂
-    have all := Test.agreeMembers true ms₁ ms₂ c₁ c₂ (by assumption)
-    exact ⟨rfl, by simpa [Test.thresholds] using all.length,
-      fun th => by rw [all.same (by simpa [Test.thresholds] using th)]⟩
-  -- graphical
-  · rename_i ms₁ w₁ r₁ a₁ ms₂ w₂ r₂ a₂
-    unfold Test.form at h; same_object h as e
-    simp at e; casesm* _ ∧ _; subst_vars
-    simp only [Test.canonical] at c₁ c₂
-    have all := Test.agreeMembers true ms₁ ms₂ c₁ c₂ (by assumption)
+  -- procedure
+  · rename_i r₁ ms₁ a₁ w₁ rs₁ r₂ ms₂ a₂ w₂ rs₂
+    -- The registry entries the two forms write tell the procedures apart.
+    have same : r₁ = r₂ := by
+      refine procedure_determined r₁ (procedure_listed r₁) r₂ (procedure_listed r₂)
+        fun key listed => ?_
+      have seen := congrArg (Form.get key) h
+      simp only [Test.form, get_object] at seen
+      rw [procedure_get (procedure_keys_outside key listed),
+        procedure_get (procedure_keys_outside key listed)] at seen
+      exact Option.map_injective (fun _ _ e => by injection e) seen
+    subst same
+    unfold Test.form at h
+    have e := object_inj (h := h) (keys := by simp [Generated.Procedure.entries])
+      (nodup := by
+        simpa [Generated.Procedure.entries, Function.comp_def] using
+          procedure_keys_nodup r₁ (procedure_listed r₁))
+    simp only [List.map_append, List.map_cons, List.map_nil, List.cons_append, List.nil_append,
+      List.cons.injEq, Option.some.injEq, List.append_cancel_left_eq] at e
+    obtain ⟨ea, em, -, et, ew, -⟩ := e
+    simp only [Test.canonical, Bool.and_eq_true, Bool.or_eq_true, List.isEmpty_iff] at c₁ c₂
+    have all := Test.agreeMembers true ms₁ ms₂ c₁.1 c₂.1 (by simpa using em)
+    have alphas : a₁ = a₂ := by simpa using ea
+    have shares : w₁ = w₂ ∧ rs₁ = rs₂ := by
+      cases graph : r₁.graph
+      · simp only [graph, Bool.false_eq_true, false_or] at c₁ c₂
+        exact ⟨c₁.2.1.trans c₂.2.1.symm, c₁.2.2.trans c₂.2.2.symm⟩
+      · simp only [graph, ite_true, Option.some.injEq] at et ew
+        exact ⟨by simpa using ew, by simpa using et⟩
+    obtain ⟨rfl, rfl⟩ := shares
+    subst alphas
     exact ⟨rfl, by simpa [Test.thresholds] using all.length,
       fun th => by rw [all.same (by simpa [Test.thresholds] using th)]⟩
   -- sequence

@@ -71,15 +71,32 @@ example (members : List Test) :
 -- Spending boundaries: the design's rejection is its procedure's, and its level is the
 -- cited rule's premise, with a large-sample slack.
 example (members : List Test) :
-    (Test.spending "d" members alpha "obrien_fleming").typeI i ↔
+    (Test.procedure "d" .spending_obrien_fleming members alpha [] []).typeI i ↔
     Joint (Test.leavesOf i members) fun σ ws =>
       familywiseClaim σ.law (Test.members i σ members ws).nulls
         (i.graph "d" (Test.leavesOf i members) members.length _ _ σ ws)
         ((alpha.value : ℝ) + i.slack "d") := Iff.rfl
 
 example (members : List Test) :
-    Premise.AllHold i (Test.spending "d" members alpha "pocock").premises ↔
-    Premise.AllHold i (Test.premisesOf members ++ [.spending "d" members alpha]) := Iff.rfl
+    Premise.AllHold i (Test.procedure "d" .spending_pocock members alpha [] []).premises ↔
+    Premise.AllHold i (Test.premisesOf members ++ [.procedure "d" .spending_pocock members alpha]) :=
+  Iff.rfl
+
+example (members : List Test) :
+    (Premise.procedure "d" .spending_pocock members alpha).Holds i ↔
+    Scope.largeSample.permits (i.slack "d") ∧
+    Joint (Test.leavesOf i members) fun σ ws =>
+      familywiseClaim σ.law (Test.members i σ members ws).nulls
+        (i.graph "d" (Test.leavesOf i members) members.length _ _ σ ws)
+        ((alpha.value : ℝ) + i.slack "d") := Iff.rfl
+
+-- A graph's guarantee is finite-sample when every member's is.
+example :
+    (Premise.procedure "g" .graphical [] alpha).Holds i ↔
+    Scope.finiteSample.permits (i.slack "g") ∧
+    Joint [] fun σ ws =>
+      familywiseClaim σ.law (Test.members i σ [] ws).nulls
+        (i.graph "g" [] 0 _ _ σ ws) ((alpha.value : ℝ) + i.slack "g") := Iff.rfl
 
 example (members : List Test) :
     (Test.sequence "s" members alpha).familywise i ↔
@@ -88,7 +105,7 @@ example (members : List Test) :
         ((alpha.value : ℝ) + ∑ k, (Test.members i σ members ws).slacks k) := Iff.rfl
 
 example (members : List Test) :
-    (Test.graphical "g" members [] [] alpha).familywise i ↔
+    (Test.procedure "g" .graphical members alpha [] []).familywise i ↔
     Joint (Test.leavesOf i members) fun σ ws =>
       familywiseClaim σ.law (Test.members i σ members ws).nulls
         (i.graph "g" (Test.leavesOf i members) members.length _ _ σ ws)

@@ -15,6 +15,7 @@ import sys
 from fractions import Fraction
 from pathlib import Path
 
+from statclaim.composition import CITED_RULES
 from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
 from statclaim.methods.assumptions import CONTRADICTED_BY
 
@@ -85,6 +86,19 @@ structure AssociationMethod where
   minTotal : Nat
   minClusters : Option Nat
   assumptions : List String
+
+/-- How the members of a cited procedure relate: looks that ask one question, or a family
+of questions. -/
+inductive ProcedureQuestion where
+  | looks
+  | family
+  deriving DecidableEq, Repr
+
+/-- What a cited procedure asks of its members' levels: each the whole level, or at most it. -/
+inductive MemberLevels where
+  | equal
+  | atMost
+  deriving DecidableEq, Repr
 """
 
 
@@ -166,6 +180,69 @@ def association(method) -> list[str]:
         f"  assumptions := {strings(a.id for a in method.assumptions)}",
         "",
     ]
+
+
+def text(value: str) -> str:
+    if not re.fullmatch(r"[a-z_][a-z0-9_]*", value):
+        raise ValueError(f"{value!r} cannot be a field of a cited procedure.")
+    return f'"{value}"'
+
+
+def procedures() -> list[str]:
+    """The cited procedures that combine tests: what the semantics reads about each."""
+    rules = [rule.key for rule in CITED_RULES]
+    lines = enum("Procedure", "The cited procedures that combine tests.", rules)
+    lines += mapping(
+        "fields",
+        "The constant entries of each procedure's canonical form, method first.",
+        "Procedure",
+        "List (String × String)",
+        (
+            (
+                rule.key,
+                "[" + ", ".join(f"({text(k)}, {text(v)})" for k, v in rule.fields) + "]",
+            )
+            for rule in CITED_RULES
+        ),
+    )
+    lines += mapping(
+        "question",
+        "Whether the members are looks at one question or a family of questions.",
+        "Procedure",
+        "ProcedureQuestion",
+        ((rule.key, f".{rule.question}") for rule in CITED_RULES),
+    )
+    lines += mapping(
+        "levels",
+        "What the procedure asks of its members' levels.",
+        "Procedure",
+        "MemberLevels",
+        ((rule.key, ".equal" if rule.levels == "equal" else ".atMost") for rule in CITED_RULES),
+    )
+    lines += mapping(
+        "graph",
+        "Whether the procedure takes weights and transitions.",
+        "Procedure",
+        "Bool",
+        ((rule.key, "true" if rule.graph else "false") for rule in CITED_RULES),
+    )
+    lines += mapping(
+        "scope",
+        "The scope of the cited guarantee; none when it is finite-sample if every member is.",
+        "Procedure",
+        "Option Scope",
+        (
+            (rule.key, "none" if rule.scope == "members" else f"some .{SCOPES[rule.scope]}")
+            for rule in CITED_RULES
+        ),
+    )
+    lines += [
+        "/-- Every cited procedure, in registry order. -/",
+        "def procedures : List Procedure :=",
+        "  " + items("Procedure", rules),
+        "",
+    ]
+    return lines
 
 
 def render() -> str:
@@ -250,7 +327,9 @@ def render() -> str:
         "String",
         ((case, f'"{identifier(case)}"') for case in surveys),
     )
-    lines += [RECORDS, "namespace Methods", ""]
+    lines += [RECORDS]
+    lines += procedures()
+    lines += ["namespace Methods", ""]
     for method in trials:
         lines += trial(method)
     for method in associations:

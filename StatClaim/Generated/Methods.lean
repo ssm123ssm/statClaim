@@ -176,6 +176,60 @@ structure AssociationMethod where
   minClusters : Option Nat
   assumptions : List String
 
+/-- How the members of a cited procedure relate: looks that ask one question, or a family
+of questions. -/
+inductive ProcedureQuestion where
+  | looks
+  | family
+  deriving DecidableEq, Repr
+
+/-- What a cited procedure asks of its members' levels: each the whole level, or at most it. -/
+inductive MemberLevels where
+  | equal
+  | atMost
+  deriving DecidableEq, Repr
+
+/-- The cited procedures that combine tests. -/
+inductive Procedure where
+  | graphical
+  | spending_obrien_fleming
+  | spending_pocock
+  deriving DecidableEq, Repr
+
+/-- The constant entries of each procedure's canonical form, method first. -/
+def Procedure.fields : Procedure → List (String × String)
+  | .graphical => [("method", "graphical")]
+  | .spending_obrien_fleming => [("method", "group_sequential"), ("spending", "obrien_fleming")]
+  | .spending_pocock => [("method", "group_sequential"), ("spending", "pocock")]
+
+/-- Whether the members are looks at one question or a family of questions. -/
+def Procedure.question : Procedure → ProcedureQuestion
+  | .graphical => .family
+  | .spending_obrien_fleming => .looks
+  | .spending_pocock => .looks
+
+/-- What the procedure asks of its members' levels. -/
+def Procedure.levels : Procedure → MemberLevels
+  | .graphical => .equal
+  | .spending_obrien_fleming => .atMost
+  | .spending_pocock => .atMost
+
+/-- Whether the procedure takes weights and transitions. -/
+def Procedure.graph : Procedure → Bool
+  | .graphical => true
+  | .spending_obrien_fleming => false
+  | .spending_pocock => false
+
+/-- The scope of the cited guarantee; none when it is finite-sample if every member is. -/
+def Procedure.scope : Procedure → Option Scope
+  | .graphical => none
+  | .spending_obrien_fleming => some .largeSample
+  | .spending_pocock => some .largeSample
+
+/-- Every cited procedure, in registry order. -/
+def procedures : List Procedure :=
+  [Procedure.graphical, Procedure.spending_obrien_fleming, Procedure.spending_pocock]
+
 namespace Methods
 
 /-- Two-sided pooled-variance t-test. Finite-sample guarantee, cited. -/

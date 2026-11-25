@@ -210,3 +210,38 @@ def test_lean_refuses_data_outside_canonical_form(tmp_path):
             ["lake", "env", "lean", str(file)], cwd=ROOT, capture_output=True, text=True
         )
         assert (run.returncode == 0) == accepted, run.stdout + run.stderr
+
+
+def test_every_cited_combination_is_a_registry_rule():
+    """Lean reads cited ways of combining as data (`Test.procedure`), generated from
+    composition.CITED_RULES; each rule's keys sit between the combination's own, in the
+    increasing order Lean prints."""
+    from statclaim.composition import CITED_RULES, MODES
+    from statclaim.methods.boundaries import SPENDING
+
+    assert {rule.mode for rule in CITED_RULES} == {
+        key for key, mode in MODES.items() if mode.theorem is None
+    }
+    for rule in CITED_RULES:
+        assert rule.fields[0] == ("method", MODES[rule.mode].method)
+        keys = [key for key, _ in rule.fields]
+        assert keys == sorted(set(keys))
+        assert all("composition" < key < "transitions" and key != "test" for key in keys)
+    spending = {dict(rule.fields).get("spending") for rule in CITED_RULES}
+    assert set(SPENDING) <= spending
+
+
+def test_cited_combinations_are_written_as_procedures():
+    graph = program_data(canonical("examples/recycling.stat"))
+    assert re.search(r'\.procedure "\w+" \.graphical\n', graph)
+    looks = canonical("examples/group_sequential.stat")
+    assert '.procedure "trial" .spending_obrien_fleming\n' in program_data(looks)
+    # A spending function the registry does not list is outside the semantics.
+    unknown = copy.deepcopy(looks)
+    for binding in unknown["bindings"]:
+        if binding["name"] == "trial":
+            binding["value"]["spending"] = "hwang_shih_decani"
+    for request in unknown["requests"]:
+        request["claim"]["subject"]["spending"] = "hwang_shih_decani"
+    with pytest.raises(Outside, match="group_sequential"):
+        program_data(unknown)

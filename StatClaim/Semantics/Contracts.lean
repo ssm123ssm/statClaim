@@ -80,11 +80,9 @@ def ExactStudyKind.fits (kind : ExactStudyKind) (study : Study) : Bool :=
 
 /-- A design with looks. -/
 def Test.isLooks : Test → Bool
-  | .looks .. | .spending .. => true
+  | .looks .. => true
+  | .procedure _ rule .. => rule.question == .looks
   | _ => false
-
-/-- The spending functions whose boundaries the semantics cites. -/
-def spendingRules : List String := ["obrien_fleming", "pocock"]
 
 def Test.composable : Test → Bool
   | .randomised .. | .oneSample .. | .twoStage .. => false
@@ -227,23 +225,30 @@ def Test.check : Test → Bool
     (match members.mapM Test.sizes with
       | some sizes => growing sizes
       | none => false)
-  | .spending _ members alpha rule =>
+  | .procedure _ rule members alpha weights rows =>
     Test.checkAll members && members.all Test.composable &&
-    (match members with
-      | [] => false
-      | first :: rest =>
-        first.question.isSome && rest.all (fun look => look.question == first.question)) &&
-    (match members.mapM Test.sizes with
-      | some sizes => growing sizes
-      | none => false) &&
-    spendingRules.contains rule && members.all (fun t => decide (t.alpha ≤ alpha.value))
-  | .graphical _ members weights rows alpha =>
-    Test.checkAll members && members.all Test.composable &&
-    decide (weights.length = members.length) &&
-    weights.all (fun w => decide (0 ≤ w)) && decide (weights.sum ≤ 1) &&
-    decide (rows.length = members.length) &&
-    (List.range rows.length).all (fun index => rowFits index (rows.getD index [])) &&
-    members.all (fun t => decide (t.alpha = alpha.value))
+    -- Looks ask one question at growing sizes.
+    (match rule.question with
+      | .looks =>
+        (match members with
+          | [] => false
+          | first :: rest =>
+            first.question.isSome && rest.all (fun look => look.question == first.question)) &&
+        (match members.mapM Test.sizes with
+          | some sizes => growing sizes
+          | none => false)
+      | .family => true) &&
+    (match rule.levels with
+      | .equal => members.all (fun t => decide (t.alpha = alpha.value))
+      | .atMost => members.all (fun t => decide (t.alpha ≤ alpha.value))) &&
+    -- A graph's shares of the level add up to at most the whole, and so do the shares
+    -- each test passes on; other procedures take neither.
+    (if rule.graph then
+      decide (weights.length = members.length) &&
+      weights.all (fun w => decide (0 ≤ w)) && decide (weights.sum ≤ 1) &&
+      decide (rows.length = members.length) &&
+      (List.range rows.length).all (fun index => rowFits index (rows.getD index []))
+    else weights.isEmpty && rows.isEmpty)
   | .sequence _ members alpha =>
     (Test.checkAll members && members.all (fun t => !t.single || t.composable)) &&
     members.all (fun t => decide (t.alpha = alpha.value))
@@ -278,7 +283,7 @@ def Test.memberRoles : Test → Bool
   | .bonferroni _ members _ joint =>
     (joint.isNone || joint == some "binomial_marginals") &&
     Test.validMemberRoles joint.isNone members
-  | .looks _ members _ | .spending _ members .. | .graphical _ members ..
+  | .looks _ members _ | .procedure _ _ members ..
   | .sequence _ members _ => Test.validMemberRoles true members
   | _ => true
 termination_by structural t => t

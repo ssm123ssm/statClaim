@@ -105,6 +105,12 @@
 - The printed form determines the program: Lean proves that two programs in canonical
   form never print the same form, and every build decides that its program is in
   canonical form, so the encoding into Lean data is no longer trusted.
+- The canonical program printed back as source: every certificate shows the program Lean
+  read, and every example, its respellings and random edits compile back to the same
+  program, so the elaborator's reading of a file is checked by a second, independent one.
+- Cited ways of combining tests are registry data in Lean: one constructor,
+  `Test.procedure`, reads each rule from the generated registry, so a new spending
+  function or cited rule of the same shapes needs no new Lean.
 - Power and sample sizes for every cited observational test: logistic, modified
   Poisson, conditional logistic and Poisson regressions, Spearman's correlation, linear
   regression on a yes-or-no exposure, and the survey tests through the design effect.

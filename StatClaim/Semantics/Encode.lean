@@ -142,6 +142,10 @@ def StageRule.form : StageRule → Form
 def oneArmForm (n : ℕ) : Form :=
   .object [("module", some (.str "one_arm_binomial")), ("n", some (.nat n))]
 
+/-- A cited procedure's constant entries: its method and what names it within the method. -/
+def _root_.StatClaim.Generated.Procedure.entries (rule : Generated.Procedure) : List (String × Option Form) :=
+  rule.fields.map fun (key, value) => (key, some (.str value))
+
 mutual
 def Test.form : Test → Form
   | .fisher _ design null alpha => .object [("alpha", some (.level alpha)),
@@ -183,15 +187,12 @@ def Test.form : Test → Form
   | .looks _ members alpha => .object [("alpha", some (.level alpha)),
       ("analyses", some (.arr (Test.formMembers members))),
       ("composition", some (.str "conditional")), ("method", some (.str "alpha_spending"))]
-  | .spending _ members alpha rule => .object [("alpha", some (.level alpha)),
+  | .procedure _ rule members alpha weights rows => .object ([("alpha", some (.level alpha)),
       ("analyses", some (.arr (Test.formMembers members))),
-      ("composition", some (.str "conditional")), ("method", some (.str "group_sequential")),
-      ("spending", some (.str rule))]
-  | .graphical _ members weights rows alpha => .object [("alpha", some (.level alpha)),
-      ("analyses", some (.arr (Test.formMembers members))),
-      ("composition", some (.str "conditional")), ("method", some (.str "graphical")),
-      ("transitions", some (.arr (rows.map fun row => .arr (row.map .rat)))),
-      ("weights", some (.arr (weights.map .rat)))]
+      ("composition", some (.str "conditional"))] ++ rule.entries ++
+      [("transitions", if rule.graph then some (.arr (rows.map fun row => .arr (row.map .rat)))
+        else none),
+       ("weights", if rule.graph then some (.arr (weights.map .rat)) else none)])
   | .sequence _ members alpha => .object [("alpha", some (.level alpha)),
       ("analyses", some (.arr (Test.formMembers members))),
       ("composition", some (.str "conditional")), ("method", some (.str "fixed_sequence"))]
@@ -398,7 +399,11 @@ def Test.binding : Test → String
   | .assumed .. => "CitedAnalysisIR"
   | .associated .. => "CitedAssociationIR"
   | .bonferroni _ _ _ (some _) => "FamilyIR"
-  | .looks .. | .spending .. => "SequentialIR"
+  | .looks .. => "SequentialIR"
+  | .procedure _ rule .. =>
+    match rule.question with
+    | .looks => "SequentialIR"
+    | .family => "ComposedFamilyIR"
   | _ => "ComposedFamilyIR"
 
 mutual
@@ -407,8 +412,8 @@ def Test.thresholds : Test → List Form
   | .exact name (.margin _ thresholds) .. =>
     [.object [("name", some (.str name)), ("thresholds", some (.arr (thresholds.map .nat)))]]
   | .member t => Test.thresholds t
-  | .bonferroni _ members .. | .looks _ members .. | .spending _ members ..
-  | .graphical _ members .. | .sequence _ members .. => Test.allThresholds members
+  | .bonferroni _ members .. | .looks _ members .. | .procedure _ _ members ..
+  | .sequence _ members .. => Test.allThresholds members
   | _ => []
 termination_by structural t => t
 

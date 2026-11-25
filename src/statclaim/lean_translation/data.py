@@ -12,6 +12,7 @@ import json
 import re
 from fractions import Fraction
 
+from statclaim.composition import CITED_RULES, cited_rule
 from statclaim.lean_translation.emit import rational
 from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
 from statclaim.planning import MarginTest, fisher_bounds, margin_grid
@@ -26,13 +27,13 @@ GRADES = "STATCLAIM_GRADES"
 # The model constructor each outcome kind's module names, as the canonical program writes it.
 MODULES = {outcome.constructor: key for key, outcome in OUTCOMES.items()}
 STOPPING = ("fixed", "data_dependent")
+# The combinations Lean proves, by method. Cited ones are `.procedure` with a registry rule.
 COMBINATIONS = {
     "bonferroni": "bonferroni",
-    "graphical": "graphical",
     "fixed_sequence": "sequence",
     "alpha_spending": "looks",
-    "group_sequential": "spending",
 }
+CITED_METHODS = {dict(rule.fields)["method"] for rule in CITED_RULES}
 # What a model may declare beyond its outcome and sizes.
 MODEL_EXTRAS = (
     "clusters_control",
@@ -332,16 +333,16 @@ def test(name: object, value: object) -> str:
     label = string(name)
     if isinstance(value, dict) and "analyses" in value:
         method = value["method"]
-        if method not in COMBINATIONS:
+        rule = cited_rule(value) if method in CITED_METHODS else None
+        if method not in COMBINATIONS and rule is None:
             raise Outside(f"The combination {method!r} is not in the semantics yet.")
         # A family of Fisher tests records its joint law instead of a composition.
         joint = method == "bonferroni" and "joint_law" in value
         extra = (
-            {"weights", "transitions"}
-            if method == "graphical"
-            else {"spending"}
-            if method == "group_sequential"
-            else set()
+            set()
+            if rule is None
+            else {key for key, _ in rule.fields[1:]}
+            | ({"weights", "transitions"} if rule.graph else set())
         )
         composition_field = {"joint_law"} if joint else {"composition"}
         record = fields(
@@ -359,9 +360,11 @@ def test(name: object, value: object) -> str:
                 encoded = f".member ({encoded})"
             members.append(encoded)
         listed = "[" + ",\n    ".join(members) + "]"
-        if method == "graphical":
-            weights = [exact(w, "A weight") for w in record["weights"]]
-            rows = [[exact(t, "A transition") for t in row] for row in record["transitions"]]
+        if rule is not None:
+            weights = [exact(w, "A weight") for w in record.get("weights", [])]
+            rows = [
+                [exact(t, "A transition") for t in row] for row in record.get("transitions", [])
+            ]
             shares = (
                 "["
                 + ", ".join(weights)
@@ -369,10 +372,9 @@ def test(name: object, value: object) -> str:
                 + ", ".join("[" + ", ".join(row) + "]" for row in rows)
                 + "]"
             )
-            return f".graphical {label}\n    {listed}\n    {shares} {level(record['alpha'])}"
+            alpha = level(record["alpha"])
+            return f".procedure {label} .{rule.key}\n    {listed}\n    {alpha} {shares}"
         stated = f".{COMBINATIONS[method]} {label}\n    {listed}\n    {level(record['alpha'])}"
-        if method == "group_sequential":
-            return f"{stated} {string(record['spending'], 'A spending function')}"
         if method == "bonferroni":
             law = f"(some {string(record['joint_law'], 'A joint law')})" if joint else "none"
             return f"{stated} {law}"
@@ -959,8 +961,8 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
                 keys.append(("member", member["name"]))
             else:
                 keys.extend(premise_keys(member["name"], member["analysis"]))
-        cited_rule = subject["method"] in ("graphical", "group_sequential")
-        return keys + ([("graph", name)] if cited_rule else [])
+        cited = cited_rule(subject) is not None
+        return keys + ([("procedure", name)] if cited else [])
     analysis = subject.get("candidates", subject).get("analysis", subject)
     if "test" not in analysis:
         return []
@@ -975,7 +977,7 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
 def premise_label(key: tuple[str, str], subject: dict | None = None) -> str:
     """A premise's name in reports, as the translator names its premises."""
     kind, name = key
-    if kind == "graph":
+    if kind == "procedure":
         return f"cited_{name}_rule"
     if kind == "member":
         return f"member_{name}_level"
@@ -989,7 +991,7 @@ def grade(claim: dict) -> str:
     makes it proved. The audit requires Lean's grade to be this one."""
     name, subject = claim["subject_name"], claim["subject"]
     keys = premise_keys(name, subject)
-    own = ("graph", name) if "analyses" in subject else ("level", name)
+    own = ("procedure", name) if "analyses" in subject else ("level", name)
     if own in keys:
         return "declared" if subject.get("test") == DECLARED else "cited"
     return "conditional" if keys else "proved"

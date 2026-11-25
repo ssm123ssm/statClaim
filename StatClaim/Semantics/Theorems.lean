@@ -37,8 +37,9 @@ theorem Marginals.intro {Θ Ω : Type} [MeasurableSpace Ω] (σ : JointStudy Θ 
   | [], _, _, h => h
   | _ :: vs, ws, _, h => fun _ => Marginals.intro σ vs ws.2 h
 
-theorem Premise.trivial_holds_spending (name : String) (members : List Test)
-    (alpha : SignificanceLevel) : (Premise.spending name members alpha).Holds Instance.trivial := by
+theorem Premise.trivial_holds_procedure (name : String) (rule : Generated.Procedure)
+    (members : List Test) (alpha : SignificanceLevel) :
+    (Premise.procedure name rule members alpha).Holds Instance.trivial := by
   refine ⟨Scope.permits_zero _, ?_⟩
   intro Θ Ω _ σ
   refine ForallViews.intro _ _ fun ws => Marginals.intro σ _ ws ?_
@@ -55,16 +56,8 @@ theorem Premise.trivial_holds (q : Premise) : q.Holds Instance.trivial := by
     exact neverRejects_meets_level _ _ _ _ alpha.nonnegative
   | member name alpha =>
     exact neverRejects_meets_level _ _ _ _ alpha.nonnegative
-  | graph name members alpha =>
-    refine ⟨?_, ?_⟩
-    · cases members.all Test.finiteSample <;> exact Scope.permits_zero _
-    · intro Θ Ω _ σ
-      refine ForallViews.intro _ _ fun ws => Marginals.intro σ _ ws ?_
-      exact familywise_of_nothing σ.law _ (by
-        have := alpha.nonnegative
-        simp only [Instance.trivial, add_zero]
-        exact_mod_cast this)
-  | spending name members alpha => exact Premise.trivial_holds_spending name members alpha
+  | procedure name rule members alpha =>
+    exact Premise.trivial_holds_procedure name rule members alpha
 
 theorem Premise.allHold_trivial : ∀ premises : List Premise, Premise.AllHold Instance.trivial premises
   | [] => trivial

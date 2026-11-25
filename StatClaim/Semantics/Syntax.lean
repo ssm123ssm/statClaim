@@ -288,12 +288,12 @@ inductive Test where
       (joint : Option String)
   /-- A design with looks: one question asked at growing sizes, each look at its share. -/
   | looks (name : String) (members : List Test) (alpha : SignificanceLevel)
-  /-- A design with looks whose boundaries use the correlation between looks: each look's
-  level is at most what the spending function `rule` gives it. The semantics cites the rule;
-  Lean does not compute the boundaries. -/
-  | spending (name : String) (members : List Test) (alpha : SignificanceLevel) (rule : String)
-  | graphical (name : String) (members : List Test) (weights : List ℚ)
-      (transitions : List (List ℚ)) (alpha : SignificanceLevel)
+  /-- A combination by a cited procedure from the generated registry: a graphical procedure,
+  or boundaries from an error-spending function. The semantics cites the procedure's
+  guarantee and does not compute it; `rule` says what the contracts read. Only a graph
+  takes `weights` and `transitions`. -/
+  | procedure (name : String) (rule : Generated.Procedure) (members : List Test)
+      (alpha : SignificanceLevel) (weights : List ℚ) (transitions : List (List ℚ))
   | sequence (name : String) (members : List Test) (alpha : SignificanceLevel)
 
 inductive PlanningPoint where
@@ -367,8 +367,7 @@ def Test.name : Test → String
   | .associated name .. => name
   | .bonferroni name .. => name
   | .looks name .. => name
-  | .spending name .. => name
-  | .graphical name .. => name
+  | .procedure name .. => name
   | .sequence name .. => name
 
 def Request.name : Request → String
@@ -387,8 +386,7 @@ def Test.level : Test → SignificanceLevel
   | .associated _ _ _ _ alpha _ => alpha
   | .bonferroni _ _ alpha _ => alpha
   | .looks _ _ alpha => alpha
-  | .spending _ _ alpha _ => alpha
-  | .graphical _ _ _ _ alpha => alpha
+  | .procedure _ _ _ alpha _ _ => alpha
   | .sequence _ _ alpha => alpha
 
 def Test.alpha (t : Test) : ℚ := t.level.value

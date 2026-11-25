@@ -146,8 +146,7 @@ def Test.leaves (i : Instance) : Test → List View
   | .associated _ _ design _ _ _ => [(i.studies design.model).view]
   | .bonferroni _ members _ _ => Test.leavesOf i members
   | .looks _ members _ => Test.leavesOf i members
-  | .spending _ members .. => Test.leavesOf i members
-  | .graphical _ members _ _ _ => Test.leavesOf i members
+  | .procedure _ _ members .. => Test.leavesOf i members
   | .sequence _ members _ => Test.leavesOf i members
 termination_by structural t => t
 
@@ -213,14 +212,18 @@ def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
     { null := fun θ => ∀ k, (Test.members i σ members ws).nulls k θ
       reject := ⋃ k, (Test.members i σ members ws).rejects k
       slack := ∑ k, (Test.members i σ members ws).slacks k }
-  | .spending name members _ _, ws =>
-    { null := fun θ => ∀ k, (Test.members i σ members ws).nulls k θ
-      reject := ⋃ k, i.graph name (Test.leavesOf i members) members.length Θ Ω σ ws k
-      slack := i.slack name }
-  | .graphical name members _ _ _, ws =>
-    { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
-      reject := ⋂ k, i.graph name (Test.leavesOf i members) members.length Θ Ω σ ws k
-      slack := i.slack name }
+  | .procedure name rule members .., ws =>
+    -- Looks at one question are rejected by rejecting at any look; a family, seen as one
+    -- member of a larger combination, by rejecting every member.
+    match rule.question with
+    | .looks =>
+      { null := fun θ => ∀ k, (Test.members i σ members ws).nulls k θ
+        reject := ⋃ k, i.graph name (Test.leavesOf i members) members.length Θ Ω σ ws k
+        slack := i.slack name }
+    | .family =>
+      { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
+        reject := ⋂ k, i.graph name (Test.leavesOf i members) members.length Θ Ω σ ws k
+        slack := i.slack name }
   | .sequence _ members _, ws =>
     { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
       reject := ⋂ k, (Test.members i σ members ws).rejects k
@@ -269,6 +272,17 @@ def Test.union (i : Instance) (members : List Test) (alpha : SignificanceLevel) 
       ((Test.members i σ members ws).rejects)
       ((alpha.value : ℝ) + ∑ k, (Test.members i σ members ws).slacks k)
 
+/-- What a cited procedure guarantees: over every joint study whose marginals are the
+members' laws, its rejections reject a true null with probability at most the level plus
+its slack. For looks at one question this is the design's Type I claim; for a family of
+questions, its familywise claim. -/
+def Test.cited (i : Instance) (name : String) (members : List Test)
+    (alpha : SignificanceLevel) : Prop :=
+  Joint (Test.leavesOf i members) fun σ ws =>
+    familywiseClaim σ.law ((Test.members i σ members ws).nulls)
+      (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
+      ((alpha.value : ℝ) + i.slack name)
+
 /-- The Type I claim of a single test, under its design's sampling law. A design with
 looks is under its null at every look and rejects at some look: its claim is the union
 bound over the looks. A cited test
@@ -295,22 +309,20 @@ def Test.typeI (i : Instance) : Test → Prop
         | .finiteSample => (alpha.value : ℝ)
         | .largeSample => (alpha.value : ℝ) + i.slack name)
   | .looks _ members alpha => Test.union i members alpha
-  | .spending name members alpha _ =>
-    Joint (Test.leavesOf i members) fun σ ws =>
-      familywiseClaim σ.law ((Test.members i σ members ws).nulls)
-        (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
-        ((alpha.value : ℝ) + i.slack name)
+  | .procedure name rule members alpha .. =>
+    match rule.question with
+    | .looks => Test.cited i name members alpha
+    | .family => False
   | _ => False
 
 /-- The familywise claim of a combination, over every joint study whose marginals are
 its members' laws. -/
 def Test.familywise (i : Instance) : Test → Prop
   | .bonferroni _ members alpha _ => Test.union i members alpha
-  | .graphical name members _ _ alpha =>
-    Joint (Test.leavesOf i members) fun σ ws =>
-      familywiseClaim σ.law ((Test.members i σ members ws).nulls)
-        (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
-        ((alpha.value : ℝ) + i.slack name)
+  | .procedure name rule members alpha .. =>
+    match rule.question with
+    | .looks => False
+    | .family => Test.cited i name members alpha
   | .sequence _ members alpha =>
     Joint (Test.leavesOf i members) fun σ ws =>
       sequenceClaim σ.law ((Test.members i σ members ws).nulls)
@@ -332,8 +344,7 @@ def Test.fixed : Test → Bool
   | .associated _ _ design .. => design.stopping == .fixed
   | .bonferroni _ members _ _ => Test.allFixed members
   | .looks _ members _ => Test.allFixed members
-  | .spending _ members .. => Test.allFixed members
-  | .graphical _ members _ _ _ => Test.allFixed members
+  | .procedure _ _ members .. => Test.allFixed members
   | .sequence _ members _ => Test.allFixed members
 termination_by structural t => t
 
@@ -371,16 +382,15 @@ inductive Premise where
   | association (name : String) (method : Generated.AssociationMethod) (study : Study)
       (alpha : SignificanceLevel)
   | member (name : String) (alpha : SignificanceLevel)
-  | graph (name : String) (members : List Test) (alpha : SignificanceLevel)
-  /-- A design's spending boundaries give its overall level, up to a large-sample slack. -/
-  | spending (name : String) (members : List Test) (alpha : SignificanceLevel)
+  /-- A cited procedure's guarantee: its rejections keep the error at most its level. -/
+  | procedure (name : String) (rule : Generated.Procedure) (members : List Test)
+      (alpha : SignificanceLevel)
 
 def Premise.name : Premise → String
   | .level name .. => name
   | .association name .. => name
   | .member name .. => name
-  | .graph name .. => name
-  | .spending name .. => name
+  | .procedure name .. => name
 
 def Test.finiteSample : Test → Bool
   | .fisher .. => true
@@ -402,20 +412,11 @@ def Premise.Holds (i : Instance) : Premise → Prop
   | .member name alpha =>
     let member := i.member name
     LevelPremise .finiteSample member.law.model.law member.null member.procedure alpha.value (i.slack name)
-  | .graph name members alpha =>
-    (match members.all Test.finiteSample with
+  | .procedure name rule members alpha =>
+    (rule.scope.getD (match members.all Test.finiteSample with
       | true => Scope.finiteSample
-      | false => Scope.largeSample).permits (i.slack name) ∧
-    Joint (Test.leavesOf i members) fun σ ws =>
-      familywiseClaim σ.law ((Test.members i σ members ws).nulls)
-        (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
-        ((alpha.value : ℝ) + i.slack name)
-  | .spending name members alpha =>
-    Scope.largeSample.permits (i.slack name) ∧
-    Joint (Test.leavesOf i members) fun σ ws =>
-      familywiseClaim σ.law ((Test.members i σ members ws).nulls)
-        (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
-        ((alpha.value : ℝ) + i.slack name)
+      | false => Scope.largeSample)).permits (i.slack name) ∧
+    Test.cited i name members alpha
 
 mutual
 def Test.premises : Test → List Premise
@@ -428,8 +429,8 @@ def Test.premises : Test → List Premise
   | .associated name method design _ alpha _ => [.association name method design.model alpha]
   | .bonferroni _ members _ _ => Test.premisesOf members
   | .looks _ members _ => Test.premisesOf members
-  | .spending name members alpha _ => Test.premisesOf members ++ [.spending name members alpha]
-  | .graphical name members _ _ alpha => Test.premisesOf members ++ [.graph name members alpha]
+  | .procedure name rule members alpha .. =>
+    Test.premisesOf members ++ [.procedure name rule members alpha]
   | .sequence _ members _ => Test.premisesOf members
 termination_by structural t => t
 
