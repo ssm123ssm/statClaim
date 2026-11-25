@@ -58,6 +58,19 @@ completion metadata, and serialization will be added by the language interfaces.
 the JSON certificate bundles, which record artifacts, versions, assumptions,
 and provenance. Naming a claim or marking it assumed provides no proof term.
 
+## Exact claim interface
+
+| Object | Implemented meaning |
+| --- | --- |
+| `Semantics.Checked Input` | A proposition determined by the input, a hint type, a Boolean check, and a proof that a successful check establishes the proposition |
+| `Semantics.ExactModule` | A sampling law, null, rejection event, and Type I check, with optional result, interval, and power checks |
+| `Semantics.Program.Hints r` | The evidence data Lean expects for request `r`. `Program.checkAt` validates it before `Program.sound` proves the claim. |
+| `Semantics.Request` | The Type I, familywise, observed result, interval, or planning claim to check |
+| `Semantics.Program.encode` | The canonical claims, declarations, and certified values used to bind a proof to its inputs |
+
+The Phase 2 spike exercises the interface on one-sided Fisher's Type I claim,
+observed result, and minimum sample size. See the [Phase 2 proposal](proposals/lean-semantics-phase2.md).
+
 ## Model and hypothesis
 
 `StatClaim/Modules/TwoArmBinomial.lean` defines a full model with parameters

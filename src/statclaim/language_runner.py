@@ -454,8 +454,8 @@ def check_source(
         (directory / "Source.stat").write_bytes(source.text.encode("utf-8"))
         report["run_directory"] = str(directory)
     # Every program a check runs is built in Lean once, even one that only calculates:
-    # Lean decides its declarations' contract facts and proves each claim the translation
-    # states, and each verify request takes its claim's evidence from the build. A run
+    # Lean decides the contracts and proves the claims. Each verify request takes its evidence
+    # from that build. A run
     # left to calculations and simulations, as when recalculating, builds nothing.
     program_run = None
     building = operations is None or "verify" in operations
@@ -468,9 +468,8 @@ def check_source(
             program_run = None  # every claim is left unresolved
             report["lean"] = {
                 "status": "failed",
-                "stage": "translation",
-                "message": "StatClaim accepts this program, but could not translate it into "
-                f"Lean. This is a defect; please report it. ({error})",
+                "stage": "binding",
+                "message": f"StatClaim could not bind the accepted program to Lean data. ({error})",
                 "error": str(error),
             }
         if program_run is not None and program_run.bundle is not None:
@@ -499,6 +498,8 @@ def check_source(
                 result = _run_request(request, project, directory / f"request-{index:03d}", timeout)
             finally:
                 program_evidence.CURRENT.reset(token)
+            if program_run is not None and request.operation == "verify":
+                result = program_evidence.bind_report(program_run, index, request, result)
             result = with_population(result, request.claim.subject)
             status = result["status"]
             if request.operation in ("calculate", "simulate"):

@@ -318,21 +318,11 @@ def lean_markdown(lean: dict) -> list[str]:
         f"Certificate `{lean['certificate_id'][:12]}` is in "
         f"`{lean['certificate_directory']}`; `statclaim check-certificate` replays it."
     )
-    if lean.get("semantics"):
-        lines += [
-            "Lean checked this program through the StatClaim semantics: the contracts of its "
-            f"{facts} declared tests and combinations hold, and each claim below follows, by "
-            "the soundness theorem, from the premises of the tests it involves. Lean's grade "
-            f"comes from those premises. {where}",
-            "",
-        ]
-    else:
-        lines += [
-            f"Lean checked this program: its {facts} contract facts hold, and each claim "
-            "below follows from the premises its proof uses. Lean's grade comes from those "
-            f"premises. {where}",
-            "",
-        ]
+    lines += [
+        f"Lean checked the contracts of {facts} declared tests and combinations. The "
+        f"soundness theorem establishes each listed claim under its premises. {where}",
+        "",
+    ]
     if claims:
         lines += ["| Claim | Line | Lean | Python |", "| --- | --- | --- | --- |"]
         lines += [
@@ -349,7 +339,7 @@ def lean_markdown(lean: dict) -> list[str]:
             ]
     if lean["premises"]:
         lines += ["Premises: " + ", ".join(f"`{name}`" for name in lean["premises"]) + ".", ""]
-    if lean["refuted"] and lean.get("semantics"):
+    if lean["refuted"]:
         lines += [
             f"- `{claim}`: its design stops by a rule that depends on the data, so it supplies "
             "no sampling law; the semantics states the claim as False, and nothing proves it."
@@ -358,21 +348,13 @@ def lean_markdown(lean: dict) -> list[str]:
         lines.append("")
     if lean.get("unproved"):
         lines += [
-            f"- `{claim}`: its members' levels add up to more than its own, so no bound "
-            "follows; it stays unresolved."
+            f"- `{claim}`: {lean.get('unproved_reasons', {}).get(claim, 'It stays unresolved.')}"
             for claim in lean["unproved"]
-        ]
-        lines.append("")
-    if lean["refuted"] and not lean.get("semantics"):
-        lines += [
-            f"- `{holder}`: Lean proves its design supplies no sampling law (`{theorem}`), "
-            "so no claim is stated."
-            for holder, theorem in lean["refuted"].items()
         ]
         lines.append("")
     others = {k: v for k, v in lean["not_translated"].items() if k not in lean["refuted"]}
     if others:
-        lines += ["Not in Lean yet:", ""]
+        lines += ["Outside Lean", ""]
         lines += [f"- `{name}`: {reason}" for name, reason in others.items()]
         lines.append("")
     return lines

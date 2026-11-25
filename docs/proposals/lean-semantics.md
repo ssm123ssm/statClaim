@@ -1,5 +1,7 @@
 # Proposal: the meaning of a program, defined in Lean
 
+Phase 2 is complete. See [the phase 2 implementation](lean-semantics-phase2.md) for the current certificate path.
+
 Status: approved 2026-11-24. Open questions 1 and 2 are decided as proposed; how
 the paper describes this waits until the spike and phase 1 show how it goes.
 

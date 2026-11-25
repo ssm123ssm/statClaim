@@ -28,15 +28,10 @@ from statclaim.association import (
 )
 from statclaim.fisher import fraction_record
 from statclaim.incidence import MAX_EVENTS, RateTest
-from statclaim.lean_translation import statements as S
-from statclaim.lean_translation.statements import CERTIFICATE as C
 from statclaim.matched import MatchedTest
 from statclaim.planning import (
     MAX_PER_ARM,
     MAX_RATIO,
-    _audit,
-    _lean_list,
-    fisher_cuts,
     fisher_rejection_probability,
 )
 
@@ -63,7 +58,6 @@ PLANNING_POINT = (
     "Power is evaluated at the declared planning point only; the point is a planning input, "
     "not an established fact."
 )
-THEOREMS = ["checked_sizes", "checked_region", "checked_typeI", "checked_power"]
 
 
 def _probability(value: Fraction, name: str) -> None:
@@ -208,10 +202,6 @@ def search_groups(
     return None, high - low + 1
 
 
-def plan_theorems(plan: AssociationPowerPlan) -> list[str]:
-    return THEOREMS + ["checked_smaller"] if plan.minimal else list(THEOREMS)
-
-
 def point_words(test: AssociationTest, p_first: Fraction, p_second: Fraction) -> str:
     exposure, outcome = test.exposure, test.outcome
     if test.design == "cohort":
@@ -238,12 +228,6 @@ def target_words(test: AssociationTest, target: tuple, search=None, minimal=Fals
     )
 
 
-def _sizes_words(design: str, first: int, second: int) -> str:
-    if design == "cohort":
-        return f"{second} exposed and {first} unexposed"
-    return f"{second} cases and {first} controls"
-
-
 def _each(design: str, ratio: int) -> str:
     if ratio == 1:
         return ""
@@ -255,87 +239,6 @@ def _each(design: str, ratio: int) -> str:
 def _ratio(value: Fraction) -> str:
     numerator, denominator = value.as_integer_ratio()
     return f"((({numerator} : ℕ) : ℝ) / (({denominator} : ℕ) : ℝ))"
-
-
-def render_plan_proof(plan: AssociationPowerPlan, input_sha256: str) -> str:
-    """Only validated integers and rationals enter the template; names never do."""
-    if not plan.typeI_target_met:
-        raise ValueError("The Type I target is not established by the theorem.")
-    first, second = plan.test.groups
-    alpha = plan.test.alpha
-    an, ad = alpha.as_integer_ratio()
-    bn, bd = plan.minimum_power.as_integer_ratio()
-    (a, d), (b, e) = plan.p_first.as_integer_ratio(), plan.p_second.as_integer_ratio()
-    cuts, nexts = fisher_cuts(first, second, alpha)
-    point = f"(ratPoint {a} {d} (by decide) (by decide)) (ratPoint {b} {e} (by decide) (by decide))"
-    arguments = (
-        f"{an} {ad} (by decide) declaredLevel.value (by norm_num [declaredLevel])\n"
-        f"    {a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide) {bn} {bd} (by decide)"
-    )
-    typeI = S.groups_typeI(
-        C, "firstGroup", "secondGroup", "declaredLevel.value", _ratio(plan.maximum_typeI)
-    )
-    smaller = ""
-    if plan.minimal:
-        low, r = plan.search[0], plan.ratio
-        # One theorem per smaller candidate: the kernel frees each one's arithmetic before
-        # the next, where a single check of them all can exhaust memory.
-        facts, cases = [], []
-        for n in range(low, second):
-            each_cuts, each_nexts = fisher_cuts(r * n, n, alpha)
-            facts.append(
-                f"theorem smaller_{n} : AssociationPower.FailsHinted ({r} * {n}) {n} {an} {ad} "
-                f"{a} {d} {b} {e} {bn} {bd}\n    {_lean_list(each_cuts)}\n    "
-                f"{_lean_list(each_nexts)} := by\n  decide +kernel\n"
-            )
-            cases.append(
-                f"  · exact AssociationPower.power_lt_of_fails ({r} * {n}) {n}\n      "
-                + arguments.replace("\n    ", "\n      ")
-                + f" _ _ smaller_{n}"
-            )
-        body = "\n".join(cases)
-        smaller = f"""
-{chr(10).join(facts)}
-{S.groups_smaller(C, low, second, r, point, "declaredLevel.value", (bn, bd)).header()} := by
-  interval_cases n
-{body}
-"""
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical planning SHA-256: {input_sha256}
--- An observational {plan.design.replace("_", "-")} study. Power is recomputed in the kernel;
--- the listed thresholds are proposals that the kernel validates against the formal p-value.
-set_option maxRecDepth 100000
-set_option maxHeartbeats 20000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-{S.level_definition(C, (an, ad))}
--- The two groups the design fixes: (unexposed, exposed) or (controls, cases).
-def firstGroup : ℕ := {first}
-def secondGroup : ℕ := {second}
-def cuts : List ℕ := {_lean_list(cuts)}
-def nexts : List ℕ := {_lean_list(nexts)}
-
-{S.groups_sizes("firstGroup", "secondGroup", (first, second)).header()} := by decide
-
-theorem checked_region : FisherPower.HintsValid firstGroup secondGroup {an} {ad} cuts nexts := by
-  decide +kernel
-
-{typeI.header()} := by
-  refine le_trans (Association.groups_typeI_le_alpha firstGroup secondGroup p
-    declaredLevel.value declaredLevel.nonnegative) ?_
-  norm_num [declaredLevel]
-
-{S.groups_power(C, "firstGroup", "secondGroup", point, "declaredLevel.value", (bn, bd)).header()} :=
-  AssociationPower.power_of_check firstGroup secondGroup {arguments} (by
-      rw [FisherPower.rejectionNumerator_hint _ _ _ _ _ _ _ _ cuts nexts checked_region]
-      decide +kernel)
-{smaller}
-end StatClaimCertificate
-{_audit(plan_theorems(plan), input_sha256)}"""
 
 
 # Two-sided exact binomial tests: McNemar's test and the rate test ----------------------------
@@ -374,24 +277,6 @@ def region_numerator(n: int, a: int, d: int, low: int, high: int) -> int:
     """Numerator of the probability of a count below low or from high up, at the share a/d;
     the denominator is d ** n."""
     return sum(comb(n, x) * a**x * (d - a) ** (n - x) for x in range(n + 1) if x < low or high <= x)
-
-
-def _positive(value: Fraction, name: str) -> None:
-    if not isinstance(value, Fraction) or value <= 0:
-        raise ValueError(f"{name} must be a positive exact number.")
-
-
-def _search_checks(plan, size: int, limit: int) -> None:
-    if plan.minimal and plan.search is None:
-        raise ValueError("A smallest-size claim needs a search range.")
-    if (plan.request == "sample_size") != (plan.search is not None):
-        raise ValueError("Search bounds accompany exactly the sample_size request.")
-    if plan.search is not None:
-        low, high = plan.search
-        if type(low) is not int or type(high) is not int or not 1 <= low <= high <= limit:
-            raise ValueError(f"Search bounds must be integers with 1 <= min <= max <= {limit}.")
-        if not low <= size <= high:
-            raise ValueError("The certified design must be a candidate of the search.")
 
 
 @dataclass(frozen=True)
@@ -566,154 +451,12 @@ def search_events(plan: RatePowerPlan, low: int, high: int, minimal: bool = Fals
     return None, high - low + 1
 
 
-def binomial_plan_theorems(plan) -> list[str]:
-    names = ["checked_typeI", "checked_region", "checked_power"]
-    return names + ["checked_smaller"] if plan.minimal else names
-
-
 RATE_EVENTS = (
     "Power is given the planned total number of events; the total itself varies with the "
     "rates and the person-time."
 )
 
 
-def _level_lean(alpha: Fraction) -> str:
-    return S.level_definition(C, alpha.as_integer_ratio())
-
-
-def _binomial_header(input_sha256: str, what: str) -> str:
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical planning SHA-256: {input_sha256}
--- {what} Power is recomputed in the kernel; the listed bounds of each
--- rejection region are proposals that the kernel validates against the binomial tails.
-set_option maxRecDepth 100000
-set_option maxHeartbeats 20000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-"""
-
-
-def render_matched_plan_proof(plan: MatchedPowerPlan, input_sha256: str) -> str:
-    """Only validated integers and rationals enter the template; names never do."""
-    if not plan.typeI_target_met:
-        raise ValueError("The Type I target is not established by the theorem.")
-    n, alpha = plan.test.pairs, plan.test.alpha
-    an, ad = alpha.as_integer_ratio()
-    bn, bd = plan.minimum_power.as_integer_ratio()
-    (a, d), (b, e) = plan.discordant.as_integer_ratio(), plan.case_share.as_integer_ratio()
-    lows, highs = zip(*(binomial_region(k, HALF, alpha) for k in range(n + 1)), strict=True)
-    point = f"(ratPoint {a} {d} (by decide) (by decide)) (ratPoint {b} {e} (by decide) (by decide))"
-    arguments = (
-        f"{a} {d} {b} {e} {an} {ad} (by decide) (by decide) (by decide) (by decide) (by decide)\n"
-        f"    _ (by norm_num [declaredLevel]) lows highs"
-    )
-    smaller = ""
-    if plan.minimal:
-        low = plan.search[0]
-        facts, cases = [], []
-        for m in range(low, n):
-            # One theorem per smaller candidate, so the kernel frees each one's arithmetic.
-            facts.append(
-                f"theorem smaller_{m} : BinomialPower.pairsNumerator {m} {a} {d} {b} {e} lows "
-                f"highs * {bd} <\n    {bn} * ({d} ^ {m} * {e} ^ {m}) := by\n  decide +kernel\n"
-            )
-            cases.append(
-                f"  · exact BinomialPower.pairs_power_lt_of_check {m} "
-                + arguments.replace("\n    ", "\n      ")
-                + f"\n      (checked_region.mono (by decide)) {bn} {bd} (by decide) smaller_{m}"
-            )
-        smaller = f"""
-{chr(10).join(facts)}
-{S.pairs_smaller(C, low, n, point, "declaredLevel.value", (bn, bd)).header()} := by
-  interval_cases m
-{chr(10).join(cases)}
-"""
-    return f"""{_binomial_header(input_sha256, "A 1:1 matched case-control study.")}
-{_level_lean(alpha)}
--- For every number of discordant pairs up to {n}: reject below the first list's entry and
--- from the second's up.
-def lows : List ℕ := {_lean_list(lows)}
-def highs : List ℕ := {_lean_list(highs)}
-
-{S.pairs_typeI(C, str(n), "declaredLevel.value", _ratio(plan.maximum_typeI)).header()} := by
-  refine le_trans (Matched.typeI {n} δ _ (by exact_mod_cast declaredLevel.nonnegative)) ?_
-  norm_num [declaredLevel]
-
-theorem checked_region : BinomialPower.PairsValid {n} {an} {ad} lows highs := by
-  decide +kernel
-
-{S.pairs_power(C, n, point, "declaredLevel.value", (bn, bd)).header()} :=
-  BinomialPower.pairs_power_of_check {n} {arguments} checked_region
-    {bn} {bd} (by decide) (by decide +kernel)
-{smaller}
-end StatClaimCertificate
-{_audit(binomial_plan_theorems(plan), input_sha256)}"""
-
-
-def render_rate_plan_proof(plan: RatePowerPlan, input_sha256: str) -> str:
-    """Only validated integers and rationals enter the template; names never do."""
-    if not plan.typeI_target_met:
-        raise ValueError("The Type I target is not established by the theorem.")
-    n, alpha = plan.events, plan.test.alpha
-    an, ad = alpha.as_integer_ratio()
-    bn, bd = plan.minimum_power.as_integer_ratio()
-    (a, d), (c, f) = plan.event_share.as_integer_ratio(), plan.share.as_integer_ratio()
-    low, high = binomial_region(n, plan.share, alpha)
-    alternative = f"(ratPoint {a} {d} (by decide) (by decide))"
-    null = f"(ratPoint {c} {f} (by decide) (by decide))"
-    arguments = (
-        f"{a} {d} {c} {f} {an} {ad} {low} {high}"
-        f" (by decide) (by decide) (by decide) (by decide) (by decide)\n"
-        f"    _ (by norm_num [declaredLevel])"
-    )
-    smaller = ""
-    if plan.minimal:
-        first = plan.search[0]
-        facts, cases = [], []
-        for m in range(first, n):
-            m_low, m_high = binomial_region(m, plan.share, alpha)
-            facts.append(
-                f"theorem smaller_{m} : BinomialPower.RegionValid {m} {c} {f} {an} {ad} {m_low} "
-                f"{m_high} ∧\n    BinomialPower.regionNumerator {m} {a} {d} {m_low} {m_high} "
-                f"* {bd} < {bn} * {d} ^ {m} := by\n  decide +kernel\n"
-            )
-            cases.append(
-                f"  · exact BinomialPower.power_lt_of_check {m} {a} {d} {c} {f} {an} {ad} "
-                f"{m_low} {m_high}\n      (by decide) (by decide) (by decide) (by decide) "
-                f"(by decide) _ (by norm_num [declaredLevel])\n      smaller_{m}.1 {bn} {bd} "
-                f"(by decide) smaller_{m}.2"
-            )
-        smaller = f"""
-{chr(10).join(facts)}
-{S.events_smaller(C, first, n, alternative, null, "declaredLevel.value", (bn, bd)).header()} := by
-  interval_cases m
-{chr(10).join(cases)}
-"""
-    return f"""{_binomial_header(input_sha256, "A cohort followed over person-time.")}
-{_level_lean(alpha)}
-
--- For every total rate and every share of person-time, under equal rates.
-{S.rate_typeI(C, "declaredLevel.value", _ratio(plan.maximum_typeI)).header()} := by
-  refine le_trans (Incidence.typeI total share _
-    (by exact_mod_cast declaredLevel.nonnegative)) ?_
-  norm_num [declaredLevel]
-
--- Given {n} events, with {c}/{f} of the person-time exposed: reject below {low} and from {high} up.
-theorem checked_region : BinomialPower.RegionValid {n} {c} {f} {an} {ad} {low} {high} := by
-  decide +kernel
-
-{S.events_power(C, n, alternative, null, "declaredLevel.value", (bn, bd)).header()} :=
-  BinomialPower.power_of_check {n} {arguments} checked_region
-    {bn} {bd} (by decide) (by decide +kernel)
-{smaller}
-end StatClaimCertificate
-{_audit(binomial_plan_theorems(plan), input_sha256)}"""
-
-
-TOTAL_THEOREMS = ["checked_size", "checked_parts", "checked_typeI", "checked_power"]
 # Participants in all: the kernel checks Fisher's region for every number exposed.
 MAX_TOTAL = 150
 TOTAL_POINT_KEYS = {
@@ -847,66 +590,25 @@ def total_point_words(test: AssociationTest, p_first, p_second, share) -> str:
     )
 
 
-def render_total_plan_proof(plan: TotalPowerPlan, input_sha256: str) -> str:
-    """One theorem for each number exposed, so the kernel frees each one's tables before the
-    next. Only validated integers and rationals enter the template; names never do."""
-    if not plan.typeI_target_met:
-        raise ValueError("The Type I target is not established by the theorem.")
-    n, alpha = plan.test.n, plan.test.alpha
-    an, ad = alpha.as_integer_ratio()
-    bn, bd = plan.minimum_power.as_integer_ratio()
-    (q, r) = plan.exposed_share.as_integer_ratio()
-    (a, d), (b, e) = plan.p_first.as_integer_ratio(), plan.p_second.as_integer_ratio()
-    hints = [fisher_cuts(n - k, k, alpha) for k in range(n + 1)]
-    numerators = [int(part) for part in plan.parts()]
-    parts = "\n".join(
-        f"theorem part_{k} : AssociationPower.PartValid {n} {k} {an} {ad} {a} {d} {b} {e}\n"
-        f"    (cutsList.getD {k} []) (nextsList.getD {k} []) (numerators.getD {k} 0) := by\n"
-        "  decide +kernel\n"
-        for k in range(n + 1)
-    )
-    cases = "\n".join(f"  · exact part_{k}" for k in range(n + 1))
-    share = f"(ratPoint {q} {r} (by decide) (by decide))"
-    groups = (
-        f"(ratPoint {a} {d} (by decide) (by decide)) (ratPoint {b} {e} (by decide) (by decide))"
-    )
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
+def _sizes_words(design: str, first: int, second: int) -> str:
+    if design == "cohort":
+        return f"{second} exposed and {first} unexposed"
+    return f"{second} cases and {first} controls"
 
--- Canonical planning SHA-256: {input_sha256}
--- An observational design that fixes only its total, {n}. For each number exposed the kernel
--- recomputes Fisher's region from the formal p-value; listed thresholds are proposals.
-set_option maxRecDepth 100000
-set_option maxHeartbeats 20000000
 
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
+def _positive(value: Fraction, name: str) -> None:
+    if not isinstance(value, Fraction) or value <= 0:
+        raise ValueError(f"{name} must be a positive exact number.")
 
-{S.level_definition(C, (an, ad))}
-def sampleSize : ℕ := {n}
-def cutsList : List (List ℕ) := {_lean_list(_lean_list(c) for c, _ in hints)}
-def nextsList : List (List ℕ) := {_lean_list(_lean_list(x) for _, x in hints)}
-def numerators : List ℕ := {_lean_list(numerators)}
 
-{S.total_size("sampleSize", n).header()} := by decide
-
-{parts}
-theorem checked_parts (k : ℕ) (below : k < {n} + 1) :
-    AssociationPower.PartValid {n} k {an} {ad} {a} {d} {b} {e} (cutsList.getD k [])
-      (nextsList.getD k []) (numerators.getD k 0) := by
-  interval_cases k
-{cases}
-
-{S.mixture_typeI(C, "sampleSize", "declaredLevel.value", _ratio(plan.maximum_typeI)).header()} := by
-  refine le_trans (Association.mixture_typeI_le_alpha sampleSize q p declaredLevel.value
-    declaredLevel.nonnegative) ?_
-  norm_num [declaredLevel]
-
-{S.total_power(C, n, share, groups, "declaredLevel.value", (bn, bd)).header()} :=
-  AssociationPower.total_power_of_check {n} {q} {r} {a} {d} {b} {e} {an} {ad}
-    (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
-    declaredLevel.value (by norm_num [declaredLevel]) cutsList nextsList numerators checked_parts
-    {bn} {bd} (by decide) (by decide +kernel)
-
-end StatClaimCertificate
-{_audit(TOTAL_THEOREMS, input_sha256)}"""
+def _search_checks(plan, size: int, limit: int) -> None:
+    if plan.minimal and plan.search is None:
+        raise ValueError("A smallest-size claim needs a search range.")
+    if (plan.request == "sample_size") != (plan.search is not None):
+        raise ValueError("Search bounds accompany exactly the sample_size request.")
+    if plan.search is not None:
+        low, high = plan.search
+        if type(low) is not int or type(high) is not int or not 1 <= low <= high <= limit:
+            raise ValueError(f"Search bounds must be integers with 1 <= min <= max <= {limit}.")
+        if not low <= size <= high:
+            raise ValueError("The certified design must be a candidate of the search.")

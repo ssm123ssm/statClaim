@@ -1,20 +1,4 @@
-"""Ask Lean about every program Python refuses: test 3 of docs/proposals/lean-translation.md.
-
-uv run python scripts/check_lean_rejections.py            # ask Lean, compare with EXPECTED
-uv run python scripts/check_lean_rejections.py --no-lean  # translate only
-
-The programs are the error-injection scenarios in replication/scenarios.py that Python
-rejects or leaves unresolved, and every corpus program the compiler rejects or leaves with
-an open requirement on a `verify` claim. Each is elaborated with its contract checks
-deferred and translated with every claim stated (`lean_translation/rejection.py`). All go
-in one Lean file, one namespace each, and Lean's outcome for each must be the one
-EXPECTED below. Lean accepting a program Python refuses is allowed only where EXPECTED
-says why.
-
-The same file asks the semantics (docs/proposals/lean-semantics.md) about each program
-it covers, written as Lean data: its outcome must be the translation's, or the one
-SEMANTICS records with the reason it changed, and the data must encode to the program.
-"""
+"""Check Lean outcomes for Python rejections and unresolved requests."""
 
 import re
 import subprocess
@@ -26,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "replication"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from check_lean_translation import corpus, label  # noqa: E402
+from check_lean_semantics import corpus, label  # noqa: E402
 from scenarios import SCENARIOS  # noqa: E402
 
 from statclaim.language_compiler import compile_source, requirements  # noqa: E402
@@ -34,11 +18,9 @@ from statclaim.language_syntax import Source  # noqa: E402
 from statclaim.lean_translation import data  # noqa: E402
 from statclaim.lean_translation.rejection import (  # noqa: E402
     OUTCOMES,
-    SEMANTIC_OUTCOMES,
     Asked,
     ask,
     outcome,
-    semantic_outcome,
 )
 
 # Why Lean accepts a program Python refuses: Python's rule asks more than the claims.
@@ -51,7 +33,7 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "scenario/ni_null_superiority_test": ("contract", ""),
     "scenario/equality_null_one_sided_test": ("contract", ""),
     "scenario/nonzero_difference_fisher": ("contract", ""),
-    "scenario/null_from_another_study": ("ill_typed", ""),
+    "scenario/null_from_another_study": ("contract", ""),
     "scenario/binary_test_continuous_outcome": ("untyped", ""),
     "scenario/survival_test_continuous_outcome": ("untyped", ""),
     "scenario/looks_out_of_order": ("contract", ""),
@@ -82,7 +64,7 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "scenario/repeated_measures_declared": ("contract", ""),
     "scenario/cluster_randomised_declared": ("contract", ""),
     "scenario/cluster_summaries_on_participants": ("untyped", ""),
-    "scenario/per_protocol_population": ("untyped", ""),
+    "scenario/per_protocol_population": ("contract", ""),
     # Scenarios Python leaves with an open requirement.
     "scenario/optional_stopping_exact": ("refuted", ""),
     "scenario/optional_stopping_cited": ("refuted", ""),
@@ -98,25 +80,6 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "examples/tutorial/03_optional_stopping.stat": ("refuted", ""),
     "examples/tutorial/03_wrong_null.stat": ("contract", ""),
     "examples/tutorial/06_changed_levels.stat": ("unproved", ""),
-}
-
-SEMANTIC_ROOT = "StatClaimRefusedSemantics"
-# Where the semantics' outcome differs from the translation's above, and why.
-SEMANTICS: dict[str, tuple[str, str]] = {
-    "scenario/null_from_another_study": (
-        "contract",
-        "A null carries the model it is about as data, so Lean decides that it is not the "
-        "design's model (`Null.fits`) instead of finding the null ill-typed.",
-    ),
-    "scenario/target_stricter_than_level": (
-        "uncovered",
-        "A claim that a test meets a target level waits for phase 2; the translation still "
-        "refuses it.",
-    ),
-    "scenario/per_protocol_population": (
-        "uncovered",
-        "A randomisation test waits for phase 2; the translation has no typed program for it.",
-    ),
 }
 
 
@@ -149,7 +112,7 @@ def asked_all() -> dict[str, Asked]:
 def run_lean(texts: dict[str, str]) -> tuple[dict[str, list[int]], str]:
     """Ask Lean about every text at once, each in the namespace that keys it: the lines of
     each text where Lean reports an error, and Lean's output."""
-    lines = ["import StatClaim", ""]
+    lines = ["import StatClaim", "set_option maxRecDepth 100000", ""]
     starts: list[tuple[int, str]] = []
     for key, text in texts.items():
         if not text:
@@ -189,47 +152,29 @@ def main() -> int:
             problems.append(f"{key}: unknown outcome {expected}")
         if (expected == "accepted") != bool(reason):
             problems.append(f"{key}: give a reason exactly when Lean accepts the program")
-    for key, (expected, reason) in SEMANTICS.items():
-        if expected not in SEMANTIC_OUTCOMES or not reason:
-            problems.append(f"{key}: give the semantics' outcome and why it changed")
-        if EXPECTED.get(key, ("", ""))[0] in ("", expected):
-            problems.append(f"{key}: record only outcomes the semantics changes")
-    typed = sum(bool(item.lean) for item in asked.values())
-    print(f"Asked {len(asked)} programs Python refuses; {typed} translate.")
+    typed = sum(bool(item.semantic) for item in asked.values())
+    print(f"Asked {len(asked)} programs Python refuses; {typed} have Lean data.")
     if "--no-lean" in sys.argv:
         for key, item in asked.items():
-            if (item.denotation is None) != (EXPECTED.get(key, ("",))[0] == "untyped"):
-                problems.append(f"{key}: typed program expected only when the outcome needs Lean")
-            semantic = SEMANTICS.get(key, EXPECTED.get(key, ("",)))[0]
-            if (not item.semantic) != (semantic in ("uncovered", "untyped")):
+            expected = EXPECTED.get(key, ("", ""))[0]
+            if (not item.semantic) != (expected in ("uncovered", "untyped")):
                 problems.append(f"{key}: Lean data expected only when the outcome needs Lean")
     else:
-        texts = {namespace(key): item.lean for key, item in asked.items()}
-        texts |= {namespace(key, SEMANTIC_ROOT): item.semantic for key, item in asked.items()}
+        texts = {namespace(key): item.semantic for key, item in asked.items()}
         errors, output = run_lean(texts)
         tally: dict[str, int] = {}
-        semantic_tally: dict[str, int] = {}
         for key, item in asked.items():
             found = outcome(item, errors.get(namespace(key), []))
             tally[found] = tally.get(found, 0) + 1
-            semantic = semantic_outcome(item, errors.get(namespace(key, SEMANTIC_ROOT), []))
-            semantic_tally[semantic] = semantic_tally.get(semantic, 0) + 1
-            print(f"  {found:<10} {semantic:<10} {key}: Python {', '.join(item.refused)}")
+            print(f"  {found:<10} {key}: Python {', '.join(item.refused)}")
             expected = EXPECTED.get(key, ("?", ""))[0]
             if found != expected:
                 problems.append(f"{key}: Lean's outcome is {found}, expected {expected}")
-            expected = SEMANTICS.get(key, EXPECTED.get(key, ("?", "")))[0]
-            if semantic != expected:
-                problems.append(f"{key}: the semantics' outcome is {semantic}, expected {expected}")
-            if semantic not in ("ill_typed", "uncovered", "untyped"):
+            if item.program is not None and found not in ("ill_typed", "uncovered", "untyped"):
                 problem = data.binding_problem(output, key, item.program)
                 if problem:
                     problems.append(problem)
         print("Outcomes: " + ", ".join(f"{name} {tally.get(name, 0)}" for name in OUTCOMES))
-        print(
-            "Under the semantics: "
-            + ", ".join(f"{name} {semantic_tally.get(name, 0)}" for name in SEMANTIC_OUTCOMES)
-        )
     if problems:
         print(f"{len(problems)} problems:")
         print("\n".join(problems))

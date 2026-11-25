@@ -24,8 +24,7 @@ from statclaim.verification import (
 ROOT = Path(__file__).resolve().parents[1]
 # Stated through the semantics of compiled programs.
 MIXED = ROOT / "examples/mixed_endpoints.stat"
-# Stated by the translation: a cited cluster test beside a randomisation test, and exact
-# one-sided tests with a result.
+# A cited cluster test beside a randomisation test, and one-sided Fisher.
 CLUSTERS = ROOT / "examples/cluster_trial.stat"
 ONE_SIDED = ROOT / "examples/one_sided.stat"
 
@@ -49,11 +48,10 @@ def test_a_covered_program_is_its_data_and_the_soundness_theorem():
     assert proof == _proof_for_payload(PROGRAM_KIND, inputs())
 
 
-def test_another_program_is_its_translation_then_an_audit():
+def test_a_randomisation_test_uses_the_same_soundness_theorem():
     proof = _proof_for_payload(PROGRAM_KIND, inputs(CLUSTERS))
-    assert "StatClaim.Semantics" not in proof
-    # Every contract fact, every claim and the program theorem are audited.
-    for name in ("summaries_contract", "cited_claim", "proved_claim", "program"):
+    assert '.randomised "permuted"' in proof
+    for name in ("contracts", "claim_0", "claim_1"):
         assert f"``StatClaimProgram.{name}" in proof
 
 
@@ -72,7 +70,7 @@ def test_the_profile_lists_each_claim_with_its_grade_and_line():
         "typeI(summaries), line 33: cited",
         "typeI(permuted), line 34: proved",
     ]
-    assert translated["general_theorem"] == "StatClaimProgram.program"
+    assert translated["general_theorem"] == profile["general_theorem"]
 
 
 def test_inputs_that_no_longer_match_their_source_are_refused():
@@ -82,24 +80,10 @@ def test_inputs_that_no_longer_match_their_source_are_refused():
     with pytest.raises(VerificationError, match="no longer compiles to the program"):
         _proof_for_payload(PROGRAM_KIND, edited)
     other = {**payload, "translation_version": certificate.TRANSLATION_VERSION + 1}
-    with pytest.raises(VerificationError, match="another version of the translator"):
+    with pytest.raises(VerificationError, match="version that issued it"):
         _proof_for_payload(PROGRAM_KIND, other)
     with pytest.raises(certificate.Unchecked, match="does not compile"):
         certificate.payload(Source((ROOT / "examples/hypothesis_mismatch.stat").read_text()))
-
-
-def test_a_grade_the_proof_does_not_support_is_refused():
-    payload = inputs(CLUSTERS)
-    honest = (
-        "STATCLAIM_PREMISES program cited_claim: cited_summaries_level\n"
-        "STATCLAIM_PREMISES program proved_claim: \n"
-    )
-    certificate.check_grades(payload, honest)
-    overstated = honest.replace("proved_claim: ", "proved_claim: cited_summaries_level")
-    with pytest.raises(certificate.Unchecked, match="proved_claim"):
-        certificate.check_grades(payload, overstated)
-    with pytest.raises(certificate.Unchecked, match="listed no premises"):
-        certificate.check_grades(payload, honest.splitlines()[0])
 
 
 def test_semantic_grades_and_binding_must_be_what_lean_prints():
@@ -139,7 +123,7 @@ def test_the_report_says_what_lean_checked_or_why_not():
         "refuted": {},
     }
     text = "\n".join(lean_markdown(checked))
-    assert "its 1 contract facts hold" in text
+    assert "contracts of 1 declared tests and combinations" in text
     assert "| `familywise(family)` | 9 | proved: uses no premise | conditional |" in text
     assert "Lean's grade stands" in text and "`request_2`: Not yet." in text
     failed = {"status": "failed", "message": "Lean (proof): it failed."}
@@ -189,36 +173,50 @@ def test_report_lean_checks_a_program_and_records_refutations(tmp_path, capsys):
 
 
 def test_claims_lean_rejects_are_found_by_where_its_errors_fall():
-    payload = inputs(ONE_SIDED)
-    stated = certificate.denotation(payload)
-    proof = _proof_for_payload(PROGRAM_KIND, payload)
+    proof = _proof_for_payload(PROGRAM_KIND, inputs(ONE_SIDED))
     lines = proof.splitlines()
     at = {
         name: lines.index(next(x for x in lines if x.startswith(f"theorem {name} "))) + 1
-        for name in ("guarantee_claim", "analysis_null")
+        for name in ("claim_0", "contracts")
     }
     error = "/b/Proof.lean:{}:3: error: unsolved goals"
-    assert certificate.failing_claims(proof, error.format(at["guarantee_claim"] + 1), stated) == {
-        "guarantee_claim"
-    }
-    # An error in a contract fact is the declarations failing, not one claim.
-    assert certificate.failing_claims(proof, error.format(at["analysis_null"]), stated) is None
-    # Under the semantics no claim fails alone: any error is the program's.
-    semantic = _proof_for_payload(PROGRAM_KIND, inputs())
-    assert certificate.failing_claims(semantic, error.format(3), stated) is None
-    # The audit after the program fails whenever a claim does; it names no claim of its own.
-    assert certificate.failing_claims(proof, error.format(len(lines) - 1), stated) == set()
+    assert certificate.failing_claims(proof, error.format(at["claim_0"] + 1)) == {0}
+    assert certificate.failing_claims(proof, error.format(at["contracts"])) is None
+    assert certificate.failing_claims(proof, error.format(len(lines) - 1)) == set()
 
 
 def test_a_certificate_may_leave_out_claims_lean_did_not_prove():
-    payload = {**inputs(), "omitted": ["primary_claim"]}
-    assert [c.name for c in certificate.denotation(payload).claims] == ["family_claim"]
-    assert (
-        "Not proved in Lean, so left out: primary_claim."
-        in _profile(PROGRAM_KIND, payload)["claims"]
-    )
-    with pytest.raises(certificate.Unchecked, match="does not state"):
-        certificate.denotation({**inputs(), "omitted": ["no_such_claim"]})
+    payload = {**inputs(), "omitted": [1]}
+    assert [c["claim"] for c in certificate.claims(payload)] == ["familywise(endpoints)"]
+    assert certificate.summary(payload)["unproved"] == ["typeI(response)"]
+    with pytest.raises(certificate.Unchecked, match="unknown verification request"):
+        certificate.checked({**inputs(), "omitted": [2]})
+
+
+def test_run_evidence_requires_the_reported_p_value_and_decision():
+    from statclaim.language_compiler import compile_source
+    from statclaim.language_runner import _run_request
+    from statclaim.program_evidence import ProgramRun, bind_report
+
+    path = ROOT / "examples/fisher_result.stat"
+    source = Source(path.read_text(), str(path))
+    compiled = compile_source(source).program
+    verification = next(r for r in compiled.requests if r.operation == "verify")
+    calculation = next(r for r in compiled.requests if r.operation == "calculate")
+    inputs = certificate.payload(source)
+    agreed = _run_request(calculation, ROOT, ROOT, 120)
+    agreed["certificate_issued"] = True
+    run = ProgramRun({"inputs": inputs}, None, {}, {})
+    request_id = compiled.requests.index(verification) + 1
+
+    assert bind_report(run, request_id, verification, agreed.copy())["certificate_issued"]
+    changed = json.loads(json.dumps(agreed))
+    changed["calculation"]["p_value"]["fraction"] = "1"
+    rejected = bind_report(run, request_id, verification, changed)
+    assert not rejected["certificate_issued"]
+    assert rejected["verification"]["stage"] == "binding"
+    changed = {**agreed, "decision": "do_not_reject_null"}
+    assert not bind_report(run, request_id, verification, changed)["certificate_issued"]
 
 
 def test_outside_a_run_no_request_takes_program_evidence():
@@ -247,17 +245,15 @@ def test_check_proves_every_claim_in_one_lean_build(tmp_path):
 @pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
 def test_a_claim_lean_does_not_prove_stays_open_and_the_rest_is_certified(tmp_path, monkeypatch):
     from statclaim import program_evidence
-    from statclaim.lean_translation import prove
+    from statclaim.lean_translation import material
 
-    honest = prove.claim
-    # A broken proof of one claim, as a translator bug would give.
-    monkeypatch.setattr(
-        prove,
-        "claim",
-        lambda statement: (
-            "by\n  exact absurd" if statement.name == "guarantee_claim" else honest(statement)
-        ),
-    )
+    honest = material.material
+
+    def missing_hint(*args, **kwargs):
+        reported, hints = honest(*args, **kwargs)
+        return reported, {**hints, 0: "[]"}
+
+    monkeypatch.setattr(material, "material", missing_hint)
     source = Source(ONE_SIDED.read_text(), str(ONE_SIDED.relative_to(ROOT)))
     run = program_evidence.build(source, project=ROOT, output=tmp_path / "lean", timeout=600)
     assert set(run.claims) == {2, 3} and set(run.failures) == {1}
@@ -285,13 +281,13 @@ def test_a_check_that_only_calculates_still_builds_the_program_in_lean(tmp_path,
     assert report["lean"] == {
         "status": "checked",
         "certificate_directory": str(tmp_path / "run/lean"),
-        "contract_facts": 8,
+        "contract_facts": 4,
     }
     # Lean checked the declarations; the values are still only calculated.
     assert report["status"] == "calculated" and report["backend_invoked"]
     text = render_report(report, source)
     assert (
-        "Whole program in Lean: the declarations meet 8 contract facts, each decided by Lean.\n"
+        "Whole program in Lean: the declarations meet 4 contract facts, each decided by Lean.\n"
         "  Calculated and simulated values are not proved in Lean.\n"
         f"  Certificate: {tmp_path / 'run/lean'}\n"
         "Program status: calculated"
@@ -336,10 +332,9 @@ def test_lean_checks_the_declarations_of_a_program_that_only_calculates(tmp_path
     source = Source(COPD_POWER.read_text(), str(COPD_POWER))
     report = check_source(source, project=ROOT, output=tmp_path / "run")
     assert report["status"] == "calculated"
-    assert report["lean"]["status"] == "checked" and report["lean"]["contract_facts"] == 8
+    assert report["lean"]["status"] == "checked" and report["lean"]["contract_facts"] == 4
     issued = json.loads((tmp_path / "run/lean/certificate.json").read_text())
     assert issued["claims"] == [
-        "The contracts of its 4 declared tests and combinations, and the shape of each claim, "
-        "hold, decided by Lean."
+        "Lean checks the contract facts of 4 test and combination declarations."
     ]
     assert recheck_certificate(tmp_path / "run/lean", project=ROOT)["status"] == "verified"

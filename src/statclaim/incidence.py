@@ -13,16 +13,13 @@ total, so on average too. The rate ratio is the odds of the share times the rati
 unexposed to exposed person-time, so the exact interval for the share gives one for it.
 """
 
-import re
 from dataclasses import dataclass
 from fractions import Fraction
 from math import comb
 
 from statclaim.association import NAME
 from statclaim.fisher import fraction_record, validate_alpha
-from statclaim.lean_translation import statements as S
-from statclaim.lean_translation.statements import CERTIFICATE as C
-from statclaim.planning import MAX_ONE_ARM, BinomialInterval, _audit
+from statclaim.planning import MAX_ONE_ARM, BinomialInterval
 from statclaim.randomisation import PRESPECIFIED
 
 RATE_KIND = "statclaim_rate_test_certificate"
@@ -62,9 +59,6 @@ RATE_NULL = (
 )
 EVENTS_MATCH = "The supplied events and person-time describe the declared study."
 RATE_THEOREM = "StatClaim.Modules.Incidence.typeI"
-DESIGN_THEOREMS = ["checked_typeI"]
-RESULT_THEOREMS = ["checked_typeI", "checked_tails", "checked_decision"]
-RATIO_THEOREMS = ["checked_coverage", "checked_interval"]
 
 
 def _name(value: str) -> None:
@@ -345,102 +339,3 @@ def rate_result_assumptions(result: RateResult) -> tuple[str, ...]:
 
 def rate_ratio_assumptions(interval: RateRatioInterval) -> tuple[str, ...]:
     return (POISSON_EVENTS, PERSON_TIME, COUNT_LEVEL, EVENTS_MATCH)
-
-
-def _header(input_sha256: str, what: str) -> str:
-    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
-        raise ValueError("Expected a SHA-256 input identifier.")
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical input SHA-256: {input_sha256}
--- A cohort followed over person-time. {what}
-set_option maxRecDepth 8192
-set_option maxHeartbeats 4000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-"""
-
-
-def _level(alpha: Fraction) -> str:
-    numerator, denominator = alpha.as_integer_ratio()
-    return f"""def declaredLevel : SignificanceLevel :=
-  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩
-
--- For every total rate and every share of person-time, under equal rates.
-{S.rate_typeI(C, "declaredLevel.value").header()} :=
-  Incidence.typeI total share _ (by exact_mod_cast declaredLevel.nonnegative)
-"""
-
-
-def render_rate_proof(test: RateTest, input_sha256: str) -> str:
-    return (
-        _header(input_sha256, "The theorem covers every rate and any person-time.")
-        + "\n"
-        + _level(test.alpha)
-        + f"\nend StatClaimCertificate\n{_audit(DESIGN_THEOREMS, input_sha256)}"
-    )
-
-
-def render_rate_result_proof(result: RateResult, input_sha256: str) -> str:
-    events = result.events
-    n, x = events.total, events.exposed_events
-    a, d = events.share.as_integer_ratio()
-    an, ad = result.test.alpha.as_integer_ratio()
-    upper, lower, _ = tails_at(n, x, events.share)
-    truth = "True" if result.reject_null else "False"
-    checks = f"""
--- The observed events: {x} of {n} in the exposed group, whose share of person-time is {a}/{d}.
-noncomputable def share : unitInterval := ratPoint {a} {d} (by decide) (by decide)
-
-{S.tails(C, n, (a, d), x, upper, lower).header()} := by
-  constructor <;> decide +kernel
-
-{S.rate_decision(C, n, x, "share", "declaredLevel.value", truth).header()} := by
-  simp only [Incidence.given, Incidence.rejectionAt, Set.mem_ofPred_eq, share]
-  rw [BinomialInterval.upper_tail_ratPoint, BinomialInterval.lower_tail_ratPoint,
-    checked_tails.1, checked_tails.2,
-    Incidence.twice_min_le_iff {upper} {lower} ({d} ^ {n}) {an} {ad} _ (by positivity) (by decide)
-      (by norm_num [declaredLevel])]
-  decide +kernel
-"""
-    return (
-        _header(input_sha256, "These observed events and the declared test.")
-        + "\n"
-        + _level(result.test.alpha)
-        + checks
-        + f"\nend StatClaimCertificate\n{_audit(RESULT_THEOREMS, input_sha256)}"
-    )
-
-
-def render_rate_ratio_proof(interval: RateRatioInterval, input_sha256: str) -> str:
-    binomial = interval.binomial
-    n, x = interval.events.total, interval.events.exposed_events
-    an, ad = binomial.tail_level.as_integer_ratio()
-    ln, ld = interval.level.as_integer_ratio()
-    (lower_n, lower_d), (upper_n, upper_d) = (
-        binomial.lower.as_integer_ratio(),
-        binomial.upper.as_integer_ratio(),
-    )
-    kn, kd = interval.scale.as_integer_ratio()
-    tail = f"((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))"
-    scale = f"((({kn} : ℕ) : ℝ) / (({kd} : ℕ) : ℝ))"
-    lower_check = "(Or.inl rfl)" if lower_n == 0 else "(Or.inr (by decide +kernel))"
-    upper_check = "(Or.inl rfl)" if upper_n == upper_d else "(Or.inr (by decide +kernel))"
-    claimed = S.odds_interval(C, n, x, tail, (lower_n, lower_d), (upper_n, upper_d), f" * {scale}")
-    body = "  exact bound.1" if upper_n == upper_d else "  exact ⟨bound.1, bound.2 (by decide)⟩"
-    header = _header(input_sha256, "Coverage is a general theorem; the endpoints are checked.")
-    return f"""{header}
-{S.rate_coverage(C, (ln, ld), tail).header()} := by
-  have covered := Incidence.coverage total {tail} (by positivity) π
-  exact le_trans (by norm_num) covered
-
-{claimed.header()} := by
-  have bound := Incidence.rate_ratio_contains {n} {x} {an} {ad} (by decide)
-    {lower_n} {lower_d} (by decide) (by decide) {upper_n} {upper_d} (by decide) (by decide)
-    {lower_check} {upper_check} {scale} (by positivity) π member below
-{body}
-
-end StatClaimCertificate
-{_audit(RATIO_THEOREMS, input_sha256)}"""

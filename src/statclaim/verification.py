@@ -4,7 +4,7 @@ A certificate binds its inputs (the source and the canonical program it compiles
 lean_translation/certificate.py) to the Lean file generated from them, the pinned
 toolchain and library, and the transcript of the build. Lean must print the completion
 marker bound to these inputs, after an audit that every audited theorem uses no axiom
-beyond Lean's three. Replay compiles and translates the inputs again and reruns Lean;
+beyond Lean's three. Replay recompiles the source, reconstructs the Lean data and reruns Lean;
 a matching digest alone never counts.
 """
 
@@ -27,7 +27,7 @@ TRUSTED_COMPONENTS = [
     "Lean's kernel and its checked integer reduction.",
     "The statistical meaning of the reviewed Lean definitions.",
     "Authenticity of the local toolchain and imported compiled dependencies.",
-    "The input parser, proof generator, and certificate/report binding code.",
+    "The parser, elaborator, canonical serialization, and certificate/report binding code.",
 ]
 
 PROGRAM_KIND = "statclaim_program_certificate"
@@ -149,8 +149,10 @@ def _source_hashes(project: Path) -> dict[str, str]:
         raise VerificationError("project", NEEDS_LEAN)
     paths += sorted((project / "StatClaim").rglob("*.lean"))
     hashes = {str(path.relative_to(project)): digest(path.read_bytes()) for path in paths}
-    for path in sorted(Path(__file__).parent.glob("*.py")):
-        hashes[f"application/statclaim/{path.name}"] = digest(path.read_bytes())
+    application = Path(__file__).parent
+    for path in sorted(application.rglob("*.py")):
+        relative = path.relative_to(application).as_posix()
+        hashes[f"application/statclaim/{relative}"] = digest(path.read_bytes())
     return hashes
 
 

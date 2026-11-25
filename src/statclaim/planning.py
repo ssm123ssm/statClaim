@@ -7,7 +7,6 @@ alternatives, and a sufficient sample size is not claimed to be the smallest.
 """
 
 import math
-import re
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import cache, lru_cache
@@ -19,24 +18,8 @@ from statclaim.fisher import (
     fraction_record,
     parse_alpha,
 )
-from statclaim.lean_translation import statements as S
-from statclaim.lean_translation.statements import CERTIFICATE as C
 
 SMALLEST = "smallest_in_range"
-
-
-def planning_theorems(plan) -> list[str]:
-    names = ["checked_sizes", "checked_region", "checked_typeI", "checked_power"]
-    if plan.design.alternative == "greater":
-        names.insert(2, "checked_sections")
-    return names + ["checked_smaller"] if plan.minimal else names
-
-
-def policy_theorems(plan) -> list[str]:
-    names = ["checked_stages", "checked_typeI", "checked_power"]
-    if getattr(plan, "minimal", False):
-        names += ["checked_critical", "checked_smaller"]
-    return names
 
 
 # Kernel checking enumerates every table; larger searches remain calculations.
@@ -51,27 +34,6 @@ MAX_CLUSTER_SIZE = 10_000
 MAX_STAGE = 200
 MAX_RATIO = 10
 MAX_ONE_ARM = 1000
-
-AUDIT = """
-open Lean Elab Command in
-run_cmd do
-  let allowed := #[``propext, ``Classical.choice, ``Quot.sound]
-  for theoremName in #[{names}] do
-    match ← getConstInfo theoremName with
-    | .thmInfo _ => pure ()
-    | _ => throwError "Expected a theorem: {{theoremName}}"
-    for dependency in ← collectAxioms theoremName do
-      unless allowed.contains dependency do
-        throwError "Unexpected assumption {{dependency}} in {{theoremName}}"
-  logInfo "STATCLAIM_CHECKED {input_sha256}"
-"""
-
-
-def _audit(theorems: list[str], input_sha256: str) -> str:
-    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
-        raise ValueError("Expected a SHA-256 input identifier.")
-    names = ",\n    ".join(f"``StatClaimCertificate.{name}" for name in theorems)
-    return AUDIT.format(names=names, input_sha256=input_sha256)
 
 
 def _probability(value: Fraction, name: str) -> None:
@@ -298,145 +260,6 @@ def planning_assumptions(alternative: str) -> list[str]:
         "the control's.",
         PLANNING_ASSUMPTIONS[3],
     ]
-
-
-def _lean_list(values) -> str:
-    return "[" + ", ".join(str(value) for value in values) + "]"
-
-
-def _render_one_sided_planning_proof(plan: PowerPlan, input_sha256: str) -> str:
-    nc, nt = plan.design.n_control, plan.design.n_treatment
-    alpha = plan.design.alpha
-    an, ad = alpha.as_integer_ratio()
-    mn, md = plan.maximum_typeI.as_integer_ratio()
-    bn, bd = plan.minimum_power.as_integer_ratio()
-    (a, d), (b, e) = plan.p_control.as_integer_ratio(), plan.p_treatment.as_integer_ratio()
-    point = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
-    smaller = ""
-    if plan.minimal:
-        low, r = plan.search[0], plan.ratio
-        hints = [fisher_bounds(n, r * n, alpha) for n in range(low, nc)]
-        claimed = S.fisher_smaller(
-            C, "FisherOneSided", low, nc, r, "planningPoint", "declaredLevel", (bn, bd)
-        )
-        smaller = f"""
-def smallerBounds : List (List ℕ) := {_lean_list(_lean_list(h) for h in hints)}
-
-{claimed.header()} :=
-  FisherOneSided.power_lt_of_smallerFail declaredLevel {an} {ad} (by decide)
-    (by norm_num [declaredLevel]) {point} {bn} {bd} (by decide) {r} (by decide) {low} {nc}
-    smallerBounds (by decide +kernel) n positive lower upper
-"""
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical planning SHA-256: {input_sha256}
--- Power is recomputed in the kernel. The listed bounds are proposals that the
--- kernel validates against the formal one-sided p-value; they are not trusted.
-set_option maxRecDepth 100000
-set_option maxHeartbeats 20000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-{S.fisher_plan_definitions(C, "FisherOneSided", nc, nt, (an, ad), point)}
-def bounds : List ℕ := {_lean_list(fisher_bounds(nc, nt, alpha))}
-
-{S.analysis_sizes("declaredSizes", nc, nt).header()} := by decide
-
-theorem checked_region : FisherOneSided.HintsValid declaredSizes.nControl
-    declaredSizes.nTreatment {an} {ad} bounds := by
-  decide +kernel
-
-theorem checked_sections : FisherOneSided.HintSections declaredSizes.nControl
-    declaredSizes.nTreatment bounds := by
-  decide +kernel
-
-{S.analysis_typeI("declaredAnalysis", S.ratio(mn, md)).header()} := by
-  intro parameter null
-  refine le_trans (FisherOneSided.typeI_of_hints declaredSizes declaredLevel {an} {ad}
-    (by decide) (by norm_num [declaredLevel]) bounds checked_region checked_sections
-    parameter null) ?_
-  norm_num [declaredLevel]
-
-{S.fisher_power("declaredAnalysis", "planningPoint", (bn, bd)).header()} :=
-  FisherOneSided.power_of_check declaredSizes declaredLevel {an} {ad} (by decide)
-    (by norm_num [declaredLevel]) {point}
-    {bn} {bd} (by decide) (by
-      rw [FisherOneSided.rejectionNumerator_hint _ _ _ _ _ _ _ _ bounds checked_region]
-      decide +kernel)
-{smaller}
-end StatClaimCertificate
-{_audit(planning_theorems(plan), input_sha256)}"""
-
-
-def render_planning_proof(plan: PowerPlan, input_sha256: str) -> str:
-    if not plan.typeI_target_met or plan.design.stopping != "fixed":
-        raise ValueError("The Type I target is not established by the Fisher theorem.")
-    if plan.design.alternative == "greater":
-        return _render_one_sided_planning_proof(plan, input_sha256)
-    nc, nt = plan.design.n_control, plan.design.n_treatment
-    alpha = plan.design.alpha
-    an, ad = alpha.as_integer_ratio()
-    mn, md = plan.maximum_typeI.as_integer_ratio()
-    bn, bd = plan.minimum_power.as_integer_ratio()
-    (a, d), (b, e) = plan.p_control.as_integer_ratio(), plan.p_treatment.as_integer_ratio()
-    cuts, nexts = fisher_cuts(nc, nt, alpha)
-    point = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
-    smaller = ""
-    if plan.minimal:
-        low = plan.search[0]
-        r = plan.ratio
-        hints = [fisher_cuts(n, r * n, alpha) for n in range(low, nc)]
-        claimed = S.fisher_smaller(
-            C, "FisherPower", low, nc, r, "planningPoint", "declaredLevel", (bn, bd)
-        )
-        smaller = f"""
-def smallerCuts : List (List ℕ) := {_lean_list(_lean_list(c) for c, _ in hints)}
-def smallerNexts : List (List ℕ) := {_lean_list(_lean_list(x) for _, x in hints)}
-
-{claimed.header()} :=
-  FisherPower.power_lt_of_smallerFail declaredLevel {an} {ad} (by decide)
-    (by norm_num [declaredLevel]) {point} {bn} {bd} (by decide) {r} (by decide) {low} {nc}
-    (FisherPower.smallerFail_of_hinted _ _ _ _ _ _ _ _ _ _ _ smallerCuts smallerNexts
-      (by decide +kernel)) n positive lower upper
-"""
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical planning SHA-256: {input_sha256}
--- Power is recomputed in the kernel. The listed thresholds are proposals that
--- the kernel validates against the formal p-value; they are not trusted.
-set_option maxRecDepth 100000
-set_option maxHeartbeats 20000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-{S.fisher_plan_definitions(C, "FisherPower", nc, nt, (an, ad), point)}
-def cuts : List ℕ := {_lean_list(cuts)}
-def nexts : List ℕ := {_lean_list(nexts)}
-
-{S.analysis_sizes("declaredSizes", nc, nt).header()} := by decide
-
-theorem checked_region : FisherPower.HintsValid declaredSizes.nControl
-    declaredSizes.nTreatment {an} {ad} cuts nexts := by
-  decide +kernel
-
-{S.analysis_typeI("declaredAnalysis", S.ratio(mn, md)).header()} := by
-  intro parameter null
-  refine le_trans (FisherPower.typeI_statement declaredSizes declaredLevel parameter null) ?_
-  norm_num [declaredLevel]
-
-{S.fisher_power("declaredAnalysis", "planningPoint", (bn, bd)).header()} :=
-  FisherPower.power_of_check declaredSizes declaredLevel {an} {ad} (by decide)
-    (by norm_num [declaredLevel]) {point}
-    {bn} {bd} (by decide) (by
-      rw [FisherPower.rejectionNumerator_hint _ _ _ _ _ _ _ _ cuts nexts checked_region]
-      decide +kernel)
-{smaller}
-end StatClaimCertificate
-{_audit(planning_theorems(plan), input_sha256)}"""
 
 
 @dataclass(frozen=True)
@@ -741,12 +564,6 @@ def search_two_stage(
 
 
 RESULT_KIND = "statclaim_binomial_result_certificate"
-RESULT_CHECKED_THEOREMS = [
-    "checked_p_value",
-    "checked_critical",
-    "checked_decision",
-    "checked_typeI",
-]
 
 
 @dataclass(frozen=True)
@@ -851,40 +668,7 @@ RESULT_ASSUMPTIONS = [
 ]
 
 
-def render_result_proof(result: OneSampleResult, input_sha256: str) -> str:
-    n, k, c = result.n, result.responses, result.critical
-    a, d = result.null_rate.as_integer_ratio()
-    an, ad = result.alpha.as_integer_ratio()
-    pn, pd = result.p_value.as_integer_ratio()
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical result SHA-256: {input_sha256}
--- The proposed p-value is confirmed by the kernel against the formal definition.
-set_option maxRecDepth 8192
-set_option maxHeartbeats 2000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-{S.one_sample_p_value(C, n, k, (a, d), (pn, pd)).header()} :=
-  OneSampleBinomial.pValue_eq_of_cross_product {n} {k} {a} {d} (by decide) (by decide)
-    {pn} {pd} (by decide) (by decide +kernel)
-
-{S.one_sample_critical(C, n, (a, d), (an, ad), c).header()} := by decide +kernel
-
-{S.one_sample_decision(c, k, result.reject_null).header()} := by decide
-
-{S.one_sample_typeI(C, n, c, (a, d), (an, ad)).header()} :=
-  OneSampleBinomial.typeI_of_check ⟨{n}, {c}⟩ {a} {d} (by decide) (by decide)
-    {an} {ad} (by decide) (by decide +kernel)
-
-end StatClaimCertificate
-{_audit(RESULT_CHECKED_THEOREMS, input_sha256)}"""
-
-
 INTERVAL_KIND = "statclaim_binomial_interval_certificate"
-INTERVAL_CHECKED_THEOREMS = ["checked_coverage", "checked_interval"]
 INTERVAL_GRID = 10_000
 
 
@@ -984,35 +768,6 @@ INTERVAL_ASSUMPTIONS = [
 ]
 
 
-def render_interval_proof(interval: BinomialInterval, input_sha256: str) -> str:
-    n, x = interval.n, interval.responses
-    an, ad = interval.tail_level.as_integer_ratio()
-    (ln, ld), (un, ud) = interval.lower.as_integer_ratio(), interval.upper.as_integer_ratio()
-    lower = "(Or.inl rfl)" if ln == 0 else "(Or.inr (by decide +kernel))"
-    upper = "(Or.inl rfl)" if un == ud else "(Or.inr (by decide +kernel))"
-    level = f"((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))"
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical interval SHA-256: {input_sha256}
--- Coverage is a general theorem; the endpoints are confirmed by the kernel.
-set_option maxRecDepth 8192
-set_option maxHeartbeats 2000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-{S.binomial_coverage(C, n, level).header()} :=
-  BinomialInterval.coverage {n} _ (by positivity) p
-
-{S.binomial_interval(C, n, x, level, (ln, ld), (un, ud)).header()} :=
-  BinomialInterval.interval_contains {n} {x} {an} {ad} (by decide) {ln} {ld} (by decide)
-    (by decide) {un} {ud} (by decide) (by decide) {lower} {upper} p member
-
-end StatClaimCertificate
-{_audit(INTERVAL_CHECKED_THEOREMS, input_sha256)}"""
-
-
 @dataclass(frozen=True)
 class TwoStageResult:
     """Observed counts from a two-stage design: stage two exists only if it continued."""
@@ -1081,11 +836,6 @@ class TwoStageResult:
         }
 
 
-def stage_result_theorems(result: TwoStageResult) -> list[str]:
-    names = ["checked_interim", "checked_typeI"]
-    return names if result.second is None else ["checked_interim", "checked_decision", names[1]]
-
-
 def stage_result_assumptions(result: TwoStageResult) -> list[str]:
     assumptions = [
         "Responses are independent with one common response rate in both stages.",
@@ -1100,47 +850,6 @@ def stage_result_assumptions(result: TwoStageResult) -> list[str]:
             "is not proved in Lean."
         )
     return assumptions
-
-
-def render_stage_result_proof(result: TwoStageResult, input_sha256: str) -> str:
-    design = _lean_design(result.design)
-    monotone = design.replace("Design ", "Design_monotone ", 1)
-    a, d = result.null_rate.as_integer_ratio()
-    bn, bd = result.error_bound.as_integer_ratio()
-    decision = ""
-    if result.second is not None:
-        rejected = "true" if result.decision == "reject_null" else "false"
-        claimed = S.stage_decision(
-            "declaredDesign", result.first, result.second, rejected == "true"
-        )
-        decision = f"""
-{claimed.header()} := by decide +kernel
-"""
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical result SHA-256: {input_sha256}
--- The decision is recomputed in the kernel from the declared rule.
-set_option maxRecDepth 8192
-set_option maxHeartbeats 2000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-def declaredDesign : TwoStageBinomial.Design :=
-  {design}
-noncomputable def nullRate : unitInterval := ratPoint {a} {d} (by decide) (by decide)
-
-{S.stage_interim("declaredDesign", result.first, result.continued).header()} := by
-  decide +kernel
-{decision}
-{S.stage_typeI(C, "declaredDesign", "nullRate", (bn, bd)).header()} :=
-  TwoStageBinomial.typeI_atMost_of_check declaredDesign
-    ({monotone}) {a} {d} (by decide) (by decide)
-    {bn} {bd} (by decide) (by decide +kernel)
-
-end StatClaimCertificate
-{_audit(stage_result_theorems(result), input_sha256)}"""
 
 
 MAX_MARGIN_ARM = 120
@@ -1396,19 +1105,6 @@ class MarginTest:
         return values
 
 
-def margin_theorems(test: MarginTest) -> list[str]:
-    names = ["checked_sizes", "checked_typeI"]
-    if test.has_target:
-        names.append("checked_power")
-    if test.observed is not None:
-        names.append("checked_decision")
-    return names
-
-
-def _margin_text(margin: Fraction) -> str:
-    return f"p_treatment - p_control <= {margin}"
-
-
 def margin_assumptions(test: MarginTest) -> list[str]:
     assumptions = [
         "The samples follow two independent binomial distributions.",
@@ -1424,89 +1120,6 @@ def margin_assumptions(test: MarginTest) -> list[str]:
     if test.observed is not None:
         assumptions.append("The supplied counts describe the declared sampling procedure.")
     return assumptions
-
-
-def render_margin_proof(test: MarginTest, input_sha256: str) -> str:
-    nc, nt = test.n_control, test.n_treatment
-    grid, shift = margin_grid(test.margin)
-    boundaries = test.cells
-    sp, sn = max(shift, 0), max(-shift, 0)
-    an, ad = test.alpha.as_integer_ratio()
-    design = "declaredSizes thresholds"
-    # Cells are checked in chunks, each its own theorem, then joined.
-    check = f"(DifferenceTest.cellCheck {nc} {nt} thresholds {grid} {sp} {sn} {an} {ad})"
-    chunks = [boundaries[i : i + MARGIN_CHUNK] for i in range(0, len(boundaries), MARGIN_CHUNK)]
-    starts = [sn, *(chunk[-1] for chunk in chunks[:-1])]
-    chunk_text = "\n".join(
-        f"def cells{index} : List ℕ := {_lean_list(chunk)}\n"
-        f"theorem checked_chunk{index} :\n"
-        f"    DifferenceTest.cellsOk {check} {start} cells{index} = true := by\n"
-        "  decide +kernel"
-        for index, (start, chunk) in enumerate(zip(starts, chunks, strict=True))
-    )
-    chunk_text += "\ndef cells : List ℕ := " + " ++ ".join(
-        f"cells{index}" for index in range(len(chunks))
-    )
-    joined = f"checked_chunk{len(chunks) - 1}"
-    for index in range(len(chunks) - 2, -1, -1):
-        joined = (
-            f"(DifferenceTest.cellsOk_append _ cells{index} {starts[index]} "
-            f"{starts[index + 1]} _ (by decide) checked_chunk{index} {joined})"
-        )
-    margin = f"(((({sp} : ℕ) : ℚ) - (({sn} : ℕ) : ℚ)) / (({grid} : ℕ) : ℚ))"
-    sections = ""
-    bound_n, bound_d = an, ad
-    if test.has_target:
-        bound_n, bound_d = test.maximum_typeI.as_integer_ratio()
-        bn, bd = test.minimum_power.as_integer_ratio()
-        (a, d), (b, e) = test.p_control.as_integer_ratio(), test.p_treatment.as_integer_ratio()
-        point = f"{a} {d} {b} {e} (by decide) (by decide) (by decide) (by decide)"
-        sections += f"""
-{S.margin_power(C, "declaredAnalysis", point, (bn, bd)).header()} :=
-  DifferenceTest.power_of_check {design} _ {point}
-    {bn} {bd} (by decide) (by decide +kernel)
-"""
-    if test.observed is not None:
-        x, y = test.observed
-        verdict = "true" if test.reject_null else "false"
-        sections += f"""
-{S.margin_decision(C, nt, "thresholds", x, y, verdict).header()} := by
-  decide
-"""
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical input SHA-256: {input_sha256}
--- The error bound is checked cell by cell; the cells cover every control rate.
-set_option maxRecDepth 100000
-set_option maxHeartbeats 20000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-def declaredSizes : FixedSampleDesign := ⟨{nc}, {nt}, by decide, by decide⟩
-def thresholds : List ℕ := {_lean_list(test.thresholds)}
-noncomputable def declaredAnalysis :=
-  DifferenceTest.analysis {design} {margin}
-{chunk_text}
-
-{S.analysis_sizes("declaredSizes", nc, nt).header()} := by decide
-
-theorem checked_cells :
-    (declaredAnalysis.typeIClaim ((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))).statement :=
-  DifferenceTest.typeI_of_cells {design} (by decide) {grid} (by decide) {sp} {sn} (by decide)
-    {an} {ad} (by decide) cells (by decide) {joined} (by decide)
-
-{S.analysis_typeI("declaredAnalysis", S.ratio(bound_n, bound_d)).header()} := by
-  intro parameter null
-  refine le_trans (checked_cells parameter null) ?_
-  norm_num
-{sections}
-end StatClaimCertificate
-{_audit(margin_theorems(test), input_sha256)}"""
-
-
-DIFFERENCE_CHECKED_THEOREMS = ["checked_coverage", "checked_interval"]
 
 
 @dataclass(frozen=True)
@@ -1584,51 +1197,6 @@ DIFFERENCE_ASSUMPTIONS = [
 ]
 
 
-def render_difference_proof(interval: DifferenceInterval, input_sha256: str) -> str:
-    n, m = interval.n_control, interval.n_treatment
-    x, y = interval.control_successes, interval.treatment_successes
-    an, ad = interval.control.tail_level.as_integer_ratio()
-    ln, ld = interval.level.as_integer_ratio()
-    tail = f"((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))"
-    ends, checks = [], []
-    for arm in (interval.control, interval.treatment):
-        (lower_n, lower_d), (upper_n, upper_d) = (
-            arm.lower.as_integer_ratio(),
-            arm.upper.as_integer_ratio(),
-        )
-        ends.append((lower_n, lower_d, upper_n, upper_d))
-        checks.append("(Or.inl rfl)" if lower_n == 0 else "(Or.inr (by decide +kernel))")
-        checks.append("(Or.inl rfl)" if upper_n == upper_d else "(Or.inr (by decide +kernel))")
-    (cln, cld, cun, cud), (tln, tld, tun, tud) = ends
-    endpoints = " ".join(
-        f"{num} {den} (by decide) (by decide)"
-        for num, den in ((cln, cld), (cun, cud), (tln, tld), (tun, tud))
-    )
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical interval SHA-256: {input_sha256}
--- Coverage is a general theorem; the endpoints are confirmed by the kernel.
-set_option maxRecDepth 8192
-set_option maxHeartbeats 2000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-{S.joint_coverage(C, (ln, ld), n, m, tail).header()} := by
-  have joint := BinomialInterval.joint_coverage {n} {m} {tail} (by positivity) (by norm_num)
-    pc pt
-  exact le_trans (by norm_num) joint
-
-{S.difference_interval(C, n, m, x, y, tail, ends[0], ends[1]).header()} :=
-  BinomialInterval.difference_contains {n} {m} {x} {y} {an} {ad} (by decide)
-    {endpoints}
-    {" ".join(checks)} pc pt control treatment
-
-end StatClaimCertificate
-{_audit(DIFFERENCE_CHECKED_THEOREMS, input_sha256)}"""
-
-
 def composite_null(plan: "TwoStagePlan | OneSamplePlan") -> bool:
     """Whether the error bound covers every rate at or below the null rate."""
     return True
@@ -1657,78 +1225,5 @@ def policy_assumptions(plan: "TwoStagePlan | OneSamplePlan") -> list[str]:
     return assumptions
 
 
-def _lean_design(plan: TwoStagePlan) -> str:
-    rule = plan.rule
-    if rule.kind == "threshold":
-        return (
-            f"TwoStageBinomial.thresholdDesign {plan.n_first} {plan.n_second} "
-            f"{rule.continue_above} {rule.reject_above}"
-        )
-    numbers = (
-        rule.prior_a,
-        rule.prior_b,
-        *rule.reference.as_integer_ratio(),
-        *rule.continue_at_least.as_integer_ratio(),
-        *rule.success_at_least.as_integer_ratio(),
-    )
-    return f"TwoStageBinomial.posteriorDesign {plan.n_first} {plan.n_second} " + " ".join(
-        str(number) for number in numbers
-    )
-
-
-def render_policy_proof(plan: "TwoStagePlan | OneSamplePlan", input_sha256: str) -> str:
-    (a, d), (b, e) = plan.null_rate.as_integer_ratio(), plan.alternative_rate.as_integer_ratio()
-    mn, md = plan.maximum_typeI.as_integer_ratio()
-    bn, bd = plan.minimum_power.as_integer_ratio()
-    if isinstance(plan, OneSamplePlan):
-        module, design = "OneSampleBinomial", f"⟨{plan.n}, {plan.critical}⟩"
-        analysis, typeI, power = "analysis", "typeI_of_check declaredDesign", "power_of_check"
-        shape = f"declaredDesign.n = {plan.n} ∧ declaredDesign.critical = {plan.critical}"
-    else:
-        module, design = "TwoStageBinomial", _lean_design(plan)
-        shape = f"declaredDesign.nFirst = {plan.n_first} ∧ declaredDesign.nSecond = {plan.n_second}"
-        # Both rule families are monotone in the response counts, which extends the
-        # bound checked at the null rate to every smaller rate.
-        monotone = design.replace("Design ", "Design_monotone ", 1)
-        analysis, power = "analysisAtMost", "power_atMost_of_check"
-        typeI = f"typeI_atMost_of_check declaredDesign\n    ({monotone})"
-    smaller = ""
-    if getattr(plan, "minimal", False):
-        an, ad = plan.alpha.as_integer_ratio()
-        claimed = S.policy_smaller(
-            C, plan.search[0], plan.n, (a, d), (an, ad), (mn, md), (b, e), (bn, bd)
-        )
-        smaller = f"""
-{S.one_sample_critical(C, plan.n, (a, d), (an, ad), plan.critical).header()} := by
-  decide +kernel
-
-{claimed.header()} :=
-  OneSampleBinomial.fails_of_smallerFail {a} {d} (by decide) (by decide) {an} {ad}
-    {mn} {md} (by decide) {b} {e} (by decide) (by decide) {bn} {bd} (by decide)
-    {plan.search[0]} {plan.n} (by decide +kernel) n lower upper
-"""
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical policy SHA-256: {input_sha256}
--- Both probabilities are recomputed in the kernel for the complete policy.
-set_option maxRecDepth 8192
-set_option maxHeartbeats 2000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-{S.policy_definitions(C, module, design, (a, d), analysis)}
-
-{S.policy_stages(shape).header()} := ⟨rfl, rfl⟩
-
-{S.analysis_typeI("declaredAnalysis", S.ratio(mn, md)).header()} :=
-  {module}.{typeI} {a} {d} (by decide) (by decide)
-    {mn} {md} (by decide) (by decide +kernel)
-
-{S.policy_power(C, "declaredAnalysis", (b, e), (bn, bd)).header()} :=
-  {module}.{power} declaredDesign nullRate {b} {e} (by decide) (by decide)
-    {bn} {bd} (by decide) (by decide +kernel)
-{smaller}
-end StatClaimCertificate
-{_audit(policy_theorems(plan), input_sha256)}"""
+def _margin_text(margin: Fraction) -> str:
+    return f"p_treatment - p_control <= {margin}"

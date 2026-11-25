@@ -1,7 +1,7 @@
 """The Lean section of a study report: `statclaim report --lean`.
 
-Python accepts the program first; then its translation is built and audited as a
-compatibility certificate (`lean_translation/certificate.py`). Lean is the authority
+Python accepts the program before Lean checks the encoded data and audits the
+certificate (`lean_translation/certificate.py`). Lean is the authority
 here: a program Python accepts and Lean does not is reported as a failure naming both,
 never as a weaker status.
 """
@@ -33,7 +33,7 @@ def lean_check(
         }
     if not lean_available(project.resolve()):
         return {"status": "unavailable", "message": UNAVAILABLE}
-    inputs = certificate.payload(source)
+    inputs = certificate.payload(source, project)
     try:
         issued, bundle = certify_program(inputs, project=project, output=output, timeout=timeout)
     except VerificationError as error:

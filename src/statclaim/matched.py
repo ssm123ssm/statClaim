@@ -9,16 +9,13 @@ number of pairs. The interval for that probability gives one for the conditional
 ratio, its odds.
 """
 
-import re
 from dataclasses import dataclass
 from fractions import Fraction
 from math import comb
 
 from statclaim.association import NAME, SOURCE_POPULATION
 from statclaim.fisher import fraction_record, parse_alpha, validate_alpha
-from statclaim.lean_translation import statements as S
-from statclaim.lean_translation.statements import CERTIFICATE as C
-from statclaim.planning import MAX_ONE_ARM, BinomialInterval, _audit
+from statclaim.planning import MAX_ONE_ARM, BinomialInterval
 from statclaim.randomisation import PRESPECIFIED
 
 MATCHED_KIND = "statclaim_matched_certificate"
@@ -47,9 +44,6 @@ MATCHED_NULL = (
 PAIRS_MATCH = "The supplied pairs describe the declared study."
 INTERVAL_LEVEL = "The confidence level was chosen before the data were seen."
 GENERAL_THEOREM = "StatClaim.Modules.Matched.typeI"
-DESIGN_THEOREMS = ["checked_size", "checked_law", "checked_typeI"]
-RESULT_THEOREMS = ["checked_tails", "checked_decision"]
-INTERVAL_THEOREMS = ["checked_coverage", "checked_interval"]
 
 
 def _name(value: str) -> None:
@@ -175,52 +169,6 @@ def matched_claims(test: MatchedTest) -> list[str]:
     ]
 
 
-def _level(alpha: Fraction) -> str:
-    numerator, denominator = alpha.as_integer_ratio()
-    return f"""def declaredLevel : SignificanceLevel :=
-  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩"""
-
-
-def _design_body(test: MatchedTest) -> str:
-    return f"""
-def pairs : ℕ := {test.pairs}
-{_level(test.alpha)}
-
-{S.pairs_size("pairs", test.pairs).header()} := by decide
-
-{S.pairs_law(C, "pairs").header()} :=
-  Matched.pairsLaw_univ pairs δ π
-
-{S.pairs_typeI(C, "pairs", "declaredLevel.value").header()} :=
-  Matched.typeI pairs δ _ (by exact_mod_cast declaredLevel.nonnegative)
-"""
-
-
-def _header(input_sha256: str, what: str) -> str:
-    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
-        raise ValueError("Expected a SHA-256 input identifier.")
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical input SHA-256: {input_sha256}
--- A 1:1 matched case-control study. {what}
-set_option maxRecDepth 8192
-set_option maxHeartbeats 2000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-"""
-
-
-def render_matched_proof(test: MatchedTest, input_sha256: str) -> str:
-    """Only validated integers and one rational level enter the template."""
-    return (
-        _header(input_sha256, "The theorem covers every law under no association.")
-        + _design_body(test)
-        + f"\nend StatClaimCertificate\n{_audit(DESIGN_THEOREMS, input_sha256)}"
-    )
-
-
 # Observed pairs ---------------------------------------------------------------------------
 def tails(discordant: int, case_exposed: int) -> tuple[int, int]:
     """Numerators of the upper and lower tails of the binomial law at one half; the
@@ -312,33 +260,6 @@ def result_claims(result: MatchedResult) -> list[str]:
 
 def result_assumptions(result: MatchedResult) -> tuple[str, ...]:
     return (*matched_assumptions(result.test), PAIRS_MATCH)
-
-
-def render_result_proof(result: MatchedResult, input_sha256: str) -> str:
-    d, x = result.observed.discordant, result.observed.case_exposed
-    upper, lower = tails(d, x)
-    an, ad = result.test.alpha.as_integer_ratio()
-    truth = "True" if result.reject_null else "False"
-    checks = f"""
--- The observed pairs: {x} of {d} discordant pairs with the case exposed.
-{S.tails(C, d, (1, 2), x, upper, lower).header()} := by
-  constructor <;> decide +kernel
-
-{S.pairs_decision(C, d, x, "pairs", "declaredLevel.value", truth).header()} := by
-  simp only [Matched.pairsRejection, Association.given, Set.mem_ofPred_eq, Matched.rejection,
-    Matched.half, pairs]
-  rw [BinomialInterval.upper_tail_ratPoint, BinomialInterval.lower_tail_ratPoint,
-    checked_tails.1, checked_tails.2,
-    Incidence.twice_min_le_iff {upper} {lower} (2 ^ {d}) {an} {ad} _ (by positivity) (by decide)
-      (by norm_num [declaredLevel])]
-  decide +kernel
-"""
-    return (
-        _header(input_sha256, "These observed pairs and the declared test.")
-        + _design_body(result.test)
-        + checks
-        + f"\nend StatClaimCertificate\n{_audit(DESIGN_THEOREMS + RESULT_THEOREMS, input_sha256)}"
-    )
 
 
 # The conditional odds ratio ---------------------------------------------------------------
@@ -441,35 +362,3 @@ def interval_claims(interval: MatchedInterval) -> list[str]:
 
 def interval_assumptions(interval: MatchedInterval) -> tuple[str, ...]:
     return (PAIRS_SAMPLED, WITHIN_PAIRS, SOURCE_POPULATION, INTERVAL_LEVEL, PAIRS_MATCH)
-
-
-def render_interval_proof(interval: MatchedInterval, input_sha256: str) -> str:
-    binomial = interval.binomial
-    d, x = interval.observed.discordant, interval.observed.case_exposed
-    an, ad = binomial.tail_level.as_integer_ratio()
-    ln, ld = interval.level.as_integer_ratio()
-    (lower_n, lower_d), (upper_n, upper_d) = (
-        binomial.lower.as_integer_ratio(),
-        binomial.upper.as_integer_ratio(),
-    )
-    tail = f"((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))"
-    lower_check = "(Or.inl rfl)" if lower_n == 0 else "(Or.inr (by decide +kernel))"
-    upper_check = "(Or.inl rfl)" if upper_n == upper_d else "(Or.inr (by decide +kernel))"
-    claimed = S.odds_interval(C, d, x, tail, (lower_n, lower_d), (upper_n, upper_d), "")
-    body = "  exact bound.1" if upper_n == upper_d else "  exact ⟨bound.1, bound.2 (by decide)⟩"
-    header = _header(input_sha256, "Coverage is a general theorem; the endpoints are checked.")
-    return f"""{header}
-def pairs : ℕ := {interval.observed.pairs}
-
-{S.pairs_coverage(C, (ln, ld), "pairs", tail).header()} := by
-  have covered := Matched.pairs_coverage pairs {tail} (by positivity) δ π
-  exact le_trans (by norm_num) covered
-
-{claimed.header()} := by
-  have bound := Matched.odds_contains {d} {x} {an} {ad} (by decide)
-    {lower_n} {lower_d} (by decide) (by decide) {upper_n} {upper_d} (by decide) (by decide)
-    {lower_check} {upper_check} π member below
-{body}
-
-end StatClaimCertificate
-{_audit(INTERVAL_THEOREMS, input_sha256)}"""

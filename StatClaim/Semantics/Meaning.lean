@@ -1,6 +1,6 @@
 module
 
-public import StatClaim.Semantics.Syntax
+public import StatClaim.Semantics.Plans
 public import StatClaim.Interface.Outcomes
 public import StatClaim.Interface.Premises
 public import StatClaim.Interface.Families
@@ -40,6 +40,11 @@ structure AbstractModel where
 
 attribute [instance] AbstractModel.space
 
+structure ConditionalMember where
+  law : AbstractModel
+  null : Core.Hypothesis law.Parameter
+  procedure : TestInterface law.Outcome
+
 /-- A model as its tests see it: its law, and how it reads a null. -/
 structure View where
   Parameter : Type
@@ -51,6 +56,12 @@ structure View where
   null : Null → Core.Hypothesis Parameter
 
 attribute [instance] View.space
+
+def ExactModule.view (spec : ExactModule) (x : spec.Input) : View where
+  Parameter := spec.Parameter
+  Outcome := spec.Outcome
+  base := spec.law x
+  null := fun _ => spec.null x
 
 def binomialNull (null : Null) : Core.Hypothesis Modules.TwoArmBinomial.Parameters :=
   match null.key with
@@ -109,6 +120,7 @@ structure Instance where
   studies : Study → AbstractStudy
   test : String → (model : Model) → TestInterface (model.view laws).Outcome
   studyTest : String → (study : Study) → TestInterface (studies study).Outcome
+  member : String → ConditionalMember
   slack : String → ℝ
   graph : String → (vs : List View) → (m : ℕ) → ∀ (Θ Ω : Type) [MeasurableSpace Ω],
     JointStudy Θ Ω → Views Θ Ω vs → Fin m → Set Ω
@@ -126,6 +138,10 @@ mutual
 /-- The models of a test's single tests, in order. -/
 def Test.leaves (i : Instance) : Test → List View
   | .fisher _ design _ _ => [binomialView design.model.sizes]
+  | .exact _ kind design _ alpha => [kind.moduleSpec.view (kind.input design.model.sizes alpha)]
+  | .exactStudy _ kind design _ alpha => [kind.moduleSpec.view (kind.input design.model alpha)]
+  | .randomised .. | .oneSample .. | .twoStage .. => []
+  | .member t => [(i.member t.name).law.view]
   | .assumed _ _ design _ _ => [design.model.view i.laws]
   | .associated _ _ design _ _ _ => [(i.studies design.model).view]
   | .bonferroni _ members _ _ => Test.leavesOf i members
@@ -165,6 +181,21 @@ def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
       reject :=
         ws.1.outcome ⁻¹' (fisherAnalysis design.model.sizes alpha).procedure.rejectionEvent
       slack := 0 }
+  | .exact _ kind design _ alpha, ws =>
+    let x := kind.input design.model.sizes alpha
+    { null := fun θ => kind.moduleSpec.null x (ws.1.parameter θ)
+      reject := ws.1.outcome ⁻¹' (kind.moduleSpec.procedure x).reject
+      slack := 0 }
+  | .exactStudy _ kind design _ alpha, ws =>
+    let x := kind.input design.model alpha
+    { null := fun θ => kind.moduleSpec.null x (ws.1.parameter θ)
+      reject := ws.1.outcome ⁻¹' (kind.moduleSpec.procedure x).reject
+      slack := 0 }
+  | .randomised .., _ | .oneSample .., _ | .twoStage .., _ => ⟨fun _ => False, ∅, 0⟩
+  | .member t, ws =>
+    { null := fun θ => (i.member t.name).null (ws.1.parameter θ)
+      reject := ws.1.outcome ⁻¹' (i.member t.name).procedure.reject
+      slack := i.slack t.name }
   | .assumed name _ design null _, ws =>
     { null := fun θ => null.denote i.laws design.model (ws.1.parameter θ)
       reject := ws.1.outcome ⁻¹' (i.test name design.model).reject
@@ -241,6 +272,11 @@ def Test.typeI (i : Instance) : Test → Prop
   | .fisher _ design _ alpha =>
     ((fisherAnalysis design.model.sizes alpha).typeIClaim (Core.Compatibility.fixed _)
       (alpha.value : ℝ)).statement
+  | .exact _ kind design _ alpha =>
+    kind.moduleSpec.typeI.Statement (kind.input design.model.sizes alpha)
+  | .exactStudy _ kind design _ alpha =>
+    kind.moduleSpec.typeI.Statement (kind.input design.model alpha)
+  | .randomised _ r => Randomised.typeI.Statement r
   | .assumed name guarantee design null alpha =>
     typeIClaim (Core.Compatibility.fixed (design.model.view i.laws).base)
       (null.denote i.laws design.model) (i.test name design.model)
@@ -277,6 +313,11 @@ mutual
 law. -/
 def Test.fixed : Test → Bool
   | .fisher _ design .. => design.stopping == .fixed
+  | .exact _ _ design .. => design.stopping == .fixed
+  | .exactStudy _ _ design .. => design.stopping == .fixed
+  | .randomised _ r => r.design.stopping == .fixed
+  | .oneSample .. | .twoStage .. => true
+  | .member t => Test.fixed t
   | .assumed _ _ design .. => design.stopping == .fixed
   | .associated _ _ design .. => design.stopping == .fixed
   | .bonferroni _ members _ _ => Test.allFixed members
@@ -291,14 +332,26 @@ def Test.allFixed : List Test → Bool
 termination_by structural ts => ts
 end
 
+def Request.fixed (q : Request) : Bool := q.test.all Test.fixed
+
+def Test.result : Test → ObservedCounts → ReportedResult → Prop
+  | .exact _ .fisherOneSided design _ alpha, observed, reported =>
+    (OneSided.moduleSpec.result.getD Checked.unsupported).Statement
+      ((design.model.sizes, alpha), observed, reported)
+  | _, _, _ => False
+
 /-- What a request claims. A design that stops by a rule depending on the data supplies
 no sampling law, so no claim about it can be stated: such a request claims `False`. -/
 def Request.Holds (i : Instance) (request : Request) : Prop :=
-  match request.test.fixed with
+  match request.fixed with
   | true =>
     match request with
     | .typeI t => t.typeI i
     | .familywise t => t.familywise i
+    | .result _ t observed reported => t.result observed reported
+    | .checkedResult _ t d => (t.checkedResult d).Statement ()
+    | .interval _ d => d.checked.Statement ()
+    | .planned _ q target selected => (q.checked target selected).Statement ()
   | false => False
 
 inductive Premise where
@@ -306,15 +359,20 @@ inductive Premise where
       (alpha : SignificanceLevel)
   | association (name : String) (method : Generated.AssociationMethod) (study : Study)
       (alpha : SignificanceLevel)
+  | member (name : String) (alpha : SignificanceLevel)
   | graph (name : String) (members : List Test) (alpha : SignificanceLevel)
 
 def Premise.name : Premise → String
   | .level name .. => name
   | .association name .. => name
+  | .member name .. => name
   | .graph name .. => name
 
 def Test.finiteSample : Test → Bool
   | .fisher .. => true
+  | .exact .. => true
+  | .exactStudy .. => true
+  | .randomised .. | .member .. => true
   | .assumed _ guarantee .. => guarantee.scope == .finiteSample
   | .associated _ method .. => method.scope == .finiteSample
   | _ => false
@@ -327,6 +385,9 @@ def Premise.Holds (i : Instance) : Premise → Prop
   | .association name method study alpha =>
     LevelPremise method.scope (i.studies study).model.law (i.studies study).model.noAssociation
       (i.studyTest name study) alpha.value (i.slack name)
+  | .member name alpha =>
+    let member := i.member name
+    LevelPremise .finiteSample member.law.model.law member.null member.procedure alpha.value (i.slack name)
   | .graph name members alpha =>
     (match members.all Test.finiteSample with
       | true => Scope.finiteSample
@@ -339,6 +400,10 @@ def Premise.Holds (i : Instance) : Premise → Prop
 mutual
 def Test.premises : Test → List Premise
   | .fisher .. => []
+  | .exact .. => []
+  | .exactStudy .. => []
+  | .randomised .. | .oneSample .. | .twoStage .. => []
+  | .member t => [.member t.name t.level]
   | .assumed name guarantee design null alpha => [.level name guarantee design.model null alpha]
   | .associated name method design _ alpha _ => [.association name method design.model alpha]
   | .bonferroni _ members _ _ => Test.premisesOf members
@@ -353,6 +418,8 @@ def Test.premisesOf : List Test → List Premise
 termination_by structural ts => ts
 end
 
+def Request.premises (q : Request) : List Premise := q.test.elim [] Test.premises
+
 /-- Every listed premise holds. -/
 def Premise.AllHold (i : Instance) : List Premise → Prop
   | [] => True
@@ -366,7 +433,7 @@ def Program.claimAt (p : Program) (r : ℕ) (i : Instance) : Prop :=
 /-- The premises of the tests request `r` involves. -/
 def Program.premisesAt (p : Program) (r : ℕ) : List Premise :=
   match p.requests[r]? with
-  | some q => q.test.premises
+  | some q => q.premises
   | none => []
 
 /-- What a certificate proves of request `r`: it holds for every instance meeting the

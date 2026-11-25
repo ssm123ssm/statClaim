@@ -1,18 +1,4 @@
-"""Ask Lean about programs Python refuses: test 3 of docs/proposals/lean-translation.md.
-
-Python checks contracts while it elaborates, so a program that fails one has no typed
-form and never reaches Lean. Here those checks are deferred instead: each failure is
-recorded, the value is built anyway, and the program is translated with every `verify`
-claim stated, including those Python leaves with an open requirement. Lean then gives
-one of the `OUTCOMES`, read from where its first error falls.
-
-The same program is also written as Lean data (`data.py`) and asked of the semantics
-(docs/proposals/lean-semantics.md): whether its contracts hold, and whether each claim
-follows by the soundness theorem or, when a design stops by a rule depending on the
-data, is false.
-
-Not trusted: a mistake here makes the check pass or fail wrongly, never a certificate.
-"""
+"""Ask the semantics about programs elaborated with Python contract checks deferred."""
 
 import re
 from dataclasses import dataclass
@@ -21,9 +7,6 @@ from statclaim.language import elaborate
 from statclaim.language_compiler import requirements
 from statclaim.language_syntax import DEFERRED, Diagnostic, Source
 from statclaim.lean_translation import data
-from statclaim.lean_translation.denote import Denotation, denote
-from statclaim.lean_translation.emit import name as lean
-from statclaim.lean_translation.program import render
 
 # The statistical contracts and value ranges Python checks while elaborating
 # (`reference.py`); syntax, names and types are never deferred.
@@ -62,15 +45,10 @@ OUTCOMES = {
     "refuted": "Lean proves that the design supplies no sampling law, so the claim cannot "
     "be stated, or under the semantics is false.",
     "accepted": "Lean accepts the program: Python's rule asks more than any claim Lean states.",
+    "uncovered": "There is no exact Lean model for this program.",
     "untyped": "No typed program: a type error, or values Python's objects refuse to hold "
     "even with the contract checks deferred. Nothing reaches Lean.",
 }
-# The semantics' outcomes add one: a program it does not cover yet (phase 2).
-SEMANTIC_OUTCOMES = {
-    **OUTCOMES,
-    "uncovered": "The semantics does not cover the program yet, so it has no Lean data.",
-}
-
 DECLARATION = re.compile(
     r"^(?:(?:noncomputable|private|protected)\s+)*(theorem|def|structure|abbrev|instance)\s+(\S+)"
 )
@@ -84,8 +62,6 @@ class Asked:
     deferred: list[Diagnostic]  # contract checks Python failed, deferred
     errors: list[Diagnostic]  # other errors, which leave no typed program
     open: list[Diagnostic]  # requirements Python leaves open on verify claims
-    denotation: Denotation | None = None
-    lean: str = ""  # the translation, empty when there is no typed program
     # Why a value could not be built past a deferred check, when it could not.
     unbuilt: str = ""
     program: dict | None = None  # the canonical program, when there is a typed one
@@ -100,8 +76,7 @@ class Asked:
 
 
 def ask(source: Source, label: str) -> Asked:
-    """Elaborate with contracts deferred, then translate with every claim stated, and write
-    the program as Lean data when the semantics covers it."""
+    """Elaborate with contracts deferred and ask Lean about every verification request."""
     deferred: list[Diagnostic] = []
     token = DEFERRED.set((CONTRACTS, deferred))
     try:
@@ -126,12 +101,6 @@ def ask(source: Source, label: str) -> Asked:
         asked.semantic = questions(canonical, label)
     except data.Outside as reason:
         asked.uncovered = str(reason)
-    try:
-        asked.denotation = denote(program, ask=True)
-        asked.lean = render(asked.denotation, label)
-    except ValueError as refused:
-        # A module's own object refuses the values, so no Lean statement is formed.
-        asked.unbuilt = f"ValueError: {refused}"
     return asked
 
 
@@ -145,10 +114,7 @@ def questions(program: dict, label: str) -> str:
     ]
     for index, claim in enumerate(data.verify_claims(program)):
         if data.fixed(claim["subject"]):
-            lines.append(
-                f"theorem claim_{index} : program.Claim {index} :=\n"
-                f"  {data.SEMANTICS}.Program.sound program contracts {index} (by decide +kernel)"
-            )
+            lines.append(data.claim_theorem(index, data.level_hint(claim["subject"])))
         else:
             lines.append(
                 f"theorem refuted_{index} : ¬ program.Claim {index} :=\n"
@@ -180,23 +146,6 @@ def owners(text: str) -> list[tuple[str, str]]:
 
 
 def outcome(asked: Asked, errors: list[int]) -> str:
-    """Lean's outcome for a program, from the lines of its translation where Lean reported
-    errors (counted from 1)."""
-    denotation = asked.denotation
-    if denotation is None:
-        return "untyped"
-    if not errors:
-        return "refuted" if denotation.refuted else "accepted"
-    space, declaration = owners(asked.lean)[min(errors) - 1]
-    if declaration in {lean(c.name) for c in denotation.contracts if c.name}:
-        return "contract"
-    claims = {lean(c.name) for c in denotation.claims}
-    if declaration in claims or any(space.startswith(f"{claim}_") for claim in claims):
-        return "unproved"
-    return "ill_typed"
-
-
-def semantic_outcome(asked: Asked, errors: list[int]) -> str:
     """The semantics' outcome for a program, from the lines of its Lean data and questions
     where Lean reported errors (counted from 1)."""
     if not asked.semantic:

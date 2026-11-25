@@ -19,7 +19,6 @@ from statclaim.language_syntax import Source
 from statclaim.randomisation import (
     MAX_UNITS,
     RandomisationTest,
-    render_randomisation_proof,
     splits_needed,
 )
 
@@ -316,17 +315,6 @@ def test_invalid_designs_have_no_payload(arguments):
         RandomisationTest(units, treated, alpha, "participant", "two_arm_continuous", 10, 10)
 
 
-def test_the_proof_names_the_declared_numbers_and_the_general_theorem():
-    test = RandomisationTest(40, 20, Fraction(1, 20), "participant", "two_arm_continuous", 20, 20)
-    proof = render_randomisation_proof(test, "a" * 64)
-    assert "def units : ℕ := 40" in proof and "def treatedUnits : ℕ := 20" in proof
-    assert "card = 137846528820" in proof
-    assert "Randomisation.typeI_of_level" in proof
-    assert "STATCLAIM_CHECKED " + "a" * 64 in proof
-    with pytest.raises(ValueError):
-        render_randomisation_proof(test, "not a digest")
-
-
 @pytest.mark.parametrize("alpha,needed", [(Fraction(1, 20), 20), (Fraction(3, 40), 14)])
 def test_splits_needed(alpha, needed):
     assert splits_needed(alpha) == needed
@@ -447,23 +435,6 @@ def test_the_checker_rejects_tampered_strata_and_blocks(change):
     assert check_derivation(tamper(record, change)) != []
 
 
-def test_the_grouped_proof_lists_every_group():
-    test = RandomisationTest(
-        40,
-        20,
-        Fraction(1, 20),
-        "participant",
-        "two_arm_continuous",
-        20,
-        20,
-        "blocked",
-        block_size=4,
-    )
-    proof = render_randomisation_proof(test, "b" * 64)
-    assert "def groups : Randomisation.Groups := [" + ", ".join(["(4, 2)"] * 10) + "]" in proof
-    assert f"card = {6**10}" in proof and "groupedTypeI_of_level" in proof
-
-
 def test_the_stratified_example_compiles():
     path = ROOT / "examples/stratified_randomisation.stat"
     compilation = compile_source(Source(path.read_text(), str(path)))
@@ -532,18 +503,6 @@ def test_the_checker_rejects_tampered_monte_carlo_derivations(change):
     record = derivation(compiled(ARMS + STUDY + DRAWN.format(draws=9999)))
     assert check_derivation(record) == []
     assert check_derivation(tamper(record, change)) != []
-
-
-def test_drawn_proofs():
-    test = RandomisationTest(
-        40, 20, Fraction(1, 20), "participant", "two_arm_continuous", 20, 20, draws=9999
-    )
-    proof = render_randomisation_proof(test, "c" * 64)
-    assert "def draws : ℕ := 9999" in proof
-    assert "Randomisation.drawnRejection_le_of_level" in proof
-    assert "MeasureTheory.Measure.pi (fun _ : Fin (draws + 1)" in proof
-    with pytest.raises(ValueError):
-        RandomisationTest(40, 20, Fraction(1, 20), "participant", "x", 20, 20, draws=0)
 
 
 FAMILY_USES = "use multiplicity.bonferroni\nuse multiplicity.fixed_sequence\n"

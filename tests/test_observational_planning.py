@@ -24,13 +24,7 @@ from statclaim.observational_planning import (
     RatePowerPlan,
     TotalPowerPlan,
     binomial_region,
-    plan_theorems,
-    render_matched_plan_proof,
-    render_plan_proof,
-    render_rate_plan_proof,
-    render_total_plan_proof,
     search_groups,
-    search_pairs,
 )
 from statclaim.planning import fisher_rejection_probability
 
@@ -323,25 +317,6 @@ def test_plans_refuse_designs_they_cannot_certify():
         )
 
 
-def test_claims_proofs_and_assumptions():
-    found, _ = plan(minimal=True)
-    proof = render_plan_proof(found, "a" * 64)
-    for name in plan_theorems(found):
-        assert f"theorem {name}" in proof
-    assert "AssociationPower.power_lt_of_fails" in proof
-    assert proof.count("AssociationPower.FailsHinted") == 7  # one theorem per smaller size
-    assert "smoking" not in proof
-    unmet = AssociationPowerPlan(
-        AssociationTest("cohort", Fraction(1, 20), (40, 40)),
-        Fraction(1, 5),
-        Fraction(1, 3),
-        Fraction(4, 5),
-        Fraction(1, 40),
-    )
-    with pytest.raises(ValueError, match="Type I target"):
-        render_plan_proof(unmet, "a" * 64)
-
-
 def test_the_lesson_and_example_compile():
     for name in (
         "examples/tutorial/29_observational_power.stat",
@@ -530,35 +505,6 @@ def test_matched_and_rate_derivations_are_checked():
     assert check_derivation(changed) != []
 
 
-def test_matched_and_rate_proofs():
-    template = MatchedPowerPlan(
-        MatchedTest(30, Fraction(1, 20), "drug", "fracture"),
-        Fraction(1, 2),
-        Fraction(3),
-        Fraction(4, 5),
-        Fraction(1, 20),
-        "sample_size",
-        (30, 80),
-        True,
-    )
-    found, evaluated = search_pairs(template, 30, 80, minimal=True)
-    proof = render_matched_plan_proof(found, "b" * 64)
-    assert proof.count("theorem smaller_") == found.test.pairs - 30 == evaluated - 1
-    assert "drug" not in proof
-    rate = RatePowerPlan(
-        RateTest(Fraction(1, 40), "solvents", "cancer"),
-        Fraction(8000),
-        Fraction(24000),
-        Fraction(2),
-        60,
-        Fraction(1, 2),
-        Fraction(1, 40),
-    )
-    proof = render_rate_plan_proof(rate, "c" * 64)
-    assert "BinomialPower.RegionValid 60 1 4 1 40 8 24" in proof
-    assert binomial_region(60, Fraction(1, 4), Fraction(1, 40)) == (8, 24)
-
-
 # Designs that fix only the total -----------------------------------------------------------
 SURVEY = (
     'let survey = cross_sectional(n=120, exposure="night shifts", outcome="insomnia")\n'
@@ -688,7 +634,7 @@ def test_total_searches_are_sufficient_only():
     assert compiled(text).diagnostics[0].code == "domain"
 
 
-def test_total_derivations_and_proofs():
+def test_total_derivations():
     text = (
         SURVEY
         + target(SURVEY_POINT)
@@ -698,14 +644,7 @@ def test_total_derivations_and_proofs():
     )
     compilation = compiled(text)
     assert compilation.status == "elaborated", compilation.diagnostics
-    plan = TotalPowerPlan(
-        AssociationTest("cross_sectional", Fraction(1, 20), None, 30, "shifts", "insomnia"),
-        Fraction(1, 10),
-        Fraction(1, 2),
-        Fraction(3, 10),
-        Fraction(1, 2),
-        Fraction(1, 20),
-    )
-    proof = render_total_plan_proof(plan, "d" * 64)
-    assert proof.count("theorem part_") == 31
-    assert "shifts" not in proof
+
+
+def test_exact_rate_region_at_one_quarter():
+    assert binomial_region(60, Fraction(1, 4), Fraction(1, 40)) == (8, 24)

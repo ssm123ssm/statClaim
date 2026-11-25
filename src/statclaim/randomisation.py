@@ -17,9 +17,6 @@ from fractions import Fraction
 from math import comb, prod
 
 from statclaim.fisher import validate_alpha
-from statclaim.lean_translation import statements as S
-from statclaim.lean_translation.statements import CERTIFICATE as C
-from statclaim.planning import _audit
 
 TEST_ID = "randomisation"
 TEST_VERSION = "0.1.0"
@@ -78,14 +75,6 @@ COUNTS_DRAWS = (
     "one among them."
 )
 ASSUMPTIONS = (RANDOMISED, PRESPECIFIED, AS_RANDOMISED, SHARP_NULL)
-THEOREMS = ["checked_sizes", "checked_law", "checked_splits", "checked_attainable", "checked_typeI"]
-GROUPED_THEOREMS = [
-    "checked_groups",
-    "checked_law",
-    "checked_splits",
-    "checked_attainable",
-    "checked_typeI",
-]
 GENERAL_THEOREM = "StatClaim.Modules.Randomisation.typeI"
 GROUPED_GENERAL_THEOREM = "StatClaim.Modules.Randomisation.groupedTypeI_of_level"
 DRAWN_GENERAL_THEOREM = "StatClaim.Modules.Randomisation.drawnRejection_le_of_level"
@@ -253,129 +242,3 @@ def randomisation_assumptions(test: RandomisationTest) -> tuple[str, ...]:
         counted = COUNTS_DRAWS if test.draws else COUNTS_EVERY_SPLIT
         return (randomised, PRESPECIFIED, POPULATION, counted, SHARP_NULL)
     return (randomised, PRESPECIFIED, AS_DRAWN if test.draws else AS_RANDOMISED, SHARP_NULL)
-
-
-def general_theorem(test: RandomisationTest) -> str:
-    if test.draws:
-        return DRAWN_GENERAL_THEOREM
-    return GROUPED_GENERAL_THEOREM if test.grouped else GENERAL_THEOREM
-
-
-def render_randomisation_proof(test: RandomisationTest, input_sha256: str) -> str:
-    """Only validated integers and one rational level enter the template."""
-    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
-        raise ValueError("Expected a SHA-256 input identifier.")
-    if test.grouped:
-        return _render_grouped_proof(test, input_sha256)
-    numerator, denominator = test.alpha.as_integer_ratio()
-    units, treated, splits = test.units, test.treated, test.splits
-    if test.draws:
-        claimed = S.randomisation_typeI(
-            C, "declaredLevel.value", "draws", units="units", treated="treatedUnits"
-        )
-        tail = _drawn_tail(test.draws, claimed, "Randomisation.splits units treatedUnits")
-    else:
-        tail = f"""-- No p-value is below one over the number of splits (Randomisation.pValue_ge).
-theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
-  norm_num [declaredLevel]
-
-{S.randomisation_typeI(C, "declaredLevel.value", units="units", treated="treatedUnits").header()} :=
-  Randomisation.typeI_of_level units treatedUnits statistic outcomes sharp
-    declaredLevel.value declaredLevel.nonnegative
-"""
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical input SHA-256: {input_sha256}
--- Units are {test.unit_words}. The theorem covers every statistic and all potential
--- outcomes under the sharp null; nothing here depends on observed data.
-set_option maxRecDepth 100000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-def units : ℕ := {units}
-def treatedUnits : ℕ := {treated}
-def declaredLevel : SignificanceLevel :=
-  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩
-
-theorem checked_sizes : units = {units} ∧ treatedUnits = {treated} ∧ 0 < treatedUnits ∧
-    treatedUnits < units := by decide
-
-theorem checked_law : Randomisation.law units treatedUnits Set.univ = 1 :=
-  Randomisation.law_univ units treatedUnits (by decide)
-
-theorem checked_splits : (Randomisation.splits units treatedUnits).card = {splits} := by
-  rw [Randomisation.splits_card, Nat.choose_eq_factorial_div_factorial (by decide)]
-  decide +kernel
-
-{tail}
-end StatClaimCertificate
-{_audit(THEOREMS, input_sha256)}"""
-
-
-def _render_grouped_proof(test: RandomisationTest, input_sha256: str) -> str:
-    numerator, denominator = test.alpha.as_integer_ratio()
-    groups = ", ".join(f"({size}, {treated})" for size, treated in test.groups)
-    splits = test.splits
-    if test.draws:
-        claimed = S.randomisation_typeI(C, "declaredLevel.value", "draws", groups="groups")
-        tail = _drawn_tail(test.draws, claimed, "Randomisation.groupedSplits groups")
-    else:
-        tail = (
-            (
-                "-- The observed assignment always counts itself, so no p-value is below one over "
-                "the count.\n"
-            )
-            + f"""theorem checked_attainable : (1 : ℚ) / {splits} ≤ declaredLevel.value := by
-  norm_num [declaredLevel]
-
-{S.randomisation_typeI(C, "declaredLevel.value", groups="groups").header()} :=
-  Randomisation.groupedTypeI_of_level groups statistic outcomes sharp declaredLevel.value
-    declaredLevel.nonnegative
-"""
-        )
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical input SHA-256: {input_sha256}
--- {test.scheme.capitalize()} randomisation of {test.unit_words}: each group is a stratum or block,
--- given as (units, treated). The theorem covers every statistic and every record under
--- the sharp null; nothing here depends on observed data.
-set_option maxRecDepth 100000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-def groups : Randomisation.Groups := [{groups}]
-def declaredLevel : SignificanceLevel :=
-  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩
-
-theorem checked_groups : ∀ group ∈ groups, group.2 ≤ group.1 := by decide
-
-theorem checked_law : Randomisation.groupedLaw groups Set.univ = 1 :=
-  Randomisation.groupedLaw_univ groups checked_groups
-
-theorem checked_splits : (Randomisation.groupedSplits groups).card = {splits} := by
-  rw [Randomisation.groupedSplits_card groups checked_groups]
-  decide +kernel
-
-{tail}
-end StatClaimCertificate
-{_audit(GROUPED_THEOREMS, input_sha256)}"""
-
-
-def _drawn_tail(draws: int, claimed: S.Theorem, support: str) -> str:
-    """The attainable-level and Type I theorems of a Monte Carlo p-value with `draws` draws.
-    The law is the product of independent uniform draws (Randomisation.pi_uniform)."""
-    return f"""def draws : ℕ := {draws}
-
--- No Monte Carlo p-value is below one over the draws plus one (Randomisation.drawnShare_ge).
-theorem checked_attainable : (1 : ℚ) / (draws + 1) ≤ declaredLevel.value := by
-  norm_num [draws, declaredLevel]
-
--- The observed assignment and the draws are independent, each with the design's law.
-{claimed.header()} :=
-  Randomisation.drawnRejection_le_of_level ({support}) draws statistic outcomes sharp
-    declaredLevel.value declaredLevel.nonnegative
-"""

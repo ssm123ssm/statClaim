@@ -1,9 +1,44 @@
 # Proposal: exact claims in the semantics, and retiring the translator
 
-Status: draft 2026-11-24, for review. It continues
-[the semantics proposal](lean-semantics.md), whose phase 1 is done, and is the
-"common Lean interface for exact modules, proposed separately" that its phase 2
-waits for.
+Status: implemented. This completes phase 2 of
+[the semantics proposal](lean-semantics.md).
+
+## Implementation
+
+`Program.sound` now issues every whole-program certificate. The covered claims
+include exact Type I and familywise bounds, observed results, confidence intervals,
+and exact planning. Lean checks the contracts and numerical hints. The certificate
+binds the canonical program and the reported values it proves. Blinded sample-size
+re-estimation and simulated Type I remain outside Lean. Programs without claims can
+still have their declarations checked.
+
+The corpus check covers 111 compiled programs and 138 proved claims. It includes
+138 frozen translator claims from 80 pinned programs. Six proofs of agreement use
+arithmetic normalization where equivalent numerical expressions have different Lean
+forms. The independent reference file covers all request and test constructors.
+The rejection table asks Lean about 38 programs Python rejects or leaves unresolved.
+
+The semantics directory contains 3,992 lines, including its definitions, encoding
+and proofs. The translator and its statement templates have been removed. Version
+3 certificates replay through the semantics. Earlier bundles replay with the
+StatClaim version that issued them.
+
+## Spike result
+
+Milestone 0 passes for `examples/one_sided.stat`. Lean proves Type I, the
+observed result, and the minimum sample size through `Program.sound`. Each
+statement agrees definitionally with the live translator. The checker also
+audits dependencies and checks that Lean rejects a wrong null, missing hints,
+a wrong p-value, and a wrong decision. Run it with `make lean-check`.
+
+Across three runs per path with the library already built, median Lean check
+time was 7.92 s for the translator and 7.80 s for the semantics. Median peak
+resident memory was 4.28 GiB and 4.43 GiB, respectively. Both are within the
+2× limit. The Lean files containing trusted semantic definitions grew from
+928 to 1,289 lines, including the adapter's kernel-checked proofs.
+
+The spike now checks the frozen translator statements and exercises kernel and
+report binding failures.
 
 ## Goal
 
@@ -12,10 +47,10 @@ becomes a Lean function of the program, and Python writes only data and hints. T
 the translator is deleted, and its job as an independent second statement of each
 claim passes to fixed tests.
 
-## Where we are
+## Baseline before phase 2
 
-The compiler accepts 111 corpus programs. 60 have certificates stated through the
-semantics. The other 51 keep today's translation, for 82 claims:
+The compiler accepts 111 corpus programs. At the baseline, 60 had certificates through
+the semantics and 51 used the translator, for 82 claims:
 
 | Claims | Count | What they need |
 | --- | --- | --- |
@@ -30,7 +65,7 @@ semantics. The other 51 keep today's translation, for 82 claims:
 Of the 51 programs, two declare sample-size re-estimation, which the translator
 records as outside Lean, and two state no claim.
 
-For these claims Python still decides what is claimed:
+Python defined these claims in the following modules:
 
 | Trusted Python | Lines | Decides |
 | --- | --- | --- |

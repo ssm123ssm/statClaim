@@ -28,17 +28,10 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   The language builds their constructors and contracts from this registry.
 - `composition.py`: families whose members are assumed and whose combination
   Lean checks.
-- `lean_translation/`: the translation of whole programs to Lean
-  ([proposal](proposals/lean-translation.md)). `table.py` says what each
-  constructor and operation becomes in Lean; `denote.py` decides what a compiled
-  program states (`exact.py` for exact tests, with their theorems in
-  `statements.py`), `prove.py` how each statement is proved, and `grades.py` how a
-  claim's grade follows from the premises its proof uses; `program.py` writes the
-  file. `certificate.py` makes it a certificate, which `verification.py` builds,
-  audits and replays, and `program_evidence.py` gives each verified claim of a run
-  its evidence from it. `rejection.py` defers Python's contract checks so a refused
-  program still reaches Lean. `scripts/check_lean_translation.py` and
-  `scripts/check_lean_rejections.py` run both on the corpus in `make lean-check`.
+- `lean_translation/` writes the canonical program and numerical hints as Lean data.
+  `table.py` classifies the DSL constructors. `certificate.py` binds the source,
+  program and reported values. `verification.py` builds, audits and replays the
+  certificate, and `program_evidence.py` connects it to each verified request.
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.
@@ -47,14 +40,12 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   level premises, families over joint studies, the shape of a program's
   theorem, and the `statclaim` tactic. `StatClaim/Generated/Methods.lean` is
   the cited-method registry in Lean, written by `scripts/update_lean_premises.py`.
-  `StatClaim/Semantics/` defines what a compiled program means, as Lean functions of
-  the program as data ([proposal](proposals/lean-semantics.md)); the certificate of a
-  program it covers is stated through it. `Soundness.lean` proves every covered claim
-  from its premises once, for every program. `lean_translation/data.py` writes the data
-  from the canonical program, and `scripts/check_lean_semantics.py` checks on the corpus
-  that Lean's encoding of it is the canonical program, that its grades are Python's, and
-  that today's translation states the same claims. `scripts/check_lean_rejections.py`
-  also asks the semantics about every program Python refuses.
+  `StatClaim/Semantics/` defines each certificate's claims, premises and grades as
+  functions of the encoded program. `Program.sound` proves the claims after the
+  kernel checks the contracts and hints. The corpus check compares Lean's encoded
+  input with the canonical program and checks agreement with the frozen translator
+  statements. The rejection table independently asks Lean about programs Python
+  rejects or leaves unresolved. Both run with `make lean-check`.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `studio/`: the block editor. `api.py` answers its requests on the same compiler,
   runner and language-server features; `server.py` serves it on this machine, and

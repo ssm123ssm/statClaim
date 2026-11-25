@@ -844,6 +844,9 @@ def render_catalogue() -> str:
         "composition rules. These are not all standalone `.stat` constructors yet. "
         "See [core object model](core-object-model.md) and [Lean objects](lean-objects.md).",
         "",
+        "The [exact claim interface](lean-objects.md#exact-claim-interface) connects exact "
+        "modules' statements and kernel checks to the program semantics.",
+        "",
         "The same content is available in machine-readable form from "
         "`statclaim catalogue --json`. See [adding modules](adding-modules.md).",
         "",

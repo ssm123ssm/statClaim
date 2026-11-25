@@ -22,9 +22,6 @@ from statclaim.incidence import (
     rate_assumptions,
     rate_ratio_assumptions,
     rate_result_assumptions,
-    render_rate_proof,
-    render_rate_ratio_proof,
-    render_rate_result_proof,
     show,
     tails_at,
 )
@@ -174,24 +171,21 @@ EVENTS_OBJECT = ObservedEvents(48, Fraction(12500), 61, Fraction(31000), "night 
 TEST_OBJECT = RateTest(Fraction(1, 20), "night shifts", "cancer")
 
 
-def test_proofs_tails_and_assumptions():
+def test_the_lesson_and_example_compile():
+    for name in ("examples/tutorial/26_prevalence_and_rates.stat", "examples/incidence_rates.stat"):
+        path = ROOT / name
+        compilation = compile_source(Source(path.read_text(), str(path)))
+        assert compilation.status == "elaborated", (name, compilation.diagnostics)
+
+
+def test_tails_and_assumptions():
     assert tails_at(4, 2, Fraction(1, 2)) == (11, 11, 16)
     assert show(Fraction(16843, 2)) == "8421.5" and show(Fraction(1, 3)) == "1/3"
-    assert "Incidence.typeI" in render_rate_proof(TEST_OBJECT, "a" * 64)
     result = RateResult(TEST_OBJECT, EVENTS_OBJECT)
-    proof = render_rate_result_proof(result, "a" * 64)
-    assert "ratPoint 12500 43500" not in proof and "ratPoint 25 87" in proof
-    assert "Incidence.twice_min_le_iff" in proof
     no_unexposed = RateRatioInterval(
         ObservedEvents(7, Fraction(1234), 0, Fraction(2345)), Fraction(19, 20)
     )
     assert no_unexposed.bounds[1] is None and no_unexposed.estimate is None
-    assert (
-        "∧"
-        not in render_rate_ratio_proof(no_unexposed, "a" * 64)
-        .split("checked_interval")[1]
-        .split(":=")[0]
-    )
     estimate = ProportionEstimate(
         "cumulative_incidence", "cohort", 200, 30, Fraction(19, 20), group="exposed"
     )
@@ -202,10 +196,3 @@ def test_proofs_tails_and_assumptions():
         proportion_assumptions(estimate),
     ):
         assert all(identify(text)["id"] for text in texts)
-
-
-def test_the_lesson_and_example_compile():
-    for name in ("examples/tutorial/26_prevalence_and_rates.stat", "examples/incidence_rates.stat"):
-        path = ROOT / name
-        compilation = compile_source(Source(path.read_text(), str(path)))
-        assert compilation.status == "elaborated", (name, compilation.diagnostics)

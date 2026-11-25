@@ -35,6 +35,10 @@ public import StatClaim.Generated.Methods
 public import StatClaim.Interface.Families
 public import StatClaim.Interface.Tactic
 public import StatClaim.Semantics.Syntax
+public import StatClaim.Semantics.Exact
+public import StatClaim.Semantics.Results
+public import StatClaim.Semantics.Intervals
+public import StatClaim.Semantics.Plans
 public import StatClaim.Semantics.Encode
 public import StatClaim.Semantics.Meaning
 public import StatClaim.Semantics.Contracts

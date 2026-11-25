@@ -28,7 +28,6 @@ from statclaim.randomisation import (
     POPULATION,
     RandomisationTest,
     randomisation_assumptions,
-    render_randomisation_proof,
 )
 
 USES = (
@@ -170,7 +169,6 @@ def test_a_randomisation_test_covers_every_randomised_unit():
         12, 6, Fraction(1, 20), "cluster", "two_arm_continuous", 120, 120, population="randomised"
     )
     assert POPULATION in randomisation_assumptions(test)
-    assert "theorem checked_typeI" in render_randomisation_proof(test, "0" * 64)
     with pytest.raises(ValueError, match="every randomised unit"):
         RandomisationTest(
             12,

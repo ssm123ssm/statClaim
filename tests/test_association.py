@@ -25,9 +25,6 @@ from statclaim.association import (
     parse_association_payload,
     parse_interval_payload,
     parse_result_payload,
-    render_association_proof,
-    render_interval_proof,
-    render_result_proof,
     result_assumptions,
     result_payload,
 )
@@ -317,21 +314,6 @@ def test_invalid_tests_have_no_payload(arguments):
 
 
 @pytest.mark.parametrize("test", TESTS)
-def test_the_proof_names_the_numbers_and_never_the_names(test):
-    proof = render_association_proof(test, "a" * 64)
-    assert "sorry" not in proof and "STATCLAIM" not in proof.split("run_cmd")[0]
-    if test.fixed_groups:
-        assert f"def firstGroup : ℕ := {test.groups[0]}" in proof
-        assert "Association.groups_typeI_le_alpha" in proof
-    else:
-        assert f"def sampleSize : ℕ := {test.n}" in proof
-        assert "Association.mixture_typeI_le_alpha" in proof
-    assert test.exposure not in proof.replace("exposed", "")
-    with pytest.raises(ValueError):
-        render_association_proof(test, "not a hash")
-
-
-@pytest.mark.parametrize("test", TESTS)
 def test_claims_say_association_and_every_assumption_is_recognised(test):
     claims = " ".join(association_claims(test))
     assert "no association" in claims and str(test.alpha) in claims
@@ -494,8 +476,6 @@ def test_effect_intervals_contain_the_estimate_and_round_trip(table):
         claims = " ".join(interval_claims(interval))
         assert "both groups' exact confidence sets" in claims
         assert all(identify(text)["id"] for text in interval_assumptions(interval))
-        proof = render_interval_proof(interval, "a" * 64)
-        assert "theorem checked_interval" in proof and "sorry" not in proof
 
 
 def test_a_zero_reference_count_gives_no_finite_upper_bound():
@@ -517,5 +497,3 @@ def test_result_payloads_round_trip_and_reject_tampering(table):
     with pytest.raises(ValueError):
         parse_result_payload(changed)
     assert all(identify(text)["id"] for text in result_assumptions(result))
-    proof = render_result_proof(result, "a" * 64)
-    assert "theorem checked_decision" in proof and proof.count("STATCLAIM_CHECKED") == 1

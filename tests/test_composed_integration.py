@@ -168,7 +168,7 @@ def test_recycling_graph_gating_a_sequence(tmp_path):
     bundle = Path(values["overall_error"]["evidence"]["certificate"]["directory"])
     certificate = json.loads((bundle / "certificate.json").read_text())
     # The graph's cited rule and the exact member's level are premises.
-    assert "cited_graph_rule" in certificate["assumptions"]
+    assert "cited_primary_rule" in certificate["assumptions"]
     assert any(name.startswith("member_onset") for name in certificate["assumptions"])
     assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
 

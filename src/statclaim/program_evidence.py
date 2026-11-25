@@ -1,25 +1,11 @@
-"""The program certificate a run builds once, and the evidence each verified claim takes
-from it. See docs/proposals/lean-translation.md.
-
-`statclaim check` translates every program it runs and builds it in Lean once
-(`lean_translation/certificate.py`), even one that only calculates: Lean decides the
-declarations' contract facts and proves each claim the translation states. Each `verify`
-request then runs as before, computing what it reports, and where it would have built a
-certificate of its own it takes the program certificate's evidence for its claim instead
-(`attach`): its status follows the grade Lean's proof gives it. A claim Lean does not
-prove is left out of the certificate and stays unresolved, with Lean's message; the rest
-is still certified. Calculated and simulated values are not proved.
-
-Result binding (trusted): a request takes only the evidence of the claim the translation
-states for that request.
-"""
+"""Issue one whole-program certificate and bind its evidence to each verified request."""
 
 import dataclasses
 from contextvars import ContextVar
 from pathlib import Path
 
 from statclaim.language_syntax import Source
-from statclaim.lean_translation import certificate
+from statclaim.lean_translation import certificate, data
 from statclaim.verification import VerificationError, certify_program, digest
 
 STATUS = {
@@ -35,7 +21,7 @@ WORDS = {
     "declared": "Declared by the author; its contract facts checked in Lean",
 }
 
-# The parts of a result, interval or plan, as `statements.py` names its theorems.
+# The parts of a result, interval or plan, as named in a semantic certificate.
 PARTS = {
     "counts": "the observed counts lie in the declared sample",
     "support": "the possible tables given the margins",
@@ -74,14 +60,15 @@ CURRENT: ContextVar[ProgramRun | None] = ContextVar("statclaim_program_run", def
 
 
 def build(source: Source, *, project: Path, output: Path, timeout: float) -> ProgramRun:
-    """Translate the program and build it in Lean once, with or without claims. A claim
+    """Build the program in Lean, with or without claims. A claim
     whose proof Lean rejects is left out and the rest built again; an error in the
     declarations leaves the program unchecked and every claim unresolved, with Lean's
     message naming the disagreement."""
-    inputs = certificate.payload(source)
-    stated = certificate.denotation(inputs)
-    requests = {claim.request_id: claim for claim in stated.claims}
-    facts = sum(fact.check != "comment" for fact in stated.contracts)
+    inputs = certificate.payload(source, project)
+    requests = {
+        index: request["request_id"] for index, request in certificate.listed_requests(inputs)
+    }
+    facts = len(data.declarations(inputs["program"]))
     failures: dict = {}
     for attempt in (1, 2):
         try:
@@ -95,9 +82,7 @@ def build(source: Source, *, project: Path, output: Path, timeout: float) -> Pro
             proof = (error.bundle / "Proof.lean").read_text() if error.bundle else ""
             log = (error.bundle / "transcript.log").read_text() if error.bundle else ""
             failing = (
-                certificate.failing_claims(proof, log, certificate.denotation(inputs))
-                if error.stage == "proof"
-                else None
+                certificate.failing_claims(proof, log) if error.stage == "proof" and proof else None
             )
             if attempt == 2 or not failing:
                 message = (
@@ -108,14 +93,74 @@ def build(source: Source, *, project: Path, output: Path, timeout: float) -> Pro
                     message = str(error)
                 failure = {"stage": error.stage, "message": message, "error": str(error)}
                 return ProgramRun(
-                    None, None, {}, {rid: message for rid in requests}, failure=failure
+                    None, None, {}, {rid: message for rid in requests.values()}, failure=failure
                 )
-            for claim in stated.claims:
-                if claim.name in failing:
-                    failures[claim.request_id] = f"Lean did not prove this claim: {error}"
+            for index in failing:
+                if index in requests:
+                    failures[requests[index]] = f"Lean did not prove this claim: {error}"
             inputs = {**inputs, "omitted": sorted(failing)}
     listed = {claim["request_id"]: claim for claim in certificate.claims(inputs)}
     return ProgramRun(issued, bundle, listed, failures, contract_facts=facts)
+
+
+def bind_report(run: ProgramRun, index: int, request, report: dict) -> dict:
+    """Require the rendered values to match the values in this request's theorem."""
+    from statclaim.lean_translation.material import interval_output, plan_output, result_output
+
+    if run.issued is None or not report.get("certificate_issued"):
+        return report
+    inputs = run.issued["inputs"]
+    found = next(
+        (
+            (entry, expected)
+            for entry, expected in zip(
+                certificate.requests(inputs), inputs["reported"], strict=True
+            )
+            if entry["request_id"] == index
+        ),
+        None,
+    )
+    if found is None:
+        return report
+    entry, expected = found
+    if expected is None:
+        return report
+    kind = entry["claim"]["kind"]
+    subject = entry["claim"]["subject"]
+    got = report.get("calculation")
+    actual: dict | None = None
+    if isinstance(got, dict):
+        try:
+            if kind == "result":
+                actual = result_output(request, got)
+                if actual["reject_null"] != (report.get("decision") == "reject_null"):
+                    actual = None
+                analysis = subject["analysis"]
+                if analysis.get("alternative") == "margin":
+                    thresholds = data.margin_test(analysis).thresholds
+                    assert thresholds is not None
+                    if got.get("thresholds") != list(thresholds):
+                        actual = None
+            elif kind == "interval":
+                actual = interval_output(request, got)
+            else:
+                actual = plan_output(subject, got)
+        except (KeyError, TypeError, ValueError, data.Outside):
+            actual = None
+    if actual == expected:
+        return report
+    message = "The run's reported values differ from the values Lean checked."
+    for key in ("certificate", "program_claim", "evidence_grade", "trusted_components"):
+        report.pop(key, None)
+    report.update(
+        status="unresolved_obligation",
+        certificate_issued=False,
+        established_properties=[],
+        outstanding_obligations=[message],
+        verification={"stage": "binding", "message": message},
+    )
+    report["evidence"] = [e for e in report.get("evidence", []) if e["kind"] != "formal_proof"]
+    return report
 
 
 def attach(report: dict) -> dict | None:

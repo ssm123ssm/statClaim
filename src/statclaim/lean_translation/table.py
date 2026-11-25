@@ -1,10 +1,4 @@
-"""What each constructor and operation becomes in Lean.
-
-Milestone 1 of docs/proposals/lean-translation.md. Every constructor and operation of the
-language has one entry: either its role and the Lean files that give it meaning, or the
-reason it has none. tests/test_lean_translation.py requires the table to cover the whole
-language, so translation never leaves a construct out silently. Nothing here emits Lean.
-"""
+"""The Lean meaning or evidence boundary of every DSL constructor and operation."""
 
 from dataclasses import dataclass
 
@@ -44,7 +38,10 @@ CORE = "Core/Objects"
 POLICY = "Core/Policy"
 OUTCOMES = "Interface/Outcomes"
 PREMISES = "Interface/Premises"
-PROGRAM = "Interface/Program"
+PROGRAM = "Semantics/Meaning"
+RESULTS = "Semantics/Results"
+INTERVALS = "Semantics/Intervals"
+PLANS = "Semantics/Plans"
 METHODS = "Generated/Methods"
 BINOMIAL = "Modules/TwoArmBinomial"
 RANDOMISATION = "Modules/Randomisation"
@@ -160,30 +157,31 @@ TABLE: dict[str, InLean | NotInLean] = {
     "stopped_at_interim": _in("data", TWO_STAGE),
     "completed_stages": _in("data", TWO_STAGE),
     # Claims about procedures and families.
-    "typeI": _in("claim", CORE, POLICY),
-    "familywise": _in("claim", COMPOSITION),
+    "typeI": _in("claim", PROGRAM, CORE, POLICY),
+    "familywise": _in("claim", PROGRAM, COMPOSITION),
     # Claims about observed results: the computed value equals the formal one.
-    "result": _in("claim", "Modules/Fisher", "Computation"),
-    "binomial_result": _in("claim", ONE_SAMPLE),
-    "two_stage_result": _in("claim", TWO_STAGE),
-    "association_result": _in("claim", ASSOCIATION),
-    "matched_result": _in("claim", MATCHED),
-    "rate_result": _in("claim", INCIDENCE),
+    "result": _in("claim", RESULTS, "Modules/Fisher", "Computation"),
+    "binomial_result": _in("claim", RESULTS, ONE_SAMPLE),
+    "two_stage_result": _in("claim", RESULTS, TWO_STAGE),
+    "association_result": _in("claim", RESULTS, ASSOCIATION),
+    "matched_result": _in("claim", RESULTS, MATCHED),
+    "rate_result": _in("claim", RESULTS, INCIDENCE),
     # Interval claims: coverage of an exact or conservative interval.
-    "confidence_interval": _in("claim", INTERVAL),
-    "difference_interval": _in("claim", INTERVAL),
-    "prevalence": _in("claim", INTERVAL),
-    "cumulative_incidence": _in("claim", INTERVAL),
-    "odds_ratio": _in("claim", INTERVAL, ASSOCIATION),
-    "risk_ratio": _in("claim", INTERVAL, ASSOCIATION),
-    "risk_difference": _in("claim", INTERVAL, ASSOCIATION),
-    "prevalence_ratio": _in("claim", INTERVAL, ASSOCIATION),
-    "prevalence_difference": _in("claim", INTERVAL, ASSOCIATION),
-    "rate_ratio": _in("claim", INCIDENCE),
-    "conditional_odds_ratio": _in("claim", MATCHED),
+    "confidence_interval": _in("claim", INTERVALS, INTERVAL),
+    "difference_interval": _in("claim", INTERVALS, INTERVAL),
+    "prevalence": _in("claim", INTERVALS, INTERVAL),
+    "cumulative_incidence": _in("claim", INTERVALS, INTERVAL),
+    "odds_ratio": _in("claim", INTERVALS, INTERVAL, ASSOCIATION),
+    "risk_ratio": _in("claim", INTERVALS, INTERVAL, ASSOCIATION),
+    "risk_difference": _in("claim", INTERVALS, INTERVAL, ASSOCIATION),
+    "prevalence_ratio": _in("claim", INTERVALS, INTERVAL, ASSOCIATION),
+    "prevalence_difference": _in("claim", INTERVALS, INTERVAL, ASSOCIATION),
+    "rate_ratio": _in("claim", INTERVALS, INCIDENCE),
+    "conditional_odds_ratio": _in("claim", INTERVALS, MATCHED),
     # Planning claims: proved for exact analyses, calculated or simulated for the rest.
     "meets": _in(
         "claim",
+        PLANS,
         POLICY,
         "Modules/FisherPower",
         "Modules/BinomialPower",
@@ -191,10 +189,10 @@ TABLE: dict[str, InLean | NotInLean] = {
         TWO_STAGE,
     ),
     "sample_size": _in(
-        "claim", "Modules/FisherPower", "Modules/BinomialPower", "Modules/AssociationPower"
+        "claim", PLANS, "Modules/FisherPower", "Modules/BinomialPower", "Modules/AssociationPower"
     ),
     "smallest_sample_size": _in(
-        "claim", "Modules/FisherPower", "Modules/BinomialPower", "Modules/AssociationPower"
+        "claim", PLANS, "Modules/FisherPower", "Modules/BinomialPower", "Modules/AssociationPower"
     ),
     # Planning inputs for exact analyses.
     "power_target": _in("planning", POLICY),

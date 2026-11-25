@@ -1283,7 +1283,7 @@ function leanSection(run, stale) {
   }
   const claims = result.claims || [];
   const facts = result.contract_facts.length;
-  const omitted = result.omitted || [];
+  const omitted = result.unproved || [];
   const computed = (run.result.requests || []).some(request => request.status === 'calculated' || request.status === 'simulated');
   section.append(el('p', 'results-lean-summary', 'One Lean build checked the whole study: ' + plural(facts, 'contract fact') +
     (facts === 1 ? ' holds' : ' hold') + (claims.length ? ', and ' + plural(claims.length, 'claim') + (claims.length === 1 ? ' follows from the premises its proof uses.' : ' follow from the premises their proofs use.') : '.') +
@@ -1296,9 +1296,9 @@ function leanSection(run, stale) {
     row.append(chip, ' Lean grades it ' + claim.grade + ', but StatClaim\'s contract check grades it ' + claim.python + '. This disagreement is a defect; please report it.');
     section.append(row);
   }
-  for (const [name, theorem] of Object.entries(result.refuted || {})) {
+  for (const name of Object.keys(result.refuted || {})) {
     const row = el('p', 'results-note');
-    row.append(el('code', '', name), ' Lean proves its design supplies no sampling law (' + theorem + '), so nothing is claimed.');
+    row.append(el('code', '', name), ' The stopping rule supplies no sampling law for this claim.');
     section.append(row);
   }
   const left = Object.entries(result.not_translated || {}).filter(([name]) => !(name in (result.refuted || {})));

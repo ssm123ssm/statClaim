@@ -22,6 +22,8 @@ noncomputable def Instance.trivial : Instance where
   studies := fun _ => { Parameter := Unit, Outcome := Unit, model := ObservationalModel.trivial }
   test := fun _ _ => TestInterface.neverRejects _
   studyTest := fun _ _ => TestInterface.neverRejects _
+  member := fun _ => ⟨⟨Unit, Unit, TwoArmModel.trivial⟩, fun _ => False,
+    TestInterface.neverRejects _⟩
   slack := fun _ => 0
   graph := fun _ _ _ _ _ _ _ _ _ => ∅
 
@@ -40,6 +42,8 @@ theorem Premise.trivial_holds (q : Premise) : q.Holds Instance.trivial := by
   | level name method model null alpha =>
     exact neverRejects_meets_level _ _ _ _ alpha.nonnegative
   | association name method study alpha =>
+    exact neverRejects_meets_level _ _ _ _ alpha.nonnegative
+  | member name alpha =>
     exact neverRejects_meets_level _ _ _ _ alpha.nonnegative
   | graph name members alpha =>
     refine ⟨?_, ?_⟩
@@ -63,7 +67,7 @@ theorem Program.satisfiable (p : Program) (r : ℕ) :
 /-- A request about a design that stops by a rule depending on the data is refuted: it
 claims `False`, and its premises can all hold. -/
 theorem Program.refuted (p : Program) (r : ℕ)
-    (stops : (p.requests[r]?.map fun q => q.test.fixed) = some false) : ¬ p.Claim r := by
+    (stops : (p.requests[r]?.map Request.fixed) = some false) : ¬ p.Claim r := by
   intro claim
   have holds := claim Instance.trivial (Program.satisfiable p r)
   unfold Program.claimAt at holds
@@ -71,7 +75,7 @@ theorem Program.refuted (p : Program) (r : ℕ)
   | none => rw [found] at stops; cases stops
   | some q =>
     rw [found] at stops holds
-    have fixed : q.test.fixed = false := Option.some.inj stops
+    have fixed : q.fixed = false := Option.some.inj stops
     change q.Holds Instance.trivial at holds
     unfold Request.Holds at holds
     rw [fixed] at holds

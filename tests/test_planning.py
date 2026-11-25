@@ -28,8 +28,6 @@ from statclaim.planning import (
     margin_rejection_probability,
     parse_interval_payload,
     parse_result_payload,
-    render_margin_proof,
-    render_planning_proof,
     result_payload,
     search_equal_arms,
     search_one_sample,
@@ -100,11 +98,6 @@ def test_error_under_the_null_respects_alpha():
 def test_plans_that_cannot_hold_are_refused():
     with pytest.raises(ValueError):
         PowerPlan(Design(36, 36, "fixed", ALPHA), RATES[0], RATES[0], Fraction(4, 5), ALPHA)
-    with pytest.raises(ValueError):
-        render_planning_proof(
-            PowerPlan(Design(36, 36, "fixed", ALPHA), *RATES, Fraction(4, 5), Fraction(1, 100)),
-            "0" * 64,
-        )
 
 
 def simon(**changes) -> TwoStagePlan:
@@ -345,9 +338,7 @@ def test_cuts_reproduce_the_reference_rejection_region():
 
 def test_a_minimal_search_proves_no_smaller_candidate():
     plan, _ = search_equal_arms(ALPHA, *RATES, Fraction(4, 5), ALPHA, 2, 40, True)
-    assert "checked_smaller" in render_planning_proof(plan, "0" * 64)
     sufficient, _ = search_equal_arms(ALPHA, *RATES, Fraction(4, 5), ALPHA, 2, 40)
-    assert "checked_smaller" not in render_planning_proof(sufficient, "0" * 64)
     one, _ = search_one_sample(one_sample(), 10, 60, True)
     assert one.minimal
 
@@ -418,7 +409,6 @@ def test_unequal_allocation_search():
     # Every smaller candidate was evaluated and falls short.
     for controls in range(10, 26):
         assert fisher_rejection_probability(controls, 2 * controls, ALPHA, *RATES) < Fraction(4, 5)
-    assert "⟨n, 2 * n," in render_planning_proof(plan, "0" * 64)
     with pytest.raises(ValueError):
         PowerPlan(
             Design(26, 26, "fixed", ALPHA),
@@ -598,8 +588,6 @@ def test_one_sided_language_contract_and_planning(tmp_path):
         Fraction(1, 40), *RATES, Fraction(4, 5), Fraction(1, 40), 20, 60, True, 1, "greater"
     )
     assert plan.design.n_control == 36 and plan.design.alternative == "greater"
-    proof = render_planning_proof(plan, "0" * 64)
-    assert "FisherOneSided.typeI_of_hints" in proof and "checked_sections" in proof
 
     values = run(
         ONE_SIDED
@@ -651,19 +639,6 @@ def test_margin_test_error_is_bounded_over_the_null():
     assert test.cells[-1] == 1000 and list(test.cells) == sorted(set(test.cells))
 
 
-def test_the_margin_proof_carries_the_test():
-    test = MarginTest(
-        30, 30, Fraction(-1, 10), Fraction(1, 40),
-        Fraction(4, 5), Fraction(4, 5), Fraction(1, 10), Fraction(1, 40), (24, 26),
-    )  # fmt: skip
-    proof = render_margin_proof(test, "0" * 64)
-    assert "typeI_of_cells" in proof and "checked_decision" in proof and "checked_power" in proof
-    # A more liberal threshold list no longer satisfies the cell bounds.
-    with pytest.raises(ValueError):
-        MarginTest(30, 30, Fraction(-1, 10), Fraction(1, 40), Fraction(1, 2), Fraction(2, 5),
-                   Fraction(1, 2), Fraction(1, 40))  # fmt: skip
-
-
 def test_margin_language(tmp_path):
     assert compiled(MARGIN).status == "elaborated"
     for text, code in (
@@ -693,3 +668,10 @@ def test_margin_language(tmp_path):
     )["values"]
     assert values["decision"] in ("reject_null", "do_not_reject_null")
     assert 20 <= values["size"] <= 60
+
+
+def test_invalid_margin_cell_bound_is_rejected():
+    # A more liberal threshold list no longer satisfies the cell bounds.
+    with pytest.raises(ValueError):
+        MarginTest(30, 30, Fraction(-1, 10), Fraction(1, 40), Fraction(1, 2), Fraction(2, 5),
+                   Fraction(1, 2), Fraction(1, 40))  # fmt: skip

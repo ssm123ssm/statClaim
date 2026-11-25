@@ -19,7 +19,6 @@ from statclaim.lean_translation.data import (
     binding_problem,
     declarations,
     program_data,
-    ready,
     report,
     verify_claims,
 )
@@ -45,20 +44,35 @@ def test_every_program_is_written_as_data_or_says_why_not():
     assert all(reason.endswith(".") for reason in outside)
     for _, program, data in found.values():
         assert data.startswith("def program : StatClaim.Semantics.Program")
-        requests = re.findall(r"^  \.(typeI|familywise) ", data, re.MULTILINE)
+        requests = re.findall(
+            r"^  \.(typeI|familywise|result|checkedResult|interval|planned) ", data, re.MULTILINE
+        )
         assert len(requests) == len(verify_claims(program))
 
 
-def test_todays_translation_of_every_covered_program_can_be_restated():
-    """The agreement check needs each abstract part and premise of today's translation
-    traced to a model, test or graph of the canonical program."""
+def test_frozen_claims_have_pinned_sources():
     checker = semantics_checker()
-    found, _ = checker.covered()
-    for path, program, _ in found.values():
-        text = checker.agreement(path, program)
-        assert text.startswith("namespace Old")
-        stated = any(ready(claim) for claim in verify_claims(program))
-        assert ("Old.Claims i ↔" in text) == stated
+    frozen = checker.fixtures()
+    assert len(frozen) >= 80
+    for name, (text, statement) in frozen.items():
+        assert "Old.Claims i ↔" in statement
+        assert compile_source(Source(text, name)).status != "invalid"
+
+
+def test_reference_statements_cover_every_request_and_test_constructor():
+    syntax = (ROOT / "StatClaim/Semantics/Syntax.lean").read_text()
+    reference = (ROOT / "tests/lean/SemanticsReference.lean").read_text()
+    for type_name in ("Request", "Test"):
+        body = syntax.split(f"inductive {type_name} where\n", 1)[1].split("\n\n", 1)[0]
+        constructors = re.findall(r"^  \| (\w+)", body, flags=re.M)
+        assert constructors
+        missing = [
+            name
+            for name in constructors
+            if not re.search(rf"\b{type_name}\.{name}\b", reference)
+            and not re.search(rf"\(\.{name} ", reference)
+        ]
+        assert not missing, (type_name, missing)
 
 
 def test_the_writer_refuses_what_it_does_not_read():
@@ -71,7 +85,7 @@ def test_the_writer_refuses_what_it_does_not_read():
         return copied
 
     def one_sided(subject):
-        subject["analyses"][0]["analysis"]["alternative"] = "greater"
+        subject["analyses"][0]["analysis"]["alternative"] = "unknown"
 
     def unknown_model_field(subject):
         subject["analyses"][1]["analysis"]["design"]["model"]["visits"] = 3

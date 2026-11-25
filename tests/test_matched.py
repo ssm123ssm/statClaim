@@ -27,9 +27,6 @@ from statclaim.matched import (
     parse_interval_payload,
     parse_matched_payload,
     parse_result_payload,
-    render_interval_proof,
-    render_matched_proof,
-    render_result_proof,
     result_assumptions,
     result_payload,
     tails,
@@ -185,28 +182,21 @@ def test_payloads_round_trip_and_reject_tampering():
             parse(changed)
 
 
-def test_proofs_and_assumptions():
-    assert "Matched.typeI" in render_matched_proof(TEST_OBJECT, "a" * 64)
+def test_the_lesson_and_example_compile():
+    for name in ("examples/tutorial/25_matched_pairs.stat", "examples/matched_case_control.stat"):
+        path = ROOT / name
+        compilation = compile_source(Source(path.read_text(), str(path)))
+        assert compilation.status == "elaborated", (name, compilation.diagnostics)
+
+
+def test_assumptions():
     result = MatchedResult(TEST_OBJECT, OBSERVED)
-    proof = render_result_proof(result, "a" * 64)
     upper, lower = tails(50, 35)
-    assert f"= {upper} ∧" in proof and "↔ True" in proof
     interval = MatchedInterval(NO_CONTROL, Fraction(19, 20))
     assert interval.bounds[1] is None and interval.estimate is None
-    assert (
-        "∧"
-        not in render_interval_proof(interval, "a" * 64).split("checked_interval")[1].split(":=")[0]
-    )
     for texts in (
         matched_assumptions(),
         result_assumptions(result),
         interval_assumptions(interval),
     ):
         assert all(identify(text)["id"] for text in texts)
-
-
-def test_the_lesson_and_example_compile():
-    for name in ("examples/tutorial/25_matched_pairs.stat", "examples/matched_case_control.stat"):
-        path = ROOT / name
-        compilation = compile_source(Source(path.read_text(), str(path)))
-        assert compilation.status == "elaborated", (name, compilation.diagnostics)

@@ -22,9 +22,7 @@ from statclaim.fisher import (
     parse_alpha,
     validate_alpha,
 )
-from statclaim.lean_translation import statements as S
-from statclaim.lean_translation.statements import CERTIFICATE as C
-from statclaim.planning import MAX_ONE_ARM, DifferenceInterval, _audit
+from statclaim.planning import MAX_ONE_ARM, DifferenceInterval
 from statclaim.randomisation import PRESPECIFIED
 
 RESULT_KIND = "statclaim_association_result_certificate"
@@ -91,8 +89,6 @@ NOT_CAUSAL = (
     "The bound concerns association, not an effect of the exposure: exposure was not "
     "assigned, so confounding is not excluded."
 )
-GROUP_THEOREMS = ["checked_sizes", "checked_typeI"]
-MIXTURE_THEOREMS = ["checked_size", "checked_law", "checked_typeI"]
 GROUP_THEOREM = "StatClaim.Modules.Association.groups_typeI_le_alpha"
 MIXTURE_THEOREM = "StatClaim.Modules.Association.mixture_typeI_le_alpha"
 
@@ -209,14 +205,6 @@ def association_assumptions(test: AssociationTest) -> tuple[str, ...]:
     return (sampled, INDEPENDENT_OUTCOMES, PRESPECIFIED, null)
 
 
-def association_theorems(test: AssociationTest) -> list[str]:
-    return GROUP_THEOREMS if test.fixed_groups else MIXTURE_THEOREMS
-
-
-def general_theorem(test: AssociationTest) -> str:
-    return GROUP_THEOREM if test.fixed_groups else MIXTURE_THEOREM
-
-
 def null_words(test: AssociationTest) -> str:
     exposure, outcome = test.exposure, test.outcome
     if test.design == "case_control":
@@ -252,56 +240,6 @@ def association_claims(test: AssociationTest) -> list[str]:
         f"{null_words(test)}, for every probability of exposure and every common probability "
         f"of {outcome} in [0, 1].",
     ]
-
-
-def render_association_proof(test: AssociationTest, input_sha256: str) -> str:
-    """Only validated integers and one rational level enter the template; the exposure and
-    outcome names never do."""
-    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
-        raise ValueError("Expected a SHA-256 input identifier.")
-    numerator, denominator = test.alpha.as_integer_ratio()
-    header = f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical input SHA-256: {input_sha256}
--- An observational {test.design.replace("_", "-")} study. The theorem covers every probability
--- under no association; nothing here depends on observed data.
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-def declaredLevel : SignificanceLevel :=
-  ⟨({numerator} : ℚ) / {denominator}, by norm_num, by norm_num⟩
-"""
-    if test.groups is not None:
-        first, second = test.groups
-        body = f"""
--- The two groups the design fixes: (unexposed, exposed) or (controls, cases).
-def firstGroup : ℕ := {first}
-def secondGroup : ℕ := {second}
-
-{S.groups_sizes("firstGroup", "secondGroup", (first, second)).header()} := by decide
-
-{S.groups_typeI(C, "firstGroup", "secondGroup", "declaredLevel.value").header()} :=
-  Association.groups_typeI_le_alpha firstGroup secondGroup p declaredLevel.value
-    declaredLevel.nonnegative
-"""
-    else:
-        body = f"""
--- Only the total is fixed; the number exposed is binomial.
-def sampleSize : ℕ := {test.n}
-
-{S.total_size("sampleSize", test.n).header()} := by decide
-
-{S.mixture_law(C, "sampleSize").header()} :=
-  Association.mixtureLaw_univ sampleSize q p
-
-{S.mixture_typeI(C, "sampleSize", "declaredLevel.value").header()} :=
-  Association.mixture_typeI_le_alpha sampleSize q p declaredLevel.value
-    declaredLevel.nonnegative
-"""
-    return f"""{header}{body}
-end StatClaimCertificate
-{_audit(association_theorems(test), input_sha256)}"""
 
 
 # Observed tables -------------------------------------------------------------------------
@@ -509,66 +447,6 @@ def result_assumptions(result: AssociationResult) -> tuple[str, ...]:
 
 
 TABLE_MATCHES = "The supplied table describes the declared study."
-RESULT_THEOREMS = ["checked_p_value", "checked_table_probability", "checked_decision"]
-
-
-def _result_checks(result: AssociationResult) -> str:
-    fisher = result.fisher
-    first, second, x, y = result.table.conditional
-    total = x + y
-    numerator, denominator = fisher.p_value.as_integer_ratio()
-    table_num, table_den = fisher.observed_table_probability.as_integer_ratio()
-    an, ad = result.test.alpha.as_integer_ratio()
-    truth = "True" if fisher.reject_null else "False"
-    if result.table.fixed_groups:
-        table = f"({x}, {y})"
-        region = f"fisherRejectionRegionAt {first} {second} (({an} : ℚ) / {ad})"
-        unfold = ""
-    else:
-        k = result.table.exposed
-        table = f"({k}, ({x}, {y}))"
-        region = f"Association.mixtureRejection sampleSize (({an} : ℚ) / {ad})"
-        unfold = (
-            "  simp only [Association.mixtureRejection, Association.given, Set.mem_setOf_eq,\n"
-            "    sampleSize, Finset.mem_coe]\n"
-            f"  rw [show {result.table.n} - {k} = {first} from rfl]\n"
-            f"  refine (and_iff_right (by decide : {k} ≤ {result.table.n})).trans ?_\n"
-        )
-    return f"""
--- The observed table: {x} of {first} and {y} of {second}, given its margins.
-{S.p_value(C, first, second, total, x, (numerator, denominator)).header()} := by
-  apply hypergeometricPValue_eq_of_cross_product {first} {second} {total} {x}
-    {numerator} {denominator} (by decide) (by decide)
-  decide +kernel
-
-{S.table_probability(C, first, second, total, x, (table_num, table_den)).header()} := by
-  apply hypergeometricMass_eq_of_cross_product {first} {second} {total} {x}
-    {table_num} {table_den} (by decide) (by decide)
-  decide +kernel
-
-{S.association_decision(C, table, region, truth).header()} := by
-{unfold}  simp only [fisherRejectionRegionAt, Finset.mem_filter, binomialCountSupport,
-    Finset.mem_product, Finset.mem_range]
-  rw [checked_p_value]
-  norm_num
-"""
-
-
-def render_result_proof(result: AssociationResult, input_sha256: str) -> str:
-    """The design's Type I theorem and the checked p-value and decision for the table."""
-    design = render_association_proof(result.test, input_sha256)
-    head, _, _ = design.partition("\nend StatClaimCertificate")
-    theorems = association_theorems(result.test) + RESULT_THEOREMS
-    return (
-        head.replace(
-            "namespace StatClaimCertificate",
-            "set_option maxRecDepth 8192\n"
-            "set_option maxHeartbeats 2000000\n\nnamespace StatClaimCertificate",
-            1,
-        )
-        + _result_checks(result)
-        + f"\nend StatClaimCertificate\n{_audit(theorems, input_sha256)}"
-    )
 
 
 # Effect measures -------------------------------------------------------------------------
@@ -587,7 +465,6 @@ ODDS_IDENTITY = (
     "cases and controls are sampled without regard to exposure."
 )
 INTERVAL_LEVEL = "The confidence level was chosen before the data were seen."
-INTERVAL_THEOREMS = ["checked_coverage", "checked_interval"]
 
 
 def not_estimable(measure: str, design: str) -> str | None:
@@ -771,87 +648,3 @@ def interval_assumptions(interval: EffectInterval) -> tuple[str, ...]:
 
 
 NULLS = {COHORT_NULL, CASE_CONTROL_NULL, CROSS_SECTIONAL_NULL}
-
-
-def render_interval_proof(interval: EffectInterval, input_sha256: str) -> str:
-    """Coverage is a general theorem; the endpoints for this table are kernel checked."""
-    if not re.fullmatch(r"[0-9a-f]{64}", input_sha256):
-        raise ValueError("Expected a SHA-256 input identifier.")
-    groups = interval.groups
-    first, second, x, y = interval.table.conditional
-    an, ad = groups.control.tail_level.as_integer_ratio()
-    ln, ld = interval.level.as_integer_ratio()
-    tail = f"((({an} : ℕ) : ℝ) / (({ad} : ℕ) : ℝ))"
-    ends, checks = [], []
-    for arm in (groups.control, groups.treatment):
-        (lower_n, lower_d), (upper_n, upper_d) = (
-            arm.lower.as_integer_ratio(),
-            arm.upper.as_integer_ratio(),
-        )
-        ends.append((lower_n, lower_d, upper_n, upper_d))
-        checks.append("(Or.inl rfl)" if lower_n == 0 else "(Or.inr (by decide +kernel))")
-        checks.append("(Or.inl rfl)" if upper_n == upper_d else "(Or.inr (by decide +kernel))")
-    (cln, cld, cun, cud), (tln, tld, tun, tud) = ends
-    endpoints = " ".join(
-        f"{num} {den} (by decide) (by decide)"
-        for num, den in ((cln, cld), (cun, cud), (tln, tld), (tun, tud))
-    )
-    arguments = (
-        f"{first} {second} {x} {y} {an} {ad} (by decide)\n    {endpoints}\n    {' '.join(checks)}"
-    )
-    if interval.table.fixed_groups:
-        joint = S.joint_coverage(C, (ln, ld), first, second, tail, ("a", "b"))
-        coverage = f"""{joint.header()} := by
-  have joint := BinomialInterval.joint_coverage {first} {second} {tail} (by positivity)
-    (by norm_num) pc pt
-  exact le_trans (by norm_num) joint"""
-    else:
-        n = interval.table.n
-        coverage = f"""def sampleSize : ℕ := {n}
-
-{S.mixture_coverage(C, (ln, ld), "sampleSize", tail).header()} := by
-  have joint := Association.mixture_joint_coverage sampleSize {tail} (by positivity)
-    (by norm_num) q pc pt
-  exact le_trans (by norm_num) joint"""
-    # The statement is in statements.py; here, its proof.
-    arms = S.two_arms(C, first, second, x, y, tail)
-    claimed = S.effect_interval(C, interval.kind, arms, ends[0], ends[1])
-    if interval.kind == "difference":
-        body = f"  exact BinomialInterval.difference_contains {arguments} pc pt control treatment"
-    elif interval.kind == "ratio":
-        bound = f"Association.ratio_contains {arguments} pc pt control treatment positive"
-        if cln > 0:
-            body = f"  have bound := {bound}\n  exact ⟨bound.1, bound.2 (by decide)⟩"
-        else:
-            body = f"  exact ({bound}).1"
-    else:
-        bound = (
-            f"Association.odds_ratio_contains {arguments} pc pt control treatment positive "
-            "below treatedBelow"
-        )
-        lower_proof = "bound.2.1 (by decide)" if cun < cud else "bound.1"
-        if cln > 0 and tun < tud:
-            body = (
-                f"  have bound := {bound}\n"
-                f"  exact ⟨{lower_proof}, bound.2.2 (by decide) (by decide)⟩"
-            )
-        else:
-            body = f"  have bound := {bound}\n  exact {lower_proof}"
-    return f"""import StatClaim
-import Lean.Util.CollectAxioms
-
--- Canonical interval SHA-256: {input_sha256}
--- Coverage is a general theorem; the endpoints for this table are confirmed by the kernel.
-set_option maxRecDepth 8192
-set_option maxHeartbeats 2000000
-
-namespace StatClaimCertificate
-open StatClaim StatClaim.Modules
-
-{coverage}
-
-{claimed.header()} := by
-{body}
-
-end StatClaimCertificate
-{_audit(INTERVAL_THEOREMS, input_sha256)}"""

@@ -43,8 +43,8 @@ def Program.grade (p : Program) (r : ℕ) : Grade :=
   match p.requests[r]? with
   | none => .cited
   | some q =>
-    match q.test.premises.find? (fun premise => premise.name == q.test.name) with
+    match q.premises.find? (fun premise => some premise.name == q.test.map Test.name) with
     | some own => if own.declared then .declared else .cited
-    | none => if q.test.premises.isEmpty then .proved else .conditional
+    | none => if q.premises.isEmpty then .proved else .conditional
 
 end StatClaim.Semantics
