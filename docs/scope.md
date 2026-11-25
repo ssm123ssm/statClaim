@@ -73,6 +73,12 @@ What is supported:
 - **Interim looks.** One test at several prespecified looks, with the error
   level split across them. Lean checks the split; each look's own bound is
   assumed. The split is conservative and ignores the correlation between looks.
+- **Spending boundaries, cited.** O'Brien-Fleming or Pocock boundaries that use the
+  correlation between looks, for Fisher's test and the t-tests. StatClaim computes
+  them and checks each look's level against its boundary; the rule is cited, with a
+  large-sample guarantee. Lean checks one question at growing sizes.
+- **Look sizes.** Every look's size searched freely by a minimax or optimal
+  criterion: exact for Fisher's test, simulated for t-tests. A calculation.
 - **Mixed families.** Bonferroni over any of the exact two-arm tests and cited tests.
   Lean checks that the levels fit the budget and that the union bound gives the
   family bound. Each member's own bound is a hypothesis of that theorem.

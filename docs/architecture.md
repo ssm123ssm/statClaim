@@ -67,7 +67,9 @@ the work:
 - `cited_planning.py`, `association_planning.py`: formula or exact power for cited
   tests, from `methods/power.py` and `methods/association_power.py`.
 - `precision.py`, `precision_planning.py`: margins of error and assurance.
-- `looks_planning.py`: exact power of Fisher's test at interim looks.
+- `looks_planning.py`: exact power of Fisher's test at interim looks, and searches over
+  the looks' sizes (`look_search.py` lists the candidates).
+- `methods/boundaries.py`: spending boundaries under the canonical joint distribution.
 - `simulation.py` (the seeded engine), `methods/simulation.py` (the models) and
   `simulated_planning.py`: power and Type I error by simulation.
 
