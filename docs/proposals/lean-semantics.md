@@ -297,7 +297,7 @@ procedures and their nesting, including the whole COPD plan.
 **Phase 2: exact claims.** This covers the Type I claims of the other exact
 tests, results, intervals and planning claims, which are today the job of
 `exact.py` and `statements.py`. It waits for a common Lean interface for exact
-modules, proposed separately. With that interface, one function
+modules, proposed separately ([phase 2](lean-semantics-phase2.md)). With that interface, one function
 states every exact claim. Without it, phase 2 would copy `statements.py` into
 Lean case by case.
 
