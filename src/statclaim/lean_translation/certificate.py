@@ -106,7 +106,11 @@ def proof(inputs: dict, input_sha256: str) -> str:
         raise ValueError("Expected a SHA-256 input identifier.")
     written = semantic(inputs)
     _, hints = material(checked(inputs), Path.cwd())
-    theorems = ["contracts", *(f"claim_{index}" for index, _ in listed_requests(inputs))]
+    theorems = [
+        "contracts",
+        "canonical",
+        *(f"claim_{index}" for index, _ in listed_requests(inputs)),
+    ]
     names = ",\n    ".join(f"``{NAMESPACE}.{name}" for name in theorems)
     return "\n".join(
         [
@@ -221,8 +225,10 @@ def semantic_premises(inputs: dict) -> list[str]:
 
 def trusted_statement(inputs: dict) -> str:
     return (
-        "The reviewed StatClaim/Semantics definitions and the check that the encoded "
-        "program and reported values match these inputs."
+        "The reviewed StatClaim/Semantics definitions, Lean's JSON printer, and the check "
+        "that the printed program and reported values match these inputs; "
+        f"{data.SEMANTICS}.Program.form_injective proves that the printed form determines "
+        "the program."
     )
 
 
@@ -240,8 +246,13 @@ def profile(inputs: dict) -> dict:
         ],
         "assumptions": semantic_premises(inputs),
         "scope": "The bound program and reported values, under the listed mathematical premises.",
-        "theorems": [f"{NAMESPACE}.contracts", *(claim["theorem"] for claim in listed)],
+        "theorems": [
+            f"{NAMESPACE}.contracts",
+            f"{NAMESPACE}.canonical",
+            *(claim["theorem"] for claim in listed),
+        ],
         "general_theorem": f"{data.SEMANTICS}.Program.sound",
+        "binding_theorem": f"{data.SEMANTICS}.Program.form_injective",
     }
 
 
@@ -267,7 +278,7 @@ def summary(inputs: dict) -> dict:
         "claims": claims(inputs),
         "contract_facts": [e["name"] for e in declared],
         "premises": semantic_premises(inputs),
-        "not_translated": {
+        "outside_lean": {
             entry["name"]: outside.reason
             for entry in inputs["program"]["bindings"]
             if entry["type"] == "ReestimationIR"

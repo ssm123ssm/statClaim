@@ -25,6 +25,7 @@ dependencies = []
 Repository = "https://github.com/ssm123ssm/statClaim"
 Issues = "https://github.com/ssm123ssm/statClaim/issues"
 Documentation = "https://github.com/ssm123ssm/statClaim/tree/main/docs"
+Paper = "https://arxiv.org/abs/2611.30021"
 
 [project.scripts]
 statclaim = "statclaim.cli:main"

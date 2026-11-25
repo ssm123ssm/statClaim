@@ -119,7 +119,7 @@ def test_the_report_says_what_lean_checked_or_why_not():
                 "python": "conditional",
             }
         ],
-        "not_translated": {"request_2": "Not yet."},
+        "outside_lean": {"request_2": "Not yet."},
         "refuted": {},
     }
     text = "\n".join(lean_markdown(checked))

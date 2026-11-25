@@ -43,8 +43,11 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   `StatClaim/Semantics/` defines each program's claims, premises, grades and
   contracts as functions of the encoded program; exact tests, results, intervals
   and plans share one interface (`Exact.lean`). `Program.sound` proves the claims
-  after the kernel checks the contracts and hints. The corpus check compares Lean's
-  encoded input with the canonical program and checks agreement with frozen
+  after the kernel checks the contracts and hints. `Encode.lean` prints the data as
+  a form whose objects list their keys in order, and `Injective.lean` proves that
+  two programs in canonical form (`Program.Canonical`, decided in every build) never
+  print the same form. The corpus check compares Lean's printed form with the
+  canonical program and checks agreement with frozen
   statements written by the retired translator; `tests/lean/SemanticsReference.lean`
   states one example of each kind of claim and test independently. The rejection
   table asks Lean about programs Python rejects or leaves unresolved. All run with

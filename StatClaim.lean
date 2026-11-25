@@ -30,16 +30,15 @@ public import StatClaim.Modules.AssociationPower
 public import StatClaim.Modules.BinomialPower
 public import StatClaim.Interface.Outcomes
 public import StatClaim.Interface.Premises
-public import StatClaim.Interface.Program
 public import StatClaim.Generated.Methods
 public import StatClaim.Interface.Families
-public import StatClaim.Interface.Tactic
 public import StatClaim.Semantics.Syntax
 public import StatClaim.Semantics.Exact
 public import StatClaim.Semantics.Results
 public import StatClaim.Semantics.Intervals
 public import StatClaim.Semantics.Plans
 public import StatClaim.Semantics.Encode
+public import StatClaim.Semantics.Injective
 public import StatClaim.Semantics.Meaning
 public import StatClaim.Semantics.Contracts
 public import StatClaim.Semantics.Grades

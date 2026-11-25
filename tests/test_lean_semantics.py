@@ -4,6 +4,7 @@ docs/proposals/lean-semantics.md."""
 import copy
 import importlib.util
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -14,12 +15,14 @@ import pytest
 from statclaim.language_compiler import compile_source
 from statclaim.lean_translation.certificate import Source
 from statclaim.lean_translation.data import (
+    CANONICAL,
     MARKER,
     Outside,
     binding_problem,
     declarations,
     program_data,
     report,
+    same_json,
     verify_claims,
 )
 
@@ -153,6 +156,19 @@ def test_binding_compares_the_printed_form_with_the_canonical_claims():
         report("a{b}")
 
 
+def test_binding_compares_json_values_with_their_types():
+    assert same_json({"a": [True, "1/20"], "b": 2}, {"b": 2, "a": [True, "1/20"]})
+    assert not same_json({"reject_null": True}, {"reject_null": 1})
+    assert not same_json({"n": 1}, {"n": "1"})
+
+
+def test_the_writer_gives_every_probability_in_lowest_terms():
+    data = program_data(canonical("examples/observational_power.stat"))
+    fractions = re.findall(r"⟨(\d+), (\d+), by decide, by decide, by decide⟩", data)
+    assert fractions
+    assert all(math.gcd(int(num), int(den)) == 1 for num, den in fractions)
+
+
 @pytest.mark.lean
 @pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
 def test_lean_prints_the_canonical_program_and_catches_a_writer_mistake(tmp_path):
@@ -175,3 +191,22 @@ def test_lean_prints_the_canonical_program_and_catches_a_writer_mistake(tmp_path
         outputs.append(run.stdout + run.stderr)
     assert binding_problem(outputs[0], name, program) is None
     assert binding_problem(outputs[1], name, program) is not None
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_lean_refuses_data_outside_canonical_form(tmp_path):
+    name = "examples/randomisation_family.stat"
+    data = program_data(canonical(name))
+    # A writer that forgot that a conditional family assumes its exact members.
+    unwrapped = data.replace(".member (", "(", 1)
+    assert unwrapped != data
+    for index, (text, accepted) in enumerate(((data, True), (unwrapped, False))):
+        file = tmp_path / f"Canonical{index}.lean"
+        file.write_text(
+            f"import StatClaim\n\nnamespace C{index}\n\n{text}\n{CANONICAL}\nend C{index}\n"
+        )
+        run = subprocess.run(
+            ["lake", "env", "lean", str(file)], cwd=ROOT, capture_output=True, text=True
+        )
+        assert (run.returncode == 0) == accepted, run.stdout + run.stderr

@@ -8,7 +8,8 @@ public import StatClaim.Interface.Premises
 A compiled program as Lean data: its models, designs, nulls, tests and requested
 claims, field for field as in the canonical program a certificate binds. A key the
 canonical program writes only when it is declared is an `Option` or a list here, so
-two different programs never have the same canonical form (`Encode`).
+two different programs in canonical form never have the same canonical form
+(`Injective.lean`).
 
 Tests are identified by name, and models by everything they declare, as the Python
 compiler identifies them.
@@ -139,12 +140,14 @@ def ExactKind.key : ExactKind → String
   | .fisherOneSided => "fisher_one_sided"
   | .margin .. => "difference_test"
 
-/-- A probability represented by the natural numbers used in the kernel checks. -/
+/-- A probability represented by the natural numbers used in the kernel checks, in
+lowest terms, so its value determines it. -/
 structure ProbabilityFraction where
   num : ℕ
   den : ℕ
   bounded : num ≤ den
   positive : 0 < den
+  reduced : Nat.Coprime num den
   deriving DecidableEq
 
 def ProbabilityFraction.value (p : ProbabilityFraction) : ℚ := (p.num : ℚ) / p.den

@@ -1301,7 +1301,7 @@ function leanSection(run, stale) {
     row.append(el('code', '', name), ' The stopping rule supplies no sampling law for this claim.');
     section.append(row);
   }
-  const left = Object.entries(result.not_translated || {}).filter(([name]) => !(name in (result.refuted || {})));
+  const left = Object.entries(result.outside_lean || {}).filter(([name]) => !(name in (result.refuted || {})));
   if (left.length) {
     const more = disclosure(plural(left.length, 'part') + ' not in Lean yet');
     const items = el('ul');

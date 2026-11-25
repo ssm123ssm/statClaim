@@ -95,6 +95,9 @@
   grades and contracts, and Lean decides the contracts and proves every claim with one
   soundness theorem. Exact tests, results, intervals and plans share one interface,
   and the Python translator that stated claims before is retired.
+- The printed form determines the program: Lean proves that two programs in canonical
+  form never print the same form, and every build decides that its program is in
+  canonical form, so the encoding into Lean data is no longer trusted.
 - Power and sample sizes for every cited observational test: logistic, modified
   Poisson, conditional logistic and Poisson regressions, Spearman's correlation, linear
   regression on a yes-or-no exposure, and the survey tests through the design effect.

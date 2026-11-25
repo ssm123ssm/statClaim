@@ -395,6 +395,8 @@ definition there is as bad as a wrong line of `denote.py`. What improves:
   would accept the wrong one. Prove the encoder injective for phase 1's types;
   where a proof is impractical, test the round trip on the corpus and on
   generated programs, and list the encoder as trusted.
+  Done after phase 2: `Program.form_injective` (`Injective.lean`) proves it for
+  every program in canonical form, which each build decides.
 - **Scope.** The compiler has 97 kinds of typed object. The semantics covers
   only the fragment above, and `table.py` keeps saying what is not in Lean.
 

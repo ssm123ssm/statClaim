@@ -1247,7 +1247,7 @@ test('a run shows what its one Lean build of the whole study checked', async t =
   const lean = {
     status: 'checked', certificate_id: 'a'.repeat(64), certificate_directory: '/tmp/run/lean',
     contract_facts: ['analysis_null', 'analysis_contract'], premises: [], refuted: {}, omitted: [],
-    not_translated: {request_2: 'result claims of this kind are not translated yet.'},
+    outside_lean: {request_2: 'result claims of this kind are not in Lean yet.'},
     claims: [{claim: 'typeI(analysis)', name: 'verification', theorem: 'StatClaimProgram.verification_claim',
       request_id: 1, grade: 'proved', python: 'proved', premise: null, source}],
   };

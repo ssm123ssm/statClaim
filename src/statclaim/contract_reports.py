@@ -352,7 +352,7 @@ def lean_markdown(lean: dict) -> list[str]:
             for claim in lean["unproved"]
         ]
         lines.append("")
-    others = {k: v for k, v in lean["not_translated"].items() if k not in lean["refuted"]}
+    others = {k: v for k, v in lean["outside_lean"].items() if k not in lean["refuted"]}
     if others:
         lines += ["Outside Lean", ""]
         lines += [f"- `{name}`: {reason}" for name, reason in others.items()]

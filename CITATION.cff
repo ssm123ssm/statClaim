@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use StatClaim, please cite this repository and the exact commit or release."
+message: "If you use StatClaim, please cite the preprint and the exact commit or release of the software."
 title: StatClaim
 type: software
 authors:
@@ -8,3 +8,19 @@ authors:
 license: MIT
 repository-code: "https://github.com/ssm123ssm/statClaim"
 url: "https://github.com/ssm123ssm/statClaim"
+preferred-citation:
+  type: article
+  title: "StatClaim: Study Designs as Types, Protocols as Programs and Statistical Claims as Proof Obligations"
+  authors:
+    - family-names: Manathunga
+      given-names: Supun
+  year: 2026
+  month: 11
+  journal: "arXiv preprint"
+  identifiers:
+    - type: other
+      value: "arXiv:2611.30021"
+      description: "arXiv identifier"
+    - type: doi
+      value: "10.48550/arXiv.2611.30021"
+  url: "https://arxiv.org/abs/2611.30021"

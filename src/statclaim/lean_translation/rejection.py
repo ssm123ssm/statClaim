@@ -110,7 +110,8 @@ def questions(program: dict, label: str) -> str:
     depending on the data; and the data's canonical form."""
     lines = [
         data.program_data(program),
-        "theorem contracts : program.Contracts := by decide +kernel",
+        data.CONTRACTS,
+        data.CANONICAL,
     ]
     for index, claim in enumerate(data.verify_claims(program)):
         if data.fixed(claim["subject"]):

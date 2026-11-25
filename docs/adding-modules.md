@@ -15,7 +15,8 @@ A method whose guarantee Lean cannot prove yet is added as a
 3. Publish fields through `language_fields.py`. Keep compilation pure: no Lean,
    calculations, filesystem writes or evidence generation while editing.
 4. For claims Lean proves, give the object its meaning in `StatClaim/Semantics/`:
-   a constructor in `Syntax.lean` with its encoding in `Encode.lean`, its
+   a constructor in `Syntax.lean` with its encoding in `Encode.lean` (keys in
+   increasing order, and its case in `Injective.lean`), its
    contracts in `Contracts.lean`, and its meaning in `Meaning.lean`, or through
    an `ExactModule` (`Exact.lean`) for an exact test, with result, interval and
    planning checks where they apply (`Results.lean`, `Intervals.lean`,

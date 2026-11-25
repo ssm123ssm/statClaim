@@ -81,9 +81,11 @@ Certificates of the earlier, per-claim kinds, and program certificates whose cla
 the retired translator stated, replay with the StatClaim version that issued them.
 
 The bundles are not signed and do not establish authorship. The local toolchain,
-the statistical meaning of the Lean definitions and the semantics, the parser,
-elaborator and encoding into Lean data, and the application binding code are
-trusted; see the proposals' trusted bases.
+the statistical meaning of the Lean definitions and the semantics, the parser and
+elaborator, Lean's JSON printer, and the application binding code are trusted;
+see the proposals' trusted bases. The encoding is not: every build decides that
+its program is in canonical form (`canonical`), and `Program.form_injective`
+proves that two such programs never print the same form.
 
 ## Assumptions and failures
 

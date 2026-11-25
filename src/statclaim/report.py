@@ -204,7 +204,7 @@ def _unmet(report: dict, stage: str, code: str, message: str) -> dict:
 
 def _certified(report: dict) -> dict:
     """The claim's evidence from the program certificate `check` built for this run, or
-    why it has none: no Lean here, or a claim the translation does not state."""
+    why it has none: no Lean here, or a claim the program's Lean build did not prove."""
     attached = _from_program(report)
     if attached is not None:
         return attached
@@ -215,8 +215,8 @@ def _certified(report: dict) -> dict:
     else:
         report["backend_invoked"] = True
         report["verification"] = {
-            "stage": "translation",
-            "message": "The Lean translation does not state this claim yet, so it has no proof.",
+            "stage": "semantics",
+            "message": "Lean's build of the program did not prove this claim, so it has no proof.",
         }
     return report
 

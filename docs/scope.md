@@ -155,9 +155,9 @@ the contracts of its declarations and proves each claim as the semantics in
 `StatClaim/Semantics/` defines it, so the protocol is checked as one program. Certificates record
 source/toolchain hashes and can be replayed. Trust includes the Lean kernel and
 declared axioms, the pinned dependencies, the semantics that turns statistical
-intent into formal statements, and the parser, elaborator and encoding that turn
-the source into Lean data; Lean checks that the data it reads is the compiled
-program. CI audits Lean sources and
+intent into formal statements, the parser and elaborator, and Lean's JSON
+printer. Lean checks that the data it reads is the compiled program, and proves
+that the printed form determines that data (`Program.form_injective`). CI audits Lean sources and
 axioms and tests modified certificates. Read the statement and assumptions;
 passing tests alone cannot establish that a new method models the intended study.
 

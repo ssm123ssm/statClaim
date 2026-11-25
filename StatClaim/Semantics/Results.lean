@@ -218,7 +218,7 @@ theorem tail_decision (n count : ℕ) (p : ProbabilityFraction) (alpha : ℚ) (r
   push_cast at bound
   simpa only [Nat.cast_pow] using bound
 
-def halfFraction : ProbabilityFraction := ⟨1, 2, by decide, by decide⟩
+def halfFraction : ProbabilityFraction := ⟨1, 2, by decide, by decide, by decide⟩
 
 def matchedResult : Checked (Study × SignificanceLevel × PairCounts × ReportedTails) where
   Statement := fun (study, alpha, counts, r) =>

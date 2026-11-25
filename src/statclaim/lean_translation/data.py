@@ -17,6 +17,10 @@ from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
 from statclaim.planning import MarginTest, fisher_bounds, margin_grid
 
 SEMANTICS = "StatClaim.Semantics"
+# Every program Lean reads is checked for its contracts and for canonical form: the form
+# it prints then determines it (`Program.form_injective`).
+CONTRACTS = "theorem contracts : program.Contracts := by decide +kernel"
+CANONICAL = "theorem canonical : program.Canonical := by decide +kernel"
 MARKER = "STATCLAIM_PROGRAM"
 GRADES = "STATCLAIM_GRADES"
 # The model constructor each outcome kind's module names, as the canonical program writes it.
@@ -185,7 +189,7 @@ def probability(value: object) -> str:
     if not isinstance(value, str):
         raise Outside("A probability is not an exact number.")
     num, den = Fraction(value).as_integer_ratio()
-    return f"⟨{count(num, 'A probability numerator')}, {den}, by decide, by decide⟩"
+    return f"⟨{count(num, 'A probability numerator')}, {den}, by decide, by decide, by decide⟩"
 
 
 def boolean(value: object) -> str:
@@ -1015,7 +1019,7 @@ def claims(
 ) -> str:
     """The theorems proving each claim that is ready, by the semantics' soundness theorem
     and the program's contracts."""
-    lines = ["theorem contracts : program.Contracts := by decide +kernel", ""]
+    lines = [CONTRACTS, CANONICAL, ""]
     for index, claim in enumerate(verify_claims(program)):
         if index not in omitted and ready(claim, reported, index):
             lines.append(claim_theorem(index, (hints or {}).get(index)))
@@ -1056,6 +1060,11 @@ def printed_grades(output: str, label: str) -> list[str] | None:
     return None
 
 
+def same_json(first: object, second: object) -> bool:
+    """Whether two JSON values are equal as JSON: keys in any order, but `true` is not `1`."""
+    return json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+
+
 def binding_problem(
     output: str, label: str, program: dict, *, reported: list[dict | None] | None = None
 ) -> str | None:
@@ -1068,10 +1077,10 @@ def binding_problem(
     if thresholds:
         expected["rejection_thresholds"] = thresholds
     if reported is not None and any(output is not None for output in reported):
-        if found.get("reported") != reported:
+        if not same_json(found.get("reported"), reported):
             return f"The data Lean read for {label} differs from its reported outputs."
         expected["reported"] = reported
-    if found != expected:
+    if not same_json(found, expected):
         return f"The data Lean read for {label} is not its canonical program."
     return None
 

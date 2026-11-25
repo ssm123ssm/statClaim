@@ -127,7 +127,6 @@ run_cmd do
     ``StatClaim.Interface.Scope.permits_zero,
     ``StatClaim.Interface.Scope.permits_nonnegative,
     ``StatClaim.Interface.neverRejects_meets_level,
-    ``StatClaim.Interface.ProgramTheorem.claims_of_trivial,
     ``StatClaim.Interface.typeI_of_premise,
     ``StatClaim.Interface.typeI_of_finite_premise,
     ``StatClaim.Interface.MemberView.bound,
@@ -148,6 +147,7 @@ run_cmd do
     ``StatClaim.Semantics.Test.members_bound,
     ``StatClaim.Semantics.Request.sound,
     ``StatClaim.Semantics.Program.sound,
+    ``StatClaim.Semantics.Program.form_injective,
     ``StatClaim.Semantics.Test.union_sound,
     ``StatClaim.Semantics.Request.check_test]
   for theoremName in checked do

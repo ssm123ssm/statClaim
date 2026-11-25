@@ -463,9 +463,9 @@ loader for untrusted third-party plugins.
 
 Integration tests build the examples' program certificates and replay them,
 including tampered bundles. The Lean examples remain the reference for direct
-proof construction and manual proofs. The parser, the elaborator and the encoding
-into Lean data remain trusted; Lean checks that the data it reads is the compiled
-program.
+proof construction and manual proofs. The parser and the elaborator remain
+trusted; Lean checks that the data it reads is the compiled program and proves
+that the printed form determines it.
 
 File execution, first-class claims/results, the fast compiler, a stdio LSP, and
 a minimal VS Code extension are implemented. The [editor guide](editor.md)

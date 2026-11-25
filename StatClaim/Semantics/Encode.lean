@@ -9,11 +9,13 @@ canonical program a certificate binds writes them. A build prints it, and the au
 compares it with the certificate's program, so the data Python wrote is the program
 the certificate is about.
 
-Every field of the data is written, and an optional one exactly when it is present, so
-two different programs never print the same form.
+The data is first written as a `Form`, a JSON value whose objects list their keys in
+increasing order. `Injective.lean` proves that two programs in canonical form never have
+the same form, and the printer refuses an object whose keys are out of order, so two
+different printed objects are never the same JSON object.
 
-Trusted: it decides which program a certificate's statements are about. It runs in
-Lean's interpreter, as the premise collector does, not in the kernel.
+Trusted: it decides which program a certificate's statements are about. The printer
+runs in Lean's interpreter, as the premise collector does, not in the kernel.
 -/
 
 @[expose] public section
@@ -22,181 +24,248 @@ set_option autoImplicit false
 
 namespace StatClaim.Semantics
 
-open Lean (Json ToJson toJson)
+open Lean (Json)
+
+/-- A JSON value as the encoder builds it. An object lists its entries in order. -/
+inductive Form where
+  | null
+  | bool (b : Bool)
+  | nat (n : ℕ)
+  | str (s : String)
+  | arr (items : List Form)
+  | obj (fields : List (String × Form))
+
+/-- An object from its entries in order; an entry without a value is left out. -/
+def Form.object (entries : List (String × Option Form)) : Form :=
+  .obj (entries.filterMap fun (key, value) => value.map (key, ·))
 
 /-- A rational as Python's `str(Fraction)` writes it: `-1/10`, `3`, `0`. -/
 def ratString (q : ℚ) : String :=
   if q.den = 1 then toString q.num else toString q.num ++ "/" ++ toString q.den
 
-def ratJson (q : ℚ) : Json :=
-  Json.str (ratString q)
+def Form.rat (q : ℚ) : Form := .str (ratString q)
 
-/-- The entries an optional field adds: none when it is absent. -/
-def optional {α : Type} (key : String) (encode : α → Json) : Option α → List (String × Json)
-  | some value => [(key, encode value)]
-  | none => []
+def Form.prob (p : ProbabilityFraction) : Form := .rat p.value
 
-def Model.encode (model : Model) : Json :=
-  Json.mkObj <|
-    [("module", Json.str model.outcome.constructor),
-      ("n_control", toJson model.sizes.nControl),
-      ("n_treatment", toJson model.sizes.nTreatment)] ++
-    (match model.clusters with
-      | some (control, treatment) =>
-        [("clusters_control", toJson control), ("clusters_treatment", toJson treatment)]
-      | none => []) ++
-    optional "randomisation" Json.str model.randomisation ++
-    (match model.strata with
-      | [] => []
-      | strata =>
-        [("strata", Json.arr (strata.map fun (control, treatment) =>
-          Json.arr #[toJson control, toJson treatment]).toArray)]) ++
-    optional "block_size" toJson model.blockSize ++
-    optional "population" Json.str model.population ++
-    optional "better" Json.str model.better ++
-    optional "measurements" toJson model.measurements ++
-    optional "outcome_name" Json.str model.name
+def Form.level (a : SignificanceLevel) : Form := .rat a.value
 
-def Study.encode (study : Study) : Json :=
-  Json.mkObj <|
-    [("study", Json.str study.design.key)] ++
-    optional "n" toJson study.n ++ optional "cases" toJson study.cases ++
-    optional "controls" toJson study.controls ++ optional "exposed" toJson study.exposed ++
-    optional "unexposed" toJson study.unexposed ++ optional "pairs" toJson study.pairs ++
-    [("exposure", Json.str study.exposure), ("outcome", Json.str study.outcome)] ++
-    (if study.exposureScale = .binary then [] else
-      [("exposure_scale", Json.str study.exposureScale.key)]) ++
-    (if study.outcomeScale = .binary then [] else
-      [("outcome_scale", Json.str study.outcomeScale.key)]) ++
-    (if study.survey = .simple_random then [] else [("survey", Json.str study.survey.key)]) ++
-    optional "clusters" toJson study.clusters
+/-- Whether an object's keys increase strictly, as the printer requires. -/
+def keysIncrease : List (String × Form) → Bool
+  | [] | [_] => true
+  | (a, _) :: (b, v) :: rest => decide (a < b) && keysIncrease ((b, v) :: rest)
 
-def Stopping.encode : Stopping → Json
-  | .fixed => Json.str "fixed"
-  | .data_dependent => Json.str "data_dependent"
+mutual
+/-- The JSON of a form, or `none` when an object's keys are out of order. -/
+def Form.json? : Form → Option Json
+  | .null => some .null
+  | .bool b => some (.bool b)
+  | .nat n => some (Lean.toJson n)
+  | .str s => some (.str s)
+  | .arr items => (Form.jsonItems? items).map fun js => Json.arr js.toArray
+  | .obj fields =>
+    if keysIncrease fields then (Form.jsonFields? fields).map Json.mkObj else none
 
-def Design.encode (design : Design) : Json :=
-  Json.mkObj [("model", design.model.encode), ("stopping", design.stopping.encode)]
+def Form.jsonItems? : List Form → Option (List Json)
+  | [] => some []
+  | f :: fs => do
+    let j ← Form.json? f
+    let js ← Form.jsonItems? fs
+    pure (j :: js)
 
-def StudyDesign.encode (design : StudyDesign) : Json :=
-  Json.mkObj [("model", design.model.encode), ("stopping", design.stopping.encode)]
+def Form.jsonFields? : List (String × Form) → Option (List (String × Json))
+  | [] => some []
+  | (k, f) :: fs => do
+    let j ← Form.json? f
+    let js ← Form.jsonFields? fs
+    pure ((k, j) :: js)
+end
 
-def StudyNull.encode (null : StudyNull) : Json :=
-  Json.mkObj [("predicate", Json.str "no_association"), ("model", null.model.encode)]
+def Model.form (model : Model) : Form :=
+  .object [("better", model.better.map .str), ("block_size", model.blockSize.map .nat),
+    ("clusters_control", model.clusters.map (.nat ·.1)),
+    ("clusters_treatment", model.clusters.map (.nat ·.2)),
+    ("measurements", model.measurements.map .nat),
+    ("module", some (.str model.outcome.constructor)),
+    ("n_control", some (.nat model.sizes.nControl)),
+    ("n_treatment", some (.nat model.sizes.nTreatment)),
+    ("outcome_name", model.name.map .str), ("population", model.population.map .str),
+    ("randomisation", model.randomisation.map .str),
+    ("strata", if model.strata.isEmpty then none else
+      some (.arr (model.strata.map fun (control, treatment) => .arr [.nat control, .nat treatment])))]
 
-def Null.encode (null : Null) : Json :=
-  Json.mkObj <|
-    [("predicate", Json.str null.key.key), ("model", null.model.encode)] ++
-    optional "value" ratJson null.value
+def Study.form (study : Study) : Form :=
+  .object [("cases", study.cases.map .nat), ("clusters", study.clusters.map .nat),
+    ("controls", study.controls.map .nat), ("exposed", study.exposed.map .nat),
+    ("exposure", some (.str study.exposure)),
+    ("exposure_scale", if study.exposureScale = .binary then none else
+      some (.str study.exposureScale.key)),
+    ("n", study.n.map .nat), ("outcome", some (.str study.outcome)),
+    ("outcome_scale", if study.outcomeScale = .binary then none else
+      some (.str study.outcomeScale.key)),
+    ("pairs", study.pairs.map .nat), ("study", some (.str study.design.key)),
+    ("survey", if study.survey = .simple_random then none else some (.str study.survey.key)),
+    ("unexposed", study.unexposed.map .nat)]
 
-/-- A test written as an analysis: its fields, without its name. -/
-def analysis (test : String) (design : Design) (null : Null) (alpha : SignificanceLevel) : Json :=
-  Json.mkObj [("test", Json.str test), ("design", design.encode), ("null", null.encode),
-    ("alpha", ratJson alpha.value)]
+def Stopping.form : Stopping → Form
+  | .fixed => .str "fixed"
+  | .data_dependent => .str "data_dependent"
 
-/-- A combination's fields. Python writes every combination as conditional. -/
-def combination (method : String) (alpha : SignificanceLevel) (members : Json)
-    (extra : List (String × Json) := []) : Json :=
-  Json.mkObj <|
-    [("method", Json.str method), ("composition", Json.str "conditional"),
-      ("alpha", ratJson alpha.value), ("analyses", members)] ++ extra
+def Design.form (design : Design) : Form :=
+  .object [("model", some design.model.form), ("stopping", some design.stopping.form)]
 
-def scopeJson : Interface.Scope → Json
-  | .finiteSample => Json.str "finite_sample"
-  | .largeSample => Json.str "asymptotic"
+def StudyDesign.form (design : StudyDesign) : Form :=
+  .object [("model", some design.model.form), ("stopping", some design.stopping.form)]
 
-/-- An assumed test: a cited one names its registry method; a declared one is described
-by the file. -/
-def assumedJson (guarantee : Guarantee) (design : Design) (null : Null) (alpha : SignificanceLevel) :
-    Json :=
-  match guarantee with
-  | .cited method => analysis method.key design null alpha
-  | .declared method scope references =>
-    (analysis "declared_test" design null alpha).mergeObj
-      (Json.mkObj [("method", Json.str method), ("scope", scopeJson scope),
-        ("references", Json.arr (references.map Json.str).toArray)])
+def StudyNull.form (null : StudyNull) : Form :=
+  .object [("model", some null.model.form), ("predicate", some (.str "no_association"))]
 
-def Stages.encode (s : Stages) : Json :=
-  Json.mkObj [("module", Json.str "two_stage_binomial"), ("n_stage1", toJson s.first),
-    ("n_stage2", toJson s.second)]
+def Null.form (null : Null) : Form :=
+  .object [("model", some null.model.form), ("predicate", some (.str null.key.key)),
+    ("value", null.value.map .rat)]
 
-def StageRule.encode : StageRule → Json
-  | .threshold interim final => Json.mkObj [("kind", Json.str "threshold"),
-      ("continue_above", toJson interim), ("reject_above", toJson final)]
-  | .posterior a b reference interim final => Json.mkObj [("kind", Json.str "posterior"),
-      ("prior_a", toJson a), ("prior_b", toJson b), ("reference", ratJson reference.value),
-      ("continue_at_least", ratJson interim.value), ("success_at_least", ratJson final.value)]
+def scopeForm : Interface.Scope → Form
+  | .finiteSample => .str "finite_sample"
+  | .largeSample => .str "asymptotic"
 
-def ObservedCounts.fields (o : ObservedCounts) : List (String × Json) :=
-  [("control_successes", toJson o.control), ("treatment_successes", toJson o.treatment)]
+def Stages.form (s : Stages) : Form :=
+  .object [("module", some (.str "two_stage_binomial")), ("n_stage1", some (.nat s.first)),
+    ("n_stage2", some (.nat s.second))]
 
-def AssociationTable.encode (o : AssociationTable) : Json :=
-  Json.mkObj [("model", o.model.encode), ("exposed_cases", toJson o.exposedCases),
-    ("exposed_noncases", toJson o.exposedNoncases), ("unexposed_cases", toJson o.unexposedCases),
-    ("unexposed_noncases", toJson o.unexposedNoncases)]
+def StageRule.form : StageRule → Form
+  | .threshold interim final => .object [("continue_above", some (.nat interim)),
+      ("kind", some (.str "threshold")), ("reject_above", some (.nat final))]
+  | .posterior a b reference interim final => .object [
+      ("continue_at_least", some (.prob interim)), ("kind", some (.str "posterior")),
+      ("prior_a", some (.nat a)), ("prior_b", some (.nat b)), ("reference", some (.prob reference)),
+      ("success_at_least", some (.prob final))]
 
-def PairCounts.encode (o : PairCounts) : Json :=
-  Json.mkObj [("model", o.model.encode), ("both_exposed", toJson o.both),
-    ("case_exposed_only", toJson o.caseOnly), ("control_exposed_only", toJson o.controlOnly),
-    ("neither_exposed", toJson o.neither)]
+def oneArmForm (n : ℕ) : Form :=
+  .object [("module", some (.str "one_arm_binomial")), ("n", some (.nat n))]
 
-def EventCounts.encode (o : EventCounts) : Json :=
-  Json.mkObj [("model", o.model.encode), ("exposed_events", toJson o.exposed),
-    ("unexposed_events", toJson o.unexposed), ("exposed_time", ratJson o.exposedTime),
-    ("unexposed_time", ratJson o.unexposedTime)]
+mutual
+def Test.form : Test → Form
+  | .fisher _ design null alpha => .object [("alpha", some (.level alpha)),
+      ("design", some design.form), ("null", some null.form), ("test", some (.str "fisher"))]
+  | .exact _ kind design null alpha => .object [("alpha", some (.level alpha)),
+      ("alternative", some (.str (match kind with | .fisherOneSided => "greater" | .margin .. => "margin"))),
+      ("design", some design.form), ("null", some null.form), ("test", some (.str "fisher"))]
+  | .exactStudy _ kind design null alpha => .object [("alpha", some (.level alpha)),
+      ("design", some design.form), ("null", some null.form), ("test", some (.str kind.key))]
+  | .randomised _ r => .object [("alpha", some (.level r.alpha)),
+      ("design", some r.design.form), ("draws", r.draws.map .nat),
+      ("null", some (.object [("model", some r.nullModel.form),
+        ("predicate", some (.str "no_effect"))])),
+      ("test", some (.str "randomisation"))]
+  | .member t => Test.form t
+  | .oneSample _ n reference alpha => .object [("alpha", some (.prob alpha)),
+      ("model", some (oneArmForm n)), ("null_rate", some (.prob reference)),
+      ("test", some (.str "binomial_exact_one_sided"))]
+  | .twoStage _ stages rule reference => .object [("design", some stages.form),
+      ("null_rate", some (.prob reference)), ("rule", some rule.form),
+      ("test", some (.str "two_stage"))]
+  | .assumed _ (.cited method) design null alpha => .object [("alpha", some (.level alpha)),
+      ("design", some design.form), ("null", some null.form), ("test", some (.str method.key))]
+  | .assumed _ (.declared method scope references) design null alpha => .object [
+      ("alpha", some (.level alpha)), ("design", some design.form),
+      ("method", some (.str method)), ("null", some null.form),
+      ("references", some (.arr (references.map .str))), ("scope", some (scopeForm scope)),
+      ("test", some (.str "declared_test"))]
+  | .associated _ method design null alpha adjusted => .object [
+      ("adjusted_for", if adjusted.isEmpty then none else some (.arr (adjusted.map .str))),
+      ("alpha", some (.level alpha)), ("design", some design.form), ("null", some null.form),
+      ("test", some (.str method.key))]
+  | .bonferroni _ members alpha none => .object [("alpha", some (.level alpha)),
+      ("analyses", some (.arr (Test.formMembers members))),
+      ("composition", some (.str "conditional")), ("method", some (.str "bonferroni"))]
+  | .bonferroni _ members alpha (some joint) => .object [("alpha", some (.level alpha)),
+      ("analyses", some (.arr (Test.formMembers members))), ("joint_law", some (.str joint)),
+      ("method", some (.str "bonferroni"))]
+  | .looks _ members alpha => .object [("alpha", some (.level alpha)),
+      ("analyses", some (.arr (Test.formMembers members))),
+      ("composition", some (.str "conditional")), ("method", some (.str "alpha_spending"))]
+  | .graphical _ members weights rows alpha => .object [("alpha", some (.level alpha)),
+      ("analyses", some (.arr (Test.formMembers members))),
+      ("composition", some (.str "conditional")), ("method", some (.str "graphical")),
+      ("transitions", some (.arr (rows.map fun row => .arr (row.map .rat)))),
+      ("weights", some (.arr (weights.map .rat)))]
+  | .sequence _ members alpha => .object [("alpha", some (.level alpha)),
+      ("analyses", some (.arr (Test.formMembers members))),
+      ("composition", some (.str "conditional")), ("method", some (.str "fixed_sequence"))]
+termination_by structural t => t
 
-def ResultData.fields : ResultData → List (String × Json)
-  | .fisher o .. | .margin o .. => o.fields
-  | .association table _ => [("table", table.encode)]
-  | .matched pairs _ => [("pairs", pairs.encode)]
-  | .rate events _ _ => [("events", events.encode)]
-  | .oneSample responses .. => [("responses", toJson responses)]
-  | .twoStage first second .. => [("stage1_responses", toJson first),
-      ("stage2_responses", (second.map toJson).getD Json.null)]
+/-- A combination's members, each with its name. -/
+def Test.formMembers : List Test → List Form
+  | [] => []
+  | t :: ts =>
+    .object [("analysis", some (Test.form t)), ("name", some (.str t.name))] :: Test.formMembers ts
+termination_by structural ts => ts
+end
 
-def ReportedResult.fields (r : ReportedResult) : List (String × Json) :=
-  [("p_value", ratJson r.pValue.value), ("reject_null", toJson r.reject)]
+def ObservedCounts.fields (o : ObservedCounts) : List (String × Option Form) :=
+  [("control_successes", some (.nat o.control)), ("treatment_successes", some (.nat o.treatment))]
 
-def ReportedTable.fields (r : ReportedTable) : List (String × Json) :=
-  r.toReportedResult.fields ++ [("observed_table_probability", ratJson r.mass.value)]
+def AssociationTable.form (o : AssociationTable) : Form :=
+  .object [("exposed_cases", some (.nat o.exposedCases)),
+    ("exposed_noncases", some (.nat o.exposedNoncases)), ("model", some o.model.form),
+    ("unexposed_cases", some (.nat o.unexposedCases)),
+    ("unexposed_noncases", some (.nat o.unexposedNoncases))]
 
-def ResultData.reported : ResultData → Json
-  | .fisher _ r low high _ => Json.mkObj (r.fields ++
-      [("support_min", toJson low), ("support_max", toJson high)])
-  | .margin _ reject .. => Json.mkObj [("reject_null", toJson reject)]
-  | .association _ r => Json.mkObj r.fields
-  | .matched _ r | .rate _ _ r => Json.mkObj (r.toReportedResult.fields ++
-      [("upper_tail", toJson r.upper), ("lower_tail", toJson r.lower)])
-  | .oneSample _ critical r => Json.mkObj (r.fields ++ [("critical_value", toJson critical)])
-  | .twoStage _ _ continued reject bound => Json.mkObj [("continued", toJson continued),
-      ("reject_null", toJson reject), ("typeI_bound", ratJson bound.value)]
+def PairCounts.form (o : PairCounts) : Form :=
+  .object [("both_exposed", some (.nat o.both)), ("case_exposed_only", some (.nat o.caseOnly)),
+    ("control_exposed_only", some (.nat o.controlOnly)), ("model", some o.model.form),
+    ("neither_exposed", some (.nat o.neither))]
 
-def IntervalData.encode : IntervalData → Json
-  | .binomial n x level .. => Json.mkObj [("model", Json.mkObj
-      [("module", Json.str "one_arm_binomial"), ("n", toJson n)]),
-      ("responses", toJson x), ("level", ratJson level.value)]
-  | .proportion study measure group cases level .. => Json.mkObj <| [("model", study.encode),
-      ("measure", Json.str measure), ("cases", toJson cases), ("level", ratJson level.value)] ++
-      optional "group" Json.str group
-  | .difference model observed level .. => Json.mkObj
-      ([("model", model.encode), ("level", ratJson level.value)] ++ observed.fields)
-  | .association table measure level .. => Json.mkObj [("table", table.encode),
-      ("measure", Json.str measure), ("level", ratJson level.value)]
-  | .matched pairs level .. => Json.mkObj [("pairs", pairs.encode), ("level", ratJson level.value)]
-  | .rate events level .. => Json.mkObj [("events", events.encode), ("level", ratJson level.value)]
+def EventCounts.form (o : EventCounts) : Form :=
+  .object [("exposed_events", some (.nat o.exposed)), ("exposed_time", some (.rat o.exposedTime)),
+    ("model", some o.model.form), ("unexposed_events", some (.nat o.unexposed)),
+    ("unexposed_time", some (.rat o.unexposedTime))]
+
+/-- A result's subject: the analysis and the observed data. -/
+def ResultData.subject (analysis : Form) : ResultData → Form
+  | .fisher o .. | .margin o .. => .object (("analysis", some analysis) :: o.fields)
+  | .association table _ => .object [("analysis", some analysis), ("table", some table.form)]
+  | .matched pairs _ => .object [("analysis", some analysis), ("pairs", some pairs.form)]
+  | .rate events _ _ => .object [("analysis", some analysis), ("events", some events.form)]
+  | .oneSample responses .. => .object [("analysis", some analysis),
+      ("responses", some (.nat responses))]
+  | .twoStage first second .. => .object [("analysis", some analysis),
+      ("stage1_responses", some (.nat first)),
+      ("stage2_responses", some ((second.map Form.nat).getD .null))]
+
+def ResultData.reported : ResultData → Form
+  | .fisher _ r low high _ => .object [("observed_table_probability", some (.prob r.mass)),
+      ("p_value", some (.prob r.pValue)), ("reject_null", some (.bool r.reject)),
+      ("support_max", some (.nat high)), ("support_min", some (.nat low))]
+  | .margin _ reject .. => .object [("reject_null", some (.bool reject))]
+  | .association _ r => .object [("observed_table_probability", some (.prob r.mass)),
+      ("p_value", some (.prob r.pValue)), ("reject_null", some (.bool r.reject))]
+  | .matched _ r | .rate _ _ r => .object [("lower_tail", some (.nat r.lower)),
+      ("p_value", some (.prob r.pValue)), ("reject_null", some (.bool r.reject)),
+      ("upper_tail", some (.nat r.upper))]
+  | .oneSample _ critical r => .object [("critical_value", some (.nat critical)),
+      ("p_value", some (.prob r.pValue)), ("reject_null", some (.bool r.reject))]
+  | .twoStage _ _ continued reject bound => .object [("continued", some (.bool continued)),
+      ("reject_null", some (.bool reject)), ("typeI_bound", some (.prob bound))]
+
+def IntervalData.form : IntervalData → Form
+  | .binomial n x level .. => .object [("level", some (.prob level)),
+      ("model", some (oneArmForm n)), ("responses", some (.nat x))]
+  | .proportion study measure group cases level .. => .object [("cases", some (.nat cases)),
+      ("group", group.map .str), ("level", some (.prob level)), ("measure", some (.str measure)),
+      ("model", some study.form)]
+  | .difference model observed level .. => .object [
+      ("control_successes", some (.nat observed.control)), ("level", some (.prob level)),
+      ("model", some model.form), ("treatment_successes", some (.nat observed.treatment))]
+  | .association table measure level .. => .object [("level", some (.prob level)),
+      ("measure", some (.str measure)), ("table", some table.form)]
+  | .matched pairs level .. => .object [("level", some (.prob level)), ("pairs", some pairs.form)]
+  | .rate events level .. => .object [("events", some events.form), ("level", some (.prob level))]
 
 def oddsRat (q : ℚ) : ℚ := q / (1 - q)
 
-def intervalOutputs (tail : ProbabilityFraction) (lower : ℚ) (upper : Option ℚ)
-    (extra : List (String × Json) := []) : Json :=
-  Json.mkObj ([("tail", ratJson tail.value), ("lower", ratJson lower),
-    ("upper", (upper.map ratJson).getD Json.null)] ++ extra)
+def Endpoints.form (ends : Endpoints) : Form := .arr [.prob ends.lower, .prob ends.upper]
 
-def Endpoints.reported (ends : Endpoints) : Json :=
-  Json.arr #[ratJson ends.lower.value, ratJson ends.upper.value]
-
-def twoIntervalOutputs (measure : String) (tail : ProbabilityFraction)
-    (c t : Endpoints) : Json :=
+def twoIntervalOutputs (measure : String) (tail : ProbabilityFraction) (c t : Endpoints) : Form :=
   let cl := c.lower.value
   let cu := c.upper.value
   let tl := t.lower.value
@@ -208,144 +277,109 @@ def twoIntervalOutputs (measure : String) (tail : ProbabilityFraction)
     else if measure == "risk_ratio" || measure == "prevalence_ratio" then
       (tl / cu, if 0 < cl then some (tu / cl) else none)
     else (tl - cu, some (tu - cl))
-  intervalOutputs tail lower upper [("control", c.reported), ("treatment", t.reported)]
+  .object [("control", some c.form), ("lower", some (.rat lower)), ("tail", some (.prob tail)),
+    ("treatment", some t.form), ("upper", some ((upper.map Form.rat).getD .null))]
 
-def IntervalData.reported : IntervalData → Json
+def oneIntervalOutputs (tail : ProbabilityFraction) (lower : ℚ) (upper : Option ℚ)
+    (arm : Option Endpoints) : Form :=
+  .object [("arm", arm.map Endpoints.form), ("lower", some (.rat lower)),
+    ("tail", some (.prob tail)), ("upper", some ((upper.map Form.rat).getD .null))]
+
+def IntervalData.reported : IntervalData → Form
   | .binomial _ _ _ tail e | .proportion _ _ _ _ _ tail e =>
-    intervalOutputs tail e.lower.value (some e.upper.value)
+    oneIntervalOutputs tail e.lower.value (some e.upper.value) none
   | .difference _ _ _ tail c t => twoIntervalOutputs "difference" tail c t
   | .association _ measure _ tail c t => twoIntervalOutputs measure tail c t
   | .matched _ _ tail e =>
-    intervalOutputs tail (oddsRat e.lower.value)
-      (if e.upper.value < 1 then some (oddsRat e.upper.value) else none) [("arm", e.reported)]
+    oneIntervalOutputs tail (oddsRat e.lower.value)
+      (if e.upper.value < 1 then some (oddsRat e.upper.value) else none) (some e)
   | .rate events _ tail e =>
     let scale := events.unexposedTime / events.exposedTime
-    intervalOutputs tail (oddsRat e.lower.value * scale)
-      (if e.upper.value < 1 then some (oddsRat e.upper.value * scale) else none) [("arm", e.reported)]
+    oneIntervalOutputs tail (oddsRat e.lower.value * scale)
+      (if e.upper.value < 1 then some (oddsRat e.upper.value * scale) else none) (some e)
 
-def PlanningPoint.encode : PlanningPoint → Json
-  | .arms point => Json.mkObj [("p_control", ratJson point.control.value),
-      ("p_treatment", ratJson point.treatment.value)]
-  | .response r => Json.mkObj [("response_rate", ratJson r.value)]
-  | .association first second point exposed => Json.mkObj <|
-      [(first, ratJson point.control.value), (second, ratJson point.treatment.value)] ++
-        optional "exposed_share" (fun p => ratJson p.value) exposed
-  | .matched discordant odds _ => Json.mkObj [("discordant", ratJson discordant.value),
-      ("odds_ratio", ratJson odds)]
-  | .rate ratio exposedTime unexposedTime events .. => Json.mkObj <|
-      [("rate_ratio", ratJson ratio), ("exposed_time", ratJson exposedTime),
-        ("unexposed_time", ratJson unexposedTime)] ++ optional "events" toJson events
+/-- A planning point. The keys of a study's point are its own; the canonical form lists
+the treatment or exposed one first, as their names sort. -/
+def PlanningPoint.form : PlanningPoint → Form
+  | .arms point => .object [("p_control", some (.prob point.control)),
+      ("p_treatment", some (.prob point.treatment))]
+  | .response r => .object [("response_rate", some (.prob r))]
+  | .association first second point exposed => .object [("exposed_share", exposed.map .prob),
+      (second, some (.prob point.treatment)), (first, some (.prob point.control))]
+  | .matched discordant odds _ => .object [("discordant", some (.prob discordant)),
+      ("odds_ratio", some (.rat odds))]
+  | .rate ratio exposedTime unexposedTime events .. => .object [("events", events.map .nat),
+      ("exposed_time", some (.rat exposedTime)), ("rate_ratio", some (.rat ratio)),
+      ("unexposed_time", some (.rat unexposedTime))]
 
-def PlanningTarget.encode (target : PlanningTarget) : Json :=
-  Json.mkObj [("at", target.point.encode), ("minimum_power", ratJson target.power.value),
-    ("maximum_typeI", ratJson target.error.value)]
+def PlanningTarget.form (target : PlanningTarget) : Form :=
+  .object [("at", some target.point.form), ("maximum_typeI", some (.prob target.error)),
+    ("minimum_power", some (.prob target.power))]
 
-def PlanSelection.reported : PlanSelection → Json
-  | .arms sizes => Json.mkObj [("n_control", toJson sizes.nControl), ("n_treatment", toJson sizes.nTreatment)]
-  | .oneSample n critical => Json.mkObj [("n", toJson n), ("critical_value", toJson critical)]
-  | .count n => Json.mkObj [("n", toJson n)]
-  | .stages sizes rule => Json.mkObj [("n_stage1", toJson sizes.first), ("n_stage2", toJson sizes.second),
-      ("rule", rule.encode)]
+def PlanSelection.form : PlanSelection → Form
+  | .arms sizes => .object [("n_control", some (.nat sizes.nControl)),
+      ("n_treatment", some (.nat sizes.nTreatment))]
+  | .oneSample n critical => .object [("critical_value", some (.nat critical)), ("n", some (.nat n))]
+  | .count n => .object [("n", some (.nat n))]
+  | .stages sizes rule => .object [("n_stage1", some (.nat sizes.first)),
+      ("n_stage2", some (.nat sizes.second)), ("rule", some rule.form)]
 
-mutual
-def Test.encode : Test → Json
-  | .fisher _ design null alpha => analysis "fisher" design null alpha
-  | .exact _ .fisherOneSided design null alpha =>
-    (analysis "fisher" design null alpha).mergeObj (Json.mkObj [("alternative", Json.str "greater")])
-  | .exact _ (.margin ..) design null alpha =>
-    (analysis "fisher" design null alpha).mergeObj (Json.mkObj [("alternative", Json.str "margin")])
-  | .exactStudy _ kind design null alpha =>
-    Json.mkObj [("test", Json.str kind.key), ("design", design.encode), ("null", null.encode),
-      ("alpha", ratJson alpha.value)]
-  | .randomised _ r =>
-    Json.mkObj <| [("test", Json.str "randomisation"), ("design", r.design.encode),
-      ("null", Json.mkObj [("predicate", Json.str "no_effect"), ("model", r.nullModel.encode)]),
-      ("alpha", ratJson r.alpha.value)] ++ optional "draws" toJson r.draws
-  | .member t => Test.encode t
-  | .oneSample _ n reference alpha =>
-    Json.mkObj [("test", Json.str "binomial_exact_one_sided"),
-      ("model", Json.mkObj [("module", Json.str "one_arm_binomial"), ("n", toJson n)]),
-      ("null_rate", ratJson reference.value), ("alpha", ratJson alpha.value)]
-  | .twoStage _ stages rule reference =>
-    Json.mkObj [("test", Json.str "two_stage"), ("design", stages.encode),
-      ("rule", rule.encode), ("null_rate", ratJson reference.value)]
-  | .assumed _ guarantee design null alpha => assumedJson guarantee design null alpha
-  | .associated _ method design null alpha adjusted =>
-    Json.mkObj <|
-      [("test", Json.str method.key), ("design", design.encode), ("null", null.encode),
-        ("alpha", ratJson alpha.value)] ++
-      (if adjusted.isEmpty then [] else
-        [("adjusted_for", Json.arr (adjusted.map Json.str).toArray)])
-  | .bonferroni _ members alpha none =>
-    combination "bonferroni" alpha (Json.arr (Test.encodeMembers members).toArray)
-  | .bonferroni _ members alpha (some joint) =>
-    Json.mkObj [("method", Json.str "bonferroni"), ("alpha", ratJson alpha.value),
-      ("joint_law", Json.str joint), ("analyses", Json.arr (Test.encodeMembers members).toArray)]
-  | .looks _ members alpha =>
-    combination "alpha_spending" alpha (Json.arr (Test.encodeMembers members).toArray)
-  | .graphical _ members weights rows alpha =>
-    combination "graphical" alpha (Json.arr (Test.encodeMembers members).toArray)
-      [("weights", Json.arr (weights.map ratJson).toArray),
-        ("transitions", Json.arr (rows.map fun row => Json.arr (row.map ratJson).toArray).toArray)]
-  | .sequence _ members alpha =>
-    combination "fixed_sequence" alpha (Json.arr (Test.encodeMembers members).toArray)
-termination_by structural t => t
+/-- Whether a search's analysis is about a cohort, whose groups are the exposed. -/
+def Test.isCohort : Test → Bool
+  | .exactStudy _ _ design .. => design.model.design == .cohort
+  | _ => false
 
-/-- A combination's members, each with its name. -/
-def Test.encodeMembers : List Test → List Json
-  | [] => []
-  | t :: ts =>
-    Json.mkObj [("name", Json.str t.name), ("analysis", Test.encode t)] :: Test.encodeMembers ts
-termination_by structural ts => ts
-end
+def allocationString (ratio : ℕ) : String :=
+  if ratio = 1 then "equal_arms" else "1:" ++ toString ratio
 
-def SearchKind.fields (kind : SearchKind) (t : Test) (range : SearchRange) : List (String × Json) :=
+/-- The candidates of a size search: the analysis and the range searched. -/
+def SearchKind.form (kind : SearchKind) (t : Test) (range : SearchRange) : Form :=
+  let analysis := ("analysis", some t.form)
   match kind with
-  | .arms => [("allocation", Json.str (if range.ratio = 1 then "equal_arms" else s!"1:{range.ratio}")),
-      ("min_per_arm", toJson range.low), ("max_per_arm", toJson range.high)]
+  | .arms => .object [("allocation", some (.str (allocationString range.ratio))), analysis,
+      ("max_per_arm", some (.nat range.high)), ("min_per_arm", some (.nat range.low))]
   | .groups =>
-    let isCohort : Bool := match t with
-      | .exactStudy _ _ design .. => design.model.design == .cohort
-      | _ => false
-    let (low, high, ratio) := if isCohort then
-      ("min_exposed", "max_exposed", "unexposed_per_exposed")
-      else ("min_cases", "max_cases", "controls_per_case")
-    [(low, toJson range.low), (high, toJson range.high), (ratio, toJson range.ratio)]
-  | .total | .oneSample => [("min_n", toJson range.low), ("max_n", toJson range.high)]
-  | .pairs => [("min_pairs", toJson range.low), ("max_pairs", toJson range.high)]
-  | .events => [("min_events", toJson range.low), ("max_events", toJson range.high)]
+    if t.isCohort then .object [analysis, ("max_exposed", some (.nat range.high)),
+      ("min_exposed", some (.nat range.low)), ("unexposed_per_exposed", some (.nat range.ratio))]
+    else .object [analysis, ("controls_per_case", some (.nat range.ratio)),
+      ("max_cases", some (.nat range.high)), ("min_cases", some (.nat range.low))]
+  | .total | .oneSample => .object [analysis, ("max_n", some (.nat range.high)),
+      ("min_n", some (.nat range.low))]
+  | .pairs => .object [analysis, ("max_pairs", some (.nat range.high)),
+      ("min_pairs", some (.nat range.low))]
+  | .events => .object [analysis, ("max_events", some (.nat range.high)),
+      ("min_events", some (.nat range.low))]
 
-def PlanQuery.encode (q : PlanQuery) (target : PlanningTarget) : String × Json :=
+/-- A planning request's kind and subject. -/
+def PlanQuery.form (q : PlanQuery) (target : PlanningTarget) : String × Form :=
   match q with
-  | .meets t => ("meets", Json.mkObj [("analysis", t.encode), ("target", target.encode)])
-  | .search t kind range =>
-    let candidates := Json.mkObj (("analysis", t.encode) :: kind.fields t range)
-    ("sample_size", Json.mkObj [("candidates", candidates), ("target", target.encode),
-      ("claim", Json.str (if range.minimal then "smallest_in_range" else "sufficient"))])
-  | .stageSearch reference maxTotal criterion =>
-    let candidates := Json.mkObj [("design", Json.str "two_stage_threshold"),
-      ("null_rate", ratJson reference.value), ("max_total", toJson maxTotal), ("criterion", Json.str criterion)]
-    ("sample_size", Json.mkObj [("candidates", candidates), ("target", target.encode),
-      ("claim", Json.str "sufficient")])
+  | .meets t => ("meets", .object [("analysis", some t.form), ("target", some target.form)])
+  | .search t kind range => ("sample_size", .object [("candidates", some (kind.form t range)),
+      ("claim", some (.str (if range.minimal then "smallest_in_range" else "sufficient"))),
+      ("target", some target.form)])
+  | .stageSearch reference maxTotal criterion => ("sample_size", .object [
+      ("candidates", some (.object [("criterion", some (.str criterion)),
+        ("design", some (.str "two_stage_threshold")), ("max_total", some (.nat maxTotal)),
+        ("null_rate", some (.prob reference))])),
+      ("claim", some (.str "sufficient")), ("target", some target.form)])
 
-def Request.encode (request : Request) : Json :=
-  let (kind, subject) := match request with
-    | .typeI t => ("typeI", t.encode)
-    | .familywise t => ("familywise", t.encode)
-    | .result _ t observed _ =>
-      ("result", Json.mkObj [("analysis", t.encode), ("control_successes", toJson observed.control),
-        ("treatment_successes", toJson observed.treatment)])
-    | .checkedResult _ t d => ("result", Json.mkObj (("analysis", t.encode) :: d.fields))
-    | .interval _ d => ("interval", d.encode)
-    | .planned _ q target _ => q.encode target
-  Json.mkObj [("kind", Json.str kind), ("subject_name", Json.str request.name), ("subject", subject)]
+def Request.form (request : Request) : Form :=
+  let (kind, subject) : String × Form := match request with
+    | .typeI t => ("typeI", t.form)
+    | .familywise t => ("familywise", t.form)
+    | .result _ t observed _ => ("result", .object (("analysis", some t.form) :: observed.fields))
+    | .checkedResult _ t d => ("result", d.subject t.form)
+    | .interval _ d => ("interval", d.form)
+    | .planned _ q target _ => q.form target
+  .object [("kind", some (.str kind)), ("subject", some subject),
+    ("subject_name", some (.str request.name))]
 
-def Request.reported : Request → Option Json
-  | .result _ _ _ found =>
-    some (Json.mkObj [("p_value", ratJson found.pValue.value), ("reject_null", toJson found.reject)])
+def Request.reported : Request → Option Form
+  | .result _ _ _ found => some (.object [("p_value", some (.prob found.pValue)),
+      ("reject_null", some (.bool found.reject))])
   | .checkedResult _ _ d => some d.reported
   | .interval _ d => some d.reported
-  | .planned _ _ _ selected => selected.map PlanSelection.reported
+  | .planned _ _ _ selected => selected.map PlanSelection.form
   | _ => none
 
 /-- The type of the binding that declares a test. -/
@@ -364,31 +398,39 @@ def Test.binding : Test → String
   | _ => "ComposedFamilyIR"
 
 mutual
-def Test.thresholds : Test → List Json
+/-- The rejection thresholds of the tests with a margin, each with its test's name. -/
+def Test.thresholds : Test → List Form
   | .exact name (.margin _ thresholds) .. =>
-    [Json.mkObj [("name", Json.str name), ("thresholds", toJson thresholds)]]
+    [.object [("name", some (.str name)), ("thresholds", some (.arr (thresholds.map .nat)))]]
   | .member t => Test.thresholds t
   | .bonferroni _ members .. | .looks _ members ..
   | .graphical _ members .. | .sequence _ members .. => Test.allThresholds members
   | _ => []
 termination_by structural t => t
 
-def Test.allThresholds : List Test → List Json
+def Test.allThresholds : List Test → List Form
   | [] => []
   | t :: ts => t.thresholds ++ Test.allThresholds ts
 termination_by structural ts => ts
 end
 
+def Test.declaration (t : Test) : Form :=
+  .object [("name", some (.str t.name)), ("type", some (.str t.binding)), ("value", some t.form)]
+
 /-- The claims and reported outputs of the `verify` requests, in order, and the declarations. -/
-def Program.encode (program : Program) : Json :=
+def Program.form (program : Program) : Form :=
   let outputs := program.requests.map Request.reported
   let thresholds := Test.allThresholds program.declarations ++
     Test.allThresholds (program.requests.filterMap Request.test)
-  Json.mkObj <| [("claims", Json.arr (program.requests.map Request.encode).toArray),
-    ("declarations", Json.arr (program.declarations.map fun t =>
-      Json.mkObj [("name", Json.str t.name), ("type", Json.str t.binding), ("value", t.encode)]).toArray)] ++
-    (if outputs.any Option.isSome then
-      [("reported", Json.arr (outputs.map (·.getD Json.null)).toArray)] else []) ++
-    (if thresholds.isEmpty then [] else [("rejection_thresholds", Json.arr thresholds.toArray)])
+  .object [("claims", some (.arr (program.requests.map Request.form))),
+    ("declarations", some (.arr (program.declarations.map Test.declaration))),
+    ("rejection_thresholds", if thresholds.isEmpty then none else some (.arr thresholds)),
+    ("reported", if outputs.any Option.isSome then some (.arr (outputs.map (·.getD .null)))
+      else none)]
+
+/-- The printed form, or `null` when an object's keys are out of order, which no canonical
+program matches. -/
+def Program.encode (program : Program) : Json :=
+  program.form.json?.getD .null
 
 end StatClaim.Semantics

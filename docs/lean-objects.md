@@ -67,6 +67,8 @@ and provenance. Naming a claim or marking it assumed provides no proof term.
 | `Semantics.Program.Hints r` | The evidence data Lean expects for request `r`. `Program.checkAt` validates it before `Program.sound` proves the claim. |
 | `Semantics.Request` | The Type I, familywise, observed result, interval, or planning claim to check |
 | `Semantics.Program.encode` | The canonical claims, declarations, and certified values used to bind a proof to its inputs |
+| `Semantics.Program.Canonical` | The data is in canonical form: hints are the values the printed fields give. Every build decides it. |
+| `Semantics.Program.form_injective` | Two programs in canonical form with the same printed form are the same program |
 
 Every exact claim in a program certificate goes through this interface: Type I
 bounds of exact tests, results for observed data, intervals and planning claims.

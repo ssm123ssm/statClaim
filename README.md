@@ -5,6 +5,7 @@
 [![Check](https://img.shields.io/github/actions/workflow/status/ssm123ssm/statClaim/check.yml?branch=main&style=flat&label=Check&logo=github&logoColor=white)](https://github.com/ssm123ssm/statClaim/actions/workflows/check.yml)
 [![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in_GitHub_Codespaces-24292f?style=flat&logo=github&logoColor=white)](https://codespaces.new/ssm123ssm/statClaim?quickstart=1)
 [![Web studio](https://img.shields.io/badge/Web_studio-7c55d8?style=flat)](https://ssm123ssm.github.io/statClaim/)
+[![arXiv](https://img.shields.io/badge/arXiv-2611.30021-b31b1b?style=flat)](https://arxiv.org/abs/2611.30021)
 
 StatClaim is a declarative domain-specific language for encoding research
 protocols and statistical analysis plans as programs. A program is built from
@@ -102,7 +103,10 @@ calculates. Lean:
   proved once for all programs. Numerical hints are checked by the kernel; a
   wrong hint fails the build but cannot change what is claimed;
 - prints the program it read, which must be the compiled program, and each
-  claim's grade, which must be the one reported.
+  claim's grade, which must be the one reported. `Program.form_injective`
+  proves that two programs in canonical form never print the same form, and
+  each build decides that its program is in canonical form, so the printed
+  form determines the data the claims are about.
 
 A certificate therefore covers the protocol as one program: its declarations are
 compatible, and its claims follow from their premises. Python's contract checks
@@ -274,10 +278,33 @@ assumptions requires scientific judgement. A specification that declares a
 fixed analysis cannot establish that the endpoint was chosen before outcomes
 were examined. StatClaim does not analyse existing R or Python scripts; it
 specifies the design and the guarantees claimed for it. Lean checks the encoded
-program, not the compiler: the parser, the elaborator and the encoding into Lean
-data are trusted, and Lean checks only that the data it reads is the compiled
-program. Cited and declared guarantees enter as premises, and calculations and
-simulations are not proved. See [scope and trust](docs/scope.md).
+program, not the compiler: the parser and the elaborator are trusted, and Lean
+checks that the data it reads is the compiled program, with a proof that the
+printed form determines the data; Lean's JSON printer is trusted. Cited and
+declared guarantees enter as premises, and calculations and simulations are not
+proved. See [scope and trust](docs/scope.md).
+
+## Paper
+
+The preprint [StatClaim: Study Designs as Types, Protocols as Programs and
+Statistical Claims as Proof Obligations](https://arxiv.org/abs/2611.30021)
+(arXiv:2611.30021, 2026) introduces the language. Version 1 describes an earlier
+architecture, in which a translator stated each verified claim in Lean; the
+protocol as one program in Lean, described above, came later. A revised version
+will follow.
+
+```bibtex
+@misc{manathunga2026statclaim,
+  title         = {StatClaim: Study Designs as Types, Protocols as Programs and
+                   Statistical Claims as Proof Obligations},
+  author        = {Manathunga, Supun},
+  year          = {2026},
+  eprint        = {2611.30021},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.CO},
+  doi           = {10.48550/arXiv.2611.30021}
+}
+```
 
 ## Documentation and contributing
 
@@ -291,5 +318,5 @@ simulations are not proved. See [scope and trust](docs/scope.md).
 Questions and proposals are handled in
 [Discussions](https://github.com/ssm123ssm/statClaim/discussions), and defects
 and tasks in [Issues](https://github.com/ssm123ssm/statClaim/issues). Citation
-information is given in [CITATION.cff](CITATION.cff). StatClaim is released
+information is given in [CITATION.cff](CITATION.cff) and [above](#paper). StatClaim is released
 under the [MIT license](LICENSE).
