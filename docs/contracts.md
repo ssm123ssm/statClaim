@@ -59,9 +59,17 @@ The three lists mean different things:
 `derivation_checker.py` re-validates every derivation. It reads the facts again
 from the serialized declaration, re-evaluates each premise with its own code,
 and confirms that the steps, their order, the conclusion, the assumptions and
-the open obligations are exactly what the declaration implies. It does not call
-the contract code or the code that built the derivation. A rule name or a
-success flag alone does not pass.
+the open obligations are exactly what the declaration implies. It imports only
+data from the rest of StatClaim, never a function, and a test checks this: where a
+premise rests on a calculation, the checker does it its own way. A design's
+spending boundaries, for example, are checked by integrating the chance of crossing
+each look from the spending function's definition. A rule name or a success flag
+alone does not pass.
+
+Lean decides the contracts of every program it builds. A derivation explains why a
+contract holds, and the checker keeps that explanation true to the declaration,
+including where Lean is not run, as in the web studio, and for planning claims,
+which Lean does not check.
 
 The rules are stated once, as data, in `derivations.py`. The checker is only as
 good as those statements: a wrongly stated rule would be checked faithfully.

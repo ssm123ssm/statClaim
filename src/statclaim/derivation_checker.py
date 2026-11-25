@@ -7,14 +7,21 @@ facts and conclusion are the ones the subject implies, the final step rests on
 the required earlier steps, and the open obligations are exactly the obligation
 rules that fail.
 
-It shares the rule statements with `derivations` (they are data), and nothing
-else: it does not call the contract code or the functions that build derivations.
-A rule name or a success flag alone never passes.
+It imports only data from the rest of StatClaim: the rule statements of
+`derivations`, registries, assumption texts and limits. It calls none of StatClaim's
+functions, neither the contract code nor the functions that build derivations, and a
+test checks this. Where a contract rests on a calculation, the checker does it its own
+way: a design's spending boundaries are checked from their definition, by integrating
+the chance of crossing each look, not by the code that computed them. A rule name or a
+success flag alone never passes.
 """
 
 import json
+import math
+from contextvars import ContextVar
 from fractions import Fraction
 from math import comb
+from statistics import NormalDist
 
 from statclaim.association import (
     CASE_CONTROL_GROUPS,
@@ -66,17 +73,18 @@ from statclaim.methods.assumptions import (
     REESTIMATION_TYPE_I,
     SINGLE_ANALYSIS,
 )
-from statclaim.methods.boundaries import JENNISON_TURNBULL, LAN_DEMETS
-from statclaim.methods.boundaries import information as look_information
-from statclaim.methods.boundaries import levels as spending_levels
+from statclaim.methods.boundaries import JENNISON_TURNBULL, LAN_DEMETS, SPENDING
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
 from statclaim.methods.observational import METHODS as OBSERVATIONAL_METHODS
 from statclaim.methods.simulation import FAMILY
+from statclaim.precision import EXACT_ASSUMPTIONS as PRECISION_EXACT
+from statclaim.precision import EXPECTED_GROUPS as PRECISION_GROUPS
 from statclaim.precision import MAX_EXACT_PAIRS as PRECISION_PAIRS
 from statclaim.precision import MAX_SIZE as PRECISION_LIMIT
 from statclaim.precision import MEASURES as PRECISION_MEASURES
 from statclaim.precision import METHODS as PRECISION_METHODS
-from statclaim.precision import assumptions as precision_assumptions
+from statclaim.precision import NORMAL_ASSUMPTIONS as PRECISION_NORMAL
+from statclaim.precision import PLANNING_POINT as PRECISION_POINT
 from statclaim.randomisation import (
     AS_DRAWN,
     AS_RANDOMISED,
@@ -636,7 +644,8 @@ def _precision_expected(name: str, subject: dict, search):
         and "n" in model
         and kind in ("difference", "ratio", "odds")
     )
-    return steps, [], precision_assumptions(method, total_only)
+    listed = PRECISION_EXACT if method == "exact" else PRECISION_NORMAL
+    return steps, [], (*listed, *((PRECISION_GROUPS,) if total_only else ()), PRECISION_POINT)
 
 
 def _cited_association_search_valid(bounds: dict, kind: str, study: dict, covariates: int) -> bool:
@@ -1875,28 +1884,137 @@ SPENDING_METHOD = {
 }
 
 
-def _spending_limits(subject: dict, members: list) -> list[str] | None:
-    """Each look's largest level, recomputed from the serialized design: the spending
-    function's nominal level at the look's share of the information, rounded down to 1e-9.
-    None when the test's boundary is not one the rule covers."""
+# The limits a derivation records for each design with spending boundaries, by name. The
+# checker trusts none of them: each is accepted only once _spending_checked confirms it.
+_RECORDED: ContextVar[dict[str, object] | None] = ContextVar(
+    "statclaim_recorded_limits", default=None
+)
+_NORMAL = NormalDist()
+GRID_POINTS = 201  # odd, for Simpson's rule on a uniform grid
+SPENT_TOLERANCE = 1e-6  # absolute, on the error spent by each look
+
+
+def _spent(spending: str, alpha: float, fraction: float, sides: int) -> float:
+    """The error Lan and DeMets's spending functions spend by an information fraction,
+    written from their definitions. A two-sided design spends half on each side."""
+    if sides == 2:
+        return 2.0 * _spent(spending, alpha / 2.0, fraction, 1)
+    if fraction >= 1.0:
+        return alpha
+    if spending == "obrien_fleming":
+        z = _NORMAL.inv_cdf(1.0 - alpha / 2.0)
+        return 2.0 * (1.0 - _NORMAL.cdf(z / math.sqrt(fraction)))
+    if spending == "pocock":
+        return alpha * math.log(1.0 + (math.e - 1.0) * fraction)
+    raise ValueError(f"unknown spending function {spending!r}")
+
+
+def _simpson(low: float, high: float) -> tuple[list[float], list[float]]:
+    step = (high - low) / (GRID_POINTS - 1)
+    nodes = [low + i * step for i in range(GRID_POINTS)]
+    weights = [
+        step / 3.0 * (1 if i in (0, GRID_POINTS - 1) else 4 if i % 2 else 2)
+        for i in range(GRID_POINTS)
+    ]
+    return nodes, weights
+
+
+def _first_crossings(shares: list[float], levels: list[float], sides: int) -> list[float]:
+    """The null chance of first crossing at each look, each look at its nominal level. The
+    score at information t is N(0, t) with independent increments; the sub-density of the
+    paths that have not crossed is carried from look to look on a uniform grid."""
+    found: list[float] = []
+    nodes: list[float] = []
+    weights: list[float] = []
+    density: list[float] = []
+    before = 0.0
+    for share, level in zip(shares, levels, strict=True):
+        spread = math.sqrt(share)
+        critical = _NORMAL.inv_cdf(1.0 - level / sides) if level > 0 else math.inf
+        bound = critical * spread
+        if not nodes:
+            crossing = level
+        else:
+            step = math.sqrt(share - before)
+            crossing = sum(
+                w
+                * f
+                * (
+                    1.0
+                    - _NORMAL.cdf((bound - s) / step)
+                    + (_NORMAL.cdf((-bound - s) / step) if sides == 2 else 0.0)
+                )
+                for s, f, w in zip(nodes, density, weights, strict=True)
+            )
+        found.append(crossing)
+        low = max(-bound if sides == 2 else -math.inf, -12.0 * spread)
+        grid, grid_weights = _simpson(low, min(bound, 12.0 * spread))
+        if not nodes:
+            density = [_NORMAL.pdf(u / spread) / spread for u in grid]
+        else:
+            density = [
+                sum(
+                    w * f * _NORMAL.pdf((u - s) / step)
+                    for s, f, w in zip(nodes, density, weights, strict=True)
+                )
+                / step
+                for u in grid
+            ]
+        nodes, weights, before = grid, grid_weights, share
+    return found
+
+
+def _spending_checked(
+    limits: list[str], sizes: list[tuple], alpha: Fraction, sides: int, spending: str
+) -> bool:
+    """Whether looks at these nominal levels spend the error as the spending function does:
+    the chance of first crossing by each look is what the function spends there."""
+    information = [Fraction(c * t, c + t) for c, t in sizes]
+    shares = [float(info / information[-1]) for info in information]
+    crossed = 0.0
+    for share, crossing in zip(
+        shares, _first_crossings(shares, [float(Fraction(x)) for x in limits], sides), strict=True
+    ):
+        crossed += crossing
+        if abs(crossed - _spent(spending, float(alpha), share, sides)) > SPENT_TOLERANCE:
+            return False
+    return True
+
+
+def _limit_text(value: object) -> bool:
+    """A level from 0 to 1 written exactly, rounded down to 1e-9."""
+    if not isinstance(value, str):
+        return False
+    level = Fraction(value)
+    return 0 <= level <= 1 and (level * 10**9).denominator == 1
+
+
+def _spending_limits(name: str, subject: dict, members: list) -> tuple[list | None, bool]:
+    """Each look's largest level, as the derivation records it, and whether those are the
+    spending function's boundaries: the levels rounded down to 1e-9, checked from the
+    definition. (None, False) when the test's boundary is not one the rule covers."""
     final = members[-1][1]
     if final.get("test") == "fisher":
         alternative = final.get("alternative", "two_sided")
         if alternative not in ("two_sided", "greater"):
-            return None
+            return None, False
         sides = 2 if alternative == "two_sided" else 1
     else:
         method = _method(final)
         if method is None or method.module != "tests.t":
-            return None
+            return None, False
         sides = 1 if NULL_FORMS[final["null"]["predicate"]][1].favours else 2
+    recorded = (_RECORDED.get() or {}).get(name)
+    if subject.get("spending") not in SPENDING or not isinstance(recorded, list):
+        return None, False
+    if len(recorded) != len(members) or not all(_limit_text(x) for x in recorded):
+        return recorded, False
     sizes = [
         (a["design"]["model"]["n_control"], a["design"]["model"]["n_treatment"]) for _, a in members
     ]
-    found = spending_levels(
-        look_information(sizes), float(Fraction(subject["alpha"])), sides, subject["spending"]
+    return recorded, _spending_checked(
+        recorded, sizes, Fraction(subject["alpha"]), sides, subject["spending"]
     )
-    return [str(Fraction(int(level * 10**9), 10**9)) for level in found]
 
 
 def _share(text) -> bool:
@@ -2031,10 +2149,14 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
         ]
         used += [base + 2, base + 3]
     if spending:
-        limits = _spending_limits(subject, members)
+        limits, checked = _spending_limits(name, subject, members)
         levels = [analysis["alpha"] for _, analysis in members]
-        within = limits is not None and all(
-            Fraction(level) <= Fraction(top) for level, top in zip(levels, limits, strict=True)
+        within = (
+            limits is not None
+            and checked
+            and all(
+                Fraction(level) <= Fraction(top) for level, top in zip(levels, limits, strict=True)
+            )
         )
         facts = {
             "subject": name,
@@ -2516,6 +2638,15 @@ def _fisher_family_expected(name: str, subject: dict) -> tuple[list, list]:
 def check_derivation(derivation: dict) -> list[str]:
     """Return the problems found; an empty list means the derivation is valid."""
     problems: list[str] = []
+    recorded = {
+        step["facts"]["subject"]: step["facts"].get("limits")
+        for step in derivation.get("steps", [])
+        if isinstance(step, dict)
+        and step.get("rule") == "spending-boundaries"
+        and isinstance(step.get("facts"), dict)
+        and "subject" in step["facts"]
+    }
+    token = _RECORDED.set(recorded)
     try:
         # A guarantee may be carried only by a contract that supplies one, and then
         # only the guarantee the declaration implies.
@@ -2594,4 +2725,6 @@ def check_derivation(derivation: dict) -> list[str]:
             problems.append("The required assumptions do not match the contract.")
     except (KeyError, TypeError, ValueError, IndexError, ZeroDivisionError) as error:
         problems.append(f"Malformed derivation: {error}")
+    finally:
+        _RECORDED.reset(token)
     return problems

@@ -180,3 +180,30 @@ def test_the_example_is_cited_and_its_power_simulated(tmp_path):
     looks = simulated["calculation"]["looks"]
     assert [look["alpha"]["fraction"] for look in looks] == ["3/1000", "6/125"]
     assert simulated["decision"] == "target_met"
+
+
+@pytest.mark.parametrize(
+    ("limits", "found"),
+    [
+        # A larger limit lets a look spend more than the function gives it.
+        (["1/200", "48999543/1000000000"], "premise does not hold"),
+        # Pocock's boundaries under O'Brien-Fleming spending.
+        (None, "premise does not hold"),
+        # A limit not rounded to the boundary's 1e-9.
+        (["1/3", "48999543/1000000000"], "premise does not hold"),
+    ],
+)
+def test_the_checker_checks_recorded_limits_from_the_definition(limits, found):
+    """The checker does not reuse the code that computed the boundaries: it integrates the
+    chance of crossing each look itself, so altered limits fail."""
+    compiled = compile_source(Source(program([(50, "3/1000"), (100, "6/125")])))
+    record = next(d for d in compiled.derivations if d.name == "trial").to_dict()
+    step = next(s for s in record["steps"] if s["rule"] == "spending-boundaries")
+    assert check_derivation(record) == []
+    if limits is None:
+        information = boundaries.information([(50, 50), (100, 100)])
+        pocock = boundaries.levels(information, 0.05, 2, "pocock")
+        limits = [str(boundaries.floor_level(level, 9)) for level in pocock]
+    step["facts"]["limits"] = limits
+    problems = check_derivation(record)
+    assert any(found in problem for problem in problems), problems

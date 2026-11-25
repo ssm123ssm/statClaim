@@ -317,3 +317,21 @@ def test_planning_claims_rest_on_their_analysis_and_record_obligations():
         altered = copy.deepcopy(record)
         change(altered)
         assert check_derivation(altered)
+
+
+def test_the_checker_imports_data_and_no_function_from_statclaim():
+    """The independent checker re-derives every fact with its own code: it may read rule
+    statements, registries, assumption texts and limits, never call StatClaim's functions."""
+    import ast
+    import importlib
+    import inspect
+
+    source = (ROOT / "src/statclaim/derivation_checker.py").read_text()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("statclaim"):
+            module = importlib.import_module(node.module)
+            for alias in node.names:
+                value = getattr(module, alias.name)
+                assert not inspect.isfunction(value), f"{node.module}.{alias.name} is a function"
+        if isinstance(node, ast.Import):
+            assert not any(a.name.startswith("statclaim") for a in node.names)

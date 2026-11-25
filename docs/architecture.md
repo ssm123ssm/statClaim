@@ -38,7 +38,8 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   program and reported values. `verification.py` builds, audits and replays the
   certificate, and `program_evidence.py` connects it to each verified request.
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
-  contract passed, an independent check of that, and the study report.
+  contract passed, an independent check of that, and the study report. The checker
+  imports only data from the rest of StatClaim, never a function.
 - `StatClaim/`: Lean definitions, theorems and composition rules.
   `StatClaim/Interface/` holds the objects the semantics is stated in: abstract
   two-arm and observational models, tests seen from outside and their level
