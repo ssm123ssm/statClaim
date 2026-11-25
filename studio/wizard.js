@@ -458,9 +458,10 @@ export function openWizard({onCreate, onEmpty, check, start = {}}) {
     if (!kind) state.interimAdd = 'none';
     swap(interimPower, String(kind) + (state.interimAdd || 'none'), () => !kind ? [] : [
       heading('Also'),
-      segments('interim-add', {none: {label: 'Nothing more', glyph: 'none'}, power: {label: 'Find the power', glyph: 'target'}},
+      segments('interim-add', {none: {label: 'Nothing more', glyph: 'none'}, power: {label: 'Find the power', glyph: 'target'},
+        sizes: {label: 'Find the look sizes', glyph: 'target', detail: 'Each look free'}},
         value => { state.interimAdd = value; paint(); }, 'interimAdd'),
-      ...(state.interimAdd !== 'power' ? [] : kind === 'binary' ? [rows(
+      ...(state.interimAdd === 'none' ? [] : kind === 'binary' ? [rows(
         row('Control rate', pill('pControl', {label: 'Control response rate'}), 'The response rate you expect without treatment.'),
         row('Treatment rate', pill('pTreatment', {label: 'Treatment response rate'}), 'And with it.')),
       note('Power, the chance of stopping at the look and the expected size are summed exactly.')] : [rows(

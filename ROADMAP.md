@@ -99,6 +99,9 @@
   and Pocock spending functions (Lan and DeMets), computed under the canonical joint
   distribution, each look's level checked against its boundary, and the rule cited in
   Lean. Boundaries agree with rpact and gsDesign.
+- Searches over the sizes of a design's looks: every look's size free on a grid, ranked by
+  a minimax or optimal criterion, exact for Fisher's test and simulated for t-tests, with
+  each candidate taking its own spending boundaries.
 - The printed form determines the program: Lean proves that two programs in canonical
   form never print the same form, and every build decides that its program is in
   canonical form, so the encoding into Lean data is no longer trusted.

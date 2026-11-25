@@ -38,7 +38,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
 
-from statclaim import association_planning
+from statclaim import association_planning, look_search
 from statclaim import simulation as engine
 from statclaim.cited_planning import (
     PLANNING_POINT,
@@ -53,6 +53,7 @@ from statclaim.language import (
     ClusterCandidatesIR,
     FamilyLikeIR,
     FeasibilityIR,
+    LookCandidatesIR,
     PowerTargetIR,
     ReestimationIR,
     SequentialIR,
@@ -63,7 +64,7 @@ from statclaim.language import (
     family_procedure,
     planned_analysis,
 )
-from statclaim.methods import NULL_FORMS
+from statclaim.methods import NULL_FORMS, boundaries
 from statclaim.methods.assumptions import REESTIMATION_TYPE_I
 from statclaim.methods.identify import identify, mark
 from statclaim.methods.simulation import FAMILY
@@ -433,14 +434,19 @@ def _total(analysis, target: PowerTargetIR, n: int) -> Design:
 
 
 def _sequential(design: SequentialIR, target: PowerTargetIR) -> Design:
-    """A design with looks: each study is drawn stage by stage to each look's sizes."""
-    final = design.final
-    model, point = final.method.simulation, target.at
-    values = _point_values(final, point)
+    """A design with looks as declared."""
     looks = tuple(
         (look.plan.model.n_control, look.plan.model.n_treatment, look.alpha)
         for _, look in design.analyses
     )
+    return _looked(design, target, looks)
+
+
+def _looked(design: SequentialIR, target: PowerTargetIR, looks: tuple) -> Design:
+    """A design with these looks: each study is drawn stage by stage to each look's sizes."""
+    final = design.final
+    model, point = final.method.simulation, target.at
+    values = _point_values(final, point)
     drawn_looks = [(n_c, n_t, float(level)) for n_c, n_t, level in looks]
     null_value = float(final.hypothesis.value)
     side = NULL_FORMS[final.hypothesis.predicate][1].favours or "both"
@@ -456,7 +462,42 @@ def _sequential(design: SequentialIR, target: PowerTargetIR) -> Design:
         "total_sample_size": n_control + n_treatment,
     }
     labels = tuple(size for n_c, n_t, _ in looks for size in (n_c, n_t))
-    return Design(labels, trial, record, {}, model.scenario(values), looks)
+    curve = {"looks": [[n_c, n_t] for n_c, n_t, _ in looks]}
+    return Design(labels, trial, record, curve, model.scenario(values), looks)
+
+
+SCREEN = 0.03  # how far below the target a candidate's approximate power may be, and be simulated
+MAX_SCREENED = 20  # candidates simulated, in the criterion's order
+
+
+def _look_designs(design: SequentialIR, target: PowerTargetIR, space) -> tuple[list, dict]:
+    """A search over look sizes: every candidate's power from the normal approximation of
+    its looks, then the candidates near or above the target, in the criterion's order."""
+    final, point = design.final, target.at
+    sides = 1 if NULL_FORMS[final.hypothesis.predicate][1].favours else 2
+    sd = float(point.sd)
+    if point.sd_treatment is not None:
+        sd = math.sqrt((sd**2 + float(point.sd_treatment) ** 2) / 2)
+    drift = abs(float(point.value) - float(final.hypothesis.value)) / sd
+    listed = look_search.candidates(design, space.min_per_arm, space.max_per_arm, space.step, sides)
+    ranked = []
+    for looks in listed:
+        sizes, levels = [(c, t) for c, t, _ in looks], [level for *_, level in looks]
+        stopped = boundaries.stopping(sizes, levels, sides, drift)
+        if sum(stopped) < float(target.minimum) - SCREEN:
+            continue
+        key = look_search.rank(space.criterion, looks, look_search.expected_total(looks, stopped))
+        ranked.append((key, looks))
+    ranked.sort()
+    search = {
+        "criterion": space.criterion,
+        "min_per_arm": space.min_per_arm,
+        "max_per_arm": space.max_per_arm,
+        "step": space.step,
+        "candidates": len(listed),
+        "screened": len(ranked),
+    }
+    return [_looked(design, target, looks) for _, looks in ranked[:MAX_SCREENED]], search
 
 
 def _look_record(looks: tuple, power: engine.LookEstimate, error: engine.LookEstimate) -> dict:
@@ -500,6 +541,8 @@ def _declared(analysis, target: PowerTargetIR) -> Design:
 
 def _searched(analysis, target: PowerTargetIR, space) -> tuple[list[Design], dict]:
     """A search's designs, in order, and its bounds as the report states them."""
+    if isinstance(space, LookCandidatesIR):
+        return _look_designs(analysis, target, space)
     if _observational(analysis):
         designs = [_total(analysis, target, n) for n in range(space.min_n, space.max_n + 1)]
         return designs, {"min_n": space.min_n, "max_n": space.max_n}
@@ -677,6 +720,19 @@ def _statement(subject, analysis, target: PowerTargetIR, runs: str) -> str:
         f"whose simulated power has its 95% interval at or above {target.minimum}, confirmed "
         f"by an independent run: {goal}"
     )
+    if isinstance(space, LookCandidatesIR):
+        levels = (
+            "each look at its declared level"
+            if analysis.spending is None
+            else "each candidate with its own spending boundaries"
+        )
+        return (
+            f"{title} at {len(analysis.analyses)} looks, each look's size per control arm free "
+            f"from {space.min_per_arm} to {space.max_per_arm} in steps of {space.step}, "
+            f"{levels}: candidates are ranked by the {space.criterion} criterion, with power "
+            f"from the normal approximation, and the first in that order {passing}. Each "
+            f"design uses {runs}."
+        )
     if _observational(analysis):
         return (
             f"{title}: the first total from {space.min_n} to {space.max_n} {passing}. Each "
@@ -759,11 +815,12 @@ def run(report: dict, subject, settings: SimulationIR) -> dict:
     designs, search = _searched(analysis, target, subject.candidates)
     curve, confirmations = [], 0
     for evaluated, design in enumerate(designs, 1):
-        found = engine.estimate(
-            design.trial(False),
-            settings.runs,
-            engine.Stream(settings.seed, "search", *design.labels),
-        )
+        stream = engine.Stream(settings.seed, "search", *design.labels)
+        if design.looks is None:
+            found = engine.estimate(design.trial(False), settings.runs, stream)
+        else:
+            count = len(design.looks)
+            found = engine.estimate_looks(design.trial(False), count, settings.runs, stream).overall
         curve.append(
             {
                 **design.curve,

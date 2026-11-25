@@ -101,6 +101,7 @@ IGNORED = {
     "TotalCandidatesIR",
     "IntervalCandidatesIR",
     "TwoStageCandidatesIR",
+    "LookCandidatesIR",
     "CountCandidatesIR",
     "ClusterCandidatesIR",
     "OneArmCandidatesIR",

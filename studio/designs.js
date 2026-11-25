@@ -532,6 +532,22 @@ export function interimSource({name = 'study', outcome = 'binary', control = 100
   const notes = [boundaries
     ? 'Each level is its boundary\'s, rounded down: the boundaries use the correlation between looks, and the rule is cited.'
     : 'The split is conservative: it ignores the correlation between looks.'];
+  // Search every look's size freely, up to the sizes given, for the smallest final size.
+  const search = 'look_sizes(design=trial, min_per_arm=10, max_per_arm=' + Math.max(20, Number(control)) + ', step=10, criterion="minimax")';
+  if (outcome !== 'survival' && interimAdd === 'sizes') {
+    lines.splice(4, 0, 'use planning');
+    lines.push(outcome === 'binary'
+      ? '# The response rates you expect: the minimax look sizes, each look free, summed exactly.'
+      : '# The difference you expect and the SD: the minimax look sizes, each look free, simulated.',
+    outcome === 'binary'
+      ? 'let target = power_target(at=binomial_rates(p_control=' + pControl + ', p_treatment=' + pTreatment + '), minimum=4/5, maximum_typeI=' + alpha + ')'
+      : 'let target = power_target(at=mean_difference(value=' + effect + ', sd=' + sd + '), minimum=4/5, maximum_typeI=' + alpha + ')',
+    'let looks = ' + search,
+    outcome === 'binary'
+      ? 'let sizes = calculate(sample_size(candidates=looks, target=target))'
+      : 'let sizes = simulate(sample_size(candidates=looks, target=target), seed=' + seed + ')', '');
+    notes.push('Each look\'s size is searched freely, in steps of 10, up to the final size you gave; the ranking is a calculation.');
+  }
   // Fisher's test at looks: power summed exactly over every path of counts.
   if (outcome === 'binary' && interimAdd === 'power') {
     lines.splice(4, 0, 'use planning');

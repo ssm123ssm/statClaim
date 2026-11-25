@@ -16,6 +16,7 @@ from statclaim.language.ir import (
     AnalysisIR,
     ClaimIR,
     ClusterCandidatesIR,
+    LookCandidatesIR,
     SimulationIR,
     SizingIR,
     TotalCandidatesIR,
@@ -29,6 +30,7 @@ from statclaim.language.points import (
 from statclaim.language_syntax import (
     Span,
 )
+from statclaim.look_search import allocation as look_allocation
 from statclaim.methods import methods_for
 from statclaim.plan_kinds import kind_of, resolve
 from statclaim.simulation import (
@@ -227,11 +229,12 @@ def check_looks_calculation(claim: LocatedValue) -> None:
             "the trial look by look.",
             claim.span,
         )
-    if claim.value.kind == "sample_size":
+    subject = claim.value.subject
+    if claim.value.kind == "sample_size" and not isinstance(subject.candidates, LookCandidatesIR):
         fail(
             "unsupported_claim",
-            "A design with looks is calculated as declared; searching its sizes is not "
-            "supported yet.",
+            "Search a design with looks with look_sizes(design=...), which lets each look's "
+            "size vary.",
             claim.span,
         )
 
@@ -262,17 +265,21 @@ def check_looks_simulation(analysis, subject, arguments, claim) -> ClaimIR:
             "calculate(...) sums it over every path of counts.",
             claim.span,
         )
-    if isinstance(subject, SizingIR):
+    if isinstance(subject, SizingIR) and not isinstance(subject.candidates, LookCandidatesIR):
         fail(
             "unsupported_claim",
-            "A design with looks is simulated as declared; searching its sizes is not "
-            "supported yet. Declare the looks and simulate meets(...).",
+            "Search a design with looks with look_sizes(design=...), which lets each look's "
+            "size vary.",
             claim.span,
         )
     settings = simulation_settings(arguments)
     if participant_draws(subject.target.at):
         model = analysis.final.plan.model
-        if 2 * (model.n_control + model.n_treatment) * settings.runs > MAX_SIMULATED_PARTICIPANTS:
+        largest = (model.n_control, model.n_treatment)
+        if isinstance(subject, SizingIR):
+            space = subject.candidates
+            largest = (space.max_per_arm, space.max_per_arm * (look_allocation(analysis) or 1))
+        if 2 * sum(largest) * settings.runs > MAX_SIMULATED_PARTICIPANTS:
             fail(
                 "domain",
                 "This scenario is simulated one participant at a time, and this could draw more "

@@ -225,6 +225,10 @@ TABLE: dict[str, InLean | NotInLean] = {
     "cluster_counts": APPROXIMATE,
     "cluster_sizes": APPROXIMATE,
     "endpoint_points": NotInLean("The power of a family is simulated, not proved."),
+    "look_sizes": NotInLean(
+        "The power of a design with looks is calculated or simulated, and the ranking of look "
+        "sizes is a calculation; Lean does not check them."
+    ),
     "null_scenarios": NotInLean(
         "Points at which a simulation judges Type I error; a simulation is never proof."
     ),

@@ -45,6 +45,7 @@ from statclaim.language import (
     IntervalCandidatesIR,
     IntervalIR,
     LocatedValue,
+    LookCandidatesIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
     MatchedPairsIR,
@@ -849,6 +850,14 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
         ),
         "alpha": FieldSpec(Fraction, optional=True, description="The design's overall level."),
         "typeI_target_met": FieldSpec(bool, optional=True),
+        "criterion": FieldSpec(str, optional=True, description="How a search ranked designs."),
+        "candidates": FieldSpec(
+            int, optional=True, description="The choices of look sizes a search listed."
+        ),
+        "candidates_evaluated": FieldSpec(int, optional=True),
+        "feasible": FieldSpec(
+            int, optional=True, description="Candidates evaluated that met the power target."
+        ),
     },
     SimulationDetails: {
         "n_control": FieldSpec(int, optional=True),
@@ -1021,6 +1030,12 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
     TwoStageCandidatesIR: {
         "null_rate": FieldSpec(Fraction),
         "max_total": FieldSpec(int),
+        "criterion": FieldSpec(str),
+    },
+    LookCandidatesIR: {
+        "min_per_arm": FieldSpec(int),
+        "max_per_arm": FieldSpec(int),
+        "step": FieldSpec(int),
         "criterion": FieldSpec(str),
     },
     PolicyDetails: {

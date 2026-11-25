@@ -11,9 +11,17 @@ beside it.
 
 import math
 from fractions import Fraction
+from itertools import groupby
 
+from statclaim import look_search
 from statclaim.fisher import fraction_record
-from statclaim.language import FeasibilityIR, SequentialIR, planned_analysis
+from statclaim.language import (
+    FeasibilityIR,
+    LookCandidatesIR,
+    SequentialIR,
+    SizingIR,
+    planned_analysis,
+)
 from statclaim.planning import fisher_rejection_region
 from statclaim.report import planning_report
 
@@ -105,7 +113,11 @@ def _expected(looks, stopped: list[float]) -> float:
 
 
 def evaluate(design: SequentialIR, target) -> dict:
-    looks, point = _looks(design), target.at
+    return _calculation(design, _looks(design), target)
+
+
+def _calculation(design: SequentialIR, looks, target) -> dict:
+    point = target.at
     control, treatment = float(point.p_control), float(point.p_treatment)
     stopped = fisher_looks(looks, control, treatment)
     null = fisher_looks(looks, control, control)
@@ -138,8 +150,64 @@ def evaluate(design: SequentialIR, target) -> dict:
     }
 
 
+def search(space: LookCandidatesIR, target) -> tuple[dict | None, dict]:
+    """Sum the power of every candidate's looks exactly; return the selected design's record
+    by the criterion, if any candidate meets the power target, and what the search did.
+    A minimax search stops after the smallest final size with a candidate that meets it."""
+    design, point = space.design, target.at
+    alternative = design.final.alternative
+    sides = 2 if alternative == "two_sided" else 1
+    control, treatment = float(point.p_control), float(point.p_treatment)
+    listed = look_search.candidates(design, space.min_per_arm, space.max_per_arm, space.step, sides)
+    listed.sort(key=lambda looks: looks[-1][0])
+    best, evaluated, feasible = None, 0, 0
+    for _, group in groupby(listed, key=lambda looks: looks[-1][0]):
+        for looks in group:
+            evaluated += 1
+            tested = [(c, t, level, alternative) for c, t, level in looks]
+            stopped = fisher_looks(tested, control, treatment)
+            if min(sum(stopped), 1.0) < target.minimum:
+                continue
+            feasible += 1
+            key = look_search.rank(space.criterion, looks, _expected(tested, stopped))
+            if best is None or key < best[0]:
+                best = (key, tested)
+        if best is not None and space.criterion == "minimax":
+            break
+    record = {
+        "criterion": space.criterion,
+        "min_per_arm": space.min_per_arm,
+        "max_per_arm": space.max_per_arm,
+        "step": space.step,
+        "candidates": len(listed),
+        "candidates_evaluated": evaluated,
+        "feasible": feasible,
+    }
+    return (None if best is None else _calculation(design, best[1], target)), record
+
+
+def _levels_words(design: SequentialIR) -> str:
+    if design.spending is None:
+        return "each look at its declared level"
+    rule = "O'Brien-Fleming" if design.spending == "obrien_fleming" else "Pocock"
+    return f"each candidate with its own {rule} boundaries"
+
+
 def describe(subject) -> dict:
     design, target = planned_analysis(subject), subject.target
+    if isinstance(subject, SizingIR):
+        space = subject.candidates
+        assert isinstance(space, LookCandidatesIR)
+        text = (
+            f"Fisher's test at {len(design.analyses)} looks, each look's size per control arm "
+            f"free from {space.min_per_arm} to {space.max_per_arm} in steps of {space.step}, "
+            f"{_levels_words(design)}: the {space.criterion} design with power at least "
+            f"{target.minimum} at response rates {target.at.p_control} and "
+            f"{target.at.p_treatment}, and the design's level {design.alpha} at most "
+            f"{target.maximum_typeI}. Every candidate's power is summed exactly over every path "
+            "of counts; the power and the ranking are calculated, not checked by Lean."
+        )
+        return planning_report("looks_planning", text, [EXACT_LOOKS, look_search.RANKING])
     looks = ", ".join(
         f"({look.plan.model.n_control}, {look.plan.model.n_treatment}) at {look.alpha}"
         for _, look in design.analyses
@@ -155,9 +223,24 @@ def describe(subject) -> dict:
 
 
 def run(report: dict, subject) -> dict:
-    if not isinstance(subject, FeasibilityIR):
-        raise ValueError("a design with looks is calculated as declared")
     design, target = planned_analysis(subject), subject.target
+    if isinstance(subject, SizingIR):
+        assert isinstance(subject.candidates, LookCandidatesIR)
+        calculation, record = search(subject.candidates, target)
+        if calculation is None:
+            report["calculation"] = {
+                **record,
+                "power_target_met": False,
+                "minimum_power": fraction_record(target.minimum),
+            }
+            report["decision"] = "no_feasible_candidate"
+            return report
+        report["calculation"] = {**calculation, **record}
+        met = calculation["power_target_met"] and calculation["typeI_target_met"]
+        report["decision"] = "target_met" if met else "target_not_met"
+        return report
+    if not isinstance(subject, FeasibilityIR):
+        raise ValueError("a design with looks is calculated as declared or searched")
     calculation = evaluate(design, target)
     report["calculation"] = calculation
     met = calculation["power_target_met"] and calculation["typeI_target_met"]

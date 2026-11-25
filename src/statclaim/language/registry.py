@@ -102,6 +102,7 @@ from statclaim.language.ir import (
     RateAnalysisIR,
     RateIR,
     RuleIR,
+    SequentialIR,
     StudyModelIR,
     TargetIR,
     TwoArmTestIR,
@@ -145,6 +146,7 @@ from statclaim.language.searches import (
     _cluster_sizes,
     _difference_interval,
     _interval,
+    _look_sizes,
     _one_arm,
     _one_arm_candidates,
     _posterior_rule,
@@ -1427,6 +1429,25 @@ MODULES = {
                     "with its nominal level: at most the level the spending function gives it "
                     "at its share of the information. The error message lists those levels. "
                     "For Fisher's test and the t-tests. The rule is cited.",
+                ),
+                _constructor(
+                    "look_sizes",
+                    (
+                        ("design", SequentialIR),
+                        ("min_per_arm", "integer"),
+                        ("max_per_arm", "integer"),
+                        ("step", "integer"),
+                        ("criterion", "string"),
+                    ),
+                    "LookCandidates",
+                    _look_sizes,
+                    documentation="Designs with the declared looks whose sizes per control "
+                    "arm are free: every increasing choice from min_per_arm to max_per_arm in "
+                    "steps of step, keeping the final look's allocation, test and null. Each "
+                    "candidate keeps the declared levels, or takes its own spending boundaries. "
+                    'criterion="minimax" ranks the smallest final size first; "optimal" the '
+                    "smallest expected size at the planning point. Exact for Fisher's test, "
+                    "simulated for t-tests; the ranking is a calculation.",
                 ),
                 TYPE_I,
             ),

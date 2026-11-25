@@ -46,6 +46,7 @@ from statclaim.derivations import (
     TWO_STAGE_ASSUMPTIONS,
 )
 from statclaim.incidence import PERSON_TIME, POISSON_EVENTS, RATE_NULL
+from statclaim.look_search import MAX_CANDIDATES as MAX_LOOK_CANDIDATES
 from statclaim.looks_planning import EXACT_LOOKS, MAX_LOOK_ARM
 from statclaim.matched import MATCHED_NULL, PAIRS_SAMPLED, WITHIN_PAIRS
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES, SHARP_NULL
@@ -970,8 +971,14 @@ def _reestimation_planning_expected(name: str, subject: dict, search, design: di
 def _sequential_planning_expected(name: str, subject: dict, search, design: dict):
     """Simulated power of a design with looks: its looks form one sequential test, re-derived
     as for typeI(...), and their test has a simulation model for looks at this point."""
-    if search is not None:
-        raise ValueError("a design with looks is simulated as declared, not searched")
+    if search is not None and set(search) != {
+        "analysis",
+        "min_per_arm",
+        "max_per_arm",
+        "step",
+        "criterion",
+    }:
+        raise ValueError("a search over looks lists its grid and criterion")
     inner = f"{name}.analysis"
     block = _combination(inner, design, 0, nested=True)
     steps = list(block["steps"])
@@ -1028,6 +1035,30 @@ def _sequential_planning_expected(name: str, subject: dict, search, design: dict
         )
     )
     used += [len(steps) - 3, len(steps) - 2, len(steps) - 1]
+    if search is not None:
+        looks = len(design["analyses"])
+        low, high, step = search["min_per_arm"], search["max_per_arm"], search["step"]
+        allocation = Fraction(sizes["n_treatment"], sizes["n_control"])
+        whole = all(isinstance(v, int) and v >= 1 for v in (low, high, step)) and low <= high
+        listed = comb(len(range(low, high + 1, step)), looks) if whole else 0
+        valid = (
+            whole
+            and allocation.denominator == 1
+            and search["criterion"] in ("minimax", "optimal")
+            and 1 <= listed <= MAX_LOOK_CANDIDATES
+        )
+        facts = {
+            "subject": name,
+            "looks": looks,
+            "min_per_arm": low,
+            "max_per_arm": high,
+            "step": step,
+            "allocation": allocation.numerator if allocation.denominator == 1 else None,
+            "criterion": search["criterion"],
+            "candidates": listed,
+        }
+        steps.append(("look-candidates", facts, valid, ()))
+        used.append(len(steps) - 1)
     steps.append(("sequential-planning-contract", {"subject": name}, True, tuple(used)))
     obligations = [
         *block["obligations"],

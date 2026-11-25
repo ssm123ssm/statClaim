@@ -1,0 +1,42 @@
+Two looks of Fisher's test at levels 1/100 and 1/25, rates 3/10 and 7/10, grid 6 12 18 24 30 36 42
+looks (6, 12): stopping 0.013841818642, 0.376095169643; power 0.389937; expected total 23.8339
+looks (6, 18): stopping 0.013841818642, 0.474365336117; power 0.488207; expected total 35.6678
+looks (6, 24): stopping 0.013841818642, 0.667436678996; power 0.681278; expected total 47.5017
+looks (6, 30): stopping 0.013841818642, 0.824567585090; power 0.838409; expected total 59.3356
+looks (6, 36): stopping 0.013841818642, 0.881004107052; power 0.894846; expected total 71.1695
+looks (6, 42): stopping 0.013841818642, 0.917591817357; power 0.931434; expected total 83.0034
+looks (12, 18): stopping 0.148369941050, 0.344986196488; power 0.493356; expected total 34.2196
+looks (12, 24): stopping 0.148369941050, 0.536281505315; power 0.684651; expected total 44.4391
+looks (12, 30): stopping 0.148369941050, 0.691410250833; power 0.839780; expected total 54.6587
+looks (12, 36): stopping 0.148369941050, 0.747456620847; power 0.895827; expected total 64.8782
+looks (12, 42): stopping 0.148369941050, 0.783739697606; power 0.932110; expected total 75.0978
+looks (18, 24): stopping 0.326477554102, 0.358507272676; power 0.684985; expected total 44.0823
+looks (18, 30): stopping 0.326477554102, 0.513556282581; power 0.840034; expected total 52.1645
+looks (18, 36): stopping 0.326477554102, 0.569793758094; power 0.896271; expected total 60.2468
+looks (18, 42): stopping 0.326477554102, 0.606040264467; power 0.932518; expected total 68.3291
+looks (24, 30): stopping 0.521152426692, 0.318459646077; power 0.839612; expected total 53.7462
+looks (24, 36): stopping 0.521152426692, 0.375534626307; power 0.896687; expected total 59.4923
+looks (24, 42): stopping 0.521152426692, 0.411908494979; power 0.933061; expected total 65.2385
+looks (30, 36): stopping 0.669182475119, 0.226743727739; power 0.895926; expected total 63.9698
+looks (30, 42): stopping 0.669182475119, 0.263904075827; power 0.933087; expected total 67.9396
+looks (36, 42): stopping 0.774363136381, 0.157934059952; power 0.932297; expected total 74.7076
+
+minimax design: (18, 30) per arm
+optimal design: (18, 30) per arm
+
+R version 4.6.1 (2026-06-24)
+Platform: aarch64-apple-darwin23
+Running under: macOS Golden Gate 27.0.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] jsonlite_2.0.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1

@@ -1401,6 +1401,25 @@ class CandidatesIR(CandidateSpaceIR):
 
 
 @dataclass(frozen=True)
+class LookCandidatesIR(CandidateSpaceIR):
+    """Designs with the declared looks' test, null and allocation whose looks' sizes per
+    control arm are searched freely: every increasing choice from min_per_arm to max_per_arm
+    in steps of step. Each candidate keeps the declared levels (alpha_spending) or takes its
+    own spending boundaries (group_sequential). The criterion ranks the candidates that meet
+    the target."""
+
+    design: "SequentialIR"
+    min_per_arm: int
+    max_per_arm: int
+    step: int
+    criterion: str
+
+    @property
+    def analysis(self) -> "SequentialIR":
+        return self.design
+
+
+@dataclass(frozen=True)
 class ClusterCandidatesIR(CandidateSpaceIR):
     """Cluster-randomised trials for a test of cluster summaries. With cluster_size set, low
     to high clusters per arm of that many participants each; without it, the declared

@@ -1,0 +1,22 @@
+# Searching the sizes of a design's looks. Each look's size is free: every increasing
+# choice of sizes per arm on the grid is a candidate, and each candidate takes its own
+# O'Brien-Fleming boundaries at its share of the information.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use designs.group_sequential
+use planning
+
+# The declared design gives the test, the null, the allocation and the spending function.
+let halfway = two_arm_continuous(n_control=50, n_treatment=50)
+let complete = two_arm_continuous(n_control=100, n_treatment=100)
+let interim = t_test(design=fixed(model=halfway), null=equal_means(model=halfway), alpha=3/1000)
+let final = t_test(design=fixed(model=complete), null=equal_means(model=complete), alpha=48/1000)
+let trial = group_sequential(looks=[interim, final], alpha=1/20, spending="obrien_fleming")
+
+# Optimal: the smallest expected size at the planning point among designs with 80% power.
+# Candidates are ranked with the normal approximation, then simulated in that order; the
+# first whose simulated power clears 80% is confirmed by an independent run.
+let target = power_target(at=mean_difference(value=5, sd=10), minimum=4/5, maximum_typeI=1/20)
+let looks = look_sizes(design=trial, min_per_arm=20, max_per_arm=120, step=10, criterion="optimal")
+let sizes = simulate(sample_size(candidates=looks, target=target), seed=2026)

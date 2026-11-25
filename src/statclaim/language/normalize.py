@@ -44,6 +44,7 @@ from statclaim.language.ir import (
     IncidenceRatesIR,
     IntervalCandidatesIR,
     IntervalIR,
+    LookCandidatesIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
     MatchedPairsIR,
@@ -544,6 +545,16 @@ def normalize(value: object) -> object:
                 "design": "two_stage_threshold",
                 "null_rate": str(rate),
                 "max_total": total,
+                "criterion": criterion,
+            }
+        case LookCandidatesIR(
+            design=design, min_per_arm=low, max_per_arm=high, step=step, criterion=criterion
+        ):
+            return {
+                "analysis": normalize(design),
+                "min_per_arm": low,
+                "max_per_arm": high,
+                "step": step,
                 "criterion": criterion,
             }
         case OneArmCandidatesIR(analysis=analysis, min_n=low, max_n=high):

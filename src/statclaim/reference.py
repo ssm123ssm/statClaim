@@ -174,7 +174,8 @@ PARAMETER_CHOICES = {
     "randomisation": ENUMERATIONS["assignment randomisation"],
     "joint_law": ENUMERATIONS["bonferroni joint_law"],
     "criterion": {
-        "optimal": "Minimises the expected sample size at the null rate.",
+        "optimal": "Minimises the expected sample size: at the null rate for a two-stage "
+        "design, at the planning point for a design with looks.",
         "minimax": "Minimises the largest possible sample size.",
     },
     "scope": SCOPES,

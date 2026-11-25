@@ -748,7 +748,7 @@ def _simulated_lines(details: dict) -> list[str]:
             lines.append(
                 "  looks: "
                 + ", ".join(
-                    f"({look['n_control']}, {look['n_treatment']}) at {look['alpha']['fraction']}"
+                    f"({look['n_control']}, {look['n_treatment']}) at {_level_text(look['alpha'])}"
                     for look in looks
                 )
                 + "; stopping ~ "
@@ -788,6 +788,12 @@ def _simulated_lines(details: dict) -> list[str]:
             ),
             f"  scenario: {calculation['scenario']}",
         ]
+    if "screened" in calculation:
+        lines.append(
+            f"  look sizes searched: {calculation['candidates']} choices, ranked "
+            f"{calculation['criterion']}; {calculation['screened']} near the target by the "
+            "normal approximation, simulated in that order"
+        )
     if "candidates_evaluated" in calculation:
         lines.append(
             f"  candidates evaluated = {calculation['candidates_evaluated']}; "
@@ -885,10 +891,28 @@ def _precision_lines(details: dict) -> list[str]:
     return lines
 
 
+def _level_text(record: dict) -> str:
+    """A look's level: the fraction, or for a long one such as a computed boundary, its
+    decimal."""
+    text = record["fraction"]
+    return text if len(text) <= 11 else f"~{float(record['decimal_approximation']):.6f}"
+
+
 def _looks_lines(details: dict) -> list[str]:
     """Fisher's test at looks: each look's exact chance of stopping, and the expected size."""
     calculation = details["calculation"]
     show = lambda record: f"{float(record['decimal_approximation']):.4f}"  # noqa: E731
+    searched = (
+        [
+            f"  look sizes searched: {calculation['candidates']} choices, ranked "
+            f"{calculation['criterion']}; {calculation['candidates_evaluated']} evaluated, "
+            f"{calculation['feasible']} met the power target (the ranking is a calculation)"
+        ]
+        if "criterion" in calculation
+        else []
+    )
+    if "looks" not in calculation:
+        return [*searched, "  no choice of look sizes meets the power target"]
     looks = calculation["looks"]
     expected = calculation["expected_sample_size"]
     expected_null = calculation["expected_sample_size_null"]
@@ -897,7 +921,7 @@ def _looks_lines(details: dict) -> list[str]:
         f"total = {calculation['total_sample_size']}",
         "  looks: "
         + ", ".join(
-            f"({look['n_control']}, {look['n_treatment']}) at {look['alpha']['fraction']}"
+            f"({look['n_control']}, {look['n_treatment']}) at {_level_text(look['alpha'])}"
             for look in looks
         )
         + "; stopping ~ "
@@ -912,6 +936,7 @@ def _looks_lines(details: dict) -> list[str]:
         f"  exact Type I with both arms at the control rate ~ "
         f"{show(calculation['typeI_at_control_rate'])}; level {calculation['alpha']['fraction']}"
         f"; Type I target met = {str(calculation['typeI_target_met']).lower()}",
+        *searched,
     ]
 
 

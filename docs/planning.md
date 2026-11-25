@@ -577,7 +577,7 @@ let looked = simulate(meets(analysis=trial, target=target), seed=2026)
   `group_sequential` is cited, so the simulated Type I is reported, not judged. It shows
   how conservative a split is, and how much of the level the boundaries use.
 - The looks may be Student's or Welch's t-tests, at normal outcomes or the scenarios
-  above. The looks are simulated as declared, not searched.
+  above. `simulate(meets(...))` runs them as declared; `look_sizes` searches them (below).
 - When the looks are Fisher's test, nothing is simulated: `calculate(meets(...))` sums
   the power exactly over every path of counts through the looks, each look with the
   exact rejection region of its own level, up to 500 per arm at the last look. It
@@ -588,6 +588,38 @@ let looked = simulate(meets(analysis=trial, target=target), seed=2026)
 
 A raw-data simulation in R that applies `t.test` at each look agrees within its Monte
 Carlo error (`replication/comparison/group_sequential_r.R`). See lesson 41.
+
+### Searching the sizes of the looks
+
+`look_sizes` lets every look's size vary:
+
+```stat
+let looks = look_sizes(design=trial, min_per_arm=20, max_per_arm=150, step=10,
+    criterion="minimax")
+let sizes = calculate(sample_size(candidates=looks, target=target))
+```
+
+A candidate is any increasing choice of control sizes from `min_per_arm` to
+`max_per_arm` in steps of `step`, one for each declared look (at most 2,000 choices); the
+treatment arm keeps the final look's whole-number allocation. Each candidate keeps the
+declared test and null. Under `alpha_spending` each look keeps its declared level; under
+`group_sequential` each candidate takes its own boundaries at its share of the
+information.
+
+- `"minimax"` selects the smallest final size with the target power, and among those the
+  smallest expected total at the planning point. `"optimal"` selects the smallest expected
+  total. The ranking is a calculation: only `sample_size` is offered, and only the selected
+  design is reported, with how many candidates were listed, evaluated and feasible.
+- For Fisher's test the power of every candidate is summed exactly, up to 300 per arm at
+  the last look. A minimax search stops after the smallest final size with a feasible
+  candidate. An independent search in R on a small grid selects the same designs and gives
+  the same stopping chances to 1e-12 (`replication/comparison/look_sizes_r.R`).
+- For t-tests, `simulate(sample_size(...))` ranks the candidates with the normal
+  approximation of their power, keeps those within 0.03 of the target, and simulates up to
+  20 of them in that order. The first whose 95% interval clears the target is confirmed by
+  an independent run.
+
+See lesson 47 and `examples/look_sizes.stat`.
 
 ### Re-estimating the sample size
 

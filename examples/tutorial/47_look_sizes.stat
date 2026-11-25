@@ -1,0 +1,19 @@
+# Lesson 47: searching the sizes of the looks.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use designs.group_sequential
+use planning
+
+# Lesson 46's design with Pocock boundaries. Only its shape matters for the search: the
+# test, the null, the allocation and the spending function.
+let halfway = two_arm_binomial(n_control=50, n_treatment=50)
+let complete = two_arm_binomial(n_control=100, n_treatment=100)
+let interim = fisher(design=fixed(model=halfway), null=equal_proportions(model=halfway), alpha=31/1000)
+let final = fisher(design=fixed(model=complete), null=equal_proportions(model=complete), alpha=27/1000)
+let trial = group_sequential(looks=[interim, final], alpha=1/20, spending="pocock")
+let target = power_target(at=binomial_rates(p_control=3/10, p_treatment=1/2), minimum=4/5, maximum_typeI=1/20)
+
+# Every choice of a look and an end from 20 to 150 per arm, in steps of 10.
+let minimax = calculate(sample_size(candidates=look_sizes(design=trial, min_per_arm=20, max_per_arm=150, step=10, criterion="minimax"), target=target))
+let optimal = calculate(sample_size(candidates=look_sizes(design=trial, min_per_arm=20, max_per_arm=150, step=10, criterion="optimal"), target=target))

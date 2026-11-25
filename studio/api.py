@@ -758,6 +758,10 @@ PLANNING_READINGS = {
         else f"From {v.min_size} to {v.max_size} exposed" + _each(v, "unexposed")
     ),
     "CountCandidatesIR": lambda v: f"From {v.min_size} to {v.max_size} {v.unit}",
+    "LookCandidatesIR": lambda v: (
+        f"Every choice of {len(v.design.analyses)} look sizes from {v.min_per_arm} to "
+        f"{v.max_per_arm} per control arm in steps of {v.step}, ranked {v.criterion}"
+    ),
     "ClusterCandidatesIR": lambda v: (
         f"From {v.low} to {v.high} clusters per arm, each of {v.cluster_size} participants"
         if v.cluster_size is not None

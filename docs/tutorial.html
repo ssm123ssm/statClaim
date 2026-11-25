@@ -90,7 +90,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
 <header class="top">
   <p class="eyebrow">StatClaim tutorial</p>
   <h1>From a study description to a checked claim</h1>
-  <p class="lede">Forty-six short lessons. Each one adds a few ideas to the previous one, so
+  <p class="lede">Forty-seven short lessons. Each one adds a few ideas to the previous one, so
   work through them in order. By the end you can plan a study, analyse its data and
   know exactly which guarantees were checked.</p>
 </header>
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--lin
   the repository folder, type <code>uv run --locked statclaim ...</code>.</p>
   <p>In VS Code the same two actions are <strong>StatClaim: Show Claims</strong> and
   <strong>StatClaim: Verify Current File</strong>, and mistakes are underlined as you type.</p>
-  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li><li><a href="#survival-simulation"><span class="n">39</span>Survival trials by simulation</a></li><li><a href="#skewed-correlation"><span class="n">40</span>A correlation with skewed data</a></li><li><a href="#interim-power"><span class="n">41</span>What an interim look costs and saves</a></li><li><a href="#reestimation"><span class="n">42</span>Re-estimate the sample size</a></li><li><a href="#family-power"><span class="n">43</span>The power of a family of endpoints</a></li><li><a href="#logistic-power"><span class="n">44</span>Exact power for a logistic regression trial</a></li><li><a href="#fisher-looks"><span class="n">45</span>Exact power at an interim look</a></li><li><a href="#spending-boundaries"><span class="n">46</span>Boundaries that use the correlation between looks</a></li></ol>
+  <ol class="toc"><li><a href="#first-claim"><span class="n">1</span>Your first checked claim</a></li><li><a href="#results"><span class="n">2</span>Reading a result</a></li><li><a href="#refusals"><span class="n">3</span>When StatClaim says no</a></li><li><a href="#data"><span class="n">4</span>Analysing the data</a></li><li><a href="#endpoints"><span class="n">5</span>Several endpoints</a></li><li><a href="#why"><span class="n">6</span>Why it passed, and what a change affects</a></li><li><a href="#sample-size"><span class="n">7</span>Choosing a sample size</a></li><li><a href="#better"><span class="n">8</span>Better, or at least not worse</a></li><li><a href="#single-arm"><span class="n">9</span>A single-arm study</a></li><li><a href="#stopping"><span class="n">10</span>Stopping early</a></li><li><a href="#bayesian"><span class="n">11</span>A Bayesian stopping rule</a></li><li><a href="#cited"><span class="n">12</span>A continuous outcome, and a cited guarantee</a></li><li><a href="#mixed"><span class="n">13</span>Proved and cited tests under one error bound</a></li><li><a href="#interim"><span class="n">14</span>An interim look</a></li><li><a href="#confirmatory"><span class="n">15</span>A whole confirmatory trial</a></li><li><a href="#recycling"><span class="n">16</span>Recycling the level</a></li><li><a href="#declared"><span class="n">17</span>When StatClaim does not know your test</a></li><li><a href="#cited-power"><span class="n">18</span>Power for a cited test</a></li><li><a href="#pieces"><span class="n">19</span>One trial, several outcomes</a></li><li><a href="#unit"><span class="n">20</span>Clusters and repeated measurements</a></li><li><a href="#randomisation"><span class="n">21</span>A test whose level follows from the randomisation</a></li><li><a href="#population"><span class="n">22</span>Who is analysed, and which outcome</a></li><li><a href="#observational"><span class="n">23</span>Cohort, case-control and cross-sectional studies</a></li><li><a href="#observed-tables"><span class="n">24</span>The observed table, and what each design can estimate</a></li><li><a href="#matched"><span class="n">25</span>Matched pairs</a></li><li><a href="#rates"><span class="n">26</span>Prevalence, risk and incidence rates</a></li><li><a href="#covariates"><span class="n">27</span>Covariates, continuous variables and complex surveys</a></li><li><a href="#simulated-power"><span class="n">28</span>Power by simulation</a></li><li><a href="#observational-power"><span class="n">29</span>Power for cohort, case-control and cross-sectional studies</a></li><li><a href="#pairs-and-rates-power"><span class="n">30</span>Power for matched pairs and incidence rates</a></li><li><a href="#cluster-power"><span class="n">31</span>Power for a cluster-randomised trial</a></li><li><a href="#survival-power"><span class="n">32</span>Power for a survival trial, from its times</a></li><li><a href="#correlation-power"><span class="n">33</span>Power for a correlation and a regression slope</a></li><li><a href="#regression-power"><span class="n">34</span>Power for logistic, conditional logistic and Poisson regressions</a></li><li><a href="#survey-power"><span class="n">35</span>Power for a complex survey</a></li><li><a href="#precision"><span class="n">36</span>How many for a margin of error</a></li><li><a href="#cluster-simulation"><span class="n">37</span>Clusters of unequal sizes, by simulation</a></li><li><a href="#t-scenarios"><span class="n">38</span>When the t-test&#x27;s assumptions fail</a></li><li><a href="#survival-simulation"><span class="n">39</span>Survival trials by simulation</a></li><li><a href="#skewed-correlation"><span class="n">40</span>A correlation with skewed data</a></li><li><a href="#interim-power"><span class="n">41</span>What an interim look costs and saves</a></li><li><a href="#reestimation"><span class="n">42</span>Re-estimate the sample size</a></li><li><a href="#family-power"><span class="n">43</span>The power of a family of endpoints</a></li><li><a href="#logistic-power"><span class="n">44</span>Exact power for a logistic regression trial</a></li><li><a href="#fisher-looks"><span class="n">45</span>Exact power at an interim look</a></li><li><a href="#spending-boundaries"><span class="n">46</span>Boundaries that use the correlation between looks</a></li><li><a href="#look-sizes"><span class="n">47</span>Search the sizes of the looks</a></li></ol>
 </section>
 
 <section class="lesson" id="first-claim">
@@ -3498,6 +3498,67 @@ boundaries. With <code>spending="pocock"</code> the looks get nearly equal level
   <div class="wrap-up">
     <div><h4>What you learned</h4><ul><li><code>group_sequential</code> uses the correlation between looks.</li><li>Each look&#x27;s level must be within its spending boundary.</li><li>The design&#x27;s level is cited, not proved.</li></ul></div>
     <div class="task"><h4>Try it</h4><p>Change the spending to <code>"pocock"</code>. Which levels does the error message suggest, and how does the power change?</p></div>
+  </div>
+</section>
+
+<section class="lesson" id="look-sizes">
+  <p class="eyebrow">Lesson 47</p>
+  <h2>Search the sizes of the looks</h2>
+  <div class="goal"><span class="tag">In this lesson</span><p>A design with looks has a size at every look. <code>look_sizes</code> searches them all freely: every increasing choice of sizes on a grid, ranked by a minimax or optimal criterion.</p></div>
+
+<figure class="code"><figcaption>examples/tutorial/47_look_sizes.stat</figcaption><div class="scroll"><pre><code><span class="c"># Lesson 47: searching the sizes of the looks.</span>
+<span class="k">use</span> models.two_arm_binomial
+<span class="k">use</span> sampling
+<span class="k">use</span> tests.fisher
+<span class="k">use</span> designs.group_sequential
+<span class="k">use</span> planning
+
+<span class="c"># Lesson 46&#x27;s design with Pocock boundaries. Only its shape matters for the search: the</span>
+<span class="c"># test, the null, the allocation and the spending function.</span>
+<span class="k">let</span> halfway = <span class="f">two_arm_binomial</span>(n_control=50, n_treatment=50)
+<span class="k">let</span> complete = <span class="f">two_arm_binomial</span>(n_control=100, n_treatment=100)
+<span class="k">let</span> interim = <span class="f">fisher</span>(design=<span class="f">fixed</span>(model=halfway), null=<span class="f">equal_proportions</span>(model=halfway), alpha=31/1000)
+<span class="k">let</span> final = <span class="f">fisher</span>(design=<span class="f">fixed</span>(model=complete), null=<span class="f">equal_proportions</span>(model=complete), alpha=27/1000)
+<span class="k">let</span> trial = <span class="f">group_sequential</span>(looks=[interim, final], alpha=1/20, spending=&quot;pocock&quot;)
+<span class="k">let</span> target = <span class="f">power_target</span>(at=<span class="f">binomial_rates</span>(p_control=3/10, p_treatment=1/2), minimum=4/5, maximum_typeI=1/20)
+
+<span class="c"># Every choice of a look and an end from 20 to 150 per arm, in steps of 10.</span>
+<span class="k">let</span> minimax = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=<span class="f">look_sizes</span>(design=trial, min_per_arm=20, max_per_arm=150, step=10, criterion=&quot;minimax&quot;), target=target))
+<span class="k">let</span> optimal = <span class="f">calculate</span>(<span class="f">sample_size</span>(candidates=<span class="f">look_sizes</span>(design=trial, min_per_arm=20, max_per_arm=150, step=10, criterion=&quot;optimal&quot;), target=target))</code></pre></div></figure>
+<dl class="lines">
+  <dt><code>look_sizes(design=trial, min_per_arm=20, max_per_arm=150, step=10, criterion=...)</code></dt>
+  <dd>The look and the end each take any size on the grid, the look before the end: 91
+  choices. Each candidate takes its own Pocock boundaries at its share of the information,
+  and its power is summed exactly. <code>"minimax"</code> wants the smallest end;
+  <code>"optimal"</code> the smallest expected size at the planning point.</dd>
+</dl>
+<div class="scroll output"><pre><code><span class="calc">calculated</span> [minimax]: sample_size(&lt;expression&gt;)
+  arm sizes = (110, 110); total = 220
+  looks: (100, 100) at ~0.047041, (110, 110) at ~0.025313; stopping ~ 0.7912, 0.0188 (under the null 0.0331, 0.0021)
+  expected total ~ 204.2 (under the null ~ 219.3)
+  power ~ 0.8101 (exact sum over every path of counts); power target met = true
+...
+<span class="calc">calculated</span> [optimal]: sample_size(&lt;expression&gt;)
+  arm sizes = (120, 120); total = 240
+  looks: (60, 60) at ~0.031006, (120, 120) at ~0.027738; stopping ~ 0.4676, 0.3571 (under the null 0.0191, 0.0144)
+  expected total ~ 183.9 (under the null ~ 237.7)
+  power ~ 0.8247 (exact sum over every path of counts); power target met = true
+  exact Type I with both arms at the control rate ~ 0.0335; level 1/20; Type I target met = true
+  look sizes searched: 91 choices, ranked optimal; 91 evaluated, 48 met the power target (the ranking is a calculation)</code></pre></div>
+<p>No design reaches 80% power with fewer than 110 per arm at the end. The minimax design
+gets there by looking at 100, just before the end. The optimal design is larger, 120 per
+arm, but looks at 60 and stops almost half the trials there, so it expects 184 patients
+instead of 204. Which one to choose depends on what costs more: the largest trial you might
+run, or the one you expect to run.</p>
+<div class="note"><strong>The ranking is a calculation.</strong> Only the selected design is
+reported, with its exact power and stopping chances; <code>smallest_sample_size</code> is not
+offered for a search over looks. With t-tests at the looks, <code>simulate</code> ranks the
+candidates by the normal approximation and simulates them in that order
+(<code>examples/look_sizes.stat</code>).</div>
+
+  <div class="wrap-up">
+    <div><h4>What you learned</h4><ul><li><code>look_sizes</code> lets every look&#x27;s size vary.</li><li>Minimax keeps the largest trial small; optimal the expected one.</li><li>Each candidate takes its own spending boundaries.</li></ul></div>
+    <div class="task"><h4>Try it</h4><p>Change the design to lesson 45&#x27;s <code>alpha_spending</code> split. Do the two criteria still pick different designs?</p></div>
   </div>
 </section>
 <section class="lesson" id="reference">

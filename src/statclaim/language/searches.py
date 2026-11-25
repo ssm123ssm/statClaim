@@ -6,6 +6,7 @@ from statclaim.language.checks import (
     _check_point,
     _check_precision,
     clustered_test,
+    exact_looks,
 )
 from statclaim.language.core import (
     LocatedValue,
@@ -27,6 +28,7 @@ from statclaim.language.ir import (
     IncidenceRatesIR,
     IntervalCandidatesIR,
     IntervalIR,
+    LookCandidatesIR,
     OneArmCandidatesIR,
     OneArmModelIR,
     OneSampleAnalysisIR,
@@ -48,6 +50,11 @@ from statclaim.language.points import (
 from statclaim.language_syntax import (
     Span,
 )
+from statclaim.look_search import CRITERIA as LOOK_CRITERIA
+from statclaim.look_search import MAX_CANDIDATES as MAX_LOOK_CANDIDATES
+from statclaim.look_search import MAX_EXACT_ARM as MAX_EXACT_LOOK_ARM
+from statclaim.look_search import allocation as look_allocation
+from statclaim.look_search import count as count_looks
 from statclaim.planning import (
     CRITERIA,
     MAX_CITED_ARM,
@@ -286,6 +293,14 @@ def _sizing(minimal: bool) -> Callable:
                 "certify a sufficient total.",
                 candidates.span,
             )
+        if minimal and isinstance(candidates.value, LookCandidatesIR):
+            fail(
+                "unsupported_claim",
+                "A search over look sizes ranks designs by its criterion; that ranking is a "
+                "calculation, not a claim. Use sample_size(...) for a design that meets the "
+                "target.",
+                candidates.span,
+            )
         if minimal and isinstance(candidates.value, TwoStageCandidatesIR):
             fail(
                 "unsupported_claim",
@@ -319,6 +334,53 @@ def _sizing(minimal: bool) -> Callable:
         )
 
     return build
+
+
+def _look_sizes(arguments: dict[str, LocatedValue], span: Span) -> LookCandidatesIR:
+    """Every increasing choice of the looks' sizes per control arm on a grid."""
+    design = arguments["design"].value
+    low, high, step = arguments["min_per_arm"], arguments["max_per_arm"], arguments["step"]
+    criterion = arguments["criterion"]
+    if criterion.value not in LOOK_CRITERIA:
+        fail("domain", 'criterion must be "minimax" or "optimal".', criterion.span)
+    if low.value < 1:
+        fail("domain", "min_per_arm must be a positive integer.", low.span)
+    if high.value < low.value:
+        fail("domain", "max_per_arm must be at least min_per_arm.", high.span)
+    if step.value < 1:
+        fail("domain", "step must be a positive integer.", step.span)
+    ratio = look_allocation(design)
+    if ratio is None:
+        fail(
+            "domain",
+            "A search keeps the final look's allocation: give it a whole number of treatment "
+            "participants per control.",
+            arguments["design"].span,
+        )
+    looks = len(design.analyses)
+    listed = count_looks(looks, low.value, high.value, step.value)
+    if listed == 0:
+        fail(
+            "domain",
+            f"The grid has fewer than {looks} sizes, one for each look. Widen the range or "
+            "shorten the step.",
+            span,
+        )
+    if listed > MAX_LOOK_CANDIDATES:
+        fail(
+            "domain",
+            f"The grid gives {listed:,} choices of sizes for {looks} looks; a search may list "
+            f"at most {MAX_LOOK_CANDIDATES:,}. Narrow the range or lengthen the step.",
+            span,
+        )
+    if exact_looks(design) and high.value * ratio > MAX_EXACT_LOOK_ARM:
+        fail(
+            "domain",
+            f"Fisher's test at looks is searched exactly up to {MAX_EXACT_LOOK_ARM} per arm "
+            "at the last look.",
+            high.span,
+        )
+    return LookCandidatesIR(design, low.value, high.value, step.value, criterion.value)
 
 
 def _two_stage_model(arguments: dict[str, LocatedValue], span: Span) -> TwoStageModelIR:

@@ -100,7 +100,7 @@ const FAMILY_OF = {
   Observation: 'data', OneSampleObservation: 'data', TwoStageObservation: 'data',
   Rates: 'planning', Rate: 'planning', MeanDifference: 'planning', HazardRatio: 'planning',
   PowerTarget: 'planning', Candidates: 'planning', OneArmCandidates: 'planning',
-  TwoStageCandidates: 'planning', PlanningPoint: 'planning', Feasibility: 'planning', Sizing: 'planning',
+  TwoStageCandidates: 'planning', LookCandidates: 'planning', PlanningPoint: 'planning', Feasibility: 'planning', Sizing: 'planning',
   // Planning points and searches of observational studies.
   Risks: 'planning', ExposurePrevalence: 'planning', OutcomePrevalence: 'planning',
   DiscordantPairs: 'planning', IncidenceRates: 'planning',

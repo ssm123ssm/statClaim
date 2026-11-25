@@ -324,6 +324,11 @@ OBJECT_CLASSES = {
         "Planning objects",
         "Two-stage designs searched by an optimal or minimax criterion.",
     ),
+    "LookCandidates": (
+        "Planning objects",
+        "Designs with looks whose look sizes are searched freely, ranked by a minimax or "
+        "optimal criterion.",
+    ),
     "Prior": ("Adaptive design objects", "Beta prior with positive integer parameters."),
     "Rule": ("Adaptive design objects", "Interim continuation and final decision rule."),
     "TwoStageAnalysis": (

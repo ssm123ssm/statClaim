@@ -1735,6 +1735,11 @@ test('the wizard plans every observational design by exact power', async t => {
     assert.match(bounded.source, /let trial = group_sequential\(looks=\[interim, final\], alpha=1\/20, spending="obrien_fleming"\)/);
     assert.equal(bounded.evidence, 'cited');
     assert.deepEqual((await compile(bounded.source)).diagnostics, [], bounded.source);
+    // Every look's size searched freely: exact for Fisher's test, simulated for t-tests.
+    const sized = interimSource({outcome: 'binary', spending: 'pocock', interimAdd: 'sizes'});
+    assert.match(sized.source, /let looks = look_sizes\(design=trial, min_per_arm=10, max_per_arm=100, step=10, criterion="minimax"\)/);
+    assert.match(sized.source, /let sizes = calculate\(sample_size\(candidates=looks, target=target\)\)/);
+    assert.match(interimSource({outcome: 'continuous', interimAdd: 'sizes', seed: 7}).source, /let sizes = simulate\(sample_size\(candidates=looks, target=target\), seed=7\)/);
     // Log-rank looks are not covered by the boundaries: their level is split instead.
     assert.match(interimSource({outcome: 'survival', spending: 'pocock'}).source, /alpha_spending/);
     // Fisher's looks are summed exactly with calculate, not simulated.
@@ -1877,7 +1882,7 @@ test('every design the language supports can be built from the wizard, and found
   }
   for (const outcome of ['binary', 'continuous', 'survival']) {
     for (const spending of Object.keys(D.SPENDING)) {
-      for (const interimAdd of ['none', 'power']) {
+      for (const interimAdd of ['none', 'power', 'sizes']) {
         built.push(['interim ' + outcome + ' ' + spending + ' ' + interimAdd, D.interimSource({outcome, spending, interimAdd})]);
       }
     }

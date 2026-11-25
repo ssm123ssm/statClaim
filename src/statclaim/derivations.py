@@ -50,6 +50,9 @@ from statclaim.language import (
     observational_formula,
     planned_analysis,
 )
+from statclaim.look_search import MAX_CANDIDATES as MAX_LOOK_CANDIDATES
+from statclaim.look_search import allocation as look_allocation
+from statclaim.look_search import count as count_looks
 from statclaim.looks_planning import EXACT_LOOKS
 from statclaim.matched import matched_assumptions
 from statclaim.methods.assumptions import REESTIMATION_TYPE_I
@@ -227,6 +230,13 @@ RULES = {
         "Every look satisfies its own contract, and the distinct-members, family-size, "
         "same-question and increasing-looks rules hold.",
         "{subject}: its looks form one sequential test of the same null.",
+    ),
+    "look-candidates": Rule(
+        "The looks' sizes per control arm are searched on a grid of at most "
+        f"{MAX_LOOK_CANDIDATES} increasing choices, keeping the final look's whole-number "
+        "allocation, and ranked by the minimax or optimal criterion.",
+        "{subject}: {candidates} choices of sizes for {looks} looks, per control arm from "
+        "{min_per_arm} to {max_per_arm} in steps of {step}, 1:{allocation}, ranked {criterion}.",
     ),
     "spending-boundaries": Rule(
         "Each look's level is at most the nominal level that the spending function gives it "
@@ -1364,6 +1374,25 @@ def derive_sequential_planning(name: str, claim: ClaimIR, design: SequentialIR) 
             },
         ),
     ]
+    if claim.kind == "sample_size":
+        space = claim.subject.candidates
+        used.append(
+            builder.apply(
+                "look-candidates",
+                {
+                    "subject": name,
+                    "looks": len(design.analyses),
+                    "min_per_arm": space.min_per_arm,
+                    "max_per_arm": space.max_per_arm,
+                    "step": space.step,
+                    "allocation": look_allocation(design),
+                    "criterion": space.criterion,
+                    "candidates": count_looks(
+                        len(design.analyses), space.min_per_arm, space.max_per_arm, space.step
+                    ),
+                },
+            )
+        )
     final = builder.apply("sequential-planning-contract", {"subject": name}, tuple(used))
     for rule, facts, holds in pending:
         builder.settle(rule, facts, holds)

@@ -177,7 +177,9 @@ The search selects 36 participants per arm. Verification establishes that this
 size meets the target and that no smaller size in the declared range does; each
 smaller candidate is checked, because the power of a discrete test need not
 increase with sample size. Approximate methods report calculated power, and
-simulation reports estimates with 95% Clopper–Pearson intervals. See
+simulation reports estimates with 95% Clopper–Pearson intervals. A design with
+interim looks can have every look's size searched freely, by a minimax or optimal
+criterion, with O'Brien-Fleming or Pocock boundaries at each candidate's looks. See
 [study planning](docs/planning.md).
 
 ## Supported methods
@@ -212,6 +214,7 @@ Methods with cited, conditional or declared guarantees:
 | Graphical procedures | `multiplicity.graphical` | Cited: the graph is checked; the guarantee of the procedure is cited |
 | Planned interim analyses | `designs.group_sequential` | Conditional: the allocation of the error level across analyses is checked in Lean |
 | Group-sequential boundaries | `designs.group_sequential` | Cited: O'Brien-Fleming or Pocock spending boundaries that use the correlation between looks; the levels are checked against the computed boundaries |
+| Look sizes | `designs.group_sequential` | Calculated or simulated: every look's size searched freely, by a minimax or optimal criterion; exact for Fisher's test |
 | Approximate power and precision | `planning` | Calculated or simulated: numerical results, not verified |
 
 Further detail is given in the [language reference](docs/catalogue.md) and in the
