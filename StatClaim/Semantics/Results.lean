@@ -5,7 +5,12 @@ public import StatClaim.Modules.OneSampleBinomial
 public import StatClaim.Modules.TwoStageBinomial
 public import StatClaim.Computation
 
-/-! Kernel checks for the values and decisions reported for exact observations. -/
+/-!
+Kernel checks for the values and decisions reported for exact observations.
+
+Trusted: the statement of each checked claim, what a certificate proves. Each check and its
+soundness proof are not: Lean checks them.
+-/
 
 @[expose] public section
 set_option autoImplicit false

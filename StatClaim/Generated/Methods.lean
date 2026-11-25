@@ -11,6 +11,8 @@ Each entry records what a contract reads about a cited test: the null forms it
 supports, its scope, its minimum sizes and the ids of the assumptions reported
 with every result. Its guarantee enters a program as a `LevelPremise` of that
 scope. Entries carry no proof and no guarantee by themselves.
+
+Trusted: what an entry says enters the premises and contracts of every certificate.
 -/
 
 @[expose] public section

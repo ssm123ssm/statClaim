@@ -83,7 +83,7 @@ the retired translator stated, replay with the StatClaim version that issued the
 The bundles are not signed and do not establish authorship. The local toolchain,
 the statistical meaning of the Lean definitions and the semantics, the parser and
 elaborator, Lean's JSON printer, and the application binding code are trusted;
-see the proposals' trusted bases. The encoding is not: every build decides that
+[trusted Lean](trusted-lean.md) lists which Lean files a reviewer must read. The encoding is not: every build decides that
 its program is in canonical form (`canonical`), and `Program.form_injective`
 proves that two such programs never print the same form.
 

@@ -3,7 +3,12 @@ module
 public import StatClaim.Semantics.Results
 public import StatClaim.Semantics.Contracts
 
-/-! Coverage and checked endpoints of exact confidence intervals. -/
+/-!
+Coverage and checked endpoints of exact confidence intervals.
+
+Trusted: the statement of each checked claim, what a certificate proves. Each check and its
+soundness proof are not: Lean checks them.
+-/
 
 @[expose] public section
 set_option autoImplicit false

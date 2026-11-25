@@ -98,3 +98,17 @@ def test_deferred_contracts_remain_errors_outside_the_rejection_check():
     compiled = compile_source(source)
     assert compiled.status == "invalid"
     assert [d.code for d in compiled.diagnostics] == ["hypothesis_mismatch"]
+
+
+def test_the_trusted_lean_page_is_current():
+    """docs/trusted-lean.md lists every Lean file's role and each trusted file's length."""
+    import subprocess
+    import sys
+
+    found = subprocess.run(
+        [sys.executable, "scripts/check_trusted_lean.py", "--check"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert found.returncode == 0, found.stdout

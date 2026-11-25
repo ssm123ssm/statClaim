@@ -5,6 +5,8 @@ public import StatClaim.Semantics.Encode
 /-!
 # The canonical form determines the program
 
+Not trusted: Lean checks these proofs.
+
 The audit compares the form a build prints (`Program.form`, `Encode.lean`) with the
 certificate's canonical program. That binds a certificate to its program only if two
 different programs never print the same form. `Program.form_injective` proves it for

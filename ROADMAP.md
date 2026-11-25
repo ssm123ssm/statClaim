@@ -114,6 +114,10 @@
 - Each constructor states what gives it its meaning in Lean where it is defined, and Lean
   declares tests and combinations only, reading every other value where it is used, so a
   planning point or any other value bound by name no longer keeps a program from Lean.
+- An exact power summed in floating point meets or misses its target only when clear of it
+  by more than its rounding; closer, the result is undecided. The studio's spending
+  boundaries are checked against rpact's, and [trusted Lean](docs/trusted-lean.md) lists
+  which Lean a reviewer must read, with its size, checked in CI.
 - Power and sample sizes for every cited observational test: logistic, modified
   Poisson, conditional logistic and Poisson regressions, Spearman's correlation, linear
   regression on a yes-or-no exposure, and the survey tests through the design effect.

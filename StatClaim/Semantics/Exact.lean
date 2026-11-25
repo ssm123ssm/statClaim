@@ -12,6 +12,9 @@ public import StatClaim.Modules.Randomisation
 /-!
 Exact claims state a proposition about data and certify it with a kernel check.
 This module connects one-sided Fisher's existing theorems to that interface.
+
+Trusted: the statement of each checked claim, what a certificate proves. Each check and its
+soundness proof are not: Lean checks them.
 -/
 
 @[expose] public section

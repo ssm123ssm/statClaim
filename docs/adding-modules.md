@@ -11,7 +11,8 @@ error-spending function, needs no new Lean either. Add a `CitedRule` to
 `composition.CITED_RULES`: the constant fields of its canonical form, whether its
 members are looks at one question or a family of questions, whether each member
 uses the whole level or at most it, and whether it takes a graph. Then run
-`uv run python scripts/update_lean_premises.py`. Lean's one constructor for cited
+`uv run python scripts/update_lean_premises.py` and
+`uv run python scripts/check_trusted_lean.py`. Lean's one constructor for cited
 procedures, `Test.procedure`, reads the rule from `StatClaim/Generated/Methods.lean`,
 and the build checks that the new entry is told apart from the others.
 

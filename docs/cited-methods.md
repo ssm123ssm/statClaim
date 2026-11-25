@@ -172,8 +172,9 @@ To add a test over an existing model and null:
    alpha or is `at_most` alpha, the scope, the assumptions and the references.
 2. List a new file in `methods/__init__.py`.
 3. Run `uv run python scripts/update_method_versions.py`,
-   `uv run python scripts/update_catalogue.py` and
-   `uv run python scripts/update_lean_premises.py`. The last writes the method's
+   `uv run python scripts/update_catalogue.py`,
+   `uv run python scripts/update_lean_premises.py` and
+   `uv run python scripts/check_trusted_lean.py`. The third writes the method's
    Lean entry in `StatClaim/Generated/Methods.lean`, from which its guarantee
    enters the program's Lean semantics as a premise; a test fails until it is
    current.

@@ -3,7 +3,12 @@ module
 public import StatClaim.Semantics.Intervals
 public import StatClaim.Modules.AssociationPower
 
-/-! Exact power at declared planning points and checks over smaller candidates. -/
+/-!
+Exact power at declared planning points and checks over smaller candidates.
+
+Trusted: the statement of each checked claim, what a certificate proves. Each check and its
+soundness proof are not: Lean checks them.
+-/
 
 @[expose] public section
 set_option autoImplicit false
