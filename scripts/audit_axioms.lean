@@ -142,6 +142,7 @@ run_cmd do
     ``StatClaim.Semantics.Marginals.intro,
     ``StatClaim.Semantics.Premise.trivial_holds,
     ``StatClaim.Semantics.Program.satisfiable,
+    ``StatClaim.Semantics.Program.refuted,
     ``StatClaim.Semantics.Premise.allHold_trivial,
     ``StatClaim.Semantics.Test.outside_bound,
     ``StatClaim.Semantics.Test.members_bound,

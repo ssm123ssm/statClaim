@@ -60,6 +60,23 @@ theorem Program.satisfiable (p : Program) (r : ℕ) :
     Premise.AllHold Instance.trivial (p.premisesAt r) :=
   Premise.allHold_trivial _
 
+/-- A request about a design that stops by a rule depending on the data is refuted: it
+claims `False`, and its premises can all hold. -/
+theorem Program.refuted (p : Program) (r : ℕ)
+    (stops : (p.requests[r]?.map fun q => q.test.fixed) = some false) : ¬ p.Claim r := by
+  intro claim
+  have holds := claim Instance.trivial (Program.satisfiable p r)
+  unfold Program.claimAt at holds
+  cases found : p.requests[r]? with
+  | none => rw [found] at stops; cases stops
+  | some q =>
+    rw [found] at stops holds
+    have fixed : q.test.fixed = false := Option.some.inj stops
+    change q.Holds Instance.trivial at holds
+    unfold Request.Holds at holds
+    rw [fixed] at holds
+    exact holds
+
 end
 
 end StatClaim.Semantics

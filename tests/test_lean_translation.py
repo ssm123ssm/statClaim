@@ -452,12 +452,14 @@ def rejection_checker():
 
 
 def test_every_program_python_refuses_has_an_expected_lean_outcome():
-    """Test 3: each injected error and each refused corpus program says what Lean does."""
-    from statclaim.lean_translation.rejection import OUTCOMES
+    """Test 3: each injected error and each refused corpus program says what Lean does,
+    through today's translation and through the semantics."""
+    from statclaim.lean_translation.rejection import OUTCOMES, SEMANTIC_OUTCOMES
 
     checker = rejection_checker()
     asked = checker.asked_all()
     assert sorted(asked) == sorted(checker.EXPECTED)
+    assert set(checker.SEMANTICS) <= set(checker.EXPECTED)
     for key, item in asked.items():
         expected, reason = checker.EXPECTED[key]
         assert expected in OUTCOMES, key
@@ -469,6 +471,14 @@ def test_every_program_python_refuses_has_an_expected_lean_outcome():
             assert item.denotation.refuted and "Lean proves it has none" in " ".join(
                 item.denotation.skipped.values()
             ), key
+        semantic, why = checker.SEMANTICS.get(key, (expected, reason))
+        assert semantic in SEMANTIC_OUTCOMES, key
+        assert why or semantic != "accepted", key
+        # A program the semantics covers is asked as data; only an uncovered one says why not.
+        assert bool(item.semantic) == (semantic not in ("uncovered", "untyped")), key
+        assert bool(item.uncovered) == (semantic == "uncovered"), key
+        if semantic == "refuted":
+            assert "Program.refuted program" in item.semantic, key
 
 
 def test_deferred_checks_stay_deferred_only_while_asked():

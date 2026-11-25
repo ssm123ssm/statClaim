@@ -101,6 +101,19 @@ What the spike changed in the design:
   (`Program.readyAt`), and the soundness theorem needs it. 60 corpus programs switch, with
   57 claims; 5 are not ready and stay unproved, as in Python. Trusted Lean: 928 lines.
 
+- Milestone 4, rejection table done. `scripts/check_lean_rejections.py` now also writes
+  each of the 38 programs Python refuses as Lean data, with its contract checks deferred,
+  and asks the semantics: its contracts, each claim by `Program.sound`, or, when a design
+  stops by a rule depending on the data, the claim refuted by `Program.refuted` (its
+  premises can hold and it claims `False`). Every refused program the semantics covers
+  is refused (17 by a contract, 4 unproved, 5 refuted) or accepted where the table says
+  why (5), and its data encodes to the program. Three outcomes change, each recorded: a
+  null from another study is a contract failure (`Null.fits`) where the translation found
+  it ill-typed; a claim that a test meets a target, and a randomisation test, are not
+  covered yet and keep the translation's refusal. The collector stays: 48 corpus programs
+  keep today's translation until phase 2 covers results, intervals, plans, one-sided and
+  exact tests.
+
 What milestone 1 changed:
 
 - **Laws are keyed by the whole model.** The spike keyed them by arm sizes, so two

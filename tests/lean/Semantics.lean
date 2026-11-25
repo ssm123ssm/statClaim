@@ -259,7 +259,7 @@ def typeIOfFamily : StatClaim.Semantics.Program where
 example : ¬ typeIOfFamily.Contracts := by decide +kernel
 
 /-- A design that stops by a rule depending on the data supplies no law: its claim is
-`False`, and soundness does not apply to it. -/
+`False`, soundness does not apply to it, and the claim is refuted. -/
 def adaptive : StatClaim.Semantics.Program where
   requests := [
   .familywise (.bonferroni "endpoints"
@@ -298,6 +298,7 @@ def adaptive : StatClaim.Semantics.Program where
 
 example (i : Instance) : ¬ adaptive.claimAt 1 i := id
 example : adaptive.readyAt 1 = false := by decide +kernel
+example : ¬ adaptive.Claim 1 := StatClaim.Semantics.Program.refuted adaptive 1 (by decide +kernel)
 
 end MixedEndpoints
 
