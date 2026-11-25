@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from statclaim.language_compiler import compile_source
+from statclaim.language_printer import program_source
 from statclaim.language_syntax import Source
 from statclaim.lean_translation import data
 from statclaim.lean_translation.table import TABLE, NotInLean
@@ -118,6 +119,7 @@ def proof(inputs: dict, input_sha256: str) -> str:
             "import Lean.Util.CollectAxioms",
             "",
             f"-- Canonical program SHA-256: {input_sha256}",
+            *printed(inputs["program"]),
             f"namespace {NAMESPACE}",
             "",
             "set_option maxRecDepth 100000",
@@ -131,6 +133,19 @@ def proof(inputs: dict, input_sha256: str) -> str:
             AUDIT.format(names=names, input_sha256=input_sha256),
         ]
     )
+
+
+def printed(program: dict) -> list[str]:
+    """The canonical program as StatClaim source, in comments: what a reviewer compares with
+    the file. Lean reads its declarations and verify(...) requests as `program` below."""
+    return [
+        "--",
+        "-- The canonical program, printed back as StatClaim source. Compiling it gives the",
+        "-- same program; Lean reads its declarations and verify(...) requests below.",
+        "--",
+        *(f"--   {line}".rstrip() for line in program_source(program).splitlines()),
+        "",
+    ]
 
 
 def requests(inputs: dict) -> list[dict]:

@@ -105,6 +105,11 @@ def main(argv: list[str] | None = None) -> int:
     compile_command.add_argument(
         "--json", action="store_true", help="Emit the typed plan and report"
     )
+    compile_command.add_argument(
+        "--canonical",
+        action="store_true",
+        help="Print the canonical program as source: what certificates bind and Lean reads",
+    )
     explain_command = commands.add_parser(
         "explain", help="Explain why the contracts in a .stat file passed"
     )
@@ -219,6 +224,14 @@ def main(argv: list[str] | None = None) -> int:
             source = Source(
                 options.source.read_bytes().decode("utf-8"), str(options.source.resolve())
             )
+            if getattr(options, "canonical", False):
+                from statclaim.language_compiler import compile_source
+                from statclaim.language_printer import program_source
+
+                compilation = compile_source(source)
+                if compilation.status != "invalid":
+                    print(program_source(compilation.program.to_dict()), end="")
+                    return 0
             report = check_source(
                 source,
                 project=getattr(options, "project", Path.cwd()),

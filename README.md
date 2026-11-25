@@ -285,7 +285,10 @@ were examined. StatClaim does not analyse existing R or Python scripts; it
 specifies the design and the guarantees claimed for it. Lean checks the encoded
 program, not the compiler: the parser and the elaborator are trusted, and Lean
 checks that the data it reads is the compiled program, with a proof that the
-printed form determines the data; Lean's JSON printer is trusted. Cited and
+printed form determines the data; Lean's JSON printer is trusted. Each
+certificate prints the program Lean read back as source, for comparison with the
+file (`statclaim compile --canonical`), and the tests check that it compiles to
+the same program. Cited and
 declared guarantees enter as premises, and calculations and simulations are not
 proved. See [scope and trust](docs/scope.md).
 

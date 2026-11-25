@@ -45,6 +45,9 @@ After the usual project setup, run from the project directory:
 # Compile a plan and inspect types, requested claims, and known requirements:
 uv run --locked statclaim compile examples/first_class.stat
 
+# Print the program as StatClaim compiled it, the form a certificate binds:
+uv run --locked statclaim compile --canonical examples/first_class.stat
+
 # Run the actual Lean verification and issue a certificate:
 uv run --locked statclaim check examples/first_class.stat
 

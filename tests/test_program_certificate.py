@@ -46,6 +46,9 @@ def test_a_covered_program_is_its_data_and_the_soundness_theorem():
     for name in ("contracts", "claim_0", "claim_1"):
         assert f"``StatClaimProgram.{name}" in proof
     assert proof == _proof_for_payload(PROGRAM_KIND, inputs())
+    # Above the data, the program is printed back as source for a reviewer to read.
+    printed = [line[5:] for line in proof.splitlines() if line.startswith("--   ")]
+    assert printed[0].startswith("use ") and any("verify(" in line for line in printed)
 
 
 def test_a_randomisation_test_uses_the_same_soundness_theorem():

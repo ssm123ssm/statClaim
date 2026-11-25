@@ -23,6 +23,8 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
   constructor (`registry.py`) and elaboration (`elaborate.py`). Each imports only the
   ones before it in that list; the package re-exports its public names.
 - `language_contracts.py`, `language_compiler.py`: compatibility and requirements.
+- `language_printer.py`: the canonical program printed back as source. It imports
+  nothing from the compiler; compiling what it prints must give the same program.
 - `language_fields.py`, `language_values.py`: public fields and runtime values.
 - `language_runner.py`, `verification.py`: explicit execution and certificates.
 - `methods/`: cited methods, outcomes, null forms and assumptions, all as data.

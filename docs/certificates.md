@@ -87,6 +87,14 @@ see the proposals' trusted bases. The encoding is not: every build decides that
 its program is in canonical form (`canonical`), and `Program.form_injective`
 proves that two such programs never print the same form.
 
+To check what the elaborator made of a file, read the top of `Proof.lean`: the
+canonical program printed back as StatClaim source, every number exact and every
+reference resolved to what the program holds (`statclaim compile --canonical
+file.stat` prints the same). The printer reads the
+canonical program alone, apart from the compiler, and the tests compile the printed
+source of every example, and of respellings and edits of them, back to the same
+program, so a field the compiler misread, dropped or invented shows up there.
+
 ## Assumptions and failures
 
 A certificate proves its claims for the study as declared, under the listed

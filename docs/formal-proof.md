@@ -97,7 +97,8 @@ compiled artifact, transcript, dependency pins, and source/artifact hashes. Repl
 reconstructs the expected statements and reruns Lean. The parser, Lean's JSON
 printer, report binding, and local imported artifacts remain explicitly trusted
 components; the encoding into Lean data is proved to determine the program
-(`Program.form_injective`). See the [certificate guide](certificates.md).
+(`Program.form_injective`), and `Proof.lean` begins with the program printed back
+as source. See the [certificate guide](certificates.md).
 
 This establishes named properties of a checked individual result. It does not
 universally verify the Python program or establish that study assumptions hold.
