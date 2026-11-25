@@ -4,7 +4,7 @@ The members' own guarantees are hypotheses here. Lean checks only that the
 levels fit and that the combination rule then gives the overall bound. This is
 the "conditional" evidence grade: the combination is proved, the parts are not.
 
-There are three ways to combine, each a Mode below. To add one, add a Mode, a
+There are five ways to combine, each a Mode below. To add one, add a Mode, a
 Lean theorem for it and a proof template; the language, derivations and reports
 read the table.
 """
@@ -14,13 +14,16 @@ from fractions import Fraction
 
 from statclaim.fisher import validate_alpha
 from statclaim.methods.assumptions import (
+    CANONICAL_JOINT,
     FIXED_SIZES,
     PRESPECIFIED_FAMILY,
     PRESPECIFIED_GRAPH,
     PRESPECIFIED_LOOKS,
     PRESPECIFIED_ORDER,
+    PRESPECIFIED_SPENDING,
     SINGLE_ANALYSIS,
 )
+from statclaim.methods.boundaries import JENNISON_TURNBULL, LAN_DEMETS
 from statclaim.methods.core import SCOPES, Assumption, Guarantee
 
 # How a member's own bound is established. Either way it is a hypothesis here.
@@ -49,7 +52,9 @@ class Mode:
     discharged: tuple[str, ...]  # member assumptions it replaces, by id
     rule: str  # the derivation rule that concludes the contract
     extra_rules: tuple[str, ...]
-    splits: bool  # True: levels sum to at most alpha. False: each equals alpha.
+    # True: levels sum to at most alpha. False: each equals alpha, or for a design with
+    # spending boundaries, each is at most its look's boundary.
+    splits: bool
     quantity: str
     limit: str  # what must grow for a large-sample combination to reach its bound
     theorem: str | None  # the Lean theorem; None when the rule itself is cited
@@ -57,6 +62,7 @@ class Mode:
     title: str = ""
     references: tuple[str, ...] = ()
     version: int = 1
+    also: tuple[Assumption, ...] = ()  # further assumptions the rule adds
 
     @property
     def grade(self) -> str:
@@ -93,6 +99,25 @@ MODES = {
         "the sample size at each look grows",
         "familywise_le_of_levels",
         "look",
+    ),
+    # One question at several looks, with boundaries that use the correlation between
+    # looks: each look's level is at most the nominal level an error-spending function
+    # gives it. The rule is cited: Lean does not check it.
+    "spending": Mode(
+        "group_sequential",
+        "designs.group_sequential/group_sequential",
+        PRESPECIFIED_SPENDING,
+        (FIXED_SIZES.id, SINGLE_ANALYSIS.id),
+        "spending-contract",
+        ("same-question", "increasing-looks", "spending-boundaries"),
+        False,
+        "type_I_error",
+        "the sample size at each look grows",
+        None,
+        "look",
+        "Group-sequential boundaries from an error-spending function",
+        (LAN_DEMETS, JENNISON_TURNBULL),
+        also=(CANONICAL_JOINT,),
     ),
     # Different questions in a fixed order, each at the full level, each tested
     # only if every earlier one was rejected.
@@ -176,6 +201,8 @@ class Composition:
     alpha: Fraction
     components: tuple[Component, ...]
     mode: str = "family"
+    # For spending boundaries only: the largest level each look may use.
+    limits: tuple[Fraction, ...] = ()
 
     def __post_init__(self):
         validate_alpha(self.alpha)
@@ -185,12 +212,17 @@ class Composition:
             raise ValueError(f"A combination needs between 2 and {MAX_MEMBERS} analyses.")
         if len({item.name for item in self.components}) != len(self.components):
             raise ValueError("Analysis names must be distinct.")
-        if self.mode == "sequential" and len({item.null for item in self.components}) != 1:
+        if self.looks and len({item.null for item in self.components}) != 1:
             raise ValueError("Every look of a sequential design tests the same null.")
 
     @property
     def rules(self) -> Mode:
         return MODES[self.mode]
+
+    @property
+    def looks(self) -> bool:
+        """One question asked at several looks."""
+        return self.mode in ("sequential", "spending")
 
     @property
     def allocated(self) -> Fraction:
@@ -201,12 +233,19 @@ class Composition:
         """The levels are within what this way of combining allows."""
         if self.rules.splits:
             return self.allocated <= self.alpha
+        if self.mode == "spending":
+            return len(self.limits) == len(self.components) and all(
+                item.level <= limit
+                for item, limit in zip(self.components, self.limits, strict=True)
+            )
         return all(item.level == self.alpha for item in self.components)
 
     @property
     def scope(self) -> str:
         """A combination is only as exact as its least exact member."""
-        exact = all(item.scope == "finite_sample" for item in self.components)
+        exact = self.mode != "spending" and all(
+            item.scope == "finite_sample" for item in self.components
+        )
         return "finite_sample" if exact else "asymptotic"
 
     @property
@@ -214,10 +253,15 @@ class Composition:
         return self.rules.own
 
     @property
+    def assumed(self) -> tuple[Assumption, ...]:
+        """The assumptions the way of combining adds."""
+        return (self.rules.own, *self.rules.also)
+
+    @property
     def guarantee(self) -> Guarantee:
         null = (
             self.components[0].null
-            if self.mode == "sequential"  # rejecting at any look rejects the one null
+            if self.looks  # rejecting at any look rejects the one null
             else "any subset of the member nulls is true"
         )
         return Guarantee(
@@ -231,6 +275,14 @@ def general_theorem(composition: Composition) -> str:
 
 def composition_claims(composition: Composition) -> list[str]:
     alpha, part = composition.alpha, composition.rules.part
+    if composition.mode == "spending":
+        return [
+            f"Cited, not checked by Lean: {composition.guarantee.sentence}",
+            "Each look's level is at most the nominal level that the declared error-spending "
+            "function gives it, under the canonical joint distribution of the statistics at "
+            "the looks. StatClaim computes those boundaries numerically.",
+            f"Not checked here: each {part}'s own error bound, listed as an assumption.",
+        ]
     if composition.mode == "graphical":
         return [
             f"Cited, not checked: {composition.guarantee.sentence}",
@@ -278,4 +330,7 @@ def composition_claims(composition: Composition) -> list[str]:
 
 
 def composition_assumptions(composition: Composition) -> list[str]:
-    return [composition.prespecified.text, *(item.sentence for item in composition.components)]
+    return [
+        *(item.text for item in composition.assumed),
+        *(c.sentence for c in composition.components),
+    ]

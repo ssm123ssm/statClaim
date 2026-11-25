@@ -38,6 +38,11 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "scenario/survival_test_continuous_outcome": ("untyped", ""),
     "scenario/looks_out_of_order": ("contract", ""),
     "scenario/looks_change_the_test": ("contract", ""),
+    "scenario/boundary_exceeded": (
+        "accepted",
+        "The boundaries are StatClaim's numerical calculation and the rule that rests on them "
+        "is cited; Lean checks that each level is within the design's level.",
+    ),
     "scenario/result_feeds_design": ("untyped", ""),
     "scenario/duplicate_endpoint": ("accepted", DUPLICATE),
     "scenario/sequence_with_split_levels": ("contract", ""),

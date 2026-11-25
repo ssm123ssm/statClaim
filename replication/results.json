@@ -154,6 +154,20 @@
     "note": ""
   },
   {
+    "key": "boundary_exceeded",
+    "category": "Sampling",
+    "error": "An interim look spends more than its O'Brien-Fleming boundary allows.",
+    "expected": "rejected",
+    "expected_code": "sequential_boundary",
+    "outcome": "rejected",
+    "codes": [
+      "sequential_boundary"
+    ],
+    "message": "interim: the level exceeds the obrien_fleming boundary at that look. Each look may use at most the nominal level the spending function gives it at its share of the information, for an overall level of 1/20: interim alpha=61/20000, final alpha=48999/1000000.",
+    "as_expected": true,
+    "note": ""
+  },
+  {
     "key": "result_feeds_design",
     "category": "Sampling",
     "error": "A design value is taken from the result of an earlier analysis.",

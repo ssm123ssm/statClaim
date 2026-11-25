@@ -80,8 +80,11 @@ def ExactStudyKind.fits (kind : ExactStudyKind) (study : Study) : Bool :=
 
 /-- A design with looks. -/
 def Test.isLooks : Test → Bool
-  | .looks .. => true
+  | .looks .. | .spending .. => true
   | _ => false
+
+/-- The spending functions whose boundaries the semantics cites. -/
+def spendingRules : List String := ["obrien_fleming", "pocock"]
 
 def Test.composable : Test → Bool
   | .randomised .. | .oneSample .. | .twoStage .. => false
@@ -224,6 +227,16 @@ def Test.check : Test → Bool
     (match members.mapM Test.sizes with
       | some sizes => growing sizes
       | none => false)
+  | .spending _ members alpha rule =>
+    Test.checkAll members && members.all Test.composable &&
+    (match members with
+      | [] => false
+      | first :: rest =>
+        first.question.isSome && rest.all (fun look => look.question == first.question)) &&
+    (match members.mapM Test.sizes with
+      | some sizes => growing sizes
+      | none => false) &&
+    spendingRules.contains rule && members.all (fun t => decide (t.alpha ≤ alpha.value))
   | .graphical _ members weights rows alpha =>
     Test.checkAll members && members.all Test.composable &&
     decide (weights.length = members.length) &&
@@ -265,8 +278,8 @@ def Test.memberRoles : Test → Bool
   | .bonferroni _ members _ joint =>
     (joint.isNone || joint == some "binomial_marginals") &&
     Test.validMemberRoles joint.isNone members
-  | .looks _ members _ | .graphical _ members .. | .sequence _ members _ =>
-    Test.validMemberRoles true members
+  | .looks _ members _ | .spending _ members .. | .graphical _ members ..
+  | .sequence _ members _ => Test.validMemberRoles true members
   | _ => true
 termination_by structural t => t
 

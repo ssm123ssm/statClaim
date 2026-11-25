@@ -420,8 +420,8 @@ def Test.canonical : Test → Bool
   | .member _ => false
   | .assumed _ (.cited method) .. => Generated.trialMethods.contains method
   | .associated _ method .. => Generated.associationMethods.contains method
-  | .bonferroni _ members _ none | .looks _ members _ | .graphical _ members ..
-  | .sequence _ members _ => Test.canonicalMembers true members
+  | .bonferroni _ members _ none | .looks _ members _ | .spending _ members ..
+  | .graphical _ members .. | .sequence _ members _ => Test.canonicalMembers true members
   | .bonferroni _ members _ (some _) => Test.canonicalMembers false members
   | _ => true
 termination_by structural t => t
@@ -535,6 +535,7 @@ def Form.tag (f : Form) : ℕ :=
     if f.text "method" = some "bonferroni" then 10
     else if f.text "method" = some "alpha_spending" then 12
     else if f.text "method" = some "graphical" then 13
+    else if f.text "method" = some "group_sequential" then 15
     else 14
 
 def Test.tag : Test → ℕ
@@ -549,6 +550,7 @@ def Test.tag : Test → ℕ
   | .associated .. => 9
   | .bonferroni .. => 10
   | .looks .. => 12
+  | .spending .. => 15
   | .graphical .. => 13
   | .sequence .. => 14
 
@@ -571,8 +573,8 @@ theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
     simp only [reservedKeys, List.mem_cons, List.not_mem_nil, or_false, not_or] at free
     simp [Test.form, Form.tag, Form.text, Test.tag, free]
   | .bonferroni _ _ _ none, _ | .bonferroni _ _ _ (some _), _ | .fisher .., _
-  | .randomised .., _ | .oneSample .., _ | .twoStage .., _ | .looks .., _ | .graphical .., _
-  | .sequence .., _ => by simp [Test.form, Form.tag, Form.text, Test.tag]
+  | .randomised .., _ | .oneSample .., _ | .twoStage .., _ | .looks .., _ | .spending .., _
+  | .graphical .., _ | .sequence .., _ => by simp [Test.form, Form.tag, Form.text, Test.tag]
 
 theorem tag_eq {t₁ t₂ : Test} (c₁ : t₁.canonical) (c₂ : t₂.canonical) (h : t₁.form = t₂.form) :
     t₁.tag = t₂.tag := by
@@ -694,6 +696,14 @@ theorem Test.agree (t₁ t₂ : Test) (c₁ : t₁.canonical = true) (c₂ : t�
         fun th => by rw [all.same (by simpa [Test.thresholds] using th)]⟩
   -- looks
   · rename_i ms₁ a₁ ms₂ a₂
+    unfold Test.form at h; same_object h as e
+    simp at e; casesm* _ ∧ _; subst_vars
+    simp only [Test.canonical] at c₁ c₂
+    have all := Test.agreeMembers true ms₁ ms₂ c₁ c₂ (by assumption)
+    exact ⟨rfl, by simpa [Test.thresholds] using all.length,
+      fun th => by rw [all.same (by simpa [Test.thresholds] using th)]⟩
+  -- spending
+  · rename_i ms₁ a₁ s₁ ms₂ a₂ s₂
     unfold Test.form at h; same_object h as e
     simp at e; casesm* _ ∧ _; subst_vars
     simp only [Test.canonical] at c₁ c₂

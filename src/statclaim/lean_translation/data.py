@@ -31,6 +31,7 @@ COMBINATIONS = {
     "graphical": "graphical",
     "fixed_sequence": "sequence",
     "alpha_spending": "looks",
+    "group_sequential": "spending",
 }
 # What a model may declare beyond its outcome and sizes.
 MODEL_EXTRAS = (
@@ -334,7 +335,13 @@ def test(name: object, value: object) -> str:
             raise Outside(f"The combination {method!r} is not in the semantics yet.")
         # A family of Fisher tests records its joint law instead of a composition.
         joint = method == "bonferroni" and "joint_law" in value
-        extra = {"weights", "transitions"} if method == "graphical" else set()
+        extra = (
+            {"weights", "transitions"}
+            if method == "graphical"
+            else {"spending"}
+            if method == "group_sequential"
+            else set()
+        )
         composition_field = {"joint_law"} if joint else {"composition"}
         record = fields(
             value, {"method", "alpha", "analyses", *composition_field, *extra}, "A combination"
@@ -363,6 +370,8 @@ def test(name: object, value: object) -> str:
             )
             return f".graphical {label}\n    {listed}\n    {shares} {level(record['alpha'])}"
         stated = f".{COMBINATIONS[method]} {label}\n    {listed}\n    {level(record['alpha'])}"
+        if method == "group_sequential":
+            return f"{stated} {string(record['spending'], 'A spending function')}"
         if method == "bonferroni":
             law = f"(some {string(record['joint_law'], 'A joint law')})" if joint else "none"
             return f"{stated} {law}"
@@ -949,7 +958,8 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
                 keys.append(("member", member["name"]))
             else:
                 keys.extend(premise_keys(member["name"], member["analysis"]))
-        return keys + ([("graph", name)] if subject["method"] == "graphical" else [])
+        cited_rule = subject["method"] in ("graphical", "group_sequential")
+        return keys + ([("graph", name)] if cited_rule else [])
     analysis = subject.get("candidates", subject).get("analysis", subject)
     if "test" not in analysis:
         return []

@@ -13,6 +13,7 @@ from typing import Any
 from statclaim import simulation as engine
 from statclaim.methods import (
     assumptions,
+    boundaries,
     cluster,
     logistic,
     mixed_models,
@@ -196,6 +197,12 @@ def versions() -> dict:
     recorded["power:t_distribution"] = {
         "version": t_distribution.VERSION,
         "sha256": _sha256(inspect.getsource(t_distribution)),
+    }
+    # The boundaries of designs with spending functions, and the normal approximation of
+    # their power.
+    recorded["boundaries:spending"] = {
+        "version": boundaries.VERSION,
+        "sha256": _sha256(inspect.getsource(boundaries)),
     }
     # The engine draws every simulated study; any change to it can change results.
     recorded["simulation:engine"] = {

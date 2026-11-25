@@ -49,6 +49,20 @@ PRESPECIFIED_LOOKS = Assumption(
     "The looks happen at the declared cumulative sample sizes, fixed in advance, and the "
     "study stops at the first look that rejects.",
 )
+CANONICAL_JOINT = Assumption(
+    "canonical_joint_distribution",
+    "distribution",
+    "The test statistics at the looks are approximately normal with the canonical joint "
+    "distribution: the data added between looks is independent of the data before, and the "
+    "information at each look is proportional to n_control n_treatment / (n_control + "
+    "n_treatment).",
+)
+PRESPECIFIED_SPENDING = Assumption(
+    "prespecified_spending",
+    "design",
+    "The looks happen at the declared cumulative sample sizes, the spending function is "
+    "chosen in advance, and the study stops at the first look that rejects.",
+)
 PRESPECIFIED_ORDER = Assumption(
     "prespecified_order",
     "design",

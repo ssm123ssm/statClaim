@@ -140,6 +140,8 @@ TABLE: dict[str, InLean | NotInLean] = {
     "fixed_sequence": _in("composition", COMPOSITION),
     "alpha_spending": _in("composition", COMPOSITION),
     "graphical": _in("composition", PREMISES),
+    # Spending boundaries: the rule is a premise, as a graph's is.
+    "group_sequential": _in("composition", PREMISES),
     # Observational studies: concrete laws for exact tests, abstract ones for cited tests.
     "cross_sectional": _in("model", ASSOCIATION, OUTCOMES),
     "cohort": _in("model", ASSOCIATION, OUTCOMES),

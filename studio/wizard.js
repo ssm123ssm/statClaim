@@ -437,14 +437,22 @@ export function openWizard({onCreate, onEmpty, check, start = {}}) {
   pages.procedure.panel.append(severalPower);
 
   // Interim look: the sizes at the look and at the end, and how the level is spent.
+  const spendingChoices = segments('spending', SPENDING, pick('spending'));
   pages.looks.panel.append(
     sentence('Look at', pill('interimControl', {numeric: true, label: 'Control at the look'}), 'and', pill('interimTreatment', {numeric: true, label: 'Treatment at the look'}), 'participants'),
     sentence('End at', pill('control', {numeric: true, label: 'Control at the end'}), 'and', pill('treatment', {numeric: true, label: 'Treatment at the end'}), 'participants'),
-    part(heading('How is the level spent?'), segments('spending', SPENDING, pick('spending'))), levelSlot());
+    part(heading('How is the level spent?'), spendingChoices), levelSlot());
   // A measured outcome's looks are t-tests, whose power can be simulated look by look.
   const interimPower = el('div', 'wizard-part');
   pages.looks.panel.append(interimPower);
   function paintInterim() {
+    // Spending boundaries read the information from the arm sizes: not for log-rank looks.
+    const boundaries = new Set(['obrien_fleming', 'pocock']);
+    if (state.outcome === 'survival' && boundaries.has(state.spending)) state.spending = 'little';
+    for (const input of spendingChoices.querySelectorAll('input')) {
+      input.closest('label').hidden = state.outcome === 'survival' && boundaries.has(input.value);
+      input.checked = input.value === state.spending;
+    }
     // Fisher's looks are summed exactly; t-test looks are simulated; log-rank looks are not planned.
     const kind = state.outcome === 'continuous' ? 'measured' : state.outcome === 'binary' ? 'binary' : null;
     if (!kind) state.interimAdd = 'none';

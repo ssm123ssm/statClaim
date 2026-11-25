@@ -156,9 +156,33 @@ because rejecting at any look is one kind of error.
 
 The member assumptions "sizes are fixed" and "the test is run once" are replaced
 by one: the looks happen at the declared sizes and the study stops at the first
-rejection. The split is conservative. Boundaries that use the correlation
-between looks, such as O'Brien-Fleming, are not supported yet. See
-`examples/interim_look.stat`.
+rejection. The split is conservative: it ignores the correlation between looks.
+See `examples/interim_look.stat`.
+
+### Spending boundaries
+
+`group_sequential` uses the correlation between looks:
+
+```stat
+let trial = group_sequential(looks=[interim, final], alpha=1/20, spending="obrien_fleming")
+let overall = verify(typeI(trial))
+```
+
+`spending` is `"obrien_fleming"` or `"pocock"`, the error-spending functions of Lan
+and DeMets (1983). The statistics at the looks are taken to have the canonical joint
+distribution (Jennison and Turnbull, 2000): the information at a look is
+proportional to `n_control n_treatment / (n_control + n_treatment)`, and a two-sided
+design spends half the level on each side, as gsDesign and rpact do. StatClaim
+computes each look's boundary numerically and refuses a look whose level is above its
+boundary's nominal level; the message lists the levels to use. They may add up to
+more than `alpha`.
+
+The rule is cited, not proved, and its guarantee is large-sample. Lean checks that
+the looks ask one question at growing sizes and that each level is within the
+design's level; the boundaries are StatClaim's calculation. The looks must be
+Fisher's test or a t-test. The boundaries agree with rpact and gsDesign to six
+decimals (`replication/comparison/spending_boundaries_r.R`). See
+`examples/group_sequential.stat` and lesson 46.
 
 ## Fixed sequences
 

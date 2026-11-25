@@ -880,6 +880,12 @@ def reading(value, expression):
         count = len(value.analyses)
         return f"Bonferroni family of {count} analyses sharing level {level(value.alpha)}"
     if kind == "SequentialIR":
+        if value.spending:
+            rule = "O'Brien-Fleming" if value.spending == "obrien_fleming" else "Pocock"
+            return (
+                f"One test at {len(value.analyses)} looks with {rule} boundaries, which use "
+                f"the correlation between looks, at level {level(value.alpha)} in all"
+            )
         return (
             f"One test at {len(value.analyses)} looks, spending level {level(value.alpha)} in all"
         )

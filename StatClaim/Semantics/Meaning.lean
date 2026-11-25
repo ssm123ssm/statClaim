@@ -146,6 +146,7 @@ def Test.leaves (i : Instance) : Test → List View
   | .associated _ _ design _ _ _ => [(i.studies design.model).view]
   | .bonferroni _ members _ _ => Test.leavesOf i members
   | .looks _ members _ => Test.leavesOf i members
+  | .spending _ members .. => Test.leavesOf i members
   | .graphical _ members _ _ _ => Test.leavesOf i members
   | .sequence _ members _ => Test.leavesOf i members
 termination_by structural t => t
@@ -212,6 +213,10 @@ def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
     { null := fun θ => ∀ k, (Test.members i σ members ws).nulls k θ
       reject := ⋃ k, (Test.members i σ members ws).rejects k
       slack := ∑ k, (Test.members i σ members ws).slacks k }
+  | .spending name members _ _, ws =>
+    { null := fun θ => ∀ k, (Test.members i σ members ws).nulls k θ
+      reject := ⋃ k, i.graph name (Test.leavesOf i members) members.length Θ Ω σ ws k
+      slack := i.slack name }
   | .graphical name members _ _ _, ws =>
     { null := fun θ => ∃ k, (Test.members i σ members ws).nulls k θ
       reject := ⋂ k, i.graph name (Test.leavesOf i members) members.length Θ Ω σ ws k
@@ -290,6 +295,11 @@ def Test.typeI (i : Instance) : Test → Prop
         | .finiteSample => (alpha.value : ℝ)
         | .largeSample => (alpha.value : ℝ) + i.slack name)
   | .looks _ members alpha => Test.union i members alpha
+  | .spending name members alpha _ =>
+    Joint (Test.leavesOf i members) fun σ ws =>
+      familywiseClaim σ.law ((Test.members i σ members ws).nulls)
+        (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
+        ((alpha.value : ℝ) + i.slack name)
   | _ => False
 
 /-- The familywise claim of a combination, over every joint study whose marginals are
@@ -322,6 +332,7 @@ def Test.fixed : Test → Bool
   | .associated _ _ design .. => design.stopping == .fixed
   | .bonferroni _ members _ _ => Test.allFixed members
   | .looks _ members _ => Test.allFixed members
+  | .spending _ members .. => Test.allFixed members
   | .graphical _ members _ _ _ => Test.allFixed members
   | .sequence _ members _ => Test.allFixed members
 termination_by structural t => t
@@ -361,12 +372,15 @@ inductive Premise where
       (alpha : SignificanceLevel)
   | member (name : String) (alpha : SignificanceLevel)
   | graph (name : String) (members : List Test) (alpha : SignificanceLevel)
+  /-- A design's spending boundaries give its overall level, up to a large-sample slack. -/
+  | spending (name : String) (members : List Test) (alpha : SignificanceLevel)
 
 def Premise.name : Premise → String
   | .level name .. => name
   | .association name .. => name
   | .member name .. => name
   | .graph name .. => name
+  | .spending name .. => name
 
 def Test.finiteSample : Test → Bool
   | .fisher .. => true
@@ -396,6 +410,12 @@ def Premise.Holds (i : Instance) : Premise → Prop
       familywiseClaim σ.law ((Test.members i σ members ws).nulls)
         (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
         ((alpha.value : ℝ) + i.slack name)
+  | .spending name members alpha =>
+    Scope.largeSample.permits (i.slack name) ∧
+    Joint (Test.leavesOf i members) fun σ ws =>
+      familywiseClaim σ.law ((Test.members i σ members ws).nulls)
+        (i.graph name (Test.leavesOf i members) members.length _ _ σ ws)
+        ((alpha.value : ℝ) + i.slack name)
 
 mutual
 def Test.premises : Test → List Premise
@@ -408,6 +428,7 @@ def Test.premises : Test → List Premise
   | .associated name method design _ alpha _ => [.association name method design.model alpha]
   | .bonferroni _ members _ _ => Test.premisesOf members
   | .looks _ members _ => Test.premisesOf members
+  | .spending name members alpha _ => Test.premisesOf members ++ [.spending name members alpha]
   | .graphical name members _ _ alpha => Test.premisesOf members ++ [.graph name members alpha]
   | .sequence _ members _ => Test.premisesOf members
 termination_by structural t => t

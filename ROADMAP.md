@@ -95,6 +95,10 @@
   grades and contracts, and Lean decides the contracts and proves every claim with one
   soundness theorem. Exact tests, results, intervals and plans share one interface,
   and the Python translator that stated claims before is retired.
+- Group-sequential boundaries that use the correlation between looks: O'Brien-Fleming
+  and Pocock spending functions (Lan and DeMets), computed under the canonical joint
+  distribution, each look's level checked against its boundary, and the rule cited in
+  Lean. Boundaries agree with rpact and gsDesign.
 - The printed form determines the program: Lean proves that two programs in canonical
   form never print the same form, and every build decides that its program is in
   canonical form, so the encoding into Lean data is no longer trusted.
@@ -115,14 +119,13 @@ shows its
 
 1. Repeated binary measurements, and strata
    on the assignment once a covariate-adjusted analysis reads them.
-2. Cited group-sequential boundaries that use the correlation between looks.
-3. A narrower exact interval for a difference of two proportions.
-4. Larger sample sizes and p-values for the test with a margin.
-5. Assurance in the Bayesian sense: power averaged over a design prior. (Precision
+2. A narrower exact interval for a difference of two proportions.
+3. Larger sample sizes and p-values for the test with a margin.
+4. Assurance in the Bayesian sense: power averaged over a design prior. (Precision
    targets, with the assurance that an interval meets its margin, are done.)
-6. More adaptive designs: several interim looks, efficacy stopping, allocation.
-7. A formalized Beta posterior, so posterior rules need no stated closed form.
-8. A versioned extension API for community modules.
+5. More adaptive designs: futility stopping, unblinded re-estimation, allocation.
+6. A formalized Beta posterior, so posterior rules need no stated closed form.
+7. A versioned extension API for community modules.
 
 Planning principles: scientific inputs stay explicit; a sufficient sample size
 and the smallest one are separate claims; composing verified parts never

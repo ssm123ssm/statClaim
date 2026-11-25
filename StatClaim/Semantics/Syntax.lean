@@ -288,6 +288,10 @@ inductive Test where
       (joint : Option String)
   /-- A design with looks: one question asked at growing sizes, each look at its share. -/
   | looks (name : String) (members : List Test) (alpha : SignificanceLevel)
+  /-- A design with looks whose boundaries use the correlation between looks: each look's
+  level is at most what the spending function `rule` gives it. The semantics cites the rule;
+  Lean does not compute the boundaries. -/
+  | spending (name : String) (members : List Test) (alpha : SignificanceLevel) (rule : String)
   | graphical (name : String) (members : List Test) (weights : List ℚ)
       (transitions : List (List ℚ)) (alpha : SignificanceLevel)
   | sequence (name : String) (members : List Test) (alpha : SignificanceLevel)
@@ -363,6 +367,7 @@ def Test.name : Test → String
   | .associated name .. => name
   | .bonferroni name .. => name
   | .looks name .. => name
+  | .spending name .. => name
   | .graphical name .. => name
   | .sequence name .. => name
 
@@ -382,6 +387,7 @@ def Test.level : Test → SignificanceLevel
   | .associated _ _ _ _ alpha _ => alpha
   | .bonferroni _ _ alpha _ => alpha
   | .looks _ _ alpha => alpha
+  | .spending _ _ alpha _ => alpha
   | .graphical _ _ _ _ alpha => alpha
   | .sequence _ _ alpha => alpha
 

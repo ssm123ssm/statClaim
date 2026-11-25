@@ -228,6 +228,18 @@ RULES = {
         "same-question and increasing-looks rules hold.",
         "{subject}: its looks form one sequential test of the same null.",
     ),
+    "spending-boundaries": Rule(
+        "Each look's level is at most the nominal level that the spending function gives it "
+        "at its share of the information, under the canonical joint distribution.",
+        "{subject}: with {spending} spending of {alpha}, the looks may use at most {limits}; "
+        "they use {levels}.",
+    ),
+    "spending-contract": Rule(
+        "Every look satisfies its own contract, and the distinct-members, family-size, "
+        "same-question, increasing-looks and spending-boundaries rules hold.",
+        "{subject}: its looks form one group-sequential test of the same null, within its "
+        "spending boundaries.",
+    ),
     "full-level": Rule(
         "Every test in the sequence uses the sequence's level.",
         "{subject}: every test uses the full level {alpha}.",
@@ -1001,7 +1013,10 @@ def composed_assumptions(family: ComposedFamilyIR) -> tuple[str, ...]:
 
 def _assumption_parts(family: ComposedFamilyIR) -> tuple[list[str], list[str], list[str]]:
     composition = family.lower()
-    own = [composition.prespecified.text, *(item.sentence for item in composition.components)]
+    own = [
+        *(item.text for item in composition.assumed),
+        *(c.sentence for c in composition.components),
+    ]
     nested: list[str] = []
     cited: list[str] = []
     for _, analysis in family.analyses:
@@ -1027,7 +1042,7 @@ def composed_guarantee(family: ComposedFamilyIR) -> dict:
         "grade": rules.grade,
         "members": [item.to_dict() for item in composition.components],
         "given": [
-            composition.prespecified.id,
+            *(item.id for item in composition.assumed),
             *(f"member_guarantee:{n}" for n, _ in family.analyses),
         ],
     }
@@ -1070,7 +1085,7 @@ def _composed_steps(builder: _Builder, name: str, family: ComposedFamilyIR, pend
         builder.apply("distinct-members", {"subject": name, "members": names}),
         builder.apply("family-size", {"subject": name, "count": len(names)}),
     ]
-    if family.mode == "sequential":
+    if family.mode in ("sequential", "spending"):
         first = family.analyses[0][1]
         used += [
             builder.apply(
@@ -1092,6 +1107,20 @@ def _composed_steps(builder: _Builder, name: str, family: ComposedFamilyIR, pend
                 },
             ),
         ]
+    if family.mode == "spending":
+        # The constructor refuses levels beyond the boundaries, so this always holds here.
+        used.append(
+            builder.apply(
+                "spending-boundaries",
+                {
+                    "subject": name,
+                    "spending": family.spending,
+                    "alpha": str(family.alpha),
+                    "limits": [str(limit) for limit in family.limits],
+                    "levels": [str(analysis.alpha) for _, analysis in family.analyses],
+                },
+            )
+        )
     if family.mode in ("fixed_sequence", "graphical"):
         used.append(builder.apply("full-level", {"subject": name, "alpha": str(family.alpha)}))
     if family.mode == "graphical":

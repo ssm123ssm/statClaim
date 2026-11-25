@@ -247,6 +247,16 @@ SCENARIOS = (
         "sequential_question",
     ),
     Scenario(
+        "boundary_exceeded",
+        "Sampling",
+        "An interim look spends more than its O'Brien-Fleming boundary allows.",
+        TWO_LOOKS
+        + "let trial = group_sequential(looks=[interim, final], alpha=1/20, "
+        + 'spending="obrien_fleming")\n',
+        "rejected",
+        "sequential_boundary",
+    ),
+    Scenario(
         "result_feeds_design",
         "Sampling",
         "A design value is taken from the result of an earlier analysis.",

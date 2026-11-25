@@ -211,6 +211,7 @@ Methods with cited, conditional or declared guarantees:
 | Fixed-sequence testing | `multiplicity.fixed_sequence` | Conditional: the hierarchical rule is checked in Lean |
 | Graphical procedures | `multiplicity.graphical` | Cited: the graph is checked; the guarantee of the procedure is cited |
 | Planned interim analyses | `designs.group_sequential` | Conditional: the allocation of the error level across analyses is checked in Lean |
+| Group-sequential boundaries | `designs.group_sequential` | Cited: O'Brien-Fleming or Pocock spending boundaries that use the correlation between looks; the levels are checked against the computed boundaries |
 | Approximate power and precision | `planning` | Calculated or simulated: numerical results, not verified |
 
 Further detail is given in the [language reference](docs/catalogue.md) and in the

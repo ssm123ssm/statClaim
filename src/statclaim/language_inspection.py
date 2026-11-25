@@ -307,8 +307,8 @@ def cited_report(analysis: "CitedAnalysisIR | CitedAssociationIR") -> dict:
 def _register(family: ComposedFamilyIR, assumptions: dict, references: list) -> None:
     """Add a combination's assumptions, and those of the tests inside it, by id."""
     composition = family.lower()
-    own = composition.prespecified
-    assumptions.setdefault(own.id, mark(own))
+    for own in composition.assumed:
+        assumptions.setdefault(own.id, mark(own))
     references += [r for r in composition.rules.references if r not in references]
     for name, _ in family.analyses:
         # The member's own bound is the hypothesis the combination rests on.

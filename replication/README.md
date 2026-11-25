@@ -25,7 +25,7 @@ fails if any output differs from the pinned one. CI runs it on every push. It ru
 
 ## Error-injection evaluation
 
-`scenarios.py` holds 43 scenarios. Each takes a valid study file and injects one
+`scenarios.py` holds 44 scenarios. Each takes a valid study file and injects one
 common specification error. `evaluate.py` runs them and writes what StatClaim
 reports to [results.md](results.md) and `results.json`.
 

@@ -567,10 +567,12 @@ Exact power at a planning point, target checks and a bounded sample-size search 
 
 ### `designs.group_sequential` — Adaptive designs
 
-One test repeated at several looks with the error level split across them, stopping at the first rejection. Lean checks that the split gives the overall bound; each look's own bound is assumed. Conservative: it ignores the correlation between looks.
+One test repeated at several looks, stopping at the first rejection. alpha_spending splits the level across the looks, and Lean checks that the split gives the overall bound; it ignores the correlation between looks. group_sequential uses it: each look's level is at most the nominal level an O'Brien-Fleming or Pocock spending function gives it, a cited rule. Each look's own bound is assumed.
 
 - `alpha_spending(looks: list, alpha: level) -> Sequential`
   One test repeated at several looks, stopping at the first rejection. Give each look as an analysis whose model has the cumulative arm sizes at that look, with the level spent there. The levels may sum to at most alpha. Lean checks the combination; each look's own bound is assumed. The split is conservative.
+- `group_sequential(looks: list, alpha: level, spending: string) -> Sequential`
+  One test repeated at several looks, stopping at the first rejection, with boundaries that use the correlation between looks. spending is "obrien_fleming" or "pocock" (Lan and DeMets). Give each look as an analysis whose model has the cumulative arm sizes at that look, with its nominal level: at most the level the spending function gives it at its share of the information. The error message lists those levels. For Fisher's test and the t-tests. The rule is cited.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
 ### `designs.adaptive` — Adaptive designs
@@ -789,6 +791,7 @@ Other string inputs, such as `name`, take free text.
 | `joint_law` | `binomial_marginals` | `bonferroni` |
 | `criterion` | `optimal`, `minimax` | `two_stage_designs` |
 | `scope` | `finite_sample`, `asymptotic` | `declared_test` |
+| `spending` | `obrien_fleming`, `pocock` | `group_sequential` |
 | `group` | `exposed`, `unexposed` | `prevalence`, `cumulative_incidence`, `planned_interval` |
 | `measure` | `response_rate`, `prevalence`, `cumulative_incidence`, `difference`, `risk_difference`, `prevalence_difference`, `risk_ratio`, `prevalence_ratio`, `odds_ratio`, `conditional_odds_ratio`, `rate_ratio` | `planned_interval` |
 | `exposure_scale` | `binary`, `continuous` | `cross_sectional`, `cohort`, `case_control`, `person_time_cohort`, `matched_case_control` |
@@ -940,6 +943,8 @@ Assumptions of the cited methods and of combinations, by id. The exact modules' 
 | `independent_censoring` | sampling | Within each arm, censoring is independent of the time to the event. |
 | `prespecified_analysis_time` | design | When to analyse is fixed in advance, by calendar time or by a number of events, and does not depend on the observed difference between arms. |
 | `prespecified_looks` | design | The looks happen at the declared cumulative sample sizes, fixed in advance, and the study stops at the first look that rejects. |
+| `canonical_joint_distribution` | distribution | The test statistics at the looks are approximately normal with the canonical joint distribution: the data added between looks is independent of the data before, and the information at each look is proportional to n_control n_treatment / (n_control + n_treatment). |
+| `prespecified_spending` | design | The looks happen at the declared cumulative sample sizes, the spending function is chosen in advance, and the study stops at the first look that rejects. |
 | `prespecified_order` | design | The tests and their order are fixed in advance, and a test is carried out only if every earlier test in the order rejected. |
 | `prespecified_graph` | design | The tests, their starting shares of the level and the rules for passing a share on are fixed in advance, and a share is passed on only after a rejection. Each test controls its error at every level up to the overall level, not only at one. |
 | `declared_test_is_valid` | vouched | The declared test rejects its true null with probability at most its level. StatClaim has no contract or source for this test. |
@@ -1047,6 +1052,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `sequence_level` | error | A test in a fixed sequence or a graph is not declared at the overall level. |
 | `graph_definition` | error | The weights or transitions of a graph are not valid. |
 | `sequential_order` | error | The looks are not in order of growing sample size. |
+| `sequential_boundary` | error | A look's level exceeds the nominal level its spending boundary allows there. |
 | `sampling_scope` | obligation | The design stops on the data, which the guarantee does not cover. Not evidence of inflated error. |
 | `allocation` | obligation | The members' levels sum to more than the overall level. |
 | `typeI_target_not_established` | obligation | The analysis's level exceeds the requested Type I bound. |

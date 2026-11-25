@@ -38,6 +38,7 @@ gMCP was not used: it needs Java.
 | `correlation_simulation_r.R` | `correlation_simulation_r.txt` | Type I error and power of the t-tests of Pearson's correlation and of a simple regression slope with skewed data, from a simulation analysed with `cor.test` and `lm`; writes `tests/fixtures/correlation_simulation_r.json`, which `tests/test_correlation_simulation.py` compares with StatClaim's simulation |
 | `survival_simulation_r.R` | `survival_simulation_r.txt` | Power and Type I error of the log-rank test from a simulation analysed with `survival::survdiff`, with dropout, unequal allocation and a delayed effect; writes `tests/fixtures/survival_simulation_r.json`, which `tests/test_survival_simulation.py` compares with StatClaim's simulation |
 | `t_scenarios_r.R` | `t_scenarios_r.txt` | Type I error and power of Student's and Welch's t-tests with unequal SDs or a skewed outcome, from a simulation that draws every participant; writes `tests/fixtures/t_scenarios_r.json`, which `tests/test_t_scenarios.py` compares with StatClaim's simulation |
+| `spending_boundaries_r.R` | `spending_boundaries_r.txt` | O'Brien-Fleming and Pocock spending boundaries for `group_sequential` designs, one- and two-sided, from `rpact::getDesignGroupSequential` and `gsDesign`, and the chance of stopping at each look from `gsDesign::gsProbability`; writes `tests/fixtures/spending_boundaries_r.json`, which `tests/test_spending_boundaries.py` compares with StatClaim |
 | `observational_power_r.R` | `observational_power_r.txt` | Exact power of Fisher's test of association for cohort and case-control studies (every table through `fisher.test`, `exact2x2::power2x2` and epiR's normal formulas), McNemar's test (`binom.test`, `exact2x2::powerPaired2x2`) and the rate test (`exactci::poisson.exact`); writes `tests/fixtures/observational_power_r.json`, which `tests/test_observational_planning.py` compares with StatClaim |
 
 StatClaim's side of the same designs is `graph.stat`, `sequential.stat` and
@@ -60,7 +61,10 @@ graph, and writes `statclaim_side.txt`. The two-look design needs the Lean setup
   type spending over two looks, its true Type I error is 0.0240 against a bound of
   0.025, and its final boundary is z = 1.987 against gsDesign's 1.969. Power falls
   from 0.900 to 0.897. With Pocock type spending the true error is 0.0216 and power
-  falls to 0.877.
+  falls to 0.877. StatClaim's `group_sequential` uses gsDesign's and rpact's
+  boundaries instead: its critical values agree with both to six decimals in four
+  designs, one- and two-sided, with up to four looks and unequal arms
+  (`spending_boundaries_r.R`).
 - **Power.** For two proportions StatClaim matches `power.prop.test` to six
   decimals. For two means it is above `power.t.test` by less than 0.001 at 400 per
   arm or more, since it uses the normal distribution, not the noncentral t.

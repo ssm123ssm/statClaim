@@ -1729,6 +1729,14 @@ test('the wizard plans every observational design by exact power', async t => {
     assert.match(made.source, /let power = simulate\(meets\(analysis=trial, target=target\), seed=7\)/);
     assert.match(made.source, /power\.calculation\.expected_sample_size/);
     assert.deepEqual((await compile(made.source)).diagnostics, [], made.source);
+    // Spending boundaries: each look's level is its boundary's, rounded down, and the rule is cited.
+    const bounded = interimSource({outcome: 'continuous', spending: 'obrien_fleming'});
+    assert.match(bounded.source, /alpha=61\/20000\)/);
+    assert.match(bounded.source, /let trial = group_sequential\(looks=\[interim, final\], alpha=1\/20, spending="obrien_fleming"\)/);
+    assert.equal(bounded.evidence, 'cited');
+    assert.deepEqual((await compile(bounded.source)).diagnostics, [], bounded.source);
+    // Log-rank looks are not covered by the boundaries: their level is split instead.
+    assert.match(interimSource({outcome: 'survival', spending: 'pocock'}).source, /alpha_spending/);
     // Fisher's looks are summed exactly with calculate, not simulated.
     const exact = interimSource({outcome: 'binary', interimAdd: 'power'});
     assert.doesNotMatch(exact.source, /simulate\(/);
@@ -1867,7 +1875,15 @@ test('every design the language supports can be built from the wizard, and found
   for (const procedure of Object.keys(D.PROCEDURES)) {
     built.push(['several ' + procedure, D.severalSource({procedure, endpoints: [{name: 'response', kind: 'binary'}, {name: 'symptom score', kind: 'continuous'}, {name: 'relapse', kind: 'binary'}]})]);
   }
-  for (const outcome of ['binary', 'continuous', 'survival']) built.push(['interim ' + outcome, D.interimSource({outcome})]);
+  for (const outcome of ['binary', 'continuous', 'survival']) {
+    for (const spending of Object.keys(D.SPENDING)) {
+      for (const interimAdd of ['none', 'power']) {
+        built.push(['interim ' + outcome + ' ' + spending + ' ' + interimAdd, D.interimSource({outcome, spending, interimAdd})]);
+      }
+    }
+  }
+  // An early look with unequal arms: the boundaries follow its share of the information.
+  built.push(['interim unequal', D.interimSource({outcome: 'binary', spending: 'pocock', interimControl: 30, interimTreatment: 45, control: 80, treatment: 120})]);
   for (const add of ['none', 'plan', 'data']) built.push(['one arm ' + add, D.oneArmSource({add})]);
   built.push(['estimate', D.oneArmSource({aim: 'estimate'})], ['two stage', D.twoStageSource({})], ['two stage given', D.twoStageSource({find: 'given'})],
     ['estimate with a margin', D.oneArmSource({aim: 'estimate', add: 'precision'})],

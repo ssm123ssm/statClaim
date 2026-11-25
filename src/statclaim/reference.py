@@ -178,6 +178,10 @@ PARAMETER_CHOICES = {
         "minimax": "Minimises the largest possible sample size.",
     },
     "scope": SCOPES,
+    "spending": {
+        "obrien_fleming": "O'Brien-Fleming-type spending: little of the level at early looks.",
+        "pocock": "Pocock-type spending: nearly equal levels at every look.",
+    },
     "group": {
         "exposed": "The cohort's exposed group.",
         "unexposed": "The cohort's unexposed group.",
@@ -319,6 +323,10 @@ DIAGNOSTICS = {
     ),
     "graph_definition": ("error", "The weights or transitions of a graph are not valid."),
     "sequential_order": ("error", "The looks are not in order of growing sample size."),
+    "sequential_boundary": (
+        "error",
+        "A look's level exceeds the nominal level its spending boundary allows there.",
+    ),
     # Open requirements
     "sampling_scope": (
         "obligation",

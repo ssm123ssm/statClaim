@@ -440,22 +440,98 @@ export function severalSource({name = 'study', procedure = 'bonferroni', control
 export const SPENDING = {
   little: {label: 'Little early', detail: 'A tenth of the level at the look, the rest at the end.'},
   even: {label: 'Evenly', detail: 'Half the level at each.'},
+  obrien_fleming: {label: "O'Brien-Fleming", detail: 'Boundaries that use the correlation between looks: little early. Cited.'},
+  pocock: {label: 'Pocock', detail: 'Boundaries that use the correlation between looks: nearly equal levels. Cited.'},
 };
+
+// Spending boundaries, as src/statclaim/methods/boundaries.py computes them: the canonical
+// joint distribution, Lan and DeMets's spending functions, a two-sided design spending half
+// on each side, and Jennison and Turnbull's grid with Simpson's rule.
+function erfc(x) {
+  // Numerical Recipes' erfcc: fractional error below 1.2e-7.
+  const z = Math.abs(x), s = 1 / (1 + 0.5 * z);
+  const r = s * Math.exp(-z * z - 1.26551223 + s * (1.00002368 + s * (0.37409196 + s * (0.09678418 +
+    s * (-0.18628806 + s * (0.27886807 + s * (-1.13520398 + s * (1.48851587 + s * (-0.82215223 + s * 0.17087277)))))))));
+  return x >= 0 ? r : 2 - r;
+}
+const normalCdf = x => 0.5 * erfc(-x / Math.SQRT2);
+const normalPdf = x => Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI);
+function normalQuantile(p) {
+  let low = -40, high = 40;
+  while (high - low > 1e-12) { const mid = (low + high) / 2; if (normalCdf(mid) < p) low = mid; else high = mid; }
+  return (low + high) / 2;
+}
+function spent(spending, alpha, t, sides) {
+  if (sides === 2) return 2 * spent(spending, alpha / 2, t, 1);
+  if (t >= 1) return alpha;
+  if (t <= 0) return 0;
+  if (spending === 'obrien_fleming') return 2 * (1 - normalCdf(normalQuantile(1 - alpha / 2) / Math.sqrt(t)));
+  return alpha * Math.log(1 + (Math.E - 1) * t);
+}
+function grid(mean, low, high) {
+  const r = 18, raw = [];
+  for (let i = 1; i < 6 * r; i++) {
+    raw.push(i < r ? mean - 3 - 4 * Math.log(r / i) : i <= 5 * r ? mean - 3 + 3 * (i - r) / (2 * r) : mean + 3 + 4 * Math.log(r / (6 * r - i)));
+  }
+  const points = [low, ...raw.filter(x => x > low && x < high), high], nodes = [], weights = [];
+  for (let k = 0; k + 1 < points.length; k++) {
+    const left = points[k], right = points[k + 1], width = right - left;
+    if (k === 0) { nodes.push(left); weights.push(width / 6); } else weights[weights.length - 1] += width / 6;
+    nodes.push((left + right) / 2, right); weights.push(4 * width / 6, width / 6);
+  }
+  return [nodes, weights];
+}
+const tail = (critical, sides, shift, scale) => 1 - normalCdf((critical - shift) / scale) + (sides === 2 ? normalCdf((-critical - shift) / scale) : 0);
+// The nominal level of each look's boundary, from its share of the information.
+export function boundaryLevels(fractions, alpha, sides, spending) {
+  let info = 0, nodes = [], weights = [], density = [], before = 0;
+  const levels = [];
+  for (const now of fractions) {
+    const target = spent(spending, alpha, now, sides) - before;
+    before += target;
+    const step = now - info, scale = Math.sqrt(step / now);
+    const shifts = nodes.map(z => z * Math.sqrt(info) / Math.sqrt(now));
+    const crossing = c => info === 0 ? tail(c, sides, 0, 1)
+      : nodes.reduce((sum, _, k) => sum + weights[k] * density[k] * tail(c, sides, shifts[k], scale), 0);
+    let low = 0, high = 40;
+    while (high - low > 1e-10) { const mid = (low + high) / 2; if (crossing(mid) > target) low = mid; else high = mid; }
+    const critical = high;
+    levels.push(sides * (1 - normalCdf(critical)));
+    const [next, nextWeights] = grid(0, sides === 2 ? -critical : -12, Math.min(critical, 12));
+    density = info === 0 ? next.map(normalPdf) : next.map(x =>
+      nodes.reduce((sum, _, k) => sum + weights[k] * density[k] * normalPdf((x - shifts[k]) / scale), 0) / scale);
+    nodes = next; weights = nextWeights; info = now;
+  }
+  return levels;
+}
+// A level rounded down to five decimals, written as a fraction: safely within its boundary.
+const floorLevel = level => written(reduce(Math.floor(level * 100000), 100000));
+const information = (c, t) => c * t / (c + t);
 const LOOK_TESTS = {binary: ['tests.fisher', 'fisher', 'equal_proportions'], continuous: ['tests.t', 't_test', 'equal_means'], survival: ['tests.survival', 'log_rank', 'equal_survival']};
 export function interimSource({name = 'study', outcome = 'binary', control = 100, treatment = 100, interimControl = 50, interimTreatment = 50,
   spending = 'little', alpha = '1/20', interimAdd = 'none', effect = '5', sd = '10', seed = 2026, pControl = '3/10', pTreatment = '1/2'}) {
   const kind = OUTCOMES[outcome] || OUTCOMES.binary;
   const [module, test, nul] = LOOK_TESTS[outcome] || LOOK_TESTS.binary;
-  const [early, late] = spending === 'even' ? [times(alpha, 1, 2), times(alpha, 1, 2)] : [times(alpha, 1, 10), times(alpha, 9, 10)];
+  const boundaries = (spending === 'obrien_fleming' || spending === 'pocock') && outcome !== 'survival';
+  const level = ratio(alpha);
+  const fraction = information(Number(interimControl), Number(interimTreatment)) / information(Number(control), Number(treatment));
+  const [early, late] = boundaries
+    ? boundaryLevels([fraction, 1], level[0] / level[1], 2, spending).map(floorLevel)
+    : spending === 'even' ? [times(alpha, 1, 2), times(alpha, 1, 2)] : [times(alpha, 1, 10), times(alpha, 9, 10)];
+  const design = boundaries
+    ? 'let trial = group_sequential(looks=[interim, final], alpha=' + alpha + ', spending="' + spending + '")'
+    : 'let trial = alpha_spending(looks=[interim, final], alpha=' + alpha + ')';
   const lines = ['# ' + name + ': one test at an interim look and at the end, stopping at the first rejection.',
     'use ' + kind.module, 'use sampling', 'use ' + module, 'use designs.group_sequential', '',
     'let halfway = ' + kind.model + '(n_control=' + interimControl + ', n_treatment=' + interimTreatment + ')',
     'let complete = ' + kind.model + '(n_control=' + control + ', n_treatment=' + treatment + ')',
     'let interim = ' + test + '(design=fixed(model=halfway), null=' + nul + '(model=halfway), alpha=' + early + ')',
     'let final = ' + test + '(design=fixed(model=complete), null=' + nul + '(model=complete), alpha=' + late + ')',
-    'let trial = alpha_spending(looks=[interim, final], alpha=' + alpha + ')',
+    design,
     'let checked = verify(typeI(trial))', ''];
-  const notes = ['The split is conservative: it ignores the correlation between looks.'];
+  const notes = [boundaries
+    ? 'Each level is its boundary\'s, rounded down: the boundaries use the correlation between looks, and the rule is cited.'
+    : 'The split is conservative: it ignores the correlation between looks.'];
   // Fisher's test at looks: power summed exactly over every path of counts.
   if (outcome === 'binary' && interimAdd === 'power') {
     lines.splice(4, 0, 'use planning');
@@ -474,7 +550,7 @@ export function interimSource({name = 'study', outcome = 'binary', control = 100
       'let expected_total = power.calculation.expected_sample_size', '');
     notes.push('Power and the expected size are simulated: estimates, not proofs.');
   }
-  return {source: finish(lines), test: 'alpha_spending', evidence: 'conditional', notes};
+  return {source: finish(lines), test: boundaries ? 'group_sequential' : 'alpha_spending', evidence: boundaries ? 'cited' : 'conditional', notes};
 }
 
 // One group ------------------------------------------------------------------------------
@@ -959,7 +1035,7 @@ export const TEST_WORDS = {
   mmrm_test: 'Mixed model for repeated measures', mmrm_test_one_sided: 'One-sided mixed model for repeated measures', log_rank: 'Log-rank test',
   cluster_t_test: 'Cluster-level t-test', cluster_proportion_t_test: 'Cluster-level t-test of proportions', randomisation_test: 'Randomisation test',
   logistic_regression: 'Logistic regression', logistic_regression_one_sided: 'One-sided logistic regression', declared_test: 'Your declared test',
-  bonferroni: 'Bonferroni family', fixed_sequence: 'Fixed sequence', graphical: 'Graphical procedure', alpha_spending: 'Interim look with alpha spending',
+  bonferroni: 'Bonferroni family', fixed_sequence: 'Fixed sequence', graphical: 'Graphical procedure', alpha_spending: 'Interim look with alpha spending', group_sequential: 'Interim look with spending boundaries',
   binomial_test: 'One-sided exact binomial test', confidence_interval: 'Exact confidence interval', two_stage_designs: 'Two-stage design search', two_stage_test: 'Two-stage design',
   fisher_exact: "Fisher's exact test of association", mcnemar: "McNemar's exact test for matched pairs", rate_test: 'Exact test of equal incidence rates',
 };

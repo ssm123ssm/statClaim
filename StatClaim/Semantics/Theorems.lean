@@ -37,6 +37,16 @@ theorem Marginals.intro {Θ Ω : Type} [MeasurableSpace Ω] (σ : JointStudy Θ 
   | [], _, _, h => h
   | _ :: vs, ws, _, h => fun _ => Marginals.intro σ vs ws.2 h
 
+theorem Premise.trivial_holds_spending (name : String) (members : List Test)
+    (alpha : SignificanceLevel) : (Premise.spending name members alpha).Holds Instance.trivial := by
+  refine ⟨Scope.permits_zero _, ?_⟩
+  intro Θ Ω _ σ
+  refine ForallViews.intro _ _ fun ws => Marginals.intro σ _ ws ?_
+  exact familywise_of_nothing σ.law _ (by
+    have := alpha.nonnegative
+    simp only [Instance.trivial, add_zero]
+    exact_mod_cast this)
+
 theorem Premise.trivial_holds (q : Premise) : q.Holds Instance.trivial := by
   cases q with
   | level name method model null alpha =>
@@ -54,6 +64,7 @@ theorem Premise.trivial_holds (q : Premise) : q.Holds Instance.trivial := by
         have := alpha.nonnegative
         simp only [Instance.trivial, add_zero]
         exact_mod_cast this)
+  | spending name members alpha => exact Premise.trivial_holds_spending name members alpha
 
 theorem Premise.allHold_trivial : ∀ premises : List Premise, Premise.AllHold Instance.trivial premises
   | [] => trivial

@@ -1,0 +1,17 @@
+# Lesson 46: boundaries that use the correlation between looks.
+use models.two_arm_binomial
+use sampling
+use tests.fisher
+use designs.group_sequential
+use planning
+
+# Lesson 45's design, with O'Brien-Fleming boundaries instead of a split of the level.
+let halfway = two_arm_binomial(n_control=50, n_treatment=50)
+let complete = two_arm_binomial(n_control=100, n_treatment=100)
+let interim = fisher(design=fixed(model=halfway), null=equal_proportions(model=halfway), alpha=3/1000)
+let final = fisher(design=fixed(model=complete), null=equal_proportions(model=complete), alpha=48/1000)
+let trial = group_sequential(looks=[interim, final], alpha=1/20, spending="obrien_fleming")
+let overall = verify(typeI(trial))
+
+let target = power_target(at=binomial_rates(p_control=3/10, p_treatment=1/2), minimum=4/5, maximum_typeI=1/20)
+let power = calculate(meets(analysis=trial, target=target))

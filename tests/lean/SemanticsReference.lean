@@ -68,6 +68,19 @@ example (members : List Test) :
 example (members : List Test) :
     (Test.looks "l" members alpha).typeI i ↔ union i members alpha := Iff.rfl
 
+-- Spending boundaries: the design's rejection is its procedure's, and its level is the
+-- cited rule's premise, with a large-sample slack.
+example (members : List Test) :
+    (Test.spending "d" members alpha "obrien_fleming").typeI i ↔
+    Joint (Test.leavesOf i members) fun σ ws =>
+      familywiseClaim σ.law (Test.members i σ members ws).nulls
+        (i.graph "d" (Test.leavesOf i members) members.length _ _ σ ws)
+        ((alpha.value : ℝ) + i.slack "d") := Iff.rfl
+
+example (members : List Test) :
+    Premise.AllHold i (Test.spending "d" members alpha "pocock").premises ↔
+    Premise.AllHold i (Test.premisesOf members ++ [.spending "d" members alpha]) := Iff.rfl
+
 example (members : List Test) :
     (Test.sequence "s" members alpha).familywise i ↔
     Joint (Test.leavesOf i members) fun σ ws =>

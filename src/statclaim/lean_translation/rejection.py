@@ -35,6 +35,7 @@ CONTRACTS = frozenset(
         "sequence_level",
         "graph_definition",
         "sequential_order",
+        "sequential_boundary",
     }
 )
 

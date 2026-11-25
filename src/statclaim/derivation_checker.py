@@ -51,6 +51,7 @@ from statclaim.matched import MATCHED_NULL, PAIRS_SAMPLED, WITHIN_PAIRS
 from statclaim.methods import METHODS, NULL_FORMS, OUTCOMES, SHARP_NULL
 from statclaim.methods.assumptions import (
     ACCOUNTS_FOR,
+    CANONICAL_JOINT,
     CONTRADICTED_BY,
     DECLARED_VALID,
     FIXED_SIZES,
@@ -60,9 +61,13 @@ from statclaim.methods.assumptions import (
     PRESPECIFIED_GRAPH,
     PRESPECIFIED_LOOKS,
     PRESPECIFIED_ORDER,
+    PRESPECIFIED_SPENDING,
     REESTIMATION_TYPE_I,
     SINGLE_ANALYSIS,
 )
+from statclaim.methods.boundaries import JENNISON_TURNBULL, LAN_DEMETS
+from statclaim.methods.boundaries import information as look_information
+from statclaim.methods.boundaries import levels as spending_levels
 from statclaim.methods.core import SCOPES, CitedMethod, Guarantee
 from statclaim.methods.observational import METHODS as OBSERVATIONAL_METHODS
 from statclaim.methods.simulation import FAMILY
@@ -1347,7 +1352,7 @@ def _planning_expected(derivation: dict) -> tuple[list[tuple], list[tuple], tupl
     if "interval" in (subject.get("analysis") or search or {}):
         return _precision_expected(name, subject, search)
     analysis = subject["analysis"] if search is None else search.get("analysis")
-    if analysis is not None and analysis.get("method") == "alpha_spending":
+    if analysis is not None and analysis.get("method") in ("alpha_spending", "group_sequential"):
         return _sequential_planning_expected(name, subject, search, analysis)
     if analysis is not None and analysis.get("rule") == "blinded_reestimation":
         return _reestimation_planning_expected(name, subject, search, analysis)
@@ -1796,6 +1801,16 @@ COMPOSITIONS = {
         "the sample size at each look grows",
         "conditional",
     ),
+    "group_sequential": (
+        "designs.group_sequential/group_sequential",
+        PRESPECIFIED_SPENDING,
+        (FIXED_SIZES.text, SINGLE_ANALYSIS.text),
+        "spending-contract",
+        False,
+        "type_I_error",
+        "the sample size at each look grows",
+        "cited",
+    ),
     "fixed_sequence": (
         "multiplicity.fixed_sequence/fixed_sequence",
         PRESPECIFIED_ORDER,
@@ -1822,6 +1837,35 @@ GRAPHICAL_METHOD = {
     "version": 1,
     "title": "Graphical multiple testing procedure",
 }
+SPENDING_METHOD = {
+    "key": "group_sequential",
+    "version": 1,
+    "title": "Group-sequential boundaries from an error-spending function",
+}
+
+
+def _spending_limits(subject: dict, members: list) -> list[str] | None:
+    """Each look's largest level, recomputed from the serialized design: the spending
+    function's nominal level at the look's share of the information, rounded down to 1e-9.
+    None when the test's boundary is not one the rule covers."""
+    final = members[-1][1]
+    if final.get("test") == "fisher":
+        alternative = final.get("alternative", "two_sided")
+        if alternative not in ("two_sided", "greater"):
+            return None
+        sides = 2 if alternative == "two_sided" else 1
+    else:
+        method = _method(final)
+        if method is None or method.module != "tests.t":
+            return None
+        sides = 1 if NULL_FORMS[final["null"]["predicate"]][1].favours else 2
+    sizes = [
+        (a["design"]["model"]["n_control"], a["design"]["model"]["n_treatment"]) for _, a in members
+    ]
+    found = spending_levels(
+        look_information(sizes), float(Fraction(subject["alpha"])), sides, subject["spending"]
+    )
+    return [str(Fraction(int(level * 10**9), 10**9)) for level in found]
 
 
 def _share(text) -> bool:
@@ -1839,13 +1883,16 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
     contract, own, discharged, rule, splits, quantity, limit, grade_of_rule = COMPOSITIONS[
         method_name
     ]
-    sequential = method_name == "alpha_spending"
+    spending = method_name == "group_sequential"
+    sequential = method_name == "alpha_spending" or spending
     graphical = method_name == "graphical"
     members = [(item["name"], item["analysis"]) for item in subject["analyses"]]
     names = [member for member, _ in members]
     steps: list[tuple] = []
     finals, inner_obligations, components = [], [], []
     own_texts, nested_texts, cited_texts = [own.text], [], []
+    if spending:
+        own_texts.append(CANONICAL_JOINT.text)
     exact, keys, nulls = True, [], []
     for member, analysis in members:
         start = offset + len(steps)
@@ -1862,9 +1909,7 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
             cited_texts += [text for text in block["cited"] if text not in cited_texts]
             null, grade, scope = block["null"], block["grade"], block["scope"]
             member_quantity = block["quantity"]
-            basis = block["contract"] + (
-                f" version {GRAPHICAL_METHOD['version']}" if grade == "cited" else ""
-            )
+            basis = block["contract"] + (f" version {block['version']}" if grade == "cited" else "")
             keys.append("design")
         elif _method(analysis) is not None:
             method = _method(analysis)
@@ -1954,7 +1999,22 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
             ("increasing-looks", {"subject": name, "sizes": sizes}, grows, ()),
         ]
         used += [base + 2, base + 3]
-    if not splits:
+    if spending:
+        limits = _spending_limits(subject, members)
+        levels = [analysis["alpha"] for _, analysis in members]
+        within = limits is not None and all(
+            Fraction(level) <= Fraction(top) for level, top in zip(levels, limits, strict=True)
+        )
+        facts = {
+            "subject": name,
+            "spending": subject.get("spending"),
+            "alpha": subject["alpha"],
+            "limits": limits,
+            "levels": levels,
+        }
+        steps.append(("spending-boundaries", facts, within, ()))
+        used.append(base + 4)
+    elif not splits:
         full = all(Fraction(analysis["alpha"]) == alpha for _, analysis in members)
         steps.append(("full-level", {"subject": name, "alpha": subject["alpha"]}, full, ()))
         used.append(base + 2)
@@ -1998,16 +2058,19 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
             )
         )
     obligations += inner_obligations
-    scope = "finite_sample" if exact else "asymptotic"
+    scope = "finite_sample" if exact and not spending else "asymptotic"
     null = components[0]["null"] if sequential else "any subset of the member nulls is true"
     statement = Guarantee(quantity, "at_most", alpha, null, scope, limit)
     extra = (
-        {"method": GRAPHICAL_METHOD, "references": [BRETZ, BURMAN]}
+        {"method": SPENDING_METHOD, "references": [LAN_DEMETS, JENNISON_TURNBULL]}
+        if spending
+        else {"method": GRAPHICAL_METHOD, "references": [BRETZ, BURMAN]}
         if grade_of_rule == "cited"
         else {}
     )
     return {
         "contract": contract,
+        "version": 1,
         "grade": grade_of_rule,
         "quantity": quantity,
         "steps": steps,
@@ -2022,7 +2085,11 @@ def _combination(name: str, subject: dict, offset: int = 0, nested: bool = False
             "sentence": statement.sentence,
             "grade": grade_of_rule,
             "members": components,
-            "given": [own.id, *(f"member_guarantee:{n}" for n in names)],
+            "given": [
+                own.id,
+                *([CANONICAL_JOINT.id] if spending else []),
+                *(f"member_guarantee:{n}" for n in names),
+            ],
             **extra,
         },
     }

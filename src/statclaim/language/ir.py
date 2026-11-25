@@ -850,10 +850,23 @@ class ComposedFamilyIR(FamilyLikeIR):
 
 @dataclass(frozen=True)
 class SequentialIR(ComposedFamilyIR, LevelTestIR, PlannableIR):
-    """One question tested at several looks, with the error level split across them. Its
-    power can be simulated when its test has a simulation model for looks."""
+    """One question tested at several looks: with the error level split across them
+    (alpha_spending), or with boundaries from an error-spending function that use the
+    correlation between looks (group_sequential). Its power is summed exactly for Fisher's
+    test and simulated for tests with a simulation model for looks."""
 
     mode: str = "sequential"
+    # For group_sequential: the spending function, and the largest level each look may use.
+    spending: str | None = None
+    limits: tuple[Fraction, ...] = ()
+
+    def lower(self) -> Composition:
+        return Composition(
+            self.alpha,
+            tuple(_component(name, analysis) for name, analysis in self.analyses),
+            self.mode,
+            self.limits,
+        )
 
     @property
     def final(self):
@@ -865,12 +878,13 @@ def _component(name: str, analysis: LevelTestIR) -> Component:
     if isinstance(analysis, SequentialIR):
         # A design with interim looks counts as one test of its null at its overall level.
         inner = analysis.lower()
+        rules = inner.rules
         return Component(
             name,
             analysis.alpha,
             inner.scope,
-            "conditional",
-            inner.rules.contract,
+            rules.grade,
+            rules.contract + (f" version {rules.version}" if rules.grade == "cited" else ""),
             inner.components[0].null,
         )
     if isinstance(analysis, ComposedFamilyIR):

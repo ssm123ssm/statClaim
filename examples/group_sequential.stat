@@ -1,0 +1,23 @@
+# An interim look at half the data with O'Brien-Fleming boundaries, which use the
+# correlation between looks. Each look is the same t-test at the cumulative sample size
+# reached by then; each level is the boundary's nominal level, rounded down.
+use models.two_arm_continuous
+use sampling
+use tests.t
+use designs.group_sequential
+
+let halfway = two_arm_continuous(n_control=50, n_treatment=50)
+let complete = two_arm_continuous(n_control=100, n_treatment=100)
+
+let interim = t_test(design=fixed(model=halfway), null=equal_means(model=halfway), alpha=3/1000)
+let final = t_test(design=fixed(model=complete), null=equal_means(model=complete), alpha=48/1000)
+
+# 0.003 at the interim look and 0.048 at the end add up to more than 0.05; the boundaries
+# keep the overall level at 0.05 because the looks share data. The rule is cited.
+let trial = group_sequential(looks=[interim, final], alpha=1/20, spending="obrien_fleming")
+let overall = verify(typeI(trial))
+
+# Power, the chance of stopping at each look and the expected size, by simulation.
+use planning
+let target = power_target(at=mean_difference(value=5, sd=10), minimum=4/5, maximum_typeI=1/20)
+let simulated = simulate(meets(analysis=trial, target=target), seed=2026)

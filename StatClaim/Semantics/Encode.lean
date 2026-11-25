@@ -183,6 +183,10 @@ def Test.form : Test → Form
   | .looks _ members alpha => .object [("alpha", some (.level alpha)),
       ("analyses", some (.arr (Test.formMembers members))),
       ("composition", some (.str "conditional")), ("method", some (.str "alpha_spending"))]
+  | .spending _ members alpha rule => .object [("alpha", some (.level alpha)),
+      ("analyses", some (.arr (Test.formMembers members))),
+      ("composition", some (.str "conditional")), ("method", some (.str "group_sequential")),
+      ("spending", some (.str rule))]
   | .graphical _ members weights rows alpha => .object [("alpha", some (.level alpha)),
       ("analyses", some (.arr (Test.formMembers members))),
       ("composition", some (.str "conditional")), ("method", some (.str "graphical")),
@@ -394,7 +398,7 @@ def Test.binding : Test → String
   | .assumed .. => "CitedAnalysisIR"
   | .associated .. => "CitedAssociationIR"
   | .bonferroni _ _ _ (some _) => "FamilyIR"
-  | .looks .. => "SequentialIR"
+  | .looks .. | .spending .. => "SequentialIR"
   | _ => "ComposedFamilyIR"
 
 mutual
@@ -403,7 +407,7 @@ def Test.thresholds : Test → List Form
   | .exact name (.margin _ thresholds) .. =>
     [.object [("name", some (.str name)), ("thresholds", some (.arr (thresholds.map .nat)))]]
   | .member t => Test.thresholds t
-  | .bonferroni _ members .. | .looks _ members ..
+  | .bonferroni _ members .. | .looks _ members .. | .spending _ members ..
   | .graphical _ members .. | .sequence _ members .. => Test.allThresholds members
   | _ => []
 termination_by structural t => t

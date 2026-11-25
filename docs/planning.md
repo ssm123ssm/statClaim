@@ -552,7 +552,8 @@ Carlo error (`replication/comparison/correlation_simulation_r.R`). See lesson 40
 
 ### Interim looks
 
-A design with looks, `alpha_spending(looks=[...], alpha=...)`, has no power formula.
+A design with looks, `alpha_spending(looks=[...], alpha=...)` or
+`group_sequential(looks=[...], alpha=..., spending=...)`, has no power formula.
 `simulate(meets(analysis=trial, target=...))` runs it look by look: each simulated
 trial enrols up to each look's cumulative arm sizes, tests with that look's level,
 and stops at the first rejection.
@@ -572,8 +573,9 @@ let looked = simulate(meets(analysis=trial, target=target), seed=2026)
   stopped the trial, at the planning point and under the null.
 - `expected_sample_size` is the mean total at which trials stopped;
   `expected_sample_size_null` is the same under the null.
-- Lean proves the design's Type I bound (lesson 14), so the simulated Type I is
-  reported, not judged. It shows how conservative the split is.
+- Lean proves the Type I bound of `alpha_spending` (lesson 14), and the bound of
+  `group_sequential` is cited, so the simulated Type I is reported, not judged. It shows
+  how conservative a split is, and how much of the level the boundaries use.
 - The looks may be Student's or Welch's t-tests, at normal outcomes or the scenarios
   above. The looks are simulated as declared, not searched.
 - When the looks are Fisher's test, nothing is simulated: `calculate(meets(...))` sums

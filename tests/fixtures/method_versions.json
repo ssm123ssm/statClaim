@@ -155,6 +155,10 @@
     "version": 3,
     "sha256": "1d5000c3a0a6c10559782cb77fd0bd2153a4cbcbea010e5d74c8241e60cb59f6"
   },
+  "boundaries:spending": {
+    "version": 1,
+    "sha256": "e87209a49262b18253e42f152d1702f30cc36926ed62fbb61f9f79385003a031"
+  },
   "simulation:engine": {
     "version": 1,
     "sha256": "29413879508f88d9b204e31ba118abb2221684c48c8f13ac781fa8c485a9fa6a"

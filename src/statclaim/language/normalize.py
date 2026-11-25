@@ -353,6 +353,8 @@ def normalize(value: object) -> object:
             if mode == "graphical":
                 result["weights"] = [str(weight) for weight in weights]
                 result["transitions"] = [[str(share) for share in row] for row in transitions]
+            if mode == "spending":
+                result["spending"] = value.spending
             return result
         case FamilyIR(analyses=analyses, alpha=alpha, joint_law=law):
             return {

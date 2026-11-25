@@ -1,0 +1,33 @@
+obrien_fleming, 2-sided, alpha 1/20, looks (50, 50) (100, 100)
+  rpact critical values:    2.962588 1.968596
+  gsDesign critical values: 2.962588 1.968596
+  nominal levels:           0.0030506 0.0489995
+  stopping at drift 0.50:     0.321830 0.619946
+  stopping under the null:  0.003051 0.046949
+
+pocock, 2-sided, alpha 1/20, looks (40, 40) (80, 80) (120, 120)
+  rpact critical values:    2.279428 2.294911 2.295938
+  gsDesign critical values: 2.279428 2.294910 2.295938
+  nominal levels:           0.0226416 0.0217382 0.0216794
+  stopping at drift 0.35:     0.237618 0.263644 0.201329
+  stopping under the null:  0.022642 0.015528 0.011831
+
+obrien_fleming, 1-sided, alpha 1/40, looks (30, 30) (70, 70) (100, 100)
+  rpact critical values:    3.928573 2.438742 2.000009
+  gsDesign critical values: 3.928573 2.438742 2.000009
+  nominal levels:           0.0000427 0.0073692 0.0227497
+  stopping at drift 0.40:     0.008671 0.462629 0.330360
+  stopping under the null:  0.000043 0.007342 0.017616
+
+pocock, 1-sided, alpha 1/40, looks (20, 40) (40, 80) (60, 120) (80, 160)
+  rpact critical values:    2.368328 2.367524 2.358168 2.350036
+  gsDesign critical values: 2.368328 2.367524 2.358168 2.350036
+  nominal levels:           0.0089344 0.0089538 0.0091827 0.0093858
+  stopping at drift 0.30:     0.101530 0.134977 0.138166 0.126832
+  stopping under the null:  0.008934 0.006569 0.005197 0.004300
+
+R session
+R version 4.6.1 (2026-06-24)
+rpact 5.0.0
+gsDesign 3.11.0
+jsonlite 2.0.0

@@ -27,6 +27,7 @@ from statclaim.language.analyses import (
     _fisher_exact,
     _fixed_sequence,
     _graphical,
+    _group_sequential,
     _matched_case_control,
     _matched_result,
     _mcnemar,
@@ -1413,6 +1414,19 @@ MODULES = {
                     "arm sizes at that look, with the level spent there. The levels may sum "
                     "to at most alpha. Lean checks the combination; each look's own bound is "
                     "assumed. The split is conservative.",
+                ),
+                _constructor(
+                    "group_sequential",
+                    (("looks", "list"), ("alpha", "level"), ("spending", "string")),
+                    "Sequential",
+                    _group_sequential,
+                    documentation="One test repeated at several looks, stopping at the first "
+                    "rejection, with boundaries that use the correlation between looks. "
+                    'spending is "obrien_fleming" or "pocock" (Lan and DeMets). Give each look '
+                    "as an analysis whose model has the cumulative arm sizes at that look, "
+                    "with its nominal level: at most the level the spending function gives it "
+                    "at its share of the information. The error message lists those levels. "
+                    "For Fisher's test and the t-tests. The rule is cited.",
                 ),
                 TYPE_I,
             ),

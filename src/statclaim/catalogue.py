@@ -120,10 +120,11 @@ MODULE_CLASSES = {
     ),
     "designs.group_sequential": (
         "Adaptive designs",
-        "One test repeated at several looks with the error level split across them, "
-        "stopping at the first rejection. Lean checks that the split gives the overall "
-        "bound; each look's own bound is assumed. Conservative: it ignores the correlation "
-        "between looks.",
+        "One test repeated at several looks, stopping at the first rejection. alpha_spending "
+        "splits the level across the looks, and Lean checks that the split gives the overall "
+        "bound; it ignores the correlation between looks. group_sequential uses it: each "
+        "look's level is at most the nominal level an O'Brien-Fleming or Pocock spending "
+        "function gives it, a cited rule. Each look's own bound is assumed.",
     ),
     "designs.adaptive": (
         "Adaptive designs",

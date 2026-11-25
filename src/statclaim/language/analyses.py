@@ -80,6 +80,8 @@ from statclaim.methods import NULL_FORMS
 from statclaim.methods.assumptions import (
     DECLARED_VALID,
 )
+from statclaim.methods.boundaries import SPENDING, floor_level
+from statclaim.methods.boundaries import limits as boundary_limits
 from statclaim.methods.core import SCOPES, CitedMethod
 from statclaim.methods.observational import (
     MAX_COVARIATES,
@@ -968,7 +970,8 @@ def _test_key(analysis: LevelTestIR) -> str:
     return EXACT_CONTRACT_IDS[analysis.alternative].split("/")[1]
 
 
-def _sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
+def _ordered_looks(arguments: dict[str, LocatedValue]) -> list[tuple[str, object]]:
+    """The looks of a design: one test of one null, at growing cumulative sizes."""
     looks = _members(arguments["looks"], "looks", combinations=False, randomisation=False)
     first = looks[0][1]
     previous = None
@@ -998,7 +1001,59 @@ def _sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
                 arguments["looks"].span,
             )
         previous = sizes
-    return SequentialIR(tuple(looks), arguments["alpha"].value)
+    return looks
+
+
+def _sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
+    return SequentialIR(tuple(_ordered_looks(arguments)), arguments["alpha"].value)
+
+
+def boundary_sides(look: object) -> int | None:
+    """How many sides a look's boundary has, for the tests whose information at a look is
+    read from its arm sizes: Fisher's test and the t-tests. None for any other test."""
+    if isinstance(look, AnalysisIR) and look.alternative in ("two_sided", "greater"):
+        return 2 if look.alternative == "two_sided" else 1
+    if isinstance(look, CitedAnalysisIR) and look.method.module == "tests.t":
+        return 1 if NULL_FORMS[look.hypothesis.predicate][1].favours else 2
+    return None
+
+
+def _group_sequential(arguments: dict[str, LocatedValue], span: Span) -> SequentialIR:
+    looks = _ordered_looks(arguments)
+    spending, alpha = arguments["spending"], arguments["alpha"].value
+    if spending.value not in SPENDING:
+        fail(
+            "domain",
+            'spending must be "obrien_fleming" or "pocock".',
+            spending.span,
+        )
+    sides = boundary_sides(looks[-1][1])
+    if sides is None:
+        fail(
+            "unsupported_claim",
+            "Spending boundaries read the information at each look from its arm sizes, which "
+            "holds for Fisher's test and the t-tests. Split the level with alpha_spending "
+            "for other tests.",
+            arguments["looks"].span,
+        )
+    sizes = [(look.plan.model.n_control, look.plan.model.n_treatment) for _, look in looks]
+    limits = boundary_limits(sizes, alpha, sides, spending.value)
+    over = [name for (name, look), limit in zip(looks, limits, strict=True) if look.alpha > limit]
+    if over:
+        suggested = ", ".join(
+            f"{name} alpha={floor_level(float(limit), 6)}"
+            for (name, _), limit in zip(looks, limits, strict=True)
+        )
+        fail(
+            "sequential_boundary",
+            f"{', '.join(over)}: the level exceeds the {spending.value} boundary at that look. "
+            f"Each look may use at most the nominal level the spending function gives it at "
+            f"its share of the information, for an overall level of {alpha}: {suggested}.",
+            arguments["looks"].span,
+        )
+    return SequentialIR(
+        tuple(looks), alpha, mode="spending", spending=spending.value, limits=limits
+    )
 
 
 def _fixed_sequence(arguments: dict[str, LocatedValue], span: Span) -> ComposedFamilyIR:
