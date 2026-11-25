@@ -39,8 +39,11 @@ and the build checks that the new entry is told apart from the others.
    if a code is raised but not documented.
 5. Classify new modules and field-bearing types in `catalogue.py`. Run
    `uv run python scripts/update_catalogue.py` to refresh the reference. Give each
-   new constructor an entry in `lean_translation/table.py`: its role and the Lean
-   files that give it meaning, or why it has none. A test fails otherwise.
+   new constructor its Lean status where the registry defines it, `lean=...` in the
+   words of `language/coverage.py`: its role and the Lean files that give it
+   meaning, or why it has none. A test fails otherwise. A new kind of test or
+   combination is also listed in `DECLARATIONS` in `lean_translation/data.py`, so
+   Lean checks its contracts; every other value is read where it is used.
 6. Add tests: valid and mismatched nulls/models, invalid inputs, missing adapters,
    exact calculations, real Lean checks, certificate replay/tampering and LSP
    diagnostics. Add UI tests when result/evidence behavior changes.

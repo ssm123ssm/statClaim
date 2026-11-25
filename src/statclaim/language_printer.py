@@ -38,17 +38,20 @@ class Unprintable(ValueError):
 _ORDER: ContextVar[Random | None] = ContextVar("statclaim_printer_order", default=None)
 
 
-def program_source(program: dict, *, share: bool = True, seed: int | None = None) -> str:
+def program_source(
+    program: dict, *, share: bool = True, seed: int | None = None, hoist: bool = False
+) -> str:
     """The program as source: its modules, then its statements in their original order.
 
     With share=False a value is written in place even when an earlier binding holds it, except
     where the record keeps the name: a family's members, a claim's subject and a result. A seed
-    shuffles every call's keywords. Both are for tests: every spelling must compile to the
-    same record.
+    shuffles every call's keywords. With hoist=True every value inside another is bound to a
+    name of its own first, so the record gains bindings of every kind of value. All three are
+    for tests: every spelling must compile to the same record, up to those bindings.
     """
     token = _ORDER.set(None if seed is None else Random(seed))
     try:
-        return _Printer(program, share).text()
+        return _Printer(program, share, hoist).text()
     finally:
         _ORDER.reset(token)
 
@@ -108,9 +111,12 @@ Writer = Callable[[Any], str | None]
 
 
 class _Printer:
-    def __init__(self, program: dict, share: bool = True):
+    def __init__(self, program: dict, share: bool = True, hoist: bool = False):
         self.program = program
         self.share = share
+        self.hoist = hoist
+        self.pending: list[str] = []  # bindings a hoisted statement needs first
+        self.hoisted = 0
         self.requests = {request["request_id"]: request for request in program["requests"]}
         self.bound: list[tuple[str, object]] = []  # earlier bindings: name and value
 
@@ -130,10 +136,14 @@ class _Printer:
         statements.sort(key=lambda item: (item[0]["line"], item[0]["column"]))
         for _, kind, item in statements:
             if kind == "let":
-                lines.append(f"let {item['name']} = {self.binding(item)}")
+                written = f"let {item['name']} = {self.binding(item)}"
+                lines += [*self.pending, written]
+                self.pending.clear()
                 self.bound.append((item["name"], item["value"]))
             else:
-                lines.append(self.request(item))
+                written = self.request(item)
+                lines += [*self.pending, written]
+                self.pending.clear()
         return "\n".join(lines) + "\n"
 
     def binding(self, binding: dict) -> str:
@@ -207,6 +217,16 @@ class _Printer:
             # A result is requested once; every later use names it.
             name = self.reference(value, share=True)
             return name or self.request(self.requests[value["request_id"]])
+        text = self.call(value)
+        if inline or not self.hoist:
+            return text
+        self.hoisted += 1
+        name = f"hoisted_{self.hoisted}"
+        self.pending.append(f"let {name} = {text}")
+        self.bound.append((name, value))
+        return name
+
+    def call(self, value: dict) -> str:
         for key, write in self.SHAPES:
             if key in value:
                 return write(self, value)
@@ -779,8 +799,12 @@ class _Printer:
         prefer = None if name == UNNAMED else name
 
         def part(item: object) -> str:
-            # An unnamed subject was written in place: never replace it with a name.
-            return self.value(item, prefer, inline=prefer is None)
+            # The part the claim is named after: by that name, or else written in place.
+            if prefer is not None:
+                name = self.reference(item, prefer)
+                if name:
+                    return name
+            return self.value(item, inline=True)
 
         if kind == "typeI":
             return _call("typeI", [("analysis", part(subject))])

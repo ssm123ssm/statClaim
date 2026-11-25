@@ -57,6 +57,31 @@ from statclaim.language.core import (
     Module,
     _constructor,
 )
+from statclaim.language.coverage import (
+    APPROXIMATE,
+    ASSOCIATION,
+    BINOMIAL,
+    CITED,
+    COMPOSITION,
+    CORE,
+    INCIDENCE,
+    INTERVAL,
+    INTERVALS,
+    MATCHED,
+    METHODS,
+    ONE_SAMPLE,
+    OUTCOME_LAWS,
+    PLANS,
+    POLICY,
+    PRECISION,
+    PREMISES,
+    PROGRAM,
+    RANDOMISATION,
+    RESULTS,
+    TWO_STAGE,
+    NotInLean,
+    in_lean,
+)
 from statclaim.language.designs import (
     _assignment,
     _cluster_assignment,
@@ -183,9 +208,19 @@ from statclaim.observational_planning import (
 # Always available, with the same argument checking as module constructors.
 # Their builders validate claims only; evaluate records execution slots below.
 OPERATIONS = {
-    "verify": _constructor("verify", (("claim", ClaimIR),), "VerificationResult", _verification),
+    "verify": _constructor(
+        "verify",
+        (("claim", ClaimIR),),
+        "VerificationResult",
+        _verification,
+        lean=in_lean("operation", PROGRAM),
+    ),
     "calculate": _constructor(
-        "calculate", (("claim", ClaimIR),), "CalculationResult", _calculation
+        "calculate",
+        (("claim", ClaimIR),),
+        "CalculationResult",
+        _calculation,
+        lean=NotInLean("A calculation gives numbers, not a proposition to prove."),
     ),
     "simulate": _constructor(
         "simulate",
@@ -196,6 +231,7 @@ OPERATIONS = {
             "Estimate power by simulating the study runs times from seed, for a cited test "
             "with a simulation model. Gives estimates with 95% intervals; never evidence."
         ),
+        lean=NotInLean("A simulation gives estimates with Monte Carlo error, never proof."),
     ),
 }
 
@@ -205,12 +241,22 @@ OPERATIONS = {
 OPERATION_BACKENDS = {"verify": "lean", "calculate": "python", "simulate": "python"}
 
 
-FAMILYWISE = _constructor("familywise", (("family", FamilyLikeIR),), "FamilywiseClaim", _familywise)
+FAMILYWISE = _constructor(
+    "familywise",
+    (("family", FamilyLikeIR),),
+    "FamilywiseClaim",
+    _familywise,
+    lean=in_lean("claim", PROGRAM, COMPOSITION),
+)
 
 
 # One constructor shared by every module whose analyses carry a Type I claim.
 TYPE_I = _constructor(
-    "typeI", (("analysis", LevelTestIR),), "TypeIClaim", _claim("typeI", "analysis")
+    "typeI",
+    (("analysis", LevelTestIR),),
+    "TypeIClaim",
+    _claim("typeI", "analysis"),
+    lean=in_lean("claim", PROGRAM, CORE, POLICY),
 )
 
 
@@ -243,6 +289,7 @@ def _cited_constructor(method: CitedMethod) -> Constructor:
         "CitedAnalysis",
         _cited_test(method),
         hypothesis_contract=contract,
+        lean=CITED,
         documentation=f"{method.title}. Its guarantee is cited from the literature and is "
         f"not checked by Lean. Null: {contract.expected}.",
     )
@@ -299,6 +346,7 @@ ASSIGNMENT = _constructor(
     "when declared, how the assignment was randomised. One assignment can be shared by "
     f"several outcomes measured on the same participants. {RANDOMISATION_DOCUMENTATION} "
     f"{POPULATION_DOCUMENTATION}",
+    lean=in_lean("model", OUTCOME_LAWS, RANDOMISATION),
 )
 
 
@@ -319,6 +367,7 @@ CLUSTER_ASSIGNMENT = _constructor(
     "randomises participants are not clusters: use assignment(...) there. Tests that assume "
     "independent participants are refused. With randomisation, the units are the clusters. "
     + f"{RANDOMISATION_DOCUMENTATION} {POPULATION_DOCUMENTATION}",
+    lean=in_lean("model", OUTCOME_LAWS, RANDOMISATION),
 )
 
 
@@ -329,6 +378,7 @@ STRATUM = _constructor(
     _stratum,
     documentation="One stratum of a stratified or blocked assignment: how many randomised "
     "units, participants or clusters, it has in each arm.",
+    lean=in_lean("model", RANDOMISATION),
 )
 
 
@@ -338,6 +388,7 @@ NO_EFFECT = _constructor(
     "SharpNull",
     _no_effect,
     documentation=SHARP_NULL.documentation,
+    lean=in_lean("null", RANDOMISATION),
 )
 
 
@@ -349,6 +400,7 @@ TWO_ARM = _constructor(
     documentation="A two-arm model from an assignment and an outcome. A binary outcome "
     "gives the binomial model; any other outcome gives an OutcomeModel. The same pieces "
     "give the same model as the one-call constructors, such as two_arm_continuous.",
+    lean=in_lean("model", BINOMIAL, OUTCOME_LAWS),
 )
 
 
@@ -370,6 +422,16 @@ NAME_DOCUMENTATION = (
 )
 
 
+def _law(outcome) -> str:
+    """Binary outcomes have a Lean law; continuous and survival outcomes are abstract models
+    whose claims hold for any law meeting the premises."""
+    return BINOMIAL if outcome.key == "binary" else OUTCOME_LAWS
+
+
+# Nulls whose meaning a test's own module states.
+NULL_FILES = {"proportion_difference_at_most": "Modules/DifferenceTest"}
+
+
 def _outcome_piece_constructor(outcome) -> Constructor:
     repeated = (("measurements", "integer", True),) if outcome.repeatable else ()
     return _constructor(
@@ -377,6 +439,7 @@ def _outcome_piece_constructor(outcome) -> Constructor:
         (("better", "string", True), *repeated, ("name", "string", True)),
         "Outcome",
         _outcome_piece(outcome.key),
+        lean=in_lean("model", _law(outcome)),
         documentation=f"The {outcome.key} outcome measured on each participant. Combine "
         f"it with an assignment in two_arm(...). {BETTER_DOCUMENTATION}"
         + (f" {MEASUREMENTS_DOCUMENTATION}" if outcome.repeatable else "")
@@ -411,6 +474,7 @@ def _outcome_module(outcome) -> "Module":
             "OutcomeNull",
             _outcome_null(outcome, form),
             documentation=form.documentation,
+            lean=in_lean("null", NULL_FILES.get(form.key, _law(outcome))),
         )
         for form in outcome.nulls
     )
@@ -419,6 +483,7 @@ def _outcome_module(outcome) -> "Module":
         SHORTHAND_PARAMETERS,
         "OutcomeModel",
         _model_from_sizes(outcome.key),
+        lean=in_lean("model", _law(outcome)),
         documentation=f"{outcome.documentation} The model fixes no distribution; each test "
         f"states the one it assumes. {_shorthand_note(outcome)} {BETTER_DOCUMENTATION}",
     )
@@ -467,6 +532,7 @@ MODULES = {
                     "contract for the analysis. method says what the test is. scope is "
                     "finite_sample or asymptotic, and asymptotic if left out. reference is "
                     "where the test is specified. Nothing about its guarantee is checked.",
+                    lean=in_lean("premise", PREMISES),
                 ),
             ),
         ),
@@ -486,6 +552,7 @@ MODULES = {
                     + _shorthand_note(OUTCOMES["binary"])
                     + " "
                     + BETTER_DOCUMENTATION,
+                    lean=in_lean("model", BINOMIAL),
                 ),
                 ASSIGNMENT,
                 CLUSTER_ASSIGNMENT,
@@ -499,6 +566,7 @@ MODULES = {
                     lambda args, span: HypothesisIR(args["model"].value),
                     documentation="Null: p_treatment = p_control. This declares a restriction "
                     "under which a guarantee is requested, not that the null is true.",
+                    lean=in_lean("null", BINOMIAL),
                 ),
                 _constructor(
                     "proportion_difference",
@@ -508,6 +576,7 @@ MODULES = {
                     documentation="Null: p_treatment - p_control = value. The difference is "
                     "absolute, not a relative percentage; value is exact and lies in [-1, 1]. "
                     "A zero difference is the equal-proportions null.",
+                    lean=in_lean("null", BINOMIAL),
                 ),
                 _constructor(
                     "proportion_difference_at_most",
@@ -517,6 +586,7 @@ MODULES = {
                     documentation="Null: p_treatment - p_control <= value. This is an inequality "
                     "null, including when value=0; it is not the equality null supported by "
                     "the current two-sided Fisher analysis.",
+                    lean=in_lean("null", "Modules/DifferenceTest"),
                 ),
                 _constructor(
                     "observe",
@@ -527,6 +597,7 @@ MODULES = {
                     ),
                     "Observation",
                     _observe,
+                    lean=in_lean("data", BINOMIAL),
                 ),
                 NO_EFFECT,
                 TYPE_I,
@@ -535,6 +606,7 @@ MODULES = {
                     (("observation", ObservationIR),),
                     "ResultClaim",
                     _claim("result", "observation"),
+                    lean=in_lean("claim", RESULTS, "Modules/Fisher", "Computation"),
                 ),
             ),
         ),
@@ -546,12 +618,14 @@ MODULES = {
                     (("model", StudyModelIR),),
                     "StudyDesign",
                     lambda args, span: PlanIR(args["model"].value, "fixed"),
+                    lean=in_lean("design", CORE),
                 ),
                 _constructor(
                     "adaptive",
                     (("model", StudyModelIR),),
                     "StudyDesign",
                     lambda args, span: PlanIR(args["model"].value, "data_dependent"),
+                    lean=in_lean("design", CORE),
                 ),
             ),
         ),
@@ -565,6 +639,7 @@ MODULES = {
                     _fisher("two_sided"),
                     hypothesis_contract=FISHER_CONTRACT,
                     documentation=FISHER_CONTRACT.guidance,
+                    lean=in_lean("analysis", "Modules/Fisher"),
                 ),
                 _constructor(
                     "fisher_one_sided",
@@ -573,6 +648,7 @@ MODULES = {
                     _fisher("greater"),
                     hypothesis_contract=ONE_SIDED_FISHER_CONTRACT,
                     documentation=ONE_SIDED_FISHER_CONTRACT.guidance,
+                    lean=in_lean("analysis", "Modules/FisherOneSided"),
                 ),
             ),
         ),
@@ -597,6 +673,7 @@ MODULES = {
                     "permutes clusters. Without draws the p-value counts every possible "
                     "assignment; with draws=B it compares the observed assignment with B "
                     "drawn at random, which Lean also proves. " + RANDOMISATION_CONTRACT.guidance,
+                    lean=in_lean("analysis", RANDOMISATION),
                 ),
                 TYPE_I,
             ),
@@ -619,6 +696,7 @@ MODULES = {
                     "population, with exposure and outcome measured at the same time. Only n "
                     "is fixed, not how many are exposed. It measures prevalence, not "
                     "incidence. " + STUDY_NAMES_DOCUMENTATION,
+                    lean=in_lean("model", ASSOCIATION, OUTCOME_LAWS),
                 ),
                 _constructor(
                     "cohort",
@@ -635,6 +713,7 @@ MODULES = {
                     "outcome. Give exposed and unexposed when the groups were sampled in fixed "
                     "numbers, or n when one population was sampled and exposure measured. "
                     + STUDY_NAMES_DOCUMENTATION,
+                    lean=in_lean("model", ASSOCIATION, OUTCOME_LAWS),
                 ),
                 _constructor(
                     "case_control",
@@ -650,6 +729,7 @@ MODULES = {
                     "without it, sampled in fixed numbers and asked about past exposure. It "
                     "estimates odds ratios only, never risk or prevalence, because the design "
                     "fixed how many have the outcome. " + STUDY_NAMES_DOCUMENTATION,
+                    lean=in_lean("model", ASSOCIATION, OUTCOME_LAWS),
                 ),
                 _constructor(
                     "person_time_cohort",
@@ -659,6 +739,7 @@ MODULES = {
                     documentation="A cohort followed over person-time, counting events in the "
                     "exposed and unexposed. It measures incidence rates; no group size is "
                     "fixed. " + STUDY_NAMES_DOCUMENTATION,
+                    lean=in_lean("model", INCIDENCE, OUTCOME_LAWS),
                 ),
                 _constructor(
                     "observed_events",
@@ -673,6 +754,7 @@ MODULES = {
                     _observed_events,
                     documentation="Events and person-time, such as person-years, in the exposed "
                     "and unexposed groups of a person-time cohort.",
+                    lean=in_lean("data", INCIDENCE),
                 ),
                 _constructor(
                     "matched_case_control",
@@ -683,6 +765,7 @@ MODULES = {
                     "control on chosen characteristics. Its tests and intervals use the "
                     "pairs where exactly one was exposed; unmatched analyses refuse it. "
                     + STUDY_NAMES_DOCUMENTATION,
+                    lean=in_lean("model", MATCHED, OUTCOME_LAWS),
                 ),
                 _constructor(
                     "observed_pairs",
@@ -691,6 +774,7 @@ MODULES = {
                     _observed_pairs,
                     documentation="The observed pairs of a matched study: both exposed, only "
                     "the case, only the control, or neither. They must add up to the pairs.",
+                    lean=in_lean("data", MATCHED),
                 ),
                 _constructor(
                     "observed_table",
@@ -701,6 +785,7 @@ MODULES = {
                     "have the outcome, and noncases. It must fit what the design fixed: a "
                     "cohort's group sizes, a case-control study's numbers of cases and "
                     "controls, or the total.",
+                    lean=in_lean("data", ASSOCIATION),
                 ),
                 _constructor(
                     "no_association",
@@ -711,6 +796,7 @@ MODULES = {
                     "outcome, an odds ratio of 1. For a cohort, equal risk with and without "
                     "exposure; for a case-control study, exposure as common among cases as "
                     "among controls; for a cross-sectional study, equal prevalence.",
+                    lean=in_lean("null", ASSOCIATION, OUTCOME_LAWS),
                 ),
                 TYPE_I,
             ),
@@ -728,6 +814,7 @@ MODULES = {
                     "fixed by a cohort or case-control study, and with only the total fixed, "
                     "by averaging over the number exposed. The bound concerns association, "
                     "not an effect of the exposure.",
+                    lean=in_lean("analysis", ASSOCIATION),
                 ),
                 _constructor(
                     "rate_test",
@@ -738,6 +825,7 @@ MODULES = {
                     "events, a two-sided binomial test of the exposed share at the exposed "
                     "share of person-time. Lean proves its level for every rate and any "
                     "person-time, given the total and on average over it.",
+                    lean=in_lean("analysis", INCIDENCE),
                 ),
                 _constructor(
                     "rate_result",
@@ -746,6 +834,7 @@ MODULES = {
                     _rate_result,
                     documentation="Claim about the exact p-value and decision of the rate test "
                     "for the observed events, with the test's Type I bound.",
+                    lean=in_lean("claim", RESULTS, INCIDENCE),
                 ),
                 _constructor(
                     "mcnemar",
@@ -756,6 +845,7 @@ MODULES = {
                     "pairs: given the discordant pairs, a two-sided binomial test at one half. "
                     "Lean proves its level given the number of discordant pairs and on "
                     "average over it.",
+                    lean=in_lean("analysis", MATCHED),
                 ),
                 _constructor(
                     "matched_result",
@@ -764,6 +854,7 @@ MODULES = {
                     _matched_result,
                     documentation="Claim about the exact p-value and decision of McNemar's "
                     "test for the observed pairs, with the test's Type I bound.",
+                    lean=in_lean("claim", RESULTS, MATCHED),
                 ),
                 _constructor(
                     "association_result",
@@ -773,6 +864,7 @@ MODULES = {
                     documentation="Claim about the exact p-value and decision of Fisher's "
                     "test for the observed table, with the test's Type I bound. For a design "
                     "that fixed only the total, the p-value is given the number exposed.",
+                    lean=in_lean("claim", RESULTS, ASSOCIATION),
                 ),
                 TYPE_I,
             ),
@@ -787,6 +879,7 @@ MODULES = {
                     _rate_ratio,
                     documentation="Interval for the incidence rate ratio of a person-time "
                     "cohort, from the exact interval for the exposed share of events.",
+                    lean=in_lean("claim", INTERVALS, INCIDENCE),
                 ),
                 *(
                     _constructor(
@@ -799,6 +892,7 @@ MODULES = {
                         ),
                         "IntervalClaim",
                         _proportion(measure),
+                        lean=in_lean("claim", INTERVALS, INTERVAL),
                         documentation=f"The {words} with its exact interval. Only a "
                         f"{designs[0].replace('_', '-')} study estimates it. For a cohort that "
                         'sampled groups separately, group="exposed" or "unexposed" says which.',
@@ -813,6 +907,7 @@ MODULES = {
                     documentation="Interval for the conditional odds ratio of a matched "
                     "study, the odds that the case is the exposed one in a discordant pair, "
                     "from the exact interval for that probability.",
+                    lean=in_lean("claim", INTERVALS, MATCHED),
                 ),
             )
             + tuple(
@@ -821,6 +916,7 @@ MODULES = {
                     (("table", AssociationTableIR), ("level", "level")),
                     "IntervalClaim",
                     _effect_interval(measure),
+                    lean=in_lean("claim", INTERVALS, INTERVAL, ASSOCIATION),
                     documentation=f"Interval for the {words} at the given confidence level, "
                     "from exact intervals for each group's probability; valid for every pair "
                     "of probabilities, and conservative. "
@@ -855,6 +951,7 @@ MODULES = {
                     _difference_test,
                     hypothesis_contract=MARGIN_CONTRACT,
                     documentation=MARGIN_CONTRACT.guidance,
+                    lean=in_lean("analysis", "Modules/DifferenceTest"),
                 ),
             ),
         ),
@@ -873,6 +970,13 @@ MODULES = {
                     "A family of two-sided Fisher analyses is proved "
                     "outright. Any other family is conditional: Lean checks the combination "
                     "and each member's own bound is assumed.",
+                    lean=in_lean(
+                        "composition",
+                        COMPOSITION,
+                        "Modules/Bonferroni",
+                        "Modules/FisherFamily",
+                        "Modules/FisherFamilyN",
+                    ),
                 ),
                 FAMILYWISE,
             ),
@@ -895,6 +999,7 @@ MODULES = {
                     "level is shared among the others when it is rejected. Declare every test "
                     "at the overall alpha. The procedure's guarantee is cited, not checked by "
                     "Lean; the contract checks that the weights and transitions are valid.",
+                    lean=in_lean("composition", PROGRAM, METHODS),
                 ),
                 FAMILYWISE,
             ),
@@ -913,6 +1018,7 @@ MODULES = {
                     "looks, or a family, sequence or graph; such an entry must be rejected in "
                     "full before the next is tested. Lean checks the combination; each "
                     "entry's own bound is assumed.",
+                    lean=in_lean("composition", COMPOSITION),
                 ),
                 FAMILYWISE,
             ),
@@ -935,6 +1041,7 @@ MODULES = {
                     "A test of cluster proportions also needs icc, the intracluster "
                     "correlation, and simulate(...) takes cluster_size_cv, how much cluster "
                     "sizes vary.",
+                    lean=in_lean("planning", "Modules/FisherPower"),
                 ),
                 _constructor(
                     "mean_difference",
@@ -958,6 +1065,7 @@ MODULES = {
                     "t-test in another scenario, give sd_treatment, the treatment arm's SD "
                     "(sd is then the control arm's), or skewness, for a gamma-shaped outcome. "
                     "All are planning inputs.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "hazard_ratio",
@@ -967,6 +1075,7 @@ MODULES = {
                     documentation="A planning point for a survival outcome: the true hazard "
                     "ratio, treatment over control, and the expected total number of events. "
                     "Power depends on the events, not on the arm sizes. Both are planning inputs.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "correlation",
@@ -981,6 +1090,7 @@ MODULES = {
                     "correlation, strictly between -1 and 1. For pearson_correlation. To "
                     "simulate skewed data, give skewness (of the outcome's error) or "
                     "exposure_skewness. Planning inputs, not established facts.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "outcome_means",
@@ -998,6 +1108,7 @@ MODULES = {
                     "without and with the exposure, and its standard deviation about them. A "
                     "study that fixes only its total also needs exposed_share; a survey of a "
                     "complex sample, design_effect. Planning inputs, not established facts.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "odds_per_sd",
@@ -1015,6 +1126,7 @@ MODULES = {
                     "the share of the exposure's variance the covariates explain. A survey test "
                     "of a complex sample also takes design_effect. Planning inputs, not "
                     "established facts.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "slope",
@@ -1036,6 +1148,7 @@ MODULES = {
                     "variance the covariates explain. A survey test of a complex sample also "
                     "takes design_effect. To simulate skewed data, give skewness (of the "
                     "residual) or exposure_skewness. All are planning inputs.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "exponential_survival",
@@ -1058,6 +1171,7 @@ MODULES = {
                     "as months. The arm sizes then give the expected events, so arm sizes can "
                     "be searched. simulate(...) also takes effect_delay: the hazard ratio "
                     "applies only from that time after entry. All are planning inputs.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "risks",
@@ -1074,6 +1188,7 @@ MODULES = {
                     "over unexposed. A cohort of one population, declared with n, also needs "
                     "exposed_share, the probability that a participant is exposed. A planning "
                     "input, not an established fact.",
+                    lean=in_lean("planning", "Modules/AssociationPower"),
                 ),
                 _constructor(
                     "outcome_prevalence",
@@ -1091,6 +1206,7 @@ MODULES = {
                     "prevalence_ratio, and exposed_share, the probability that a participant is "
                     "exposed. A survey test of a complex sample also takes design_effect. A "
                     "planning input, not an established fact.",
+                    lean=in_lean("planning", "Modules/AssociationPower"),
                 ),
                 _constructor(
                     "exposure_prevalence",
@@ -1105,6 +1221,7 @@ MODULES = {
                     "controls who were exposed, and of cases, given as cases or as odds_ratio, "
                     "the odds of exposure among cases over the odds among controls. A planning "
                     "input, not an established fact.",
+                    lean=in_lean("planning", "Modules/AssociationPower"),
                 ),
                 _constructor(
                     "discordant_pairs",
@@ -1114,6 +1231,7 @@ MODULES = {
                     documentation="A planning point for a 1:1 matched study: the probability "
                     "that a pair is discordant, with exactly one of the two exposed, and the "
                     "conditional odds ratio. A planning input, not an established fact.",
+                    lean=in_lean("planning", "Modules/BinomialPower"),
                 ),
                 _constructor(
                     "incidence_rates",
@@ -1129,6 +1247,7 @@ MODULES = {
                     "exposed over unexposed, the expected person-time in each group, of which "
                     "only the exposed share matters, and the total number of events power is "
                     "calculated for. Leave events out to search them with event_counts.",
+                    lean=in_lean("planning", "Modules/BinomialPower"),
                 ),
                 _constructor(
                     "proportion",
@@ -1144,6 +1263,7 @@ MODULES = {
                     "interval of a survey, design_effect and population_size, the number in the "
                     "population sampled, for a finite population correction. A planning input, "
                     "not an established fact.",
+                    lean=PRECISION,
                 ),
                 _constructor(
                     "precision_target",
@@ -1164,6 +1284,7 @@ MODULES = {
                     "estimate, on the log scale. Without assurance, the interval is taken at the "
                     "counts the point expects; with it, the chance that the interval is narrow "
                     "enough must be at least assurance.",
+                    lean=PRECISION,
                 ),
                 _constructor(
                     "planned_interval",
@@ -1183,6 +1304,7 @@ MODULES = {
                     'StatClaim\'s own exact interval; method="normal" is the usual large-sample '
                     "interval, and allows a survey's design effect and a finite population. For "
                     "a cohort that sampled two groups, group says whose cumulative incidence.",
+                    lean=PRECISION,
                 ),
                 _constructor(
                     "interval_sizes",
@@ -1198,6 +1320,7 @@ MODULES = {
                     "participants of one group or population; for two fixed groups, the first "
                     "(exposed, cases, or the control arm of a trial) with ratio of the other for "
                     "each; or the pairs or events.",
+                    lean=PRECISION,
                 ),
                 _constructor(
                     "power_target",
@@ -1216,6 +1339,7 @@ MODULES = {
                     "design whose level is not proved, nulls lists where simulate(...) judges "
                     "its Type I error. For a family, rejecting says whether power means "
                     'rejecting "any" endpoint or "all" of them.',
+                    lean=in_lean("planning", POLICY),
                 ),
                 _constructor(
                     "endpoint_points",
@@ -1226,6 +1350,7 @@ MODULES = {
                     "order (binomial_rates for Fisher's test, mean_difference for a t-test), "
                     "and the correlation between endpoints measured on the same participants, "
                     "from 0 for independent endpoints to below 1. Planning inputs.",
+                    lean=NotInLean("The power of a family is simulated, not proved."),
                 ),
                 _constructor(
                     "null_scenarios",
@@ -1236,6 +1361,10 @@ MODULES = {
                     "sd=10), at which simulate(...) judges the Type I error of a design whose "
                     "level is not proved. Planning inputs; the error at other points is not "
                     "claimed.",
+                    lean=NotInLean(
+                        "Points at which a simulation judges Type I error; a simulation is "
+                        "never proof."
+                    ),
                 ),
                 _constructor(
                     "meets",
@@ -1245,6 +1374,15 @@ MODULES = {
                     documentation="Claim that this analysis meets every component of the "
                     "target. calculate computes the components; verify must establish all. "
                     "For a cited test, calculate gives approximate power and verify is refused.",
+                    lean=in_lean(
+                        "claim",
+                        PLANS,
+                        POLICY,
+                        "Modules/FisherPower",
+                        "Modules/BinomialPower",
+                        "Modules/AssociationPower",
+                        TWO_STAGE,
+                    ),
                 ),
                 _constructor(
                     "equal_arm_sizes",
@@ -1257,6 +1395,7 @@ MODULES = {
                     _candidates,
                     documentation="A finite design space: equal arm sizes within inclusive "
                     "bounds, keeping the analysis's sampling, null form, test and alpha.",
+                    lean=in_lean("planning", "Modules/FisherPower"),
                 ),
                 _constructor(
                     "allocated_arm_sizes",
@@ -1271,6 +1410,7 @@ MODULES = {
                     documentation="A finite design space with unequal allocation: each "
                     "candidate has n controls and treatment_per_control * n treated "
                     "participants, for n within the inclusive bounds.",
+                    lean=in_lean("planning", "Modules/FisherPower"),
                 ),
                 _constructor(
                     "cluster_counts",
@@ -1285,6 +1425,7 @@ MODULES = {
                     documentation="Cluster-randomised trials for a test of cluster summaries: "
                     "min_per_arm to max_per_arm clusters in each arm, each of cluster_size "
                     "participants. Each keeps the analysis's null, test and alpha.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "cluster_sizes",
@@ -1299,6 +1440,7 @@ MODULES = {
                     "the declared clusters per arm, with min_size to max_size participants in "
                     "each cluster. Each keeps the analysis's null, test and alpha. With few "
                     "clusters, no number of participants may be enough.",
+                    lean=APPROXIMATE,
                 ),
                 _constructor(
                     "cohort_sizes",
@@ -1314,6 +1456,7 @@ MODULES = {
                     "groups: n exposed and unexposed_per_exposed * n unexposed (1 unless "
                     "given), for n within the inclusive bounds. Each keeps the analysis's "
                     "study, null and alpha.",
+                    lean=in_lean("planning", "Modules/AssociationPower"),
                 ),
                 _constructor(
                     "case_control_sizes",
@@ -1328,6 +1471,7 @@ MODULES = {
                     documentation="Designs of a case-control study: n cases and "
                     "controls_per_case * n controls (1 unless given), for n within the "
                     "inclusive bounds. Each keeps the analysis's study, null and alpha.",
+                    lean=in_lean("planning", "Modules/AssociationPower"),
                 ),
                 _constructor(
                     "total_sizes",
@@ -1343,6 +1487,7 @@ MODULES = {
                     "For Fisher's test, sample_size certifies a sufficient total and "
                     "smallest_sample_size is not offered; for a cited test with a power "
                     "formula, both are calculated.",
+                    lean=in_lean("planning", "Modules/AssociationPower"),
                 ),
                 _constructor(
                     "matched_sizes",
@@ -1356,6 +1501,7 @@ MODULES = {
                     documentation="Matched studies with min_pairs to max_pairs pairs, keeping "
                     "the analysis's null and alpha: McNemar's test, or a conditional logistic "
                     "regression.",
+                    lean=in_lean("planning", "Modules/BinomialPower"),
                 ),
                 _constructor(
                     "event_counts",
@@ -1369,6 +1515,7 @@ MODULES = {
                     documentation="Totals of min_events to max_events events for the rate "
                     "test or a Poisson rate regression, keeping its null and alpha. The planning "
                     "point gives no events.",
+                    lean=in_lean("planning", "Modules/BinomialPower"),
                 ),
                 _constructor(
                     "sample_sizes",
@@ -1377,6 +1524,7 @@ MODULES = {
                     _one_arm_candidates,
                     documentation="A finite design space: sample sizes within inclusive "
                     "bounds for a one-sample test, keeping its null rate and alpha.",
+                    lean=in_lean("planning", "Modules/BinomialPower", ONE_SAMPLE),
                 ),
                 _constructor(
                     "response_rate",
@@ -1384,6 +1532,7 @@ MODULES = {
                     "Rate",
                     lambda args, span: RateIR(_probability(args["value"], "value")),
                     documentation="A planning point for a single-arm design.",
+                    lean=in_lean("planning", "Modules/BinomialPower", TWO_STAGE),
                 ),
                 _constructor(
                     "sample_size",
@@ -1392,6 +1541,13 @@ MODULES = {
                     _sizing(False),
                     documentation="Claim that some candidate meets the target. The search is "
                     "ascending; a sufficient size is not claimed to be the smallest possible.",
+                    lean=in_lean(
+                        "claim",
+                        PLANS,
+                        "Modules/FisherPower",
+                        "Modules/BinomialPower",
+                        "Modules/AssociationPower",
+                    ),
                 ),
                 _constructor(
                     "smallest_sample_size",
@@ -1400,6 +1556,13 @@ MODULES = {
                     _sizing(True),
                     documentation="Claim that a candidate meets the target and that no smaller "
                     "candidate in the declared range does. Nothing is claimed outside the range.",
+                    lean=in_lean(
+                        "claim",
+                        PLANS,
+                        "Modules/FisherPower",
+                        "Modules/BinomialPower",
+                        "Modules/AssociationPower",
+                    ),
                 ),
             ),
         ),
@@ -1416,6 +1579,7 @@ MODULES = {
                     "arm sizes at that look, with the level spent there. The levels may sum "
                     "to at most alpha. Lean checks the combination; each look's own bound is "
                     "assumed. The split is conservative.",
+                    lean=in_lean("composition", COMPOSITION),
                 ),
                 _constructor(
                     "group_sequential",
@@ -1429,6 +1593,7 @@ MODULES = {
                     "with its nominal level: at most the level the spending function gives it "
                     "at its share of the information. The error message lists those levels. "
                     "For Fisher's test and the t-tests. The rule is cited.",
+                    lean=in_lean("composition", PROGRAM, METHODS),
                 ),
                 _constructor(
                     "look_sizes",
@@ -1448,6 +1613,10 @@ MODULES = {
                     'criterion="minimax" ranks the smallest final size first; "optimal" the '
                     "smallest expected size at the planning point. Exact for Fisher's test, "
                     "simulated for t-tests; the ranking is a calculation.",
+                    lean=NotInLean(
+                        "The power of a design with looks is calculated or simulated, and the "
+                        "ranking of look sizes is a calculation; Lean does not check them."
+                    ),
                 ),
                 TYPE_I,
             ),
@@ -1472,6 +1641,10 @@ MODULES = {
                     "difference; it is never below the analysis's size per arm nor above "
                     "max_per_arm. Its Type I error is not proved: simulate(...) judges it at "
                     "the target's null scenarios.",
+                    lean=NotInLean(
+                        "Its Type I error is estimated by simulation at declared null "
+                        "scenarios, not proved."
+                    ),
                 ),
             ),
         ),
@@ -1485,6 +1658,7 @@ MODULES = {
                     _two_stage_model,
                     documentation="One arm, two stages, one response rate. Stage two is "
                     "observed only if the interim rule continues.",
+                    lean=in_lean("design", TWO_STAGE, POLICY),
                 ),
                 _constructor(
                     "threshold_rule",
@@ -1493,6 +1667,7 @@ MODULES = {
                     _threshold_rule,
                     documentation="Continue when stage-one responses exceed continue_above; "
                     "reject the null when total responses exceed reject_above.",
+                    lean=in_lean("design", TWO_STAGE),
                 ),
                 _constructor(
                     "beta_prior",
@@ -1500,6 +1675,7 @@ MODULES = {
                     "Prior",
                     _prior,
                     documentation="Beta(a, b) prior on the response rate, positive integers.",
+                    lean=in_lean("design", TWO_STAGE),
                 ),
                 _constructor(
                     "posterior_rule",
@@ -1514,6 +1690,7 @@ MODULES = {
                     documentation="Continue, and finally declare success, when the posterior "
                     "probability that the response rate exceeds reference reaches the given "
                     "level. A posterior threshold does not by itself bound Type I error.",
+                    lean=in_lean("design", TWO_STAGE),
                 ),
                 _constructor(
                     "stopped_at_interim",
@@ -1522,6 +1699,7 @@ MODULES = {
                     _stage_data(False),
                     documentation="Observed data when the interim rule stopped the study. "
                     "Rejected if the declared rule would have continued.",
+                    lean=in_lean("data", TWO_STAGE),
                 ),
                 _constructor(
                     "completed_stages",
@@ -1534,6 +1712,7 @@ MODULES = {
                     _stage_data(True),
                     documentation="Observed data from both stages. Rejected if the declared "
                     "rule would have stopped after stage one.",
+                    lean=in_lean("data", TWO_STAGE),
                 ),
                 _constructor(
                     "two_stage_result",
@@ -1542,6 +1721,7 @@ MODULES = {
                     _claim("result", "observation"),
                     documentation="Claim about the decision the declared design reaches for "
                     "the observed counts, with the design's error bound.",
+                    lean=in_lean("claim", RESULTS, TWO_STAGE),
                 ),
                 _constructor(
                     "two_stage_designs",
@@ -1552,6 +1732,7 @@ MODULES = {
                     'max_total. criterion="optimal" minimises the expected sample size at the '
                     'null rate; "minimax" minimises the maximum sample size. The selected '
                     "design is certified; the ranking is a calculation.",
+                    lean=in_lean("planning", TWO_STAGE),
                 ),
                 _constructor(
                     "two_stage_test",
@@ -1560,6 +1741,7 @@ MODULES = {
                     _two_stage_test,
                     documentation="The complete policy: stages, interim stop, final decision "
                     "and the null response rate it tests.",
+                    lean=in_lean("analysis", TWO_STAGE),
                 ),
             ),
         ),
@@ -1580,6 +1762,7 @@ MODULES = {
                     "from an exact interval for each arm. It is valid for every pair of true "
                     "rates and is wider than intervals built for the difference directly, so "
                     "it can include zero when a test rejects.",
+                    lean=in_lean("claim", INTERVALS, INTERVAL),
                 ),
             ),
         ),
@@ -1592,6 +1775,7 @@ MODULES = {
                     "OneArmModel",
                     _one_arm,
                     documentation="One arm with n independent binary responses.",
+                    lean=in_lean("model", ONE_SAMPLE),
                 ),
                 _constructor(
                     "binomial_test",
@@ -1601,6 +1785,7 @@ MODULES = {
                     documentation="One-sided exact binomial test. Null: response rate <= "
                     "null_rate. Rejects at the smallest response count whose upper tail "
                     "probability at null_rate is at most alpha.",
+                    lean=in_lean("analysis", ONE_SAMPLE),
                 ),
                 _constructor(
                     "confidence_interval",
@@ -1610,6 +1795,7 @@ MODULES = {
                     documentation="Exact (Clopper-Pearson) confidence interval for the response "
                     "rate. Endpoints are rounded outward to four decimals, so coverage is at "
                     "least the stated level for every true rate.",
+                    lean=in_lean("claim", INTERVALS, INTERVAL),
                 ),
                 _constructor(
                     "responses",
@@ -1617,6 +1803,7 @@ MODULES = {
                     "OneSampleObservation",
                     _responses,
                     documentation="The observed number of responses for this analysis.",
+                    lean=in_lean("data", ONE_SAMPLE),
                 ),
                 _constructor(
                     "binomial_result",
@@ -1625,6 +1812,7 @@ MODULES = {
                     _claim("result", "observation"),
                     documentation="Claim about the exact p-value and decision for the "
                     "observed count, with the test's Type I bound.",
+                    lean=in_lean("claim", RESULTS, ONE_SAMPLE),
                 ),
             ),
         ),

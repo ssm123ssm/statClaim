@@ -22,6 +22,7 @@ from statclaim.language.core import (
     _constructor,
     fail,
 )
+from statclaim.language.coverage import CITED
 from statclaim.language.designs import (
     BINOMIAL_ASSUMPTIONS,
     _check_direction,
@@ -782,6 +783,7 @@ def _cited_association_constructor(method: ObservationalMethod) -> Constructor:
         f"{' or '.join(method.outcome_scales)} outcome. Its guarantee is cited from the "
         "literature and not checked by Lean."
         + (" adjusted_for lists the covariates, by name." if method.covariates else ""),
+        lean=CITED,
     )
 
 

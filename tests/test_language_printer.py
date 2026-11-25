@@ -223,3 +223,23 @@ def test_compile_canonical_prints_the_program(capsys):
     printed = capsys.readouterr().out
     assert 'spending="obrien_fleming"' in printed and "runs=10000" in printed
     assert record(compiled(printed)) == record(compiled(path.read_text(), str(path)))
+
+
+@pytest.mark.parametrize(("name", "text"), COMPILED, ids=[name for name, _ in COMPILED])
+def test_binding_every_value_by_name_changes_no_claim(name, text):
+    """Every value inside another, bound to a name of its own first, compiles to the same
+    claims; and Lean data is written for it whenever it is for the original."""
+    from statclaim.lean_translation import data
+
+    first = compiled(text, name)
+    program = first.program.to_dict()
+    hoisted = compiled(program_source(program, hoist=True))
+    assert hoisted.status == first.status
+    before, after = record(first), record(hoisted)
+    assert after["requests"] == before["requests"]
+    assert all(binding in after["bindings"] for binding in before["bindings"])
+    try:
+        data.program_data(program)
+    except data.Outside:
+        return
+    data.program_data(hoisted.program.to_dict())

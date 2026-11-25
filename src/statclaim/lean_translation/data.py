@@ -51,7 +51,10 @@ ANALYSIS = {"test", "design", "null", "alpha"}
 DECLARED = "declared_test"
 DECLARED_FIELDS = {"method", "scope", "references"}
 SCOPES = {"finite_sample": "finiteSample", "asymptotic": "largeSample"}
-# Bindings the semantics declares: tests and combinations, whose contracts it checks.
+# Bindings the semantics declares: tests and combinations, whose contracts it checks. Every
+# other typed value is read inside the tests and claims that use it: a model, a design, a
+# null, observed data, a planning input or a claim declares nothing of its own, however the
+# file binds it. A test checks that every kind of test and combination is listed here.
 DECLARATIONS = (
     "AnalysisIR",
     "AssociationAnalysisIR",
@@ -67,77 +70,6 @@ DECLARATIONS = (
     "FamilyIR",
 )
 EXACT_STUDY = {"fisher_exact", "mcnemar", "rate_test"}
-# Bindings with no contract of their own: two-arm models, designs and nulls (read inside
-# the tests that use them), claims, and every value the translator gives no meaning of its
-# own (results, observed data, planning inputs). A binding of any other typed kind keeps
-# the program out of the semantics, so no contract today's certificate checks is left out.
-STUDIES = (
-    "CrossSectionalStudyIR",
-    "CohortStudyIR",
-    "CaseControlStudyIR",
-    "MatchedStudyIR",
-    "PersonTimeStudyIR",
-)
-IGNORED = {
-    "VerificationResultIR",
-    "CalculationResultIR",
-    "FieldIR",
-    "AssignmentIR",
-    "OutcomeIR",
-    "StratumIR",
-    # Observed data are stated with the result or interval claim that reads them.
-    "ObservationIR",
-    "OneSampleObservationIR",
-    "TwoStageObservationIR",
-    "AssociationTableIR",
-    "ObservedEventsIR",
-    "MatchedPairsIR",
-    # Planning inputs: a target, the candidates searched and the planning point are stated
-    # with the planning claim that verifies them, and mean nothing in Lean on their own.
-    "PowerTargetIR",
-    "PrecisionTargetIR",
-    "PlannedIntervalIR",
-    "CandidatesIR",
-    "GroupCandidatesIR",
-    "TotalCandidatesIR",
-    "IntervalCandidatesIR",
-    "TwoStageCandidatesIR",
-    "LookCandidatesIR",
-    "CountCandidatesIR",
-    "ClusterCandidatesIR",
-    "OneArmCandidatesIR",
-    "RatesIR",
-    "MeanDifferenceIR",
-    "ExponentialSurvivalIR",
-    "EndpointPointsIR",
-    "NullScenariosIR",
-    "OutcomePrevalenceIR",
-    "ExposurePrevalenceIR",
-    "IncidenceRatesIR",
-    "SlopeIR",
-    "OutcomeMeansIR",
-    "SingleProportionIR",
-    # A two-stage rule and its prior are stated with the analysis that uses them.
-    "RuleIR",
-    "PriorIR",
-}
-PASSIVE = frozenset(
-    {
-        "ModelIR",
-        "OutcomeModelIR",
-        "OneArmModelIR",
-        "TwoStageModelIR",
-        "ReestimationIR",
-        "PlanIR",
-        "HypothesisIR",
-        "OutcomeNullIR",
-        "AssociationNullIR",
-        "SharpNullIR",
-        "ClaimIR",
-        *STUDIES,
-        *IGNORED,
-    }
-)
 # What an observational study declares: its design, the sizes it fixes, its variables,
 # and how they were measured and sampled. Scales and surveys must be ones the registry's
 # methods name, so Lean has them.
@@ -693,8 +625,6 @@ def declarations(program: dict) -> list[dict]:
         kind = binding["type"]
         if kind in DECLARATIONS:
             found.append({"name": binding["name"], "type": kind, "value": binding["value"]})
-        elif kind.endswith("IR") and kind not in PASSIVE:
-            raise Outside(f"Declarations of kind {kind} are not in the semantics yet.")
     return found
 
 

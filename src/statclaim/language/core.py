@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, NoReturn
 
+from statclaim.language.coverage import InLean, NotInLean
 from statclaim.language_contracts import (
     HypothesisContract,
 )
@@ -40,6 +41,8 @@ class Constructor:
     build: Callable[[dict[str, LocatedValue], Span], object]
     hypothesis_contract: HypothesisContract | None = None
     documentation: str = ""
+    # What gives the constructor its meaning in Lean, or why nothing does.
+    lean: InLean | NotInLean | None = None
 
     @property
     def signature(self) -> str:
@@ -69,6 +72,7 @@ def _constructor(
     *,
     hypothesis_contract: HypothesisContract | None = None,
     documentation: str = "",
+    lean: InLean | NotInLean | None = None,
 ) -> Constructor:
     return Constructor(
         name,
@@ -77,4 +81,5 @@ def _constructor(
         build,
         hypothesis_contract,
         documentation,
+        lean,
     )

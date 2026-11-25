@@ -111,6 +111,9 @@
 - Cited ways of combining tests are registry data in Lean: one constructor,
   `Test.procedure`, reads each rule from the generated registry, so a new spending
   function or cited rule of the same shapes needs no new Lean.
+- Each constructor states what gives it its meaning in Lean where it is defined, and Lean
+  declares tests and combinations only, reading every other value where it is used, so a
+  planning point or any other value bound by name no longer keeps a program from Lean.
 - Power and sample sizes for every cited observational test: logistic, modified
   Poisson, conditional logistic and Poisson regressions, Spearman's correlation, linear
   regression on a yes-or-no exposure, and the survey tests through the design effect.

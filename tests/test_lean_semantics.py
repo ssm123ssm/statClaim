@@ -245,3 +245,36 @@ def test_cited_combinations_are_written_as_procedures():
         request["claim"]["subject"]["spending"] = "hwang_shih_decani"
     with pytest.raises(Outside, match="group_sequential"):
         program_data(unknown)
+
+
+def test_every_kind_of_test_and_combination_is_declared():
+    """Lean declares tests and combinations and checks their contracts; every other value
+    is read inside the tests and claims that use it."""
+    import inspect
+
+    from statclaim.language import ir
+    from statclaim.lean_translation.data import DECLARATIONS
+
+    tests = {
+        name
+        for name, kind in inspect.getmembers(ir, inspect.isclass)
+        if kind.__module__ == ir.__name__
+        and issubclass(kind, (ir.LevelTestIR, ir.FamilyLikeIR))
+        and kind not in (ir.LevelTestIR, ir.FamilyLikeIR)
+    }
+    assert tests <= set(DECLARATIONS)
+
+
+def test_a_planning_point_bound_by_name_is_read_where_it_is_used():
+    text = (
+        "use models.two_arm_survival\nuse sampling\nuse tests.survival\nuse planning\n"
+        "let lifetimes = two_arm_survival(n_control=200, n_treatment=200)\n"
+        "let ranked = log_rank(design=fixed(model=lifetimes), "
+        "null=equal_survival(model=lifetimes), alpha=1/20)\n"
+        "let point = hazard_ratio(value=7/10, events=200)\n"
+        "let target = power_target(at=point, minimum=4/5, maximum_typeI=1/20)\n"
+        "verify typeI(ranked)\ncalculate meets(analysis=ranked, target=target)\n"
+    )
+    program = compile_source(Source(text, "bound.stat")).program.to_dict()
+    assert [entry["name"] for entry in declarations(program)] == ["ranked"]
+    assert program_data(program).startswith("def program")

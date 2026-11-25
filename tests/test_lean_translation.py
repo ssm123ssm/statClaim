@@ -13,8 +13,9 @@ CONSTRUCTORS = {c.name: c for module in MODULES.values() for c in module.constru
 
 def test_every_constructor_and_operation_is_classified():
     names = set(CONSTRUCTORS) | set(OPERATIONS)
-    assert sorted(names - set(TABLE)) == [], "Add these to lean_translation/table.py."
-    assert sorted(set(TABLE) - names) == [], "These are no longer in the language."
+    assert set(TABLE) == names
+    missing = sorted(name for name, entry in TABLE.items() if entry is None)
+    assert missing == [], "Give these constructors lean=... where the registry defines them."
     assert sum(summary().values()) == len(TABLE)
 
 

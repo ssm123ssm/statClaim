@@ -17,11 +17,13 @@ source: it builds typed objects in memory. `use` loads registered constructors
 from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files.
 
 - `language_syntax.py`: syntax and source spans.
-- `language/`: typed objects (`ir.py`), their canonical JSON (`normalize.py`), the
+- `language/`: the words for what gives a constructor its meaning in Lean
+  (`coverage.py`), typed objects (`ir.py`), their canonical JSON (`normalize.py`), the
   builders and checks by area (`designs`, `analyses`, `points`, `checks`, `searches`),
   the operations verify, calculate and simulate (`operations.py`), every module and
-  constructor (`registry.py`) and elaboration (`elaborate.py`). Each imports only the
-  ones before it in that list; the package re-exports its public names.
+  constructor with its Lean status (`registry.py`) and elaboration (`elaborate.py`).
+  Each imports only the ones before it in that list; the package re-exports its
+  public names.
 - `language_contracts.py`, `language_compiler.py`: compatibility and requirements.
 - `language_printer.py`: the canonical program printed back as source. It imports
   nothing from the compiler; compiling what it prints must give the same program.
@@ -32,7 +34,7 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
 - `composition.py`: families whose members are assumed and whose combination
   Lean checks.
 - `lean_translation/` writes the canonical program and numerical hints as Lean data.
-  `table.py` classifies the DSL constructors. `certificate.py` binds the source,
+  `table.py` collects each constructor's Lean status from the registry. `certificate.py` binds the source,
   program and reported values. `verification.py` builds, audits and replays the
   certificate, and `program_evidence.py` connects it to each verified request.
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
