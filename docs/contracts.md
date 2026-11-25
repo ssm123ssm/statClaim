@@ -80,17 +80,18 @@ need it. It also lists every validated contract with its justification, the
 assumptions to meet, outstanding obligations and requested claims. Add `--json`
 for a structured version.
 
-In a StatClaim checkout, `--lean` also translates the program to Lean and checks
+In a StatClaim checkout, `--lean` also encodes the program as Lean data and checks
 it there:
 
 ```sh
 uv run --locked statclaim report study.stat --lean
 ```
 
-The report then opens with a Lean check: the contract facts Lean decided, each
-translated claim with the grade its proof earns (proved, conditional, cited or
-declared, from the premises the proof uses) beside Python's status, what Lean
-refutes, and what is not translated yet. The check is a certificate of its own,
+The report then opens with a Lean check: the contracts Lean decided, each claim
+with the grade the semantics gives it (proved, conditional, cited or declared,
+from the premises the claim rests on) beside Python's status, the claims whose
+design supplies no sampling law, the claims left unresolved and why, and what
+stays outside Lean. The check is a certificate of its own,
 `statclaim_program_certificate`, which `check-certificate` replays. If Python
 accepts the program and Lean does not, the report says so and exits with 1.
 

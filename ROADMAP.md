@@ -90,6 +90,11 @@
 - Precision targets: sample sizes for a margin of error, absolute or relative, with an
   optional assurance, for every interval StatClaim reports, and for surveys through the
   normal interval with a design effect and a finite population correction.
+- The protocol verified as one program in Lean: each program is elaborated into typed
+  objects and encoded as Lean data, a semantics in Lean defines its claims, premises,
+  grades and contracts, and Lean decides the contracts and proves every claim with one
+  soundness theorem. Exact tests, results, intervals and plans share one interface,
+  and the Python translator that stated claims before is retired.
 - Power and sample sizes for every cited observational test: logistic, modified
   Poisson, conditional logistic and Poisson regressions, Spearman's correlation, linear
   regression on a yes-or-no exposure, and the survey tests through the design effect.
@@ -98,8 +103,9 @@
 
 Common trial methods with continuous or large-sample guarantees will be added as
 contracts: the tool checks that the null, the multiplicity and the sampling plan
-fit the method, and lists the assumptions it cites. Lean stays for exact designs
-and for rules that combine tests. Each claim shows its
+fit the method, and lists the assumptions it cites. Lean proves exact designs and
+the rules that combine tests, and decides the contracts of every program. Each claim
+shows its
 [evidence grade](docs/scope.md#evidence-grades).
 
 ## Next
@@ -133,6 +139,7 @@ distinguishable in every report. See the [planning roadmap](docs/study-planning.
 ## Before a stable 1.0
 
 Document migration rules; test supported platforms and clean installs; have
-independent statistical and proof review; keep proof assumptions visible;
+independent statistical and proof review, including the Lean semantics that states
+every claim; keep proof assumptions visible;
 verify negative cases and certificate tampering; agree which APIs are stable.
 A preview release does not promise language compatibility.

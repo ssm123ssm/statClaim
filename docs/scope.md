@@ -150,9 +150,14 @@ its own rule, so each result also names the weakest grade inside it, and a file
 reports the weakest part anywhere in it. A proved combination of cited tests
 makes the file `cited`, and one declared test makes it `declared`.
 
-Certificates record source/toolchain hashes and can be replayed. Trust includes
-the Lean kernel and declared axioms, the pinned dependencies, and the translation
-from statistical intent to the formal statement. CI audits Lean sources and
+With Lean available, every check builds the whole program in Lean: Lean decides
+the contracts of its declarations and proves each claim as the semantics in
+`StatClaim/Semantics/` defines it, so the protocol is checked as one program. Certificates record
+source/toolchain hashes and can be replayed. Trust includes the Lean kernel and
+declared axioms, the pinned dependencies, the semantics that turns statistical
+intent into formal statements, and the parser, elaborator and encoding that turn
+the source into Lean data; Lean checks that the data it reads is the compiled
+program. CI audits Lean sources and
 axioms and tests modified certificates. Read the statement and assumptions;
 passing tests alone cannot establish that a new method models the intended study.
 

@@ -309,16 +309,18 @@ machine code:
                                    |
                           explicit check command
                              /             \
-                   Python calculation    generated Lean proof
+                   Python calculation    the program as Lean data
                              |             |
-                     CalculationResult   Lean checks -> VerificationResult
+                     CalculationResult   Lean semantics -> contracts and claims
 ```
 
-The Python runtime orchestrates execution. Verification adapters instantiate
-existing formal definitions and theorems in generated `Proof.lean` files. Lean
-checks those proofs; Python retains their certificates and binds results to their
-source snapshot. We do not translate arbitrary statistical source into arbitrary
-Python or promise automatic discovery of mathematical proofs.
+The Python runtime orchestrates execution. The canonical program and the values
+the run reports are written as Lean data. The semantics in `StatClaim/Semantics/`
+defines what the program claims and which contracts it must meet; Lean decides
+the contracts and proves the claims with one soundness theorem. Python retains the
+certificate and binds results to their source snapshot. We do not translate
+arbitrary statistical source into arbitrary Python or promise automatic discovery
+of mathematical proofs.
 
 `statclaim.language_compiler.compile_source(Source(...))` is the backend-free API
 for tooling. It returns the typed program, diagnostics, and per-operation known
@@ -402,7 +404,7 @@ under `.statclaim/programs/`. A run retains:
 - `lean/`: the program's certificate. Every program a check runs is built in
   Lean once (`statclaim_program_certificate`), even one that only calculates:
   Lean decides the declarations' contract facts and proves each `verify` claim
-  the translation states, and each request takes its claim's evidence from it. A
+  the semantics states, and each request takes its claim's evidence from it. A
   claim Lean does not prove is left out and stays unresolved; the rest is then
   built again in `lean-proved/`. Calculated and simulated values are not proved.
 
@@ -454,16 +456,16 @@ and known requirement diagnostics. `language_values.py` defines immutable runtim
 results and evidence. `language_runner.py` lowers supported claim kinds into the
 existing design, family, and result operations and resolves named execution values.
 Module constructors extend the registry without
-changing the parser; a new statistical claim additionally needs an explicit
-verification adapter and its Lean proof. Similar-looking objects alone do not
+changing the parser; a new statistical claim additionally needs its meaning in the
+Lean semantics and a proof. Similar-looking objects alone do not
 authorize reuse of a theorem. This is a built-in module registry, not a runtime
 loader for untrusted third-party plugins.
 
-Integration tests compare the canonical inputs, hypotheses, levels, and result
-values with the existing TOML route and replay the resulting Lean certificates.
-The Lean examples remain the reference for direct proof construction and manual
-proofs. The standalone route currently offers simpler declarations and domain
-diagnostics, while relying on a trusted translation layer.
+Integration tests build the examples' program certificates and replay them,
+including tampered bundles. The Lean examples remain the reference for direct
+proof construction and manual proofs. The parser, the elaborator and the encoding
+into Lean data remain trusted; Lean checks that the data it reads is the compiled
+program.
 
 File execution, first-class claims/results, the fast compiler, a stdio LSP, and
 a minimal VS Code extension are implemented. The [editor guide](editor.md)

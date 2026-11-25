@@ -7,7 +7,8 @@
               │                          │
        LSP diagnostics             explicit execution
        completion, hover           Python exact arithmetic
-       Claims inspection           Lean theorem instantiation
+       Claims inspection           the program as Lean data:
+                                   contracts decided, claims proved
                                    certificate + result fields
 ```
 
@@ -35,17 +36,19 @@ from `src/statclaim/language/registry.py`, not arbitrary Python or `.stat` files
 - `derivations.py`, `derivation_checker.py`, `contract_reports.py`: why a
   contract passed, an independent check of that, and the study report.
 - `StatClaim/`: Lean definitions, theorems and composition rules.
-  `StatClaim/Interface/` holds the objects translated programs are stated in:
-  abstract two-arm and observational models, tests seen from outside and their
-  level premises, families over joint studies, the shape of a program's
-  theorem, and the `statclaim` tactic. `StatClaim/Generated/Methods.lean` is
+  `StatClaim/Interface/` holds the objects the semantics is stated in: abstract
+  two-arm and observational models, tests seen from outside and their level
+  premises, and families over joint studies. `StatClaim/Generated/Methods.lean` is
   the cited-method registry in Lean, written by `scripts/update_lean_premises.py`.
-  `StatClaim/Semantics/` defines each certificate's claims, premises and grades as
-  functions of the encoded program. `Program.sound` proves the claims after the
-  kernel checks the contracts and hints. The corpus check compares Lean's encoded
-  input with the canonical program and checks agreement with the frozen translator
-  statements. The rejection table independently asks Lean about programs Python
-  rejects or leaves unresolved. Both run with `make lean-check`.
+  `StatClaim/Semantics/` defines each program's claims, premises, grades and
+  contracts as functions of the encoded program; exact tests, results, intervals
+  and plans share one interface (`Exact.lean`). `Program.sound` proves the claims
+  after the kernel checks the contracts and hints. The corpus check compares Lean's
+  encoded input with the canonical program and checks agreement with frozen
+  statements written by the retired translator; `tests/lean/SemanticsReference.lean`
+  states one example of each kind of claim and test independently. The rejection
+  table asks Lean about programs Python rejects or leaves unresolved. All run with
+  `make lean-check`.
 - `lsp.py`, `extensions/vscode/`: editor protocol and UI.
 - `studio/`: the block editor. `api.py` answers its requests on the same compiler,
   runner and language-server features; `server.py` serves it on this machine, and

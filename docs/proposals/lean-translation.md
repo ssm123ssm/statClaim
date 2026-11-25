@@ -1,6 +1,9 @@
 # Proposal: translating StatClaim programs to Lean
 
-Status: approved 2026-11-23; milestones 1 to 6 done.
+Status: approved 2026-11-23; milestones 1 to 6 done. Superseded: the
+[Lean semantics](lean-semantics.md) now states every claim, and the translator
+described here was removed in its phase 2 (946c810). Part 1, the premise interface,
+still applies.
 
 Progress:
 

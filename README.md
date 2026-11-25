@@ -13,15 +13,20 @@ models, sampling plans, hypotheses, analyses and claims. The compiler checks
 type compatibility and applies contracts that check further requirements on the
 values and relationships of these objects, before any outcomes are collected.
 
-When verification is requested, the backend constructs proofs of supported
-statistical claims and checks them in [Lean](https://lean-lang.org) under stated
-assumptions. Supported claims concern Type I error, familywise error, power and
-interval coverage, including combinations of analyses and procedures with
-planned stopping rules. Reports distinguish formally proved, conditional, cited
-and author-declared guarantees, and verified claims are accompanied by
-replayable certificates. The same specification supports sample-size searches,
-power calculations and interval-precision assessment by exact calculation,
-analytical approximation or reproducible simulation.
+A program is elaborated into a typed intermediate representation, and its
+canonical form is encoded as data in [Lean](https://lean-lang.org). A semantics
+written in Lean defines what the program's claims and compatibility contracts
+mean. In one build, Lean decides the contracts, proves each requested claim from
+the premises it rests on, and checks that the program it read is the one that was
+compiled. The protocol is thus verified formally as one program, not claim by
+claim, under stated assumptions. Supported claims concern Type I error,
+familywise error, power, interval coverage, and p-values and decisions for
+observed data, including combinations of analyses and procedures with planned
+stopping rules. Reports distinguish formally proved, conditional, cited and
+author-declared guarantees, and verified claims are accompanied by replayable
+certificates. The same specification supports sample-size searches, power
+calculations and interval-precision assessment by exact calculation, analytical
+approximation or reproducible simulation.
 
 ![StatClaim Studio showing an observed-result claim for Fisher's exact test, with the p-value and decision proved in Lean](docs/images/studio-proved.png)
 
@@ -47,13 +52,14 @@ be examined during protocol development.
 1. **Declaration.** The study is specified as typed objects: a model, a sampling
    plan, hypotheses, analyses and claims.
 2. **Compilation.** The compiler checks argument types and applies compatibility
-   contracts. An analysis, for example, must support the declared null
-   hypothesis and refer to the model to which that hypothesis belongs. A missing
-   justification is reported as an unresolved requirement; it does not imply
-   that the claim is false.
-3. **Verification.** On request, supported claims are proved in Lean, and a
-   certificate is issued that can be replayed. Claims outside this scope are
-   reported as cited or declared.
+   contracts, and elaborates the program into typed objects. An analysis, for
+   example, must support the declared null hypothesis and refer to the model to
+   which that hypothesis belongs. A missing justification is reported as an
+   unresolved requirement; it does not imply that the claim is false.
+3. **Verification.** The whole program is encoded in Lean, which decides its
+   contracts again and proves each verified claim, and a certificate is issued
+   that can be replayed. A claim whose guarantee Lean cannot prove rests on a
+   cited or declared premise and is graded accordingly.
 4. **Planning.** Sample size, power and precision are assessed from the same
    specification by exact calculation, analytical approximation or simulation
    with reported Monte Carlo uncertainty.
@@ -75,6 +81,34 @@ that of its weakest evidence-bearing result.
 ([`graph.stat`](replication/comparison/graph.stat)). The declared graph is
 checked; the familywise error bound of the procedure is cited from the
 literature and reported as such.*
+
+## The protocol as a program in Lean
+
+```text
+.stat source → parser and elaborator → typed objects → canonical program
+             → Lean data → StatClaim/Semantics → contracts decided, claims proved
+```
+
+The semantics in `StatClaim/Semantics/` defines, as Lean functions of the
+encoded program, every claim it can make, the premises each claim rests on, its
+evidence grade, and the contracts of every declared test and combination: a null
+that fits its model, looks that ask one question at growing sizes, a graph whose
+shares of the level add up to at most the whole. With Lean available,
+`statclaim check` builds the whole program in Lean once, even one that only
+calculates. Lean:
+
+- decides the contracts by computation in the kernel;
+- proves every verified claim with one soundness theorem, `Program.sound`,
+  proved once for all programs. Numerical hints are checked by the kernel; a
+  wrong hint fails the build but cannot change what is claimed;
+- prints the program it read, which must be the compiled program, and each
+  claim's grade, which must be the one reported.
+
+A certificate therefore covers the protocol as one program: its declarations are
+compatible, and its claims follow from their premises. Python's contract checks
+remain the fast first gate in the editor; a program Lean refuses keeps its
+claims unresolved. See [certificates](docs/certificates.md) and the
+[architecture](docs/architecture.md).
 
 ## Example
 
@@ -102,10 +136,13 @@ let verification = verify(claim)
 ```text
 verified [verification]: typeI(analysis)
   Evidence: proved in Lean; guarantee: finite-sample bound
-  The specified two-sided Fisher analysis has Type I error at most 1/20 under the null, for every common success probability in [0, 1].
+  Proved in Lean: Null rejection probability <= 1/20 for every common p in [0, 1]
   Assumptions:
     The samples follow two independent binomial distributions.
     Positive arm sizes were fixed before outcomes were observed.
+    The error bound is under the null of equal success probabilities, for every p in [0, 1].
+Whole program in Lean: the declarations meet 1 contract fact, each decided by Lean.
+Program status: verified
 ```
 
 Replacing the sampling plan with `adaptive(model=study)`, which declares
@@ -236,8 +273,11 @@ claim holds under its stated assumptions; whether a study satisfies those
 assumptions requires scientific judgement. A specification that declares a
 fixed analysis cannot establish that the endpoint was chosen before outcomes
 were examined. StatClaim does not analyse existing R or Python scripts; it
-specifies the design and the guarantees claimed for it. See
-[scope and trust](docs/scope.md).
+specifies the design and the guarantees claimed for it. Lean checks the encoded
+program, not the compiler: the parser, the elaborator and the encoding into Lean
+data are trusted, and Lean checks only that the data it reads is the compiled
+program. Cited and declared guarantees enter as premises, and calculations and
+simulations are not proved. See [scope and trust](docs/scope.md).
 
 ## Documentation and contributing
 

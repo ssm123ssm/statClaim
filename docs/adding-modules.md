@@ -14,7 +14,15 @@ A method whose guarantee Lean cannot prove yet is added as a
    never silently replace the user's null.
 3. Publish fields through `language_fields.py`. Keep compilation pure: no Lean,
    calculations, filesystem writes or evidence generation while editing.
-4. Add an explicit lowering/proof adapter and Lean theorem for supported claims.
+4. For claims Lean proves, give the object its meaning in `StatClaim/Semantics/`:
+   a constructor in `Syntax.lean` with its encoding in `Encode.lean`, its
+   contracts in `Contracts.lean`, and its meaning in `Meaning.lean`, or through
+   an `ExactModule` (`Exact.lean`) for an exact test, with result, interval and
+   planning checks where they apply (`Results.lean`, `Intervals.lean`,
+   `Plans.lean`). Write it
+   from the canonical program in `lean_translation/data.py`, and its numerical
+   hints in `lean_translation/material.py`. Add a reference statement to
+   `tests/lean/SemanticsReference.lean`; a test fails if a constructor has none.
    Unsupported claims must retain an unresolved requirement, never a verified flag.
    Give each new assumption sentence an id and kind in `methods/identify.py`.
    Add any new diagnostic code, status or limit to `reference.py`; a test fails

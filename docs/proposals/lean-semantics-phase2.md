@@ -156,8 +156,8 @@ soundness proof.
 
 ## Milestones
 
-Each milestone is tested on the corpus, checks agreement with the live translator,
-re-runs the rejection table, reports the trusted Lean's size, and is pushed.
+All done (946c810). Each milestone was tested on the corpus, checked agreement with
+the live translator, re-ran the rejection table and reported the trusted Lean's size.
 
 0. **Spike: go or no-go.** The interface, with one-sided Fisher ported: Type I with
    hints, its result and its power plan (`examples/one_sided.stat`). Go if the build
@@ -210,16 +210,19 @@ Not to be said, as before: that the `.stat` language is dependently typed or has
 refinement types; that the compiler, parser or elaborator is verified; that Python's
 contract checks are verified.
 
-## Decisions and open questions
+## Decisions
 
-1. **Hints: an argument of `Program.sound`, or part of the data.** Proposed: an
-   argument, since they do not change what is claimed.
-2. **Reported values.** Proposed: a result's reported p-value and decision are part
-   of its claim, written from the run, as today, so a wrong computation fails the
-   proof; the audit compares them with the run's report.
-3. **Frozen fixtures.** Proposed: freeze the translator's statements, and keep
-   writing the data from pinned programs.
-4. **The spike's module.** Proposed: one-sided Fisher, which has Type I with hints,
-   a result and a power plan.
-5. **What stays outside Lean.** Proposed: sample-size re-estimation and Type I judged
-   by simulation, as today, each with its reason in `table.py`.
+All five were decided as proposed and are implemented.
+
+1. **Hints are an argument of `Program.sound`**, since they do not change what is
+   claimed.
+2. **Reported values are part of the claim.** A result's p-value and decision, an
+   interval's endpoints and a plan's selected size are in the certificate's inputs,
+   so a wrong computation fails the proof; `program_evidence.bind_report` compares
+   them with the run's report.
+3. **Frozen fixtures.** The translator's statements are frozen, and the data is
+   written from pinned programs.
+4. **The spike's module** was one-sided Fisher: Type I with hints, a result and a
+   power plan.
+5. **Outside Lean:** sample-size re-estimation and Type I judged by simulation, each
+   with its reason in `table.py`.

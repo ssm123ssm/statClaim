@@ -94,13 +94,12 @@ generated theorems are transitively audited before the completion marker is emit
 
 The certificate retains the canonical input/result document, generated proof,
 compiled artifact, transcript, dependency pins, and source/artifact hashes. Replay
-reconstructs the expected statements and reruns Lean. The parser, proof generator,
-report binding, and local imported artifacts remain explicitly trusted components.
-See the [certificate guide](certificates.md).
+reconstructs the expected statements and reruns Lean. The parser, the encoding into
+Lean data, report binding, and local imported artifacts remain explicitly trusted
+components. See the [certificate guide](certificates.md).
 
 This establishes named properties of a checked individual result. It does not
 universally verify the Python program or establish that study assumptions hold.
-The fast `test` command continues to return an unresolved formal status.
 
 ## Reproduce the checks
 

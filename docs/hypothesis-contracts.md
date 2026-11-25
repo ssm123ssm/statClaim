@@ -75,7 +75,7 @@ language canonicalizes that exact alias to the existing equality null. It does
 not reuse Fisher's theorem for shifted or inequality nulls. A zero-alias
 certificate has the same canonical mathematical inputs as the original Fisher
 example, and is replayed by integration tests. The original source spelling and
-its translation remain part of the existing application provenance boundary.
+its encoding into Lean data remain trusted parts of the application.
 
 ## Model compatibility versus hypothesis compatibility
 

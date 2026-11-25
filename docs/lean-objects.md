@@ -68,8 +68,9 @@ and provenance. Naming a claim or marking it assumed provides no proof term.
 | `Semantics.Request` | The Type I, familywise, observed result, interval, or planning claim to check |
 | `Semantics.Program.encode` | The canonical claims, declarations, and certified values used to bind a proof to its inputs |
 
-The Phase 2 spike exercises the interface on one-sided Fisher's Type I claim,
-observed result, and minimum sample size. See the [Phase 2 proposal](proposals/lean-semantics-phase2.md).
+Every exact claim in a program certificate goes through this interface: Type I
+bounds of exact tests, results for observed data, intervals and planning claims.
+See the [phase 2 proposal](proposals/lean-semantics-phase2.md).
 
 ## Model and hypothesis
 

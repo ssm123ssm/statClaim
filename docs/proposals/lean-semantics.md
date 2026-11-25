@@ -1,9 +1,10 @@
 # Proposal: the meaning of a program, defined in Lean
 
-Phase 2 is complete. See [the phase 2 implementation](lean-semantics-phase2.md) for the current certificate path.
-
-Status: approved 2026-11-24. Open questions 1 and 2 are decided as proposed; how
-the paper describes this waits until the spike and phase 1 show how it goes.
+Status: approved 2026-11-24; phases 1 and 2 done. Every program certificate is now
+stated through the semantics, and the translator is retired
+([phase 2](lean-semantics-phase2.md), 946c810). Open questions 1 and 2 are decided
+as proposed; question 3, how the paper describes this, is open. The progress notes
+below record phase 1 as it happened.
 
 Progress:
 
@@ -303,8 +304,9 @@ modules, proposed separately ([phase 2](lean-semantics-phase2.md)). With that in
 states every exact claim. Without it, phase 2 would copy `statements.py` into
 Lean case by case.
 
-A program switches to the semantics only when all its claims are in it, so one
-certificate never mixes the two ways of stating claims.
+During migration, a program switched to the semantics only when all its claims were
+in it, so no certificate mixed the two ways of stating claims. Since phase 2 every
+program is stated through the semantics.
 
 **Not in scope.** The parser, the elaborator and `language.normalize` stay
 trusted, for building values faithfully. The `.stat` language and its live
@@ -424,5 +426,5 @@ Not accurate, and not to be said:
 2. **Phase 2 and the common module interface.** Decided: phase 2 waits for the
    interface. Phase 1 is useful by itself, and phase 2 without the interface would
    mostly copy `statements.py`.
-3. **How the paper frames this.** Open until the spike and phase 1 are done. The
+3. **How the paper frames this.** Open; the spike and both phases are done. The
    wording rules above apply whatever is chosen.
