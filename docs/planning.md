@@ -583,7 +583,10 @@ let looked = simulate(meets(analysis=trial, target=target), seed=2026)
   exact rejection region of its own level, up to 500 per arm at the last look. It
   reports the same stopping rates and expected sizes, and the exact Type I with both
   arms at the control rate. A brute-force enumeration in R with `fisher.test` agrees to
-  1e-12 (`replication/comparison/fisher_looks_r.R`). See lesson 45.
+  1e-12 (`replication/comparison/fisher_looks_r.R`). See lesson 45. The sum is in
+  floating point, so a power within 1e-9 of its target neither meets nor misses it: the
+  result is `undecided`, and a search passes over such a candidate. The logistic Wald
+  test's exact power is decided the same way.
 - `verify` refuses the claim either way.
 
 A raw-data simulation in R that applies `t.test` at each look agrees within its Monte

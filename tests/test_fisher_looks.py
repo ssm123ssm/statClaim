@@ -113,3 +113,24 @@ def test_the_checker_rejects_an_altered_point():
     step = next(s for s in altered["steps"] if s["rule"] == "exact-looks")
     step["facts"]["point"]["p_control"] = "2"
     assert check_derivation(altered)
+
+
+def test_a_power_too_close_to_its_target_for_rounding_is_undecided(tmp_path):
+    """The power is an exact sum in floating point: a target within its rounding is neither
+    met nor missed."""
+    from statclaim.rounding import ROUNDING, meets
+
+    assert meets(0.8 + 2 * ROUNDING, Fraction(4, 5)) is True
+    assert meets(0.8 - 2 * ROUNDING, Fraction(4, 5)) is False
+    assert meets(0.8 + ROUNDING / 2, Fraction(4, 5)) is None
+    looks = [(50, 50, Fraction(1, 200), "two_sided"), (100, 100, Fraction(9, 200), "two_sided")]
+    power = sum(fisher_looks(looks, 0.3, 0.5))
+    exact_text = format(Fraction(power).limit_denominator(10**15), "")
+    text = LESSON.read_text().split("# Response rates")[0] + (
+        f"let target = power_target(at={RATES}, minimum={exact_text}, maximum_typeI=1/20)\n"
+        "let power = calculate(meets(analysis=trial, target=target))\n"
+    )
+    report = check_source(Source(text, "close.stat"), project=ROOT, output=tmp_path / "run")
+    request = report["requests"][-1]["report"]
+    assert request["decision"] == "undecided"
+    assert request["calculation"]["power_settled"] is False

@@ -13,7 +13,7 @@ import math
 from fractions import Fraction
 from itertools import groupby
 
-from statclaim import look_search
+from statclaim import look_search, rounding
 from statclaim.fisher import fraction_record
 from statclaim.language import (
     FeasibilityIR,
@@ -122,6 +122,7 @@ def _calculation(design: SequentialIR, looks, target) -> dict:
     stopped = fisher_looks(looks, control, treatment)
     null = fisher_looks(looks, control, control)
     power = min(sum(stopped), 1.0)
+    verdict = rounding.meets(power, target.minimum)
     n_c, n_t = looks[-1][:2]
     return {
         "n_control": n_c,
@@ -141,7 +142,9 @@ def _calculation(design: SequentialIR, looks, target) -> dict:
         "expected_sample_size_null": _record(_expected(looks, null)),
         "power": _record(power),
         "minimum_power": fraction_record(target.minimum),
-        "power_target_met": power >= target.minimum,
+        "power_target_met": verdict is True,
+        # False when the sum is too close to the target for its rounding to tell.
+        "power_settled": verdict is not None,
         "typeI_at_control_rate": _record(sum(null)),
         "alpha": fraction_record(design.alpha),
         "maximum_typeI": fraction_record(target.maximum_typeI),
@@ -166,7 +169,8 @@ def search(space: LookCandidatesIR, target) -> tuple[dict | None, dict]:
             evaluated += 1
             tested = [(c, t, level, alternative) for c, t, level in looks]
             stopped = fisher_looks(tested, control, treatment)
-            if min(sum(stopped), 1.0) < target.minimum:
+            # A candidate too close to the target for rounding to tell is not selected.
+            if rounding.meets(min(sum(stopped), 1.0), target.minimum) is not True:
                 continue
             feasible += 1
             key = look_search.rank(space.criterion, looks, _expected(tested, stopped))
@@ -236,13 +240,21 @@ def run(report: dict, subject) -> dict:
             report["decision"] = "no_feasible_candidate"
             return report
         report["calculation"] = {**calculation, **record}
-        met = calculation["power_target_met"] and calculation["typeI_target_met"]
-        report["decision"] = "target_met" if met else "target_not_met"
+        report["decision"] = _decision(calculation)
         return report
     if not isinstance(subject, FeasibilityIR):
         raise ValueError("a design with looks is calculated as declared or searched")
     calculation = evaluate(design, target)
     report["calculation"] = calculation
-    met = calculation["power_target_met"] and calculation["typeI_target_met"]
-    report["decision"] = "target_met" if met else "target_not_met"
+    report["decision"] = _decision(calculation)
     return report
+
+
+def _decision(calculation: dict) -> str:
+    """Met when both targets are; undecided when the power is too close to its target for
+    rounding to tell and the level is met; otherwise not met."""
+    if calculation["power_target_met"] and calculation["typeI_target_met"]:
+        return "target_met"
+    if not calculation["power_settled"] and calculation["typeI_target_met"]:
+        return "undecided"
+    return "target_not_met"

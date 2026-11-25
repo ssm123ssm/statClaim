@@ -8,6 +8,7 @@ and each arm's mean cluster size.
 
 from fractions import Fraction
 
+from statclaim import rounding
 from statclaim.fisher import fraction_record
 from statclaim.language import (
     CitedAnalysisIR,
@@ -134,6 +135,15 @@ def _cluster_record(target: PowerTargetIR, clusters, cluster_sizes) -> dict:
     return record
 
 
+def _reaches(formula, power: float, minimum: Fraction) -> bool | None:
+    """Whether a power reaches its target. An exact sum in floating point, the logistic
+    Wald test's, must clear it by more than its rounding (None when too close to tell); an
+    approximate formula's value is taken as it is."""
+    if formula.key == LOGISTIC_WALD.key:
+        return rounding.meets(power, minimum)
+    return power >= minimum
+
+
 def evaluate(
     analysis: CitedAnalysisIR, target: PowerTargetIR, sizes: tuple[int, int], cluster_sizes=None
 ) -> dict:
@@ -174,7 +184,8 @@ def evaluate(
         **design,
         "power": _record(result.power),
         "minimum_power": fraction_record(target.minimum),
-        "power_target_met": result.power >= target.minimum,
+        "power_target_met": _reaches(formula, result.power, target.minimum) is True,
+        "power_settled": _reaches(formula, result.power, target.minimum) is not None,
         "critical_estimate": _record(result.critical),
         "reject_when": result.direction,
         "standard_error": _record(result.standard_error),
@@ -256,7 +267,8 @@ def run(report: dict, subject) -> dict:
             calculation = evaluate(analysis, target, (model.n_control, model.n_treatment))
         met = calculation["power_target_met"] and calculation["typeI_target_met"]
         report["calculation"] = calculation
-        report["decision"] = "target_met" if met else "target_not_met"
+        undecided = not calculation["power_settled"] and calculation["typeI_target_met"]
+        report["decision"] = "target_met" if met else "undecided" if undecided else "target_not_met"
         return report
     candidates = subject.candidates
     if isinstance(candidates, ClusterCandidatesIR):
@@ -264,7 +276,8 @@ def run(report: dict, subject) -> dict:
     search = {"min_per_arm": candidates.min_per_arm, "max_per_arm": candidates.max_per_arm}
     for evaluated, size in enumerate(range(candidates.min_per_arm, candidates.max_per_arm + 1), 1):
         sizes = (size, candidates.ratio * size)
-        if approximate_power(analysis, target.at, *sizes).power >= target.minimum:
+        power = approximate_power(analysis, target.at, *sizes).power
+        if _reaches(cited_formula(analysis, target.at), power, target.minimum) is True:
             calculation = evaluate(analysis, target, sizes)
             met = calculation["typeI_target_met"]
             report["calculation"] = {**calculation, **search, "candidates_evaluated": evaluated}

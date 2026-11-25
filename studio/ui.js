@@ -422,7 +422,10 @@ export function headline(request) {
       // Undecided on Type I only when power is settled and the judged Type I is not.
       const typeIOpen = c.typeI_judged && c.typeI_target_met === false && c.typeI_settled === false;
       const powerOpen = c.power_target_met === false && c.power_settled === false;
-      const why = typeIOpen && !powerOpen ? 'the type I interval includes the ' + percent(c.maximum_typeI) + ' limit' : 'the interval includes the ' + percent(c.minimum_power) + ' target';
+      const exact = c.power_lower === undefined;
+      const why = typeIOpen && !powerOpen ? 'the type I interval includes the ' + percent(c.maximum_typeI) + ' limit'
+        : exact ? 'the exact power is too close to the ' + percent(c.minimum_power) + ' target for rounding to tell'
+        : 'the interval includes the ' + percent(c.minimum_power) + ' target';
       return {text: text + ': undecided, ' + why, tone: 'warn'};
     }
     if (c.power_target_met === false) text += ', below the ' + percent(c.minimum_power) + ' target';

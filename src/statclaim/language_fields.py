@@ -837,6 +837,12 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
             description="The exact chance of rejecting at some look, at the planning rates.",
         ),
         "power_target_met": FieldSpec(bool),
+        "power_settled": FieldSpec(
+            bool,
+            optional=True,
+            description="False when the exact sum is too close to the target for rounding to "
+            "tell; the decision is then undecided.",
+        ),
         "expected_sample_size": FieldSpec(
             Fraction, optional=True, description="The mean total at which the trial stops."
         ),
@@ -993,6 +999,12 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
             description="Power as clusters grow without bound, when no cluster size is enough.",
         ),
         "power_target_met": FieldSpec(bool),
+        "power_settled": FieldSpec(
+            bool,
+            optional=True,
+            description="False when an exact sum is too close to the target for rounding to "
+            "tell; the decision is then undecided.",
+        ),
         "critical_estimate": FieldSpec(
             Fraction,
             optional=True,

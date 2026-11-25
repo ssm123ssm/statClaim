@@ -1215,6 +1215,10 @@ test('a check block says what its run found, with the numbers', async () => {
     power_target_met: true, power_settled: true, typeI: '0.075', typeI_target_met: false, typeI_settled: false, typeI_judged: true,
     maximum_typeI: '0.075', n_control: 40, n_treatment: 40}}).text,
   'Power 90% (89–91%) at 40 per arm: undecided, the type I interval includes the 7.5% limit');
+  // An exact sum in floating point too close to its target is undecided, not met or missed.
+  assert.equal(headline({decision: 'undecided', calculation: {power: '0.8', minimum_power: '0.8', power_target_met: false,
+    power_settled: false, typeI_target_met: true, n_control: 100, n_treatment: 100}}).text,
+  'Power 80% at 100 per arm: undecided, the exact power is too close to the 80% target for rounding to tell');
   // A survey says what its total is worth.
   assert.equal(headline({decision: 'target_met', calculation: {...search, total_sample_size: 23530, covariates: 0, effective_sample_size: {decimal_approximation: '11765.000000'}}}).text,
     'Smallest size: n = 23530 (effectively 11765), power 80.03%');
