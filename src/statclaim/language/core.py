@@ -62,7 +62,8 @@ def fail(code: str, message: str, span: Span) -> NoReturn:
 
 def _constructor(
     name: str,
-    parameters: tuple[tuple[str, str | type], ...],
+    # (name, kind), or (name, kind, optional).
+    parameters: tuple[tuple[str, str | type] | tuple[str, str | type, bool], ...],
     result: str,
     build: Callable,
     *,

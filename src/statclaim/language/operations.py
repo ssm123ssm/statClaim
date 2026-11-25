@@ -1,6 +1,7 @@
 """The operations verify, calculate and simulate, and their checks."""
 
 from fractions import Fraction
+from typing import cast
 
 from statclaim.language.checks import (
     ICC_REFUSED,
@@ -14,6 +15,7 @@ from statclaim.language.core import (
 )
 from statclaim.language.ir import (
     AnalysisIR,
+    CandidatesIR,
     ClaimIR,
     ClusterCandidatesIR,
     LookCandidatesIR,
@@ -147,6 +149,8 @@ def check_cited_simulation(analysis, subject, arguments, claim) -> ClaimIR:
     settings = simulation_settings(arguments)
     if clustered_test(analysis) and method.outcome == "binary":
         if isinstance(subject, SizingIR):
+            # A test of cluster summaries is searched only by cluster_counts or cluster_sizes.
+            assert isinstance(subject.candidates, ClusterCandidatesIR)
             largest = max(size for _, sizes in subject.candidates.designs() for size in sizes)
         else:
             model = analysis.plan.model
@@ -163,11 +167,12 @@ def check_cited_simulation(analysis, subject, arguments, claim) -> ClaimIR:
             )
     if isinstance(subject, SizingIR):
         space = subject.candidates
-        candidates = (
-            space.high - space.low + 1
-            if isinstance(space, ClusterCandidatesIR)
-            else space.max_per_arm - space.min_per_arm + 1
-        )
+        if isinstance(space, ClusterCandidatesIR):
+            candidates = space.high - space.low + 1
+        else:
+            # A cited two-arm test's other searches are over sizes per arm.
+            assert isinstance(space, CandidatesIR)
+            candidates = space.max_per_arm - space.min_per_arm + 1
         if candidates * settings.runs > MAX_SIMULATED_STUDIES:
             fail(
                 "domain",
@@ -180,8 +185,9 @@ def check_cited_simulation(analysis, subject, arguments, claim) -> ClaimIR:
         # A search simulates each size for power, then confirms the one that passes with
         # power and Type I runs; a claim at the declared sizes runs power and Type I.
         if isinstance(subject, SizingIR):
-            space = subject.candidates
-            sizes = [s + space.ratio * s for s in range(space.min_per_arm, space.max_per_arm + 1)]
+            # Only a test of participants is simulated at points that draw every participant.
+            arms = cast(CandidatesIR, subject.candidates)
+            sizes = [s + arms.ratio * s for s in range(arms.min_per_arm, arms.max_per_arm + 1)]
             drawn = sum(sizes) + 2 * sizes[-1]
         else:
             drawn = 2 * (analysis.plan.model.n_control + analysis.plan.model.n_treatment)
@@ -278,6 +284,8 @@ def check_looks_simulation(analysis, subject, arguments, claim) -> ClaimIR:
         largest = (model.n_control, model.n_treatment)
         if isinstance(subject, SizingIR):
             space = subject.candidates
+            # Refused above unless the search is look_sizes(...).
+            assert isinstance(space, LookCandidatesIR)
             largest = (space.max_per_arm, space.max_per_arm * (look_allocation(analysis) or 1))
         if 2 * sum(largest) * settings.runs > MAX_SIMULATED_PARTICIPANTS:
             fail(

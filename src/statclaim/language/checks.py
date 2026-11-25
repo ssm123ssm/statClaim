@@ -1,5 +1,7 @@
 """Checks that a planning point and target fit an analysis, and meets(...)."""
 
+from typing import cast
+
 from statclaim.association import (
     MEASURES,
     not_estimable,
@@ -24,6 +26,7 @@ from statclaim.language.ir import (
     CitedAnalysisIR,
     CitedAssociationIR,
     ClaimIR,
+    ComposedFamilyIR,
     CorrelationIR,
     DiscordantPairsIR,
     EndpointPointsIR,
@@ -36,6 +39,7 @@ from statclaim.language.ir import (
     IncidenceRatesIR,
     IntervalCandidatesIR,
     MatchedAnalysisIR,
+    MatchedStudyIR,
     MeanDifferenceIR,
     ModelIR,
     ObservationalStudyIR,
@@ -56,6 +60,7 @@ from statclaim.language.ir import (
     SequentialIR,
     SingleProportionIR,
     SlopeIR,
+    TwoArmModelIR,
     TwoStageAnalysisIR,
     group_probabilities,
 )
@@ -118,10 +123,13 @@ def _check_count_point(analysis, target: LocatedValue, where: Span) -> None:
 
 
 def _check_association_point(
-    analysis: AssociationAnalysisIR, target: LocatedValue, where: Span
+    analysis: AssociationAnalysisIR | CitedAssociationIR, target: LocatedValue, where: Span
 ) -> None:
     """Fisher's test of association is planned when its design fixes both groups."""
     model, point = analysis.plan.model, target.value.at
+    # Fisher's test of association and the cited observational tests refuse a design that
+    # is not an observational study.
+    assert isinstance(model, ObservationalStudyIR)
     kind, signature = GROUP_POINTS[model.design]
     if model.design == "cohort" and model.groups is None:
         signature = "risks(unexposed=..., exposed=..., exposed_share=...)"
@@ -237,6 +245,9 @@ def _check_cited_point(analysis: CitedAnalysisIR, target: LocatedValue, where: S
     if scenario and analysis.method.module != "tests.t":
         fail("planning_point", SCENARIO_REFUSED, target.span)
     model = analysis.plan.model
+    # A test with a power formula is built by analyses._cited_test, which reads the sizes of
+    # a two-arm model; declared tests have none and are refused above.
+    assert isinstance(model, TwoArmModelIR)
     if isinstance(point, HazardRatioIR) and point.events > model.n_control + model.n_treatment:
         fail(
             "planning_point",
@@ -305,7 +316,10 @@ DESIGN_EFFECT_REFUSED = (
 
 def observational_formula(analysis: CitedAssociationIR, point: PlanningPointIR):
     """The cited observational test's power formula at this point and exposure scale."""
-    scale = analysis.plan.model.exposure_scale
+    model = analysis.plan.model
+    # A cited observational test refuses a design that is not an observational study.
+    assert isinstance(model, ObservationalStudyIR)
+    scale = model.exposure_scale
     for formula in analysis.method.formulas:
         kinds, needs, _ = OBSERVATIONAL_POINTS[formula.point]
         if isinstance(point, kinds) and needs == scale:
@@ -327,7 +341,10 @@ def _check_cited_association_point(
             f"observational tests with one: {others}.",
             where,
         )
-    scale = analysis.plan.model.exposure_scale
+    model = analysis.plan.model
+    # A cited observational test refuses a design that is not an observational study.
+    assert isinstance(model, ObservationalStudyIR)
+    scale = model.exposure_scale
     fitting = [f for f in method.formulas if OBSERVATIONAL_POINTS[f.point][1] == scale]
     if not fitting:
         scales = " or ".join(sorted({OBSERVATIONAL_POINTS[f.point][1] for f in method.formulas}))
@@ -341,7 +358,6 @@ def _check_cited_association_point(
     if formula is None:
         signatures = " or ".join(OBSERVATIONAL_POINTS[f.point][2] for f in fitting)
         fail("planning_point", f"Plan {method.key} at {signatures}.", target.span)
-    model = analysis.plan.model
     if (
         method.module == "tests.survey"
         and model.survey != "simple_random"
@@ -412,8 +428,7 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
             "nulls out.",
             target.span,
         )
-    family = isinstance(analysis, FamilyLikeIR) and not isinstance(analysis, SequentialIR)
-    if family:
+    if isinstance(analysis, FamilyLikeIR) and not isinstance(analysis, SequentialIR):
         _check_family_point(analysis, target)
         return
     if getattr(target.value, "rejecting", None) is not None:
@@ -470,6 +485,9 @@ def _check_point(analysis: PlannableIR, target: LocatedValue, where: Span) -> No
         null = f"response rate <= {analysis.null_rate}"
         outside = point.value > analysis.null_rate
     else:
+        # Every other plannable analysis is handled above, and a planned interval is checked
+        # by _check_precision: what is left is an exact two-arm test.
+        assert isinstance(analysis, AnalysisIR)
         if not isinstance(point, RatesIR):
             fail(
                 "planning_point",
@@ -543,7 +561,7 @@ FAMILY_MODES = {
 }
 
 
-def family_procedure(family: FamilyLikeIR) -> str:
+def family_procedure(family: ComposedFamilyIR | FamilyIR) -> str:
     """How a family rejects: each member at its own level, in order, or along a graph."""
     return "bonferroni" if isinstance(family, FamilyIR) else FAMILY_MODES[family.mode]
 
@@ -573,6 +591,7 @@ def _outside_null(analysis, point) -> bool:
 
 def _check_family_point(family: FamilyLikeIR, target: LocatedValue) -> None:
     """One point per member, of its kind; any or all; shared participants when correlated."""
+    assert isinstance(family, (ComposedFamilyIR, FamilyIR))  # the kinds of FamilyLikeIR
     point, members = target.value.at, family.analyses
     if not isinstance(family, FamilyIR) and family.mode not in FAMILY_MODES:
         fail("unsupported_claim", "This kind of family is not simulated yet.", target.span)
@@ -613,7 +632,9 @@ def _check_family_point(family: FamilyLikeIR, target: LocatedValue) -> None:
             words = "binomial_rates(...)" if kind == "binary" else "mean_difference(value, sd)"
             fail("planning_point", f"{name} is planned at {words}.", target.span)
     if point.correlation > 0:
-        sizes = {(a.plan.model.n_control, a.plan.model.n_treatment) for _, a in members}
+        # Every member has a two-arm model: building the family reads each one's outcome.
+        models = [cast(TwoArmModelIR, a.plan.model) for _, a in members]
+        sizes = {(model.n_control, model.n_treatment) for model in models}
         if len(sizes) > 1:
             fail(
                 "planning_point",
@@ -666,25 +687,35 @@ def _check_sequential(analysis: SequentialIR, where: Span) -> None:
 
 def _check_planned_size(analysis: PlannableIR, where: Span, point=None) -> None:
     """The declared study's size, for exact power at it; a search checks its own bounds."""
-    if (
-        isinstance(analysis, CitedAssociationIR)
-        and analysis.method.module != "tests.survey"
-        and observational_formula(analysis, point).point
-        in ("correlation", "slope", "outcome_means")
-        and _residual_df(analysis, analysis.plan.model.total) < 1
-    ):
-        fail(
-            "domain",
-            f"{analysis.plan.model.total} participants leave no degrees of freedom for the "
-            f"error after the exposure, the intercept and {len(analysis.covariates)} covariates.",
-            where,
-        )
-    if isinstance(analysis, MatchedAnalysisIR) and analysis.plan.model.pairs > MAX_PLANNED_PAIRS:
-        fail("domain", f"Exact power is limited to {MAX_PLANNED_PAIRS} pairs.", where)
+    if isinstance(analysis, CitedAssociationIR):
+        study = analysis.plan.model
+        # A cited observational test refuses a design that is not an observational study.
+        assert isinstance(study, ObservationalStudyIR)
+        if (
+            analysis.method.module != "tests.survey"
+            and observational_formula(analysis, point).point
+            in ("correlation", "slope", "outcome_means")
+            and _residual_df(analysis, study.total) < 1
+        ):
+            fail(
+                "domain",
+                f"{study.total} participants leave no degrees of freedom for the error after "
+                f"the exposure, the intercept and {len(analysis.covariates)} covariates.",
+                where,
+            )
+    if isinstance(analysis, MatchedAnalysisIR):
+        matched = analysis.plan.model
+        # mcnemar refuses a design that is not a matched study.
+        assert isinstance(matched, MatchedStudyIR)
+        if matched.pairs > MAX_PLANNED_PAIRS:
+            fail("domain", f"Exact power is limited to {MAX_PLANNED_PAIRS} pairs.", where)
     if not isinstance(analysis, AssociationAnalysisIR):
         return
     model = analysis.plan.model
-    if model.groups is None and model.n > MAX_TOTAL:
+    # fisher_exact refuses a design that is not an observational study.
+    assert isinstance(model, ObservationalStudyIR)
+    # Every design but case-control, whose groups are fixed, declares n.
+    if model.groups is None and model.n > MAX_TOTAL:  # type: ignore[attr-defined]
         fail(
             "domain",
             f"Exact power is limited to {MAX_TOTAL} participants in all when only the total "
@@ -742,6 +773,7 @@ def _planned_interval(arguments: dict[str, LocatedValue], span: Span) -> Planned
             measure.span,
         )
     if method not in PRECISION_METHODS:
+        assert method_arg is not None  # method is "exact" without it
         fail("domain", 'method must be "exact" or "normal".', method_arg.span)
     if design == "two_arm":
         check_design(model.value, BINOMIAL_ASSUMPTIONS, "planned_interval", model.span)
@@ -775,6 +807,7 @@ def _planned_interval(arguments: dict[str, LocatedValue], span: Span) -> Planned
             span,
         )
     if not needs_group and group is not None:
+        assert group_arg is not None  # group is None without it
         fail("domain", "This interval has no group to choose; leave group out.", group_arg.span)
     return PlannedIntervalIR(model.value, measure.value, method, group)
 
@@ -786,6 +819,7 @@ def _single_proportion(arguments: dict[str, LocatedValue], span: Span) -> Single
     population = arguments.get("population_size")
     size = None if population is None or population.value is None else population.value
     if size is not None and size < 2:
+        assert population is not None  # size is None without it
         fail("domain", "population_size must be at least 2.", population.span)
     return SingleProportionIR(value.value, _design_effect(arguments), size)
 
@@ -807,6 +841,7 @@ def _precision_target(arguments: dict[str, LocatedValue], span: Span) -> Precisi
         fail("domain", "level must lie strictly between 0 and 1.", level.span)
     chance = None if assurance is None or assurance.value is None else assurance.value
     if chance is not None and not 0 < chance < 1:
+        assert assurance is not None  # chance is None without it
         fail("domain", "assurance must lie strictly between 0 and 1.", assurance.span)
     is_absolute = absolute is not None and absolute.value is not None
     return PrecisionTargetIR(
@@ -846,6 +881,7 @@ def _interval_sizes(arguments: dict[str, LocatedValue], span: Span) -> IntervalC
             ratio.span,
         )
     if not 1 <= each <= MAX_RATIO:
+        assert ratio is not None  # each is 1 without it
         fail("domain", f"ratio must be from 1 to {MAX_RATIO}.", ratio.span)
     if low.value < 1:
         fail("domain", "min_size must be a positive integer.", low.span)
@@ -894,24 +930,26 @@ def _check_precision(
             )
         value = point.p_treatment - point.p_control
     elif kind in ("difference", "ratio", "odds"):
-        wanted, signature = GROUP_POINTS[model.design]
-        if model.design == "cohort" and model.groups is None:
+        # planned_interval(...) refuses these measures of any other model: not_estimable.
+        study = cast(ObservationalStudyIR, model)
+        expected, signature = GROUP_POINTS[study.design]
+        if study.design == "cohort" and study.groups is None:
             signature = "risks(unexposed=..., exposed=..., exposed_share=...)"
-        if not isinstance(point, wanted):
+        if not isinstance(point, expected):
             fail(
                 "planning_point",
-                f"Plan a {model.design.replace('_', '-')} study's {measure} at {signature}.",
+                f"Plan a {study.design.replace('_', '-')} study's {measure} at {signature}.",
                 target.span,
             )
         share = getattr(point, "exposed_share", None)
-        if model.groups is None and share is None:
+        if study.groups is None and share is None:
             fail(
                 "planning_point",
                 "This study fixes only its total, so how many are exposed is random. Give "
                 "exposed_share, the probability that a participant is exposed.",
                 target.span,
             )
-        if model.groups is not None and share is not None:
+        if study.groups is not None and share is not None:
             fail(
                 "planning_point",
                 "This cohort sampled its exposed and unexposed groups in fixed numbers; leave "
@@ -992,6 +1030,7 @@ def _check_precision(
             target.span,
         )
     if survey and effect is None:
+        assert isinstance(model, ObservationalStudyIR)  # survey is False otherwise
         fail(
             "planning_point",
             f"This survey samples by {model.survey} design: give design_effect=... on the "

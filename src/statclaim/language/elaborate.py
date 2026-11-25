@@ -1,6 +1,8 @@
 """Elaboration: from a parsed program to typed objects and requests."""
 
 from fractions import Fraction
+from typing import Literal as Choice
+from typing import cast
 
 from statclaim.fisher import validate_alpha
 from statclaim.language.core import (
@@ -12,6 +14,7 @@ from statclaim.language.ir import (
     AssociationNullIR,
     BindingIR,
     CalculationResultIR,
+    ClaimIR,
     FieldIR,
     ObservationalStudyIR,
     ProgramIR,
@@ -36,6 +39,7 @@ from statclaim.language_syntax import (
     Literal,
     Reference,
     Source,
+    Span,
     Statement,
     parse,
 )
@@ -69,7 +73,9 @@ def _typed(argument: LocatedValue, kind: str | type, name: str) -> LocatedValue:
             if kind == "string"
             else actual.kind == "list"
             if kind == "list"
-            else isinstance(actual.kind, type) and issubclass(actual.kind, kind)
+            else isinstance(actual.kind, type)
+            and isinstance(kind, type)
+            and issubclass(actual.kind, kind)
         )
         if not valid:
             expected = kind if isinstance(kind, str) else kind.__name__.removesuffix("IR")
@@ -96,7 +102,8 @@ def _typed(argument: LocatedValue, kind: str | type, name: str) -> LocatedValue:
         if kind == "string"
         else isinstance(value, tuple)
         if kind == "list"
-        else isinstance(value, kind)
+        # Every other kind is a class: see the registry's parameters.
+        else isinstance(kind, type) and isinstance(value, kind)
     )
     if not valid:
         expected = kind if isinstance(kind, str) else kind.__name__.removesuffix("IR")
@@ -126,7 +133,7 @@ def _observational_hint(value: object) -> str:
 
 
 class Elaborator:
-    def __init__(self):
+    def __init__(self) -> None:
         self.symbols: dict[str, BindingIR] = {}
         self.constructors: dict[str, Constructor] = dict(OPERATIONS)
         self.modules: list[str] = []
@@ -157,16 +164,16 @@ class Elaborator:
             case FieldAccess(subject=subject, name=name, name_span=name_span):
                 from statclaim.language_fields import project
 
-                value = project(self.evaluate(subject).value, name, name_span, self.requests)
-                origin = next(
+                projected = project(self.evaluate(subject).value, name, name_span, self.requests)
+                definition = next(
                     (
                         b.span
                         for b in self.symbols.values()
-                        if b.value is value and b.argument_sources
+                        if b.value is projected and b.argument_sources
                     ),
                     None,
                 )
-                return LocatedValue(value, expression.span, definition_span=origin)
+                return LocatedValue(projected, expression.span, definition_span=definition)
             case Call(name=name, arguments=arguments, span=span):
                 if name not in self.constructors:
                     owner = next(
@@ -208,24 +215,27 @@ class Elaborator:
                         f"Missing {', '.join(missing)}. Expected {constructor.signature}.",
                         span,
                     )
-                for key, argument in fields.items():
-                    if is_deferred(argument.value):
+                for key, located in fields.items():
+                    if is_deferred(located.value):
                         fail(
                             "runtime_dependency",
                             f"{key} depends on execution. "
                             "Statistical constructors require inputs known during compilation; "
                             "bind or inspect this runtime field instead.",
-                            argument.span,
+                            located.span,
                         )
                 if constructor.hypothesis_contract:
                     constructor.hypothesis_contract.check(name, fields)
-                value = constructor.build(fields, span)
+                built = constructor.build(fields, span)
                 if name in OPERATIONS:
+                    # An operation's builder returns the claim its typed argument holds.
+                    assert isinstance(built, ClaimIR)
+                    operation = cast(Choice["verify", "calculate", "simulate"], name)
                     settings = simulation_settings(fields) if name == "simulate" else None
-                    self.requests.append(RequestIR(name, value, span, settings))
+                    self.requests.append(RequestIR(operation, built, span, settings))
                     result_type = VerificationResultIR if name == "verify" else CalculationResultIR
-                    value = result_type(len(self.requests))
-                return LocatedValue(value, span)
+                    return LocatedValue(result_type(len(self.requests)), span)
+                return LocatedValue(built, span)
         raise AssertionError("Unrecognized syntax node")
 
     def statement(self, statement: Statement) -> None:
@@ -261,9 +271,12 @@ class Elaborator:
             )
         if statement.kind == "let" and statement.name in OPERATIONS:
             fail("reserved_name", f"{statement.name!r} names a built-in operation.", statement.span)
+        # The parser gives every let and expression statement an expression, and a let a name.
+        assert statement.expression is not None
         value = self.evaluate(statement.expression).value
         if statement.kind == "let":
-            fields = ()
+            assert statement.name is not None
+            fields: tuple[tuple[str, Span], ...] = ()
             if isinstance(statement.expression, Call):
                 constructor = self.constructors[statement.expression.name]
                 fields = tuple(
@@ -313,6 +326,7 @@ def elaborate(source: Source) -> tuple[ProgramIR, list[Diagnostic]]:
             del elaborator.requests[request_count:]
             diagnostics.append(error.diagnostic)
             if statement.kind == "let" and statement.name not in elaborator.symbols:
+                assert statement.name is not None  # the parser names every let
                 elaborator.invalid.add(statement.name)
         except RecursionError:
             del elaborator.requests[request_count:]

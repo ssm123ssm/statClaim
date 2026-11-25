@@ -2,6 +2,8 @@
 
 from collections.abc import Callable
 from fractions import Fraction
+from typing import Literal as Choice
+from typing import cast
 
 from statclaim.association import (
     CELLS,
@@ -45,12 +47,12 @@ from statclaim.language.ir import (
     FamilyIR,
     FamilyLikeIR,
     HypothesisIR,
-    LevelTestIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
     MatchedPairsIR,
     MatchedResultIR,
     MatchedStudyIR,
+    MemberIR,
     ObservationalStudyIR,
     ObservationIR,
     ObservedEventsIR,
@@ -237,6 +239,7 @@ def _randomisation_test(arguments: dict[str, LocatedValue], span: Span) -> Rando
     drawn = arguments.get("draws")
     draws = drawn.value if drawn is not None else None
     if draws is not None:
+        assert drawn is not None  # draws is None without it
         if not 1 <= draws <= MAX_DRAWS:
             fail("domain", f"draws must be a whole number from 1 to {MAX_DRAWS}.", drawn.span)
         if Fraction(1, draws + 1) > alpha.value:
@@ -314,7 +317,7 @@ def _choice(arguments: dict[str, LocatedValue], key: str, choices: dict, default
 
 def _study_options(arguments: dict[str, LocatedValue], span: Span, n: int | None = None) -> dict:
     """Names, measurement scales and the survey design, as a study declares them."""
-    options = {
+    options: dict[str, object] = {
         "exposure": _study_name(arguments, "exposure"),
         "outcome": _study_name(arguments, "outcome"),
         "exposure_scale": _choice(arguments, "exposure_scale", SCALES, "binary"),
@@ -376,6 +379,7 @@ def _simple_binary(
 
 def _cross_sectional(arguments: dict[str, LocatedValue], span: Span) -> CrossSectionalStudyIR:
     n = _size(arguments, "n")
+    assert n is not None  # a required parameter of cross_sectional
     return CrossSectionalStudyIR(n=n, **_study_options(arguments, span, n))
 
 
@@ -395,7 +399,8 @@ def _cohort(arguments: dict[str, LocatedValue], span: Span) -> CohortStudyIR:
             "exposed was not fixed.",
             span,
         )
-    total = n if n is not None else exposed + unexposed
+    # Refused above unless both group sizes are given without n.
+    total = n if n is not None else cast(int, exposed) + cast(int, unexposed)
     if total > MAX_PARTICIPANTS:
         fail("domain", f"A study may have at most {MAX_PARTICIPANTS} participants.", span)
     return CohortStudyIR(
@@ -405,6 +410,7 @@ def _cohort(arguments: dict[str, LocatedValue], span: Span) -> CohortStudyIR:
 
 def _case_control(arguments: dict[str, LocatedValue], span: Span) -> CaseControlStudyIR:
     cases, controls = _size(arguments, "cases"), _size(arguments, "controls")
+    assert cases is not None and controls is not None  # required parameters of case_control
     if cases + controls > MAX_PARTICIPANTS:
         fail("domain", f"A study may have at most {MAX_PARTICIPANTS} participants.", span)
     return CaseControlStudyIR(
@@ -726,7 +732,9 @@ def _cited_association(method: ObservationalMethod) -> Callable:
                 design.span,
             )
         clustered = model.survey == "cluster"
-        if method.min_clusters and clustered and model.clusters < method.min_clusters:
+        # _study_options requires clusters for a cluster survey.
+        clusters = cast(int, model.clusters)
+        if method.min_clusters and clustered and clusters < method.min_clusters:
             fail(
                 "domain",
                 f"{key} needs at least {method.min_clusters} sampled clusters for its "
@@ -757,7 +765,11 @@ def _cited_association(method: ObservationalMethod) -> Callable:
 
 
 def _cited_association_constructor(method: ObservationalMethod) -> Constructor:
-    parameters = [("design", PlanIR), ("null", AssociationNullIR), ("alpha", "level")]
+    parameters: list[tuple[str, str | type] | tuple[str, str | type, bool]] = [
+        ("design", PlanIR),
+        ("null", AssociationNullIR),
+        ("alpha", "level"),
+    ]
     if method.covariates:
         parameters.append(("adjusted_for", "list", True))
     designs = _words(method.designs)
@@ -845,7 +857,9 @@ def _fisher(alternative: str) -> Callable:
     return build
 
 
-def _difference(predicate: str) -> Callable:
+def _difference(
+    predicate: Choice["proportion_difference", "proportion_difference_at_most"],
+) -> Callable:
     def build(arguments: dict[str, LocatedValue], span: Span) -> HypothesisIR:
         bound = arguments["value"]
         if not -1 <= bound.value <= 1:
@@ -882,7 +896,7 @@ def _difference_test(arguments: dict[str, LocatedValue], span: Span) -> Analysis
 
 def _members(
     argument: LocatedValue, what: str, *, combinations: bool = True, randomisation: bool = True
-) -> list[tuple[str, object]]:
+) -> list[tuple[str, MemberIR]]:
     """Named, distinct analyses for a family, a sequence, a graph or a design's looks.
 
     With combinations=True an entry may also be a whole design with looks, a
@@ -961,18 +975,26 @@ def _family(arguments: dict[str, LocatedValue], span: Span) -> FamilyLikeIR:
             "dependence between outcomes is unrestricted.",
             law.span,
         )
-    return FamilyIR(tuple(analyses), arguments["alpha"].value, "binomial_marginals")
+    # proved: every member is a two-sided Fisher analysis.
+    fisher = cast(tuple[tuple[str, AnalysisIR], ...], tuple(analyses))
+    return FamilyIR(fisher, arguments["alpha"].value, "binomial_marginals")
 
 
-def _test_key(analysis: LevelTestIR) -> str:
+def _test_key(analysis: AnalysisIR | CitedAnalysisIR) -> str:
     if isinstance(analysis, CitedAnalysisIR):
         return analysis.method.key
     return EXACT_CONTRACT_IDS[analysis.alternative].split("/")[1]
 
 
-def _ordered_looks(arguments: dict[str, LocatedValue]) -> list[tuple[str, object]]:
+def _ordered_looks(
+    arguments: dict[str, LocatedValue],
+) -> list[tuple[str, AnalysisIR | CitedAnalysisIR]]:
     """The looks of a design: one test of one null, at growing cumulative sizes."""
-    looks = _members(arguments["looks"], "looks", combinations=False, randomisation=False)
+    # Without combinations or randomisation tests, _members admits only these two kinds.
+    looks = cast(
+        list[tuple[str, AnalysisIR | CitedAnalysisIR]],
+        _members(arguments["looks"], "looks", combinations=False, randomisation=False),
+    )
     first = looks[0][1]
     previous = None
     for name, look in looks:
@@ -990,6 +1012,8 @@ def _ordered_looks(arguments: dict[str, LocatedValue]) -> list[tuple[str, object
                 "look. Different questions belong in a bonferroni family.",
                 arguments["looks"].span,
             )
+        # _members read each look's outcome, which only a two-arm model has.
+        assert isinstance(model, TwoArmModelIR)
         sizes = (model.n_control, model.n_treatment)
         if previous is not None and not (
             sizes[0] >= previous[0] and sizes[1] >= previous[1] and sum(sizes) > sum(previous)
@@ -1036,7 +1060,9 @@ def _group_sequential(arguments: dict[str, LocatedValue], span: Span) -> Sequent
             "for other tests.",
             arguments["looks"].span,
         )
-    sizes = [(look.plan.model.n_control, look.plan.model.n_treatment) for _, look in looks]
+    # _members read each look's outcome, which only a two-arm model has.
+    models = [cast(TwoArmModelIR, look.plan.model) for _, look in looks]
+    sizes = [(model.n_control, model.n_treatment) for model in models]
     limits = boundary_limits(sizes, alpha, sides, spending.value)
     over = [name for (name, look), limit in zip(looks, limits, strict=True) if look.alpha > limit]
     if over:
@@ -1148,7 +1174,10 @@ def _observe(arguments: dict[str, LocatedValue], span: Span) -> ObservationIR:
     )
 
 
-def _claim(kind: str, argument: str) -> Callable:
+def _claim(
+    kind: Choice["typeI", "familywise", "result", "meets", "sample_size", "interval"],
+    argument: str,
+) -> Callable:
     return lambda args, span: ClaimIR(
         kind, args[argument].value, args[argument].name or "<expression>"
     )

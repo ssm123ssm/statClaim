@@ -4,17 +4,21 @@ import json
 from collections.abc import Callable, Iterator
 from dataclasses import replace
 from fractions import Fraction
+from typing import cast
 
 from statclaim.language.core import (
     LocatedValue,
     fail,
 )
 from statclaim.language.ir import (
+    AnalysisIR,
     AssignmentIR,
+    CitedAnalysisIR,
     ComposedFamilyIR,
     FamilyIR,
     OutcomeIR,
     OutcomeNullIR,
+    RandomisationAnalysisIR,
     StratumIR,
     TwoArmModelIR,
     two_arm_model,
@@ -43,11 +47,10 @@ def _declare_randomisation(
     scheme, strata, block = (
         arguments.get(name) for name in ("randomisation", "strata", "block_size")
     )
-    named = scheme is not None and scheme.value is not None
     detail = next(
         (item for item in (strata, block) if item is not None and item.value is not None), None
     )
-    if not named:
+    if scheme is None or scheme.value is None:
         if detail is not None:
             fail(
                 "domain",
@@ -147,10 +150,12 @@ def _outcome_piece(kind: str) -> Callable:
         measurements = arguments.get("measurements")
         count = 1 if measurements is None or measurements.value is None else measurements.value
         if count < 1:
+            assert measurements is not None  # count is 1 without it
             fail("domain", "measurements must be a positive integer.", measurements.span)
         named = arguments.get("name")
         name = None if named is None or named.value is None else named.value.strip()
         if name is not None and (not name or "\n" in name or len(name) > MAX_NAME):
+            assert named is not None  # name is None without it
             fail(
                 "domain",
                 f'name must be one line of 1 to {MAX_NAME} characters, such as "response".',
@@ -165,7 +170,9 @@ def _outcome_piece(kind: str) -> Callable:
 MAX_NAME = 100
 
 
-def _leaves(members) -> Iterator[tuple[str, object]]:
+def _leaves(
+    members,
+) -> Iterator[tuple[str, AnalysisIR | CitedAnalysisIR | RandomisationAnalysisIR]]:
     """The single analyses in a combination, inside nested ones too, with their names."""
     for name, analysis in members:
         if isinstance(analysis, (ComposedFamilyIR, FamilyIR)):
@@ -176,14 +183,18 @@ def _leaves(members) -> Iterator[tuple[str, object]]:
 
 def named_outcomes(members) -> list[str]:
     """The outcome names a combination's analyses declare, in order, each once."""
-    names = (analysis.plan.model.measured.name for _, analysis in _leaves(members))
+    # Tests of randomised arms refuse an observational design: _observational_refused.
+    models = (cast(TwoArmModelIR, analysis.plan.model) for _, analysis in _leaves(members))
+    names = (model.measured.name for model in models)
     return list(dict.fromkeys(name for name in names if name is not None))
 
 
 def _question(analysis) -> str:
     """What an analysis asks, whatever its level: its test, its null and its design."""
+    record = normalize(analysis)
+    assert isinstance(record, dict)  # an analysis's record
     return json.dumps(
-        {key: value for key, value in normalize(analysis).items() if key != "alpha"},
+        {key: value for key, value in record.items() if key != "alpha"},
         sort_keys=True,
     )
 
@@ -198,7 +209,8 @@ def _check_named_outcomes(members, span: Span) -> None:
     first: dict[str, tuple[str, OutcomeIR]] = {}
     asked: dict[str, str] = {}
     for label, analysis in _leaves(members):
-        outcome = analysis.plan.model.measured
+        # Tests of randomised arms refuse an observational design: _observational_refused.
+        outcome = cast(TwoArmModelIR, analysis.plan.model).measured
         if outcome.name is None:
             continue
         earlier, seen = first.setdefault(outcome.name, (label, outcome))

@@ -200,6 +200,7 @@ def tokenize(
             offset += 1
             continue
         kind, text = match.lastgroup, match.group()
+        assert kind is not None  # every alternative of _TOKEN is a named group
         if include_trivia or kind not in ("SPACE", "COMMENT"):
             tokens.append(
                 Token(text if kind == "PUNCT" else kind, text, source.span(offset, match.end()))
@@ -251,7 +252,7 @@ class Parser:
         token = self.current
         if token.kind == "NUMBER":
             self.take("NUMBER")
-            value = Fraction(token.text) if "." in token.text else int(token.text)
+            number = Fraction(token.text) if "." in token.text else int(token.text)
             end = token.span
             if self.current.kind == "/":
                 self.take("/")
@@ -265,13 +266,13 @@ class Parser:
                         )
                     )
                 try:
-                    value = Fraction(value, int(denominator.text))
+                    number = Fraction(number, int(denominator.text))
                 except ZeroDivisionError as error:
                     raise LanguageError(
                         Diagnostic("number", "A denominator cannot be zero.", denominator.span)
                     ) from error
                 end = denominator.span
-            return Literal(value, self.join(token.span, end))
+            return Literal(number, self.join(token.span, end))
         if token.kind == "STRING":
             self.take("STRING")
             try:
@@ -291,8 +292,8 @@ class Parser:
                     break
                 self.take(",")
                 self.newlines()
-            end = self.take("]", "Expected ']' to finish the list.")
-            return ListExpr(tuple(items), self.join(token.span, end.span))
+            closing = self.take("]", "Expected ']' to finish the list.")
+            return ListExpr(tuple(items), self.join(token.span, closing.span))
         if token.kind == "NAME":
             self.take("NAME")
             if self.current.kind != "(":
@@ -304,7 +305,7 @@ class Parser:
                     token.span.line,
                     token.span.column + len(first),
                 )
-                value = Reference(first, span)
+                value: Expression = Reference(first, span)
                 if rest:
                     tail_span = Span(
                         token.span.path,
@@ -339,8 +340,8 @@ class Parser:
                     break
                 self.take(",")
                 self.newlines()
-            end = self.take(")", "Expected ')' to finish the call.")
-            return Call(token.text, tuple(arguments), self.join(token.span, end.span))
+            closing = self.take(")", "Expected ')' to finish the call.")
+            return Call(token.text, tuple(arguments), self.join(token.span, closing.span))
         raise LanguageError(
             Diagnostic("syntax", "Expected a name, call, exact number, or list.", token.span)
         )

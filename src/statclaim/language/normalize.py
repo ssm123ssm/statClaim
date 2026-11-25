@@ -80,6 +80,7 @@ from statclaim.language.ir import (
     ReestimationIR,
     RisksIR,
     RuleIR,
+    SequentialIR,
     SharpNullIR,
     SingleProportionIR,
     SizingIR,
@@ -102,7 +103,7 @@ from statclaim.observational_planning import SEARCH_KEYS as GROUP_SEARCH_KEYS
 
 def _study_extras(study: "ObservationalStudyIR") -> dict:
     """Scales and survey designs, recorded only when they differ from the defaults."""
-    extras = {}
+    extras: dict[str, object] = {}
     if study.exposure_scale != "binary":
         extras["exposure_scale"] = study.exposure_scale
     if study.outcome_scale != "binary":
@@ -124,8 +125,7 @@ def _with_cluster_cv(point: dict, value) -> dict:
 
 def _check_skewed_point(analysis: object, target: LocatedValue) -> None:
     """Skewed data are simulated for the correlation and slope tests, without covariates."""
-    simulated = isinstance(analysis, CitedAssociationIR) and analysis.method.simulation
-    if not simulated:
+    if not isinstance(analysis, CitedAssociationIR) or not analysis.method.simulation:
         key = getattr(getattr(analysis, "method", None), "key", "this analysis")
         fail(
             "planning_point",
@@ -156,15 +156,16 @@ def normalize(value: object) -> object:
         case TwoArmModelIR(assignment=assignment, measured=measured):
             # Only what a file declared beyond the arm sizes is written, so a model keeps
             # the same record however it is spelled and whatever was added later.
-            outcome = normalize(measured)
+            outcome, sizes = normalize(measured), normalize(assignment)
+            assert isinstance(outcome, dict) and isinstance(sizes, dict)  # see their cases below
             return {
                 "module": OUTCOMES[measured.kind].constructor,
-                **normalize(assignment),
+                **sizes,
                 **{key: value for key, value in outcome.items() if key not in ("outcome", "name")},
                 **({"outcome_name": outcome["name"]} if "name" in outcome else {}),
             }
         case AssignmentIR(n_control=nc, n_treatment=nt, clusters_control=cc):
-            result = {"n_control": nc, "n_treatment": nt}
+            result: dict[str, object] = {"n_control": nc, "n_treatment": nt}
             if cc is not None:
                 result.update(clusters_control=cc, clusters_treatment=value.clusters_treatment)
             if value.randomisation is not None:
@@ -355,6 +356,8 @@ def normalize(value: object) -> object:
                 result["weights"] = [str(weight) for weight in weights]
                 result["transitions"] = [[str(share) for share in row] for row in transitions]
             if mode == "spending":
+                # Only group_sequential(...) builds this mode, as a design with looks.
+                assert isinstance(value, SequentialIR)
                 result["spending"] = value.spending
             return result
         case FamilyIR(analyses=analyses, alpha=alpha, joint_law=law):
@@ -375,7 +378,7 @@ def normalize(value: object) -> object:
                 "treatment_successes": treatment,
             }
         case RatesIR(p_control=control, p_treatment=treatment, icc=icc):
-            point = {"p_control": str(control), "p_treatment": str(treatment)}
+            point: dict[str, object] = {"p_control": str(control), "p_treatment": str(treatment)}
             point = point if icc is None else {**point, "icc": str(icc)}
             return _with_cluster_cv(point, value)
         case RateIR(value=rate):
@@ -407,7 +410,10 @@ def normalize(value: object) -> object:
             unit = value.unit
             return {"analysis": normalize(analysis), f"min_{unit}": low, f"max_{unit}": high}
         case GroupCandidatesIR(analysis=analysis, min_size=low, max_size=high, ratio=ratio):
-            low_key, high_key, ratio_key = GROUP_SEARCH_KEYS[analysis.plan.model.design]
+            study = analysis.plan.model
+            # Fisher's test of association and the cited observational tests take a study.
+            assert isinstance(study, ObservationalStudyIR)
+            low_key, high_key, ratio_key = GROUP_SEARCH_KEYS[study.design]
             return {"analysis": normalize(analysis), low_key: low, high_key: high, ratio_key: ratio}
         case MeanDifferenceIR(value=difference, sd=sd, icc=icc):
             point = {"mean_difference": str(difference), "sd": str(sd)}
@@ -451,8 +457,8 @@ def normalize(value: object) -> object:
             if value.population_size is not None:
                 point["population_size"] = value.population_size
             return _with_design_effect(point, value)
-        case PrecisionTargetIR(at=point, level=level):
-            result = {"at": normalize(point), "level": str(level)}
+        case PrecisionTargetIR(at=at, level=level):
+            result = {"at": normalize(at), "level": str(level)}
             if value.margin is not None:
                 result["margin_of_error"] = str(value.margin)
             else:
@@ -470,9 +476,9 @@ def normalize(value: object) -> object:
                 "max_size": high,
                 "ratio": ratio,
             }
-        case PowerTargetIR(at=point, minimum=minimum, maximum_typeI=maximum):
+        case PowerTargetIR(at=at, minimum=minimum, maximum_typeI=maximum):
             target = {
-                "at": normalize(point),
+                "at": normalize(at),
                 "minimum_power": str(minimum),
                 "maximum_typeI": str(maximum),
             }

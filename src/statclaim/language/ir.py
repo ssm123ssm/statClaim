@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any
+from typing import Any, cast
 from typing import Literal as Choice
 
 from statclaim.association import (
@@ -141,6 +141,8 @@ class AssignmentIR:
     def randomised_units(self) -> tuple[str, int, int]:
         """What was randomised: the kind of unit, how many, and how many were treated."""
         if self.clustered:
+            # cluster_assignment(...) declares the clusters of both arms together.
+            assert self.clusters_control is not None and self.clusters_treatment is not None
             return (
                 "cluster",
                 self.clusters_control + self.clusters_treatment,
@@ -152,7 +154,10 @@ class AssignmentIR:
     def groups(self) -> tuple[tuple[int, int], ...]:
         """The groups randomised independently, as (units, treated), when declared."""
         _, units, treated = self.randomised_units
-        return groups_of(units, treated, self.randomisation, self.strata, self.block_size)
+        # Read only once the randomisation is declared: randomisation_test refuses an
+        # assignment without one. None would fail in groups_of as an unknown scheme.
+        scheme = cast(str, self.randomisation)
+        return groups_of(units, treated, scheme, self.strata, self.block_size)
 
 
 @dataclass(frozen=True)
@@ -322,7 +327,8 @@ class AnalysisIR(TwoArmTestIR, LevelTestIR):
 
     def margin_test(self, target=None, observed=None, sizes=None) -> MarginTest:
         """The exact difference test, optionally with a planning target or observed counts."""
-        model = self.plan.model
+        # Fisher's and the difference test's contracts give an exact test a binomial model.
+        model = cast(ModelIR, self.plan.model)
         n_control, n_treatment = sizes or (model.n_control, model.n_treatment)
         rates = (None, None, None, None)
         if target is not None:
@@ -337,13 +343,19 @@ class AnalysisIR(TwoArmTestIR, LevelTestIR):
         )
 
     def lower(self) -> Design:
+        # Fisher's and the difference test's contracts give an exact test a binomial model.
+        model = cast(ModelIR, self.plan.model)
         return Design(
-            self.plan.model.n_control,
-            self.plan.model.n_treatment,
+            model.n_control,
+            model.n_treatment,
             self.plan.stopping,
             self.alpha,
             self.alternative,
         )
+
+
+# Every null hypothesis: the classes derived from NullIR.
+type AnyNullIR = HypothesisIR | OutcomeNullIR | SharpNullIR | AssociationNullIR
 
 
 @dataclass(frozen=True)
@@ -354,7 +366,7 @@ class CitedAnalysisIR(TwoArmTestIR, LevelTestIR):
     """
 
     plan: PlanIR
-    hypothesis: NullIR
+    hypothesis: AnyNullIR
     alpha: Fraction
     method: CitedMethod
 
@@ -366,8 +378,10 @@ class CitedAnalysisIR(TwoArmTestIR, LevelTestIR):
     def assumptions(self) -> tuple[Assumption, ...]:
         """The method's assumptions, the direction of benefit when the file leaves it out,
         and for a declared test, what it must do for the declared design."""
+        # The observational design check gives a test of randomised arms a two-arm model.
+        model = cast(TwoArmModelIR, self.plan.model)
         vouched = (
-            tuple(ACCOUNTS_FOR[feature] for feature in self.plan.model.features)
+            tuple(ACCOUNTS_FOR[feature] for feature in model.features)
             if self.method.grade == "declared"
             else ()
         )
@@ -395,6 +409,8 @@ def population_conditions(subject: object) -> tuple[Assumption, ...]:
             model = plan.model if isinstance(plan, PlanIR) else getattr(item, "model", None)
             assignment = getattr(model, "assignment", None)
             population = getattr(assignment, "population", None)
+            if population is None:
+                return
             for condition in POPULATION_COVERED.get(population, ()):
                 if condition not in found:
                     found.append(condition)
@@ -403,10 +419,14 @@ def population_conditions(subject: object) -> tuple[Assumption, ...]:
     return tuple(found)
 
 
-def direction_assumptions(null: "NullIR") -> tuple[Assumption, ...]:
+def direction_assumptions(null: AnyNullIR) -> tuple[Assumption, ...]:
     """A one-sided null takes a side. If the model does not declare it, it is assumed."""
     favours = NULL_FORMS[null.predicate][1].favours if null.predicate in NULL_FORMS else None
-    if favours is None or null.model.better is not None:
+    if favours is None:
+        return ()
+    # no_association is not among NULL_FORMS, so only a two-arm model's null takes a side.
+    assert not isinstance(null, AssociationNullIR)
+    if null.model.better is not None:
         return ()
     return (HIGHER_IS_BETTER if favours == "higher" else LOWER_IS_BETTER,)
 
@@ -430,6 +450,8 @@ class RandomisationAnalysisIR(LevelTestIR):
 
     def lower(self) -> RandomisationTest:
         model = self.plan.model
+        # randomisation_test reads the design's assignment, which only a two-arm model has.
+        assert isinstance(model, TwoArmModelIR)
         unit, units, treated = model.assignment.randomised_units
         return RandomisationTest(
             units,
@@ -439,7 +461,8 @@ class RandomisationAnalysisIR(LevelTestIR):
             OUTCOMES[model.outcome].constructor,
             model.n_control,
             model.n_treatment,
-            model.assignment.randomisation,
+            # randomisation_test refuses an assignment that does not declare it.
+            cast(str, model.assignment.randomisation),
             model.assignment.strata,
             model.assignment.block_size,
             self.draws,
@@ -473,7 +496,8 @@ class ObservationalStudyIR(StudyModelIR, EstimableModelIR):
     @property
     def total(self) -> int:
         groups = self.groups
-        return sum(groups) if groups is not None else self.n
+        # Every design but case-control, whose groups are fixed, declares n.
+        return sum(groups) if groups is not None else self.n  # type: ignore[attr-defined]
 
 
 @dataclass(frozen=True)
@@ -497,7 +521,8 @@ class CohortStudyIR(ObservationalStudyIR):
 
     @property
     def groups(self) -> tuple[int, int] | None:
-        return None if self.exposed is None else (self.unexposed, self.exposed)
+        # cohort(...) refuses exposed without unexposed.
+        return None if self.exposed is None else (cast(int, self.unexposed), self.exposed)
 
 
 @dataclass(frozen=True)
@@ -575,12 +600,15 @@ class AssociationAnalysisIR(LevelTestIR, PlannableIR):
 
     def lower(self) -> AssociationTest:
         model = self.plan.model
+        # fisher_exact refuses a design that is not an observational study.
+        assert isinstance(model, ObservationalStudyIR)
         groups = model.groups
         return AssociationTest(
             model.design,
             self.alpha,
             groups,
-            None if groups is not None else model.n,
+            # Every design but case-control, whose groups are fixed, declares n.
+            None if groups is not None else model.n,  # type: ignore[attr-defined]
             model.exposure,
             model.outcome,
         )
@@ -632,7 +660,8 @@ class AssociationTableIR:
             model.design,
             self.cells,
             model.groups,
-            None if model.groups is not None else model.n,
+            # Every design but case-control, whose groups are fixed, declares n.
+            None if model.groups is not None else model.n,  # type: ignore[attr-defined]
             model.exposure,
             model.outcome,
         )
@@ -677,6 +706,8 @@ class MatchedAnalysisIR(LevelTestIR, PlannableIR):
 
     def lower(self) -> MatchedTest:
         model = self.plan.model
+        # mcnemar refuses a design that is not a matched study.
+        assert isinstance(model, MatchedStudyIR)
         return MatchedTest(model.pairs, self.alpha, model.exposure, model.outcome)
 
 
@@ -742,6 +773,8 @@ class RateAnalysisIR(LevelTestIR, PlannableIR):
 
     def lower(self) -> RateTest:
         model = self.plan.model
+        # rate_test refuses a design that is not a person-time cohort.
+        assert isinstance(model, PersonTimeStudyIR)
         return RateTest(self.alpha, model.exposure, model.outcome)
 
 
@@ -802,7 +835,8 @@ class ProportionIR:
     def size(self) -> int:
         groups = self.model.groups
         if groups is None:
-            return self.model.n
+            # Every design but case-control, whose groups are fixed, declares n.
+            return self.model.n  # type: ignore[attr-defined]
         return groups[1] if self.group == "exposed" else groups[0]
 
     def lower(self) -> ProportionEstimate:
@@ -874,7 +908,12 @@ class SequentialIR(ComposedFamilyIR, LevelTestIR, PlannableIR):
         return self.analyses[-1][1]
 
 
-def _component(name: str, analysis: LevelTestIR) -> Component:
+# A member of a family, sequence, graph or design with looks (analyses._members): a single
+# test, or another combination.
+type MemberIR = AnalysisIR | CitedAnalysisIR | RandomisationAnalysisIR | ComposedFamilyIR
+
+
+def _component(name: str, analysis: MemberIR) -> Component:
     if isinstance(analysis, SequentialIR):
         # A design with interim looks counts as one test of its null at its overall level.
         inner = analysis.lower()
@@ -1122,6 +1161,8 @@ def group_probabilities(point: PlanningPointIR) -> tuple[Fraction, Fraction]:
     (unexposed, exposed) for a cohort, (controls, cases) for a case-control study."""
     if isinstance(point, (RisksIR, OutcomePrevalenceIR)):
         return point.unexposed, point.exposed
+    # Callers first check that the point is the design's own kind (points.GROUP_POINTS).
+    point = cast(ExposurePrevalenceIR, point)
     return point.controls, point.cases
 
 
@@ -1172,7 +1213,10 @@ class ReestimationIR(PlannableIR):
 
     @property
     def initial_per_arm(self) -> int:
-        return self.analysis.plan.model.n_control
+        model = self.analysis.plan.model
+        # blinded_reestimation(...) takes a t-test, which reads a two-arm model's sizes.
+        assert isinstance(model, TwoArmModelIR)
+        return model.n_control
 
 
 @dataclass(frozen=True)
@@ -1198,7 +1242,11 @@ class PrecisionTargetIR(TargetIR):
 
     @property
     def bound(self) -> Fraction:
-        return self.margin if self.margin is not None else self.relative
+        if self.margin is not None:
+            return self.margin
+        # precision_target(...) takes margin_of_error or relative_margin_of_error.
+        assert self.relative is not None
+        return self.relative
 
 
 @dataclass(frozen=True)
@@ -1258,7 +1306,8 @@ class OneSampleAnalysisIR(PlannableIR):
             self.model.n if n is None else n,
             self.null_rate,
             self.alpha,
-            target.at.value,
+            # A single-arm analysis is planned at response_rate(...): checks._check_point.
+            cast(RateIR, target.at).value,
             target.minimum,
             target.maximum_typeI,
         )
@@ -1327,19 +1376,22 @@ class FeasibilityIR:
     target: PowerTargetIR
 
     def lower(self) -> object:
+        # Each analysis is planned at its own kind of point: checks._check_point.
         target = self.target
-        if (
-            isinstance(self.analysis, AssociationAnalysisIR)
-            and self.analysis.plan.model.groups is None
-        ):
-            return TotalPowerPlan(
-                self.analysis.lower(),
-                *group_probabilities(target.at),
-                target.at.exposed_share,
-                target.minimum,
-                target.maximum_typeI,
-            )
         if isinstance(self.analysis, AssociationAnalysisIR):
+            model = self.analysis.plan.model
+            # fisher_exact refuses a design that is not an observational study.
+            assert isinstance(model, ObservationalStudyIR)
+            if model.groups is None:
+                # A study that fixes only its total is planned with exposed_share.
+                total = cast(RisksIR | OutcomePrevalenceIR, target.at)
+                return TotalPowerPlan(
+                    self.analysis.lower(),
+                    *group_probabilities(total),
+                    cast(Fraction, total.exposed_share),
+                    target.minimum,
+                    target.maximum_typeI,
+                )
             return AssociationPowerPlan(
                 self.analysis.lower(),
                 *group_probabilities(target.at),
@@ -1347,22 +1399,23 @@ class FeasibilityIR:
                 target.maximum_typeI,
             )
         if isinstance(self.analysis, MatchedAnalysisIR):
-            point = target.at
+            pairs = cast(DiscordantPairsIR, target.at)
             return MatchedPowerPlan(
                 self.analysis.lower(),
-                point.share,
-                point.odds_ratio,
+                pairs.share,
+                pairs.odds_ratio,
                 target.minimum,
                 target.maximum_typeI,
             )
         if isinstance(self.analysis, RateAnalysisIR):
-            point = target.at
+            rates = cast(IncidenceRatesIR, target.at)
             return RatePowerPlan(
                 self.analysis.lower(),
-                point.exposed_time,
-                point.unexposed_time,
-                point.rate_ratio,
-                point.events,
+                rates.exposed_time,
+                rates.unexposed_time,
+                rates.rate_ratio,
+                # meets(...) refuses incidence_rates without events.
+                cast(int, rates.events),
                 target.minimum,
                 target.maximum_typeI,
             )
@@ -1377,14 +1430,16 @@ class FeasibilityIR:
                 analysis.design.n_stage2,
                 analysis.rule.rule,
                 analysis.null_rate,
-                target.at.value,
+                cast(RateIR, target.at).value,
                 target.minimum,
                 target.maximum_typeI,
             )
+        # calculate(...) lowers only exact analyses (plan_kinds.KINDS); Fisher's test is left.
+        fisher, point = cast(AnalysisIR, self.analysis), cast(RatesIR, target.at)
         return PowerPlan(
-            self.analysis.lower(),
-            target.at.p_control,
-            target.at.p_treatment,
+            fisher.lower(),
+            point.p_control,
+            point.p_treatment,
             target.minimum,
             target.maximum_typeI,
         )
@@ -1452,7 +1507,7 @@ class GroupCandidatesIR(CandidateSpaceIR):
     max_size exposed participants or cases, with ratio unexposed participants or controls
     for each. Each keeps the analysis's study, null and alpha."""
 
-    analysis: AssociationAnalysisIR
+    analysis: AssociationAnalysisIR | CitedAssociationIR
     min_size: int
     max_size: int
     ratio: int = 1
@@ -1463,7 +1518,7 @@ class TotalCandidatesIR(CandidateSpaceIR):
     """Cross-sectional studies, or cohorts of one population, of min_n to max_n participants.
     Each keeps the analysis's study, null and alpha."""
 
-    analysis: AssociationAnalysisIR
+    analysis: AssociationAnalysisIR | CitedAssociationIR
     min_n: int
     max_n: int
 

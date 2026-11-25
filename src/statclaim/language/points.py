@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from fractions import Fraction
+from typing import cast
 
 from statclaim.family import MAX_ENDPOINTS
 from statclaim.incidence import (
@@ -28,6 +29,7 @@ from statclaim.language.ir import (
     MatchedStudyIR,
     MeanDifferenceIR,
     NullScenariosIR,
+    ObservationalStudyIR,
     OddsPerSdIR,
     OutcomeMeansIR,
     OutcomePrevalenceIR,
@@ -40,6 +42,7 @@ from statclaim.language.ir import (
     RisksIR,
     SlopeIR,
     TotalCandidatesIR,
+    TwoArmModelIR,
 )
 from statclaim.language_syntax import (
     Span,
@@ -164,6 +167,8 @@ def _exponential_survival(arguments: dict[str, LocatedValue], span: Span) -> Exp
     if accrual.value + follow_up.value <= 0:
         fail("domain", "accrual and follow_up cannot both be 0: no one would be followed.", span)
     dropout, when = arguments.get("dropout"), arguments.get("dropout_time")
+    # Both are parameters of exponential_survival, so the elaborator always passes them.
+    assert dropout is not None and when is not None
     given = [a for a in (dropout, when) if a is not None and a.value is not None]
     if len(given) == 1:
         fail(
@@ -205,6 +210,7 @@ def _outcome_means(arguments: dict[str, LocatedValue], span: Span) -> OutcomeMea
     share = arguments.get("exposed_share")
     exposed_share = None if share is None or share.value is None else share.value
     if exposed_share is not None and not 0 < exposed_share < 1:
+        assert share is not None  # exposed_share is None without it
         fail("domain", "exposed_share must lie strictly between 0 and 1.", share.span)
     return OutcomeMeansIR(
         arguments["unexposed"].value,
@@ -225,6 +231,7 @@ def _odds_per_sd(arguments: dict[str, LocatedValue], span: Span) -> OddsPerSdIR:
     explained = arguments.get("exposure_r2")
     share = None if explained is None or explained.value is None else explained.value
     if share is not None and not 0 <= share < 1:
+        assert explained is not None  # share is None without it
         fail("domain", "exposure_r2 must lie in [0, 1).", explained.span)
     return OddsPerSdIR(ratio.value, baseline, share, _design_effect(arguments))
 
@@ -236,6 +243,7 @@ def _slope(arguments: dict[str, LocatedValue], span: Span) -> SlopeIR:
     explained = arguments.get("exposure_r2")
     share = None if explained is None or explained.value is None else explained.value
     if share is not None and not 0 <= share < 1:
+        assert explained is not None  # share is None without it
         fail("domain", "exposure_r2 must lie in [0, 1).", explained.span)
     return SlopeIR(
         arguments["value"].value,
@@ -330,6 +338,8 @@ def _reestimation(arguments: dict[str, LocatedValue], span: Span) -> Reestimatio
             analysis.span,
         )
     model = test.plan.model
+    # A t-test reads its two-arm model's sizes when it is built.
+    assert isinstance(model, TwoArmModelIR)
     if model.n_control != model.n_treatment:
         fail(
             "domain",
@@ -383,6 +393,8 @@ def _reference_and_other(
         )
     if given is not None:
         return base, _probability(given, other)
+    # One of the two is given: refused above otherwise.
+    ratio = cast(LocatedValue, ratio)
     if ratio.value <= 0:
         fail("domain", f"{measure} must be positive.", ratio.span)
     if measure in ("risk_ratio", "prevalence_ratio"):
@@ -429,11 +441,12 @@ def _design_effect(arguments: dict[str, LocatedValue]) -> Fraction | None:
 
 
 def _outcome_prevalence(arguments: dict[str, LocatedValue], span: Span) -> OutcomePrevalenceIR:
-    return OutcomePrevalenceIR(
-        *_reference_and_other(arguments, span, "unexposed", "exposed", "prevalence_ratio"),
-        _exposed_share(arguments),
-        _design_effect(arguments),
+    unexposed, exposed = _reference_and_other(
+        arguments, span, "unexposed", "exposed", "prevalence_ratio"
     )
+    share = _exposed_share(arguments)
+    assert share is not None  # a required parameter of outcome_prevalence
+    return OutcomePrevalenceIR(unexposed, exposed, share, _design_effect(arguments))
 
 
 def _total_sizes(arguments: dict[str, LocatedValue], span: Span) -> TotalCandidatesIR:
@@ -445,7 +458,10 @@ def _total_sizes(arguments: dict[str, LocatedValue], span: Span) -> TotalCandida
             "of association or a cited observational test.",
             analysis.span,
         )
-    if analysis.value.plan.model.groups is not None:
+    model = analysis.value.plan.model
+    # Both tests refuse a design that is not an observational study.
+    assert isinstance(model, ObservationalStudyIR)
+    if model.groups is not None:
         fail(
             "type",
             "total_sizes searches studies that fix only their total. This study fixes its "
@@ -497,6 +513,7 @@ def _incidence_rates(arguments: dict[str, LocatedValue], span: Span) -> Incidenc
     events = arguments.get("events")
     count = None if events is None or events.value is None else events.value
     if count is not None and not 1 <= count <= MAX_EVENTS:
+        assert events is not None  # count is None without it
         fail("domain", f"events must be from 1 to {MAX_EVENTS}.", events.span)
     return IncidenceRatesIR(
         arguments["rate_ratio"].value,
@@ -557,6 +574,8 @@ def _group_sizes(design: str) -> Callable:
                 analysis.span,
             )
         model = analysis.value.plan.model
+        # Both tests refuse a design that is not an observational study.
+        assert isinstance(model, ObservationalStudyIR)
         if model.design != design:
             fail(
                 "type",
@@ -575,6 +594,7 @@ def _group_sizes(design: str) -> Callable:
         ratio = arguments.get(ratio_key)
         each = 1 if ratio is None or ratio.value is None else ratio.value
         if not 1 <= each <= MAX_RATIO:
+            assert ratio is not None  # each is 1 without it
             fail("domain", f"{ratio_key} must be from 1 to {MAX_RATIO}.", ratio.span)
         if low.value < 1:
             fail("domain", f"{low_key} must be a positive integer.", low.span)
@@ -599,7 +619,7 @@ def _group_sizes(design: str) -> Callable:
 
 
 # The planning point each observational design is planned at.
-GROUP_POINTS = {
+GROUP_POINTS: dict[str, tuple[type[RisksIR | ExposurePrevalenceIR | OutcomePrevalenceIR], str]] = {
     "cohort": (RisksIR, "risks(unexposed=..., exposed=...)"),
     "case_control": (ExposurePrevalenceIR, "exposure_prevalence(controls=..., cases=...)"),
     "cross_sectional": (
