@@ -7,27 +7,28 @@
 [![Web studio](https://img.shields.io/badge/Web_studio-7c55d8?style=flat)](https://ssm123ssm.github.io/statClaim/)
 [![arXiv](https://img.shields.io/badge/arXiv-2611.30021-b31b1b?style=flat)](https://arxiv.org/abs/2611.30021)
 
-StatClaim is a declarative domain-specific language for encoding research
-protocols and statistical analysis plans as programs. A program is built from
-objects whose types encode their statistical roles within the study design:
-models, sampling plans, hypotheses, analyses and claims. The compiler checks
-type compatibility and applies contracts that check further requirements on the
-values and relationships of these objects, before any outcomes are collected.
+StatClaim is a declarative domain-specific language for the formal verification
+of research protocols and statistical analysis plans. A protocol is represented
+as a single program, with typed declarations for its statistical model, sampling
+plan, hypotheses and analyses, and proof obligations for its statistical claims.
 
-A program is elaborated into a typed intermediate representation, and its
-canonical form is encoded as data in [Lean](https://lean-lang.org). A semantics
-written in Lean defines what the program's claims and compatibility contracts
-mean. In one build, Lean decides the contracts, proves each requested claim from
-the premises it rests on, and checks that the program it read is the one that was
-compiled. The protocol is thus verified formally as one program, not claim by
-claim, under stated assumptions. Supported claims concern Type I error,
-familywise error, power, interval coverage, and p-values and decisions for
-observed data, including combinations of analyses and procedures with planned
-stopping rules. Reports distinguish formally proved, conditional, cited and
-author-declared guarantees, and verified claims are accompanied by replayable
-certificates. The same specification supports sample-size searches, power
-calculations and interval-precision assessment by exact calculation, analytical
-approximation or reproducible simulation.
+StatClaim encodes the compiled protocol as data in Lean. Its formal semantics
+uses Lean’s [dependent type theory](https://lean-lang.org/theorem_proving_in_lean4/Dependent-Type-Theory/)
+to define compatibility contracts and statistical claims as propositions about
+that program. The Lean kernel [decides the contracts by computation](https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/#decision-procedures)
+and checks proofs of the claims under their stated premises, using the
+propositions-as-types interpretation of the [Curry–Howard correspondence](https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence).
+For combined procedures, [assume–guarantee reasoning](https://deepblue.lib.umich.edu/bitstream/handle/2027.42/198157/3704736.pdf?isAllowed=y&sequence=1#page=4)
+allows individual test guarantees to serve as premises for a familywise error
+bound.
+
+For supported designs, StatClaim can verify in a single certificate that the
+protocol’s declarations satisfy their compatibility contracts and that the
+resulting procedure meets specified bounds on Type I error, familywise error,
+power or interval coverage. It can also verify p-values and decisions for
+observed data. The same specification supports sample-size searches and
+assessment of power and interval precision by exact calculation, approximation
+or simulation.
 
 ![StatClaim Studio showing an observed-result claim for Fisher's exact test, with the p-value and decision proved in Lean](docs/images/studio-proved.png)
 
