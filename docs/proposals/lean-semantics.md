@@ -110,7 +110,7 @@ What the spike changed in the design:
   why (5), and its data encodes to the program. Three outcomes change, each recorded: a
   null from another study is a contract failure (`Null.fits`) where the translation found
   it ill-typed; a claim that a test meets a target, and a randomisation test, are not
-  covered yet and keep the translation's refusal. The collector stays: 48 corpus programs
+  covered yet and keep the translation's refusal. The collector stays: 51 corpus programs
   keep today's translation until phase 2 covers results, intervals, plans, one-sided and
   exact tests.
 
