@@ -671,10 +671,11 @@ def run_stage_result(
     return _certified(report)
 
 
-def wald_report(n: int, cutoff: Fraction, alpha: Fraction) -> dict:
+def proportion_z_report(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool) -> dict:
+    test = "pooled score" if pooled else "unpooled Wald"
     return planning_report(
         "design",
-        f"Two-sided unpooled Wald test with {n} per arm and squared cutoff {cutoff} "
+        f"Two-sided {test} test with {n} per arm and squared cutoff {cutoff} "
         f"has Type I error at most {alpha} for every common null proportion.",
         [
             "The arm counts are independent binomial samples.",
@@ -683,20 +684,18 @@ def wald_report(n: int, cutoff: Fraction, alpha: Fraction) -> dict:
     )
 
 
-def run_wald(n: int, cutoff: Fraction, alpha: Fraction) -> dict:
+def run_proportion_z(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool) -> dict:
     from statclaim.wald import find_certificate
 
-    report = _certified(wald_report(n, cutoff, alpha))
+    report = _certified(proportion_z_report(n, cutoff, alpha, pooled=pooled))
     if (
         report.get("verification", {}).get("stage") == "proof"
-        and find_certificate(n, cutoff, alpha) is None
+        and find_certificate(n, cutoff, alpha, pooled=pooled) is None
     ):
-        return _unmet(
-            report,
-            "typeI_target",
-            "wald_bound_unproved",
-            f"The Wald interval check did not establish the requested ceiling {alpha}.",
-        )
+        message = f"The interval check did not establish the requested ceiling {alpha}."
+        if pooled:
+            return _unmet(report, "typeI_target", "score_bound_unproved", message)
+        return _unmet(report, "typeI_target", "wald_bound_unproved", message)
     return report
 
 

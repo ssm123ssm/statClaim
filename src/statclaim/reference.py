@@ -91,6 +91,7 @@ SCOPE_NOTE = (
 RESULT_STATUSES = {
     "verified": "Lean proved the guarantee for the procedure as declared, under the listed "
     "assumptions. It says nothing about how the study is run. Evidence grade `proved`.",
+    "refuted": "Lean verified a counterexample to the guarantee for the declared procedure.",
     "conditional": "Lean proved how the parts combine; each part's own guarantee is assumed. "
     "Like every status, it concerns the study as declared. Evidence grade `conditional`.",
     "cited": "The study fits a published method's contract; the guarantee is cited, not "
@@ -284,7 +285,7 @@ DIAGNOSTICS = {
         "A test that relies on randomised arms is given an observational study, whose "
         "exposure was not assigned.",
     ),
-    "unequal_arm_sizes": ("error", "The Wald bound requires the same fixed size in both arms."),
+    "unequal_arm_sizes": ("error", "The test requires the same size in both arms."),
     "unit_mismatch": (
         "error",
         "The test's unit does not fit the declared design: it assumes independent participants "
@@ -334,6 +335,10 @@ DIAGNOSTICS = {
     "wald_bound_unproved": (
         "obligation",
         "The checked Wald bounds over the null intervals do not establish the requested ceiling.",
+    ),
+    "score_bound_unproved": (
+        "obligation",
+        "The checked score bounds over the null intervals do not establish the requested ceiling.",
     ),
     "sampling_scope": (
         "obligation",

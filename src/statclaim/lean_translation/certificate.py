@@ -9,12 +9,15 @@ from statclaim.language_printer import program_source
 from statclaim.language_syntax import Source
 from statclaim.lean_translation import data
 from statclaim.lean_translation.table import TABLE, NotInLean
-from statclaim.wald import find_certificate, find_counterexample
+from statclaim.wald import PROPORTION_Z_TESTS, find_certificate, find_counterexample
 
 KIND = "statclaim_program_certificate"
 TRANSLATION_VERSION = 3
 NAMESPACE = "StatClaimProgram"
 LABEL = "program"
+COUNTEREXAMPLE_KEYS = {
+    test: f"{test.removesuffix('_test')}_counterexamples" for test in PROPORTION_Z_TESTS
+}
 
 AUDIT = """
 open Lean Elab Command in
@@ -45,31 +48,36 @@ def payload(source: Source, project: Path | None = None) -> dict:
     program = compilation.program
     reported, _ = material(program, project or Path.cwd())
     canonical = program.to_dict()
-    witnesses = {}
+    witnesses: dict[str, dict[str, dict[str, str]]] = {}
     for index, claim in enumerate(data.verify_claims(canonical)):
-        if not is_fixed_wald(claim):
-            continue
         subject = claim["subject"]
+        test = subject.get("test")
+        if test not in COUNTEREXAMPLE_KEYS or not is_fixed_proportion_z(claim, test):
+            continue
         n = subject["design"]["model"]["n_control"]
         cutoff, alpha = Fraction(subject["squared_cutoff"]), Fraction(subject["alpha"])
-        if find_certificate(n, cutoff, alpha) is None:
-            witness = find_counterexample(n, cutoff, alpha)
+        pooled = test == "score_test"
+        if find_certificate(n, cutoff, alpha, pooled=pooled) is None:
+            witness = find_counterexample(n, cutoff, alpha, pooled=pooled)
             if witness is not None:
                 rate, risk = witness
-                witnesses[str(index)] = {"p": str(rate), "typeI_error": str(risk)}
+                witnesses.setdefault(COUNTEREXAMPLE_KEYS[test], {})[str(index)] = {
+                    "p": str(rate),
+                    "typeI_error": str(risk),
+                }
     return {
         "translation_version": TRANSLATION_VERSION,
         "source": {"path": source.path, "text": source.text},
         "program": canonical,
         "reported": reported,
-        **({"wald_counterexamples": witnesses} if witnesses else {}),
+        **witnesses,
     }
 
 
-def is_fixed_wald(claim: dict) -> bool:
+def is_fixed_proportion_z(claim: dict, test: str) -> bool:
     return (
         claim["kind"] == "typeI"
-        and claim["subject"].get("test") == "wald_test"
+        and claim["subject"].get("test") == test
         and data.fixed(claim["subject"])
     )
 
@@ -91,9 +99,15 @@ def checked(inputs: dict):
         raise Unchecked("Reported values must align with the program's verification requests.")
     if any(type(r) is not int or not 0 <= r < count for r in inputs.get("omitted", [])):
         raise Unchecked("The inputs omit an unknown verification request.")
-    witnesses = inputs.get("wald_counterexamples", {})
+    for test, key in COUNTEREXAMPLE_KEYS.items():
+        check_counterexample_inputs(inputs.get(key, {}), claims, test)
+    return compilation.program
+
+
+def check_counterexample_inputs(witnesses: object, claims: list, test: str) -> None:
     if not isinstance(witnesses, dict):
-        raise Unchecked("Wald counterexamples must be indexed by verification request.")
+        raise Unchecked("Counterexamples must be indexed by verification request.")
+    count = len(claims)
     for index, witness in witnesses.items():
         if (
             not isinstance(index, str)
@@ -102,18 +116,27 @@ def checked(inputs: dict):
             or len(index) > len(str(count))
             or index != str(int(index))
             or int(index) >= count
-            or not is_fixed_wald(claims[int(index)])
+            or not is_fixed_proportion_z(claims[int(index)], test)
         ):
-            raise Unchecked("A Wald counterexample must refer to a fixed Wald Type I request.")
+            raise Unchecked(
+                f"A {test} counterexample must refer to a matching fixed Type I request."
+            )
         if not isinstance(witness, dict) or set(witness) != {"p", "typeI_error"}:
-            raise Unchecked("A Wald counterexample needs a rate and an exact Type I error.")
+            raise Unchecked("A counterexample needs a rate and an exact Type I error.")
         try:
             for value in witness.values():
                 if not isinstance(value, str) or str(Fraction(value)) != value:
                     raise ValueError
         except (ValueError, ZeroDivisionError) as error:
-            raise Unchecked("Wald counterexample values must be exact fractions.") from error
-    return compilation.program
+            raise Unchecked("Counterexample values must be exact fractions.") from error
+
+
+def counterexample_inputs(inputs: dict) -> dict:
+    return {
+        index: witness
+        for key in COUNTEREXAMPLE_KEYS.values()
+        for index, witness in inputs.get(key, {}).items()
+    }
 
 
 def semantic(inputs: dict) -> str:
@@ -130,7 +153,7 @@ def failing_claims(proof_text: str, output: str) -> set[int] | None:
     by_line = []
     for line in proof_text.splitlines():
         if re.match(r"^(?:theorem |def |end )", line):
-            match = re.match(r"^theorem (?:claim|wald_refuted)_(\d+)\b", line)
+            match = re.match(r"^theorem (?:claim|wald_refuted|score_refuted)_(\d+)\b", line)
             owner = int(match.group(1)) if match else None
         by_line.append(owner)
     end = proof_text.splitlines().index(f"end {NAMESPACE}") + 1
@@ -179,9 +202,9 @@ def proof(inputs: dict, input_sha256: str) -> str:
                 hints,
                 inputs["reported"],
                 frozenset(inputs.get("omitted", []))
-                | frozenset(map(int, inputs.get("wald_counterexamples", {}))),
+                | frozenset(map(int, counterexample_inputs(inputs))),
             ),
-            *(wald_refutation(refutation) for refutation in refutations),
+            *(refutation_theorem(refutation) for refutation in refutations),
             data.report(LABEL),
             f"end {NAMESPACE}",
             AUDIT.format(names=names, input_sha256=input_sha256),
@@ -208,10 +231,11 @@ def requests(inputs: dict) -> list[dict]:
 
 def listed_requests(inputs: dict):
     omitted = set(inputs.get("omitted", []))
+    witnesses = counterexample_inputs(inputs)
     for index, request in enumerate(requests(inputs)):
         if (
             index not in omitted
-            and str(index) not in inputs.get("wald_counterexamples", {})
+            and str(index) not in witnesses
             and data.ready(request["claim"], inputs["reported"], index)
         ):
             yield index, request
@@ -238,7 +262,7 @@ def claim_name(claim: dict) -> str:
 
 
 def counterexamples(inputs: dict) -> list[dict]:
-    witnesses = inputs.get("wald_counterexamples", {})
+    witnesses = counterexample_inputs(inputs)
     omitted = set(inputs.get("omitted", []))
     found = []
     for index, request in enumerate(requests(inputs)):
@@ -246,6 +270,7 @@ def counterexamples(inputs: dict) -> list[dict]:
         if index in omitted or witness is None:
             continue
         claim = request["claim"]
+        test = claim["subject"]["test"].removesuffix("_test")
         alpha = claim["subject"]["alpha"]
         found.append(
             {
@@ -254,7 +279,7 @@ def counterexamples(inputs: dict) -> list[dict]:
                 "index": index,
                 "request_id": request["request_id"],
                 "claim": claim_name(claim),
-                "theorem": f"{NAMESPACE}.wald_refuted_{index}",
+                "theorem": f"{NAMESPACE}.{test}_refuted_{index}",
                 "message": f"At common p = {witness['p']}, the exact Type I error "
                 f"{witness['typeI_error']} exceeds {alpha}.",
             }
@@ -262,13 +287,15 @@ def counterexamples(inputs: dict) -> list[dict]:
     return found
 
 
-def wald_refutation(refutation: dict) -> str:
+def refutation_theorem(refutation: dict) -> str:
     index = refutation["index"]
+    name = refutation["theorem"].removeprefix(f"{NAMESPACE}.")
+    theorem = "wald_refuted" if name.startswith("wald_") else "proportionZ_refuted"
     rate = data.rational(Fraction(refutation["p"]))
     risk = data.rational(Fraction(refutation["typeI_error"]))
     return (
-        f"theorem wald_refuted_{index} : ¬ program.Claim {index} :=\n"
-        f"  {data.SEMANTICS}.Program.wald_refuted program {index} {rate} {risk} (by decide +kernel)"
+        f"theorem {name} : ¬ program.Claim {index} :=\n"
+        f"  {data.SEMANTICS}.Program.{theorem} program {index} {rate} {risk} (by decide +kernel)"
     )
 
 

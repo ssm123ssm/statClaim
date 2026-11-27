@@ -33,6 +33,7 @@ from statclaim.language import (
     ClaimIR,
     FieldIR,
     LocatedValue,
+    ProportionZAnalysisIR,
     ValueType,
     VerificationResultIR,
     _typed,
@@ -587,6 +588,8 @@ def level(alpha):
 def analysis_title(value):
     if hasattr(value, "method"):
         return value.method.title
+    if isinstance(value, ProportionZAnalysisIR):
+        return "Pooled score test" if value.test == "score_test" else "Unpooled Wald test"
     if type(value).__name__ == "RandomisationAnalysisIR":
         return "Randomisation test"
     alternative = getattr(value, "alternative", "two_sided")
@@ -870,6 +873,12 @@ def reading(value, expression):
         return f"A fixed sample of {sizes}" if value.stopping == "fixed" else f"Sampling of {sizes}"
     if hasattr(value, "statement") and hasattr(value, "predicate"):
         return f"Null: {value.statement}"
+    if isinstance(value, ProportionZAnalysisIR):
+        return (
+            f"{analysis_title(value)} of {value.hypothesis.statement}, "
+            f"with squared cutoff {value.squared_cutoff} and claimed Type I error "
+            f"at most {level(value.alpha)}"
+        )
     if hasattr(value, "hypothesis") and hasattr(value, "alpha"):
         statement, at = value.hypothesis.statement, level(value.alpha)
         return f"{analysis_title(value)} of {statement}, at level {at}"

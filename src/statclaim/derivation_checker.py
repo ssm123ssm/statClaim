@@ -47,11 +47,11 @@ from statclaim.derivations import (
     NOT_ESTABLISHED,
     ONE_SAMPLE_ASSUMPTIONS,
     PLANNING_POINT_ASSUMPTION,
+    PROPORTION_Z_CONTRACT_IDS,
     RANDOMISATION_CONTRACT_ID,
     RATE_CONTRACT_ID,
     RULES,
     TWO_STAGE_ASSUMPTIONS,
-    WALD_CONTRACT_ID,
 )
 from statclaim.incidence import PERSON_TIME, POISSON_EVENTS, RATE_NULL
 from statclaim.look_search import MAX_CANDIDATES as MAX_LOOK_CANDIDATES
@@ -311,7 +311,7 @@ def _cluster_search_valid(search: dict, fewest: int) -> bool:
 # The contract rule and assumptions for each kind of analysis, keyed by its test.
 BLOCKS = {
     "fisher": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
-    "wald_test": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
+    **{test: ("analysis-contract", ANALYSIS_ASSUMPTIONS) for test in PROPORTION_Z_CONTRACT_IDS},
     "binomial_exact_one_sided": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
     "two_stage": ("two-stage-contract", TWO_STAGE_ASSUMPTIONS),
 }
@@ -320,7 +320,7 @@ BLOCKS = {
 def _premises(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
     if analysis["test"] == "fisher":
         return _analysis_expectations(name, analysis)
-    if analysis["test"] == "wald_test":
+    if analysis["test"] in PROPORTION_Z_CONTRACT_IDS:
         model, null = analysis["design"]["model"], analysis["null"]
         n, cutoff = model["n_control"], analysis["squared_cutoff"]
         valid = (
@@ -331,7 +331,11 @@ def _premises(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
         )
         return [
             *_analysis_expectations(name, analysis),
-            ("wald-design", {"subject": name, "n": n, "squared_cutoff": cutoff}, valid),
+            (
+                f"{analysis['test'].removesuffix('_test')}-design",
+                {"subject": name, "n": n, "squared_cutoff": cutoff},
+                valid,
+            ),
         ]
     if analysis["test"] == "binomial_exact_one_sided":
         return _one_sample_expectations(name, analysis)
@@ -2548,8 +2552,8 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     carried = _carried(derivation)
     if carried is not None:
         return carried[:3]
-    if contract == WALD_CONTRACT_ID:
-        if subject["test"] != "wald_test":
+    if contract in PROPORTION_Z_CONTRACT_IDS.values():
+        if contract != PROPORTION_Z_CONTRACT_IDS.get(subject["test"]):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
     if contract in CONTRACT_IDS.values():

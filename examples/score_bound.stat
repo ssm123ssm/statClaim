@@ -1,0 +1,12 @@
+# Two-sided pooled score test for equal proportions, with 20 observations per arm.
+use models.two_arm_binomial
+use sampling
+use tests.score
+
+let study = two_arm_binomial(n_control=20, n_treatment=20)
+let design = fixed(model=study)
+let null = equal_proportions(model=study)
+
+# The critical value is 1.96. Changing alpha to 1/20 asks for a 5% ceiling.
+let score = score_test(design=design, null=null, squared_cutoff=2401/625, alpha=27/500)
+let guarantee = verify(typeI(score))

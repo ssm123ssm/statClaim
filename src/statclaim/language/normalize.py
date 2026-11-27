@@ -71,6 +71,7 @@ from statclaim.language.ir import (
     PrecisionTargetIR,
     PriorIR,
     ProportionIR,
+    ProportionZAnalysisIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RateIR,
@@ -93,7 +94,6 @@ from statclaim.language.ir import (
     TwoStageModelIR,
     TwoStageObservationIR,
     VerificationResultIR,
-    WaldAnalysisIR,
 )
 from statclaim.matched import (
     PAIR_CELLS,
@@ -332,9 +332,11 @@ def normalize(value: object) -> object:
             if predicate != "equal_proportions":
                 result["value"] = str(bound)
             return result
-        case WaldAnalysisIR(plan=plan, hypothesis=hypothesis, alpha=alpha, squared_cutoff=cutoff):
+        case ProportionZAnalysisIR(
+            plan=plan, hypothesis=hypothesis, alpha=alpha, squared_cutoff=cutoff
+        ):
             return {
-                "test": "wald_test",
+                "test": value.test,
                 "design": normalize(plan),
                 "null": normalize(hypothesis),
                 "alpha": str(alpha),

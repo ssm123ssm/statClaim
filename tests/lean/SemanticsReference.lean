@@ -27,6 +27,14 @@ example (cutoff : ℚ) :
         {x | balancedWaldReject model.sizes.nControl cutoff.num.toNat cutoff.den
           (x.1 + x.2) x.1} ≤ (alpha.value : ℝ) := Iff.rfl
 
+example (cutoff : ℚ) :
+    (Request.typeI (.exact "s" (.score cutoff) (fixed model)
+      ⟨.equal_proportions, model, none⟩ alpha)).Holds i ↔
+    ∀ θ, TwoArmBinomial.equalProportions θ →
+      ((TwoArmBinomial.model model.sizes).law θ).real
+        {x | balancedZReject model.sizes.nControl cutoff.num.toNat cutoff.den 0
+          (x.1 + x.2) x.1} ≤ (alpha.value : ℝ) := Iff.rfl
+
 example :
     (Request.typeI (.exactStudy "a" .fisherGroups ⟨study, .fixed⟩ ⟨study⟩ alpha)).Holds i ↔
     ((Fisher.analysis study.groupSizes

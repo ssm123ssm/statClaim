@@ -36,6 +36,7 @@ from statclaim.language import (
     OneArmCandidatesIR,
     OneSampleObservationIR,
     ProportionIR,
+    ProportionZAnalysisIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RateRatioIR,
@@ -44,7 +45,6 @@ from statclaim.language import (
     TotalCandidatesIR,
     TwoStageCandidatesIR,
     TwoStageObservationIR,
-    WaldAnalysisIR,
     group_probabilities,
     planned_analysis,
 )
@@ -87,12 +87,12 @@ from statclaim.report import (
     run_one_sample_search,
     run_policy_plan,
     run_power_plan,
+    run_proportion_z,
     run_randomisation,
     run_sample_size,
     run_stage_result,
     run_total_search,
     run_two_stage_search,
-    run_wald,
     test_design,
     verify_design,
     verify_design_only,
@@ -140,8 +140,13 @@ def _count_template(analysis, target, bounds: tuple[int, int], minimal: bool):
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
-    if isinstance(subject, WaldAnalysisIR):
-        return run_wald(subject.plan.model.n_control, subject.squared_cutoff, subject.alpha)
+    if isinstance(subject, ProportionZAnalysisIR):
+        return run_proportion_z(
+            subject.plan.model.n_control,
+            subject.squared_cutoff,
+            subject.alpha,
+            pooled=subject.test == "score_test",
+        )
     if isinstance(subject, (CitedAnalysisIR, CitedAssociationIR)):
         # The contract checks passed during compilation. No backend runs: the
         # guarantee is the published result, restated with its assumptions.

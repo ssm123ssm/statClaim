@@ -260,7 +260,7 @@ def test_every_kind_of_test_and_combination_is_declared():
         for name, kind in inspect.getmembers(ir, inspect.isclass)
         if kind.__module__ == ir.__name__
         and issubclass(kind, (ir.LevelTestIR, ir.FamilyLikeIR))
-        and kind not in (ir.LevelTestIR, ir.FamilyLikeIR)
+        and kind not in (ir.LevelTestIR, ir.FamilyLikeIR, ir.ProportionZAnalysisIR)
     }
     assert tests <= set(DECLARATIONS)
 

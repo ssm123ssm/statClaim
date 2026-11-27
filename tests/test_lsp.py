@@ -158,6 +158,7 @@ def test_module_constructor_and_builtin_completion_use_registry():
     assert set(complete("use tests.")) == {
         "tests.fisher",
         "tests.wald",
+        "tests.score",
         "tests.binomial",
         "tests.difference",
         "tests.t",

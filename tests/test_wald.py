@@ -17,15 +17,17 @@ from statclaim.wald import GRID, find_certificate, find_counterexample
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples/wald_bound.stat"
 TEXT = EXAMPLE.read_text()
+SCORE_TEXT = (ROOT / "examples/score_bound.stat").read_text()
 
 
-def test_wald_claim_and_cutoff_round_trip():
-    compilation = compile_source(Source(TEXT))
+@pytest.mark.parametrize(("source", "ceiling"), ((TEXT, "103/1250"), (SCORE_TEXT, "27/500")))
+def test_wald_and_score_claim_and_cutoff_round_trip(source, ceiling):
+    compilation = compile_source(Source(source))
     assert compilation.diagnostics == ()
     [derivation] = compilation.derivations
     assert check_derivation(derivation.to_dict()) == []
     [request] = compilation.program.requests
-    assert request.claim.guarantee.bound == Fraction(103, 1250)
+    assert request.claim.guarantee.bound == Fraction(ceiling)
     program = compilation.program.to_dict()
     respelled = compile_source(Source(program_source(program)))
     assert respelled.diagnostics == ()
@@ -46,10 +48,11 @@ def test_wald_claim_and_cutoff_round_trip():
         ),
     ),
 )
-def test_wald_requires_its_declared_fixed_balanced_equality_design(
-    original, replacement, diagnostic
+@pytest.mark.parametrize("source", (TEXT, SCORE_TEXT), ids=("wald", "score"))
+def test_proportion_z_requires_its_declared_fixed_balanced_equality_design(
+    source, original, replacement, diagnostic
 ):
-    compiled = compile_source(Source(TEXT.replace(original, replacement)))
+    compiled = compile_source(Source(source.replace(original, replacement)))
     assert diagnostic in {item.code for item in compiled.diagnostics}
 
 
@@ -114,3 +117,25 @@ def test_lean_rejects_an_incorrect_wald_rejection_probability(tmp_path):
     inputs["wald_counterexamples"]["0"]["typeI_error"] = "1/10"
     with pytest.raises(VerificationError, match="decide"):
         certify_program(inputs, project=ROOT, output=tmp_path / "bad-witness")
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_pooled_score_certifies_54_percent_and_refutes_five_percent(tmp_path):
+    text = (
+        SCORE_TEXT
+        + """
+let smaller = score_test(design=design, null=null, squared_cutoff=2401/625, alpha=1/20)
+let counterexample = verify(typeI(smaller))
+"""
+    )
+    report = check_source(Source(text), project=ROOT, output=tmp_path / "score")
+    assert report["status"] == "refuted", report["diagnostics"]
+    verified, refuted = report["requests"]
+    assert verified["status"] == "verified"
+    witness = refuted["value"]["counterexample"]
+    assert witness["p"] == "1/4"
+    assert Fraction("0.0514") < Fraction(witness["typeI_error"]) < Fraction("0.05141")
+    replay = recheck_certificate(Path(report["lean"]["certificate_directory"]), project=ROOT)
+    assert replay["status"] == "verified"
+    assert replay["counterexamples"][0]["typeI_error"] == witness["typeI_error"]

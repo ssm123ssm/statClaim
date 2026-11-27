@@ -25,13 +25,13 @@ from statclaim.language import (
     OneSampleObservationIR,
     ProgramIR,
     ProportionIR,
+    ProportionZAnalysisIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RateRatioIR,
     RateResultIR,
     RequestIR,
     TwoStageObservationIR,
-    WaldAnalysisIR,
     elaborate,
 )
 from statclaim.language_syntax import Diagnostic, Source, Span
@@ -262,7 +262,7 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
     if request.operation == "verify":
         seen_plans: set[int] = set()
         for analysis in analyses:
-            assert isinstance(analysis, (AnalysisIR, WaldAnalysisIR))
+            assert isinstance(analysis, (AnalysisIR, ProportionZAnalysisIR))
             if analysis.plan.stopping != "fixed" and id(analysis.plan) not in seen_plans:
                 seen_plans.add(id(analysis.plan))
                 diagnostics.append(

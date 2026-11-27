@@ -17,6 +17,8 @@ from contextvars import ContextVar
 from random import Random
 from typing import Any
 
+from statclaim.wald import PROPORTION_Z_TESTS
+
 RESULTS = ("VerificationResultIR", "CalculationResultIR")
 PIECES = {
     "two_arm_binomial": "binary_outcome",
@@ -380,7 +382,7 @@ class _Printer:
             if "alternative" in value and value["alternative"] not in NOT_FISHER:
                 raise Unprintable(f"Unknown alternative {value['alternative']!r}.")
             return _call(name, self.arguments(value, [*common, ("alternative", "", str)]))
-        if test == "wald_test":
+        if test in PROPORTION_Z_TESTS:
             return _call(
                 test,
                 self.arguments(value, [*common, ("squared_cutoff", "squared_cutoff", _number)]),

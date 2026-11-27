@@ -39,12 +39,12 @@ from statclaim.language.analyses import (
     _observed_table,
     _person_time_cohort,
     _proportion,
+    _proportion_z,
     _randomisation_test,
     _rate_ratio,
     _rate_result,
     _rate_test,
     _sequential,
-    _wald_test,
 )
 from statclaim.language.checks import (
     _interval_sizes,
@@ -128,6 +128,7 @@ from statclaim.language.ir import (
     RateAnalysisIR,
     RateIR,
     RuleIR,
+    ScoreAnalysisIR,
     SequentialIR,
     StudyModelIR,
     TargetIR,
@@ -135,6 +136,7 @@ from statclaim.language.ir import (
     TwoStageAnalysisIR,
     TwoStageModelIR,
     TwoStageObservationIR,
+    WaldAnalysisIR,
 )
 from statclaim.language.operations import (
     _calculation,
@@ -190,7 +192,6 @@ from statclaim.language_contracts import (
     MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
     RANDOMISATION_CONTRACT,
-    WALD_CONTRACT,
     HypothesisContract,
 )
 from statclaim.matched import (
@@ -654,25 +655,28 @@ MODULES = {
                 ),
             ),
         ),
-        Module(
-            "tests.wald",
-            (
-                _constructor(
-                    "wald_test",
-                    (
-                        ("design", PlanIR),
-                        ("null", HypothesisIR),
-                        ("squared_cutoff", "number"),
-                        ("alpha", "level"),
+        *(
+            Module(
+                f"tests.{name}",
+                (
+                    _constructor(
+                        analysis.test,
+                        (
+                            ("design", PlanIR),
+                            ("null", HypothesisIR),
+                            ("squared_cutoff", "number"),
+                            ("alpha", "level"),
+                        ),
+                        analysis.__name__.removesuffix("IR"),
+                        _proportion_z(analysis),
+                        hypothesis_contract=analysis.contract,
+                        documentation=analysis.contract.guidance,
+                        lean=in_lean("analysis", "Modules/Wald", "WaldBound"),
                     ),
-                    "WaldAnalysis",
-                    _wald_test,
-                    hypothesis_contract=WALD_CONTRACT,
-                    documentation=WALD_CONTRACT.guidance,
-                    lean=in_lean("analysis", "Modules/Wald", "WaldBound"),
+                    TYPE_I,
                 ),
-                TYPE_I,
-            ),
+            )
+            for name, analysis in (("wald", WaldAnalysisIR), ("score", ScoreAnalysisIR))
         ),
         Module(
             "tests.randomisation",

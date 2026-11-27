@@ -69,6 +69,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | Hypothesis | A null restriction, not an assertion of truth. | `model: Model`, `predicate: string`, `value: exact number`, `statement: string` |
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
 | WaldAnalysis | Design, equality null, squared Wald critical value and requested finite-sample error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number` |
+| ScoreAnalysis | Design, equality null, squared score critical value and requested finite-sample error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number` |
 | OutcomeModel | Two arms: an assignment and a continuous, survival or other registered outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
 | Stratum | One stratum of a stratified or blocked assignment: randomised units per arm. | `control: integer`, `treatment: integer` |
@@ -356,6 +357,15 @@ Two-sided unpooled Wald rule for equal binomial proportions and balanced fixed a
 
 - `wald_test(design: StudyDesign, null: Hypothesis, squared_cutoff: number, alpha: level) -> WaldAnalysis`
   The two-sided unpooled Wald analysis uses equal arm sizes and a positive rational squared critical value. Alpha is the requested finite-sample error ceiling.
+  Required null: p_treatment = p_control (equal arm success probabilities); same model required.
+- `typeI(analysis: Analysis) -> TypeIClaim`
+
+### `tests.score` — Analyses and claims
+
+Two-sided pooled score test for equal binomial proportions and balanced fixed arms. Lean checks a finite-sample Type I error ceiling or an exact counterexample.
+
+- `score_test(design: StudyDesign, null: Hypothesis, squared_cutoff: number, alpha: level) -> ScoreAnalysis`
+  The two-sided pooled score test uses equal arm sizes and a positive rational squared critical value. Alpha is the requested finite-sample error ceiling.
   Required null: p_treatment = p_control (equal arm success probabilities); same model required.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
@@ -655,6 +665,7 @@ Verification and calculation run only on explicit execution; the editor plans th
 | Status | Meaning |
 | --- | --- |
 | `verified` | Lean proved the guarantee for the procedure as declared, under the listed assumptions. It says nothing about how the study is run. Evidence grade `proved`. |
+| `refuted` | Lean verified a counterexample to the guarantee for the declared procedure. |
 | `conditional` | Lean proved how the parts combine; each part's own guarantee is assumed. Like every status, it concerns the study as declared. Evidence grade `conditional`. |
 | `cited` | The study fits a published method's contract; the guarantee is cited, not machine-checked. Evidence grade `cited`. |
 | `declared` | The author named and vouched for the test or one of its parts. Nothing about that guarantee was checked or cited. Evidence grade `declared`. |
@@ -1052,7 +1063,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `matched_design` | error | An unmatched analysis or table is given a matched study, whose matching it ignores. |
 | `not_estimable` | error | The design cannot estimate the measure, such as a risk ratio from a case-control study. |
 | `observational_design` | error | A test that relies on randomised arms is given an observational study, whose exposure was not assigned. |
-| `unequal_arm_sizes` | error | The Wald bound requires the same fixed size in both arms. |
+| `unequal_arm_sizes` | error | The test requires the same size in both arms. |
 | `unit_mismatch` | error | The test's unit does not fit the declared design: it assumes independent participants or observations where clusters or repeated measurements are declared, or it takes one summary per cluster where participants were randomised. |
 | `undeclared_randomisation` | error | A randomisation test is declared on an assignment that does not say how it was randomised. |
 | `population_mismatch` | error | A randomisation test is declared on an assignment whose analysis leaves out randomised units (population="per_protocol"). |
@@ -1069,6 +1080,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `sequential_order` | error | The looks are not in order of growing sample size. |
 | `sequential_boundary` | error | A look's level exceeds the nominal level its spending boundary allows there. |
 | `wald_bound_unproved` | obligation | The checked Wald bounds over the null intervals do not establish the requested ceiling. |
+| `score_bound_unproved` | obligation | The checked score bounds over the null intervals do not establish the requested ceiling. |
 | `sampling_scope` | obligation | The design stops on the data, which the guarantee does not cover. Not evidence of inflated error. |
 | `allocation` | obligation | The members' levels sum to more than the overall level. |
 | `typeI_target_not_established` | obligation | The analysis's level exceeds the requested Type I bound. |

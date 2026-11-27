@@ -39,6 +39,11 @@ MODULE_CLASSES = {
         "Two-sided unpooled Wald rule for equal binomial proportions and balanced fixed arms. "
         "Lean checks a uniform finite-sample Type I error ceiling for the specified cutoff.",
     ),
+    "tests.score": (
+        "Analyses and claims",
+        "Two-sided pooled score test for equal binomial proportions and balanced fixed arms. "
+        "Lean checks a finite-sample Type I error ceiling or an exact counterexample.",
+    ),
     "tests.randomisation": (
         "Analyses and claims",
         "Randomisation test of the sharp null that treatment changes no participant's "
@@ -183,6 +188,11 @@ OBJECT_CLASSES = {
     "WaldAnalysis": (
         "Core statistical objects",
         "Design, equality null, squared Wald critical value and requested "
+        "finite-sample error ceiling.",
+    ),
+    "ScoreAnalysis": (
+        "Core statistical objects",
+        "Design, equality null, squared score critical value and requested "
         "finite-sample error ceiling.",
     ),
     "OutcomeModel": (

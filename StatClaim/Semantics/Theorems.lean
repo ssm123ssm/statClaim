@@ -85,35 +85,40 @@ theorem Program.refuted (p : Program) (r : ℕ)
     rw [fixed] at holds
     exact holds
 
-def Program.checkWaldCounterexample (program : Program) (r : ℕ) (rate reported : ℚ) : Bool :=
+def Program.checkProportionZCounterexample (program : Program) (r : ℕ) (rate reported : ℚ) : Bool :=
   match program.requests[r]? with
-  | some (.typeI (.exact _ (.wald cutoff) design _ alpha)) =>
+  | some (.typeI (.exact _ (.proportionZ pooled cutoff) design _ alpha)) =>
     let sizes := design.model.sizes
     decide (design.stopping = .fixed ∧ sizes.nTreatment = sizes.nControl) &&
       Modules.Wald.checkCounterexample sizes.nControl cutoff.num.toNat cutoff.den
-        alpha.value rate reported
+        alpha.value rate reported (Modules.Wald.varianceAdjustment pooled cutoff.num.toNat)
   | _ => false
 
-/-- A checked rational witness refutes the Type I claim of this fixed Wald design. -/
-theorem Program.wald_refuted (program : Program) (r : ℕ) (rate reported : ℚ)
-    (valid : program.checkWaldCounterexample r rate reported = true) : ¬ program.Claim r := by
+/-- A checked rational witness refutes the Type I claim of a fixed proportion test. -/
+theorem Program.proportionZ_refuted (program : Program) (r : ℕ) (rate reported : ℚ)
+    (valid : program.checkProportionZCounterexample r rate reported = true) :
+    ¬ program.Claim r := by
   intro claim
   have holds := claim Instance.trivial (program.satisfiable r)
-  unfold Program.checkWaldCounterexample at valid
+  unfold Program.checkProportionZCounterexample at valid
   split at valid
-  next name cutoff design null alpha found =>
+  next name pooled cutoff design null alpha found =>
     obtain ⟨compatible, checked⟩ := Bool.and_eq_true_iff.mp valid
     obtain ⟨stopping, balanced⟩ := of_decide_eq_true compatible
     obtain ⟨θ, equal, _, exactRate, excess⟩ := Modules.Wald.exact_at_of_check
       design.model.sizes balanced cutoff.num.toNat cutoff.den cutoff.den_pos
-      alpha.value rate reported checked
+      alpha.value rate reported (Modules.Wald.varianceAdjustment pooled cutoff.num.toNat) checked
     unfold Program.claimAt at holds
     rw [found] at holds
     simp only [Request.Holds, Request.fixed, Request.test, Option.all_some, Test.fixed,
       stopping, beq_self_eq_true, Test.typeI, ExactKind.moduleSpec, ExactKind.input,
-      WaldExact.moduleSpec, WaldExact.typeI] at holds
+      ProportionZExact.moduleSpec, ProportionZExact.typeI, ProportionZExact.region] at holds
     exact (not_le_of_gt (exactRate ▸ excess)) (holds θ equal)
   next => contradiction
+
+theorem Program.wald_refuted (program : Program) (r : ℕ) (rate reported : ℚ)
+    (valid : program.checkProportionZCounterexample r rate reported = true) : ¬ program.Claim r :=
+  program.proportionZ_refuted r rate reported valid
 
 end
 

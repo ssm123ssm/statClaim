@@ -85,6 +85,7 @@ from statclaim.language import (
     ReestimationIR,
     RisksIR,
     RuleIR,
+    ScoreAnalysisIR,
     SequentialIR,
     SharpNullIR,
     SingleProportionIR,
@@ -347,11 +348,14 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
         "value": FieldSpec(Fraction),
         "statement": FieldSpec(str),
     },
-    WaldAnalysisIR: {
-        "design": FieldSpec(PlanIR, attribute="plan"),
-        "null": FieldSpec(HypothesisIR, attribute="hypothesis"),
-        "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
-        "squared_cutoff": FieldSpec(Fraction, description="Squared Wald critical value."),
+    **{
+        kind: {
+            "design": FieldSpec(PlanIR, attribute="plan"),
+            "null": FieldSpec(HypothesisIR, attribute="hypothesis"),
+            "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
+            "squared_cutoff": FieldSpec(Fraction, description="Squared critical value."),
+        }
+        for kind in (WaldAnalysisIR, ScoreAnalysisIR)
     },
     AnalysisIR: {
         "design": FieldSpec(PlanIR, attribute="plan"),

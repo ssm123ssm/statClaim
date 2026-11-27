@@ -30,6 +30,7 @@ from statclaim.language import (
     ObservationIR,
     OneSampleObservationIR,
     ProportionIR,
+    ProportionZAnalysisIR,
     RandomisationAnalysisIR,
     RateAnalysisIR,
     RateRatioIR,
@@ -40,7 +41,6 @@ from statclaim.language import (
     TwoStageCandidatesIR,
     TwoStageObservationIR,
     VerificationResultIR,
-    WaldAnalysisIR,
     exact_looks,
     group_probabilities,
     normalize,
@@ -68,9 +68,9 @@ from statclaim.report import (
     margin_report,
     matched_report,
     planning_report,
+    proportion_z_report,
     randomisation_report,
     stage_result_report,
-    wald_report,
 )
 
 
@@ -428,8 +428,13 @@ def _inspect(request: RequestIR) -> dict:
         return randomisation_report(subject.lower(), stopping=subject.plan.stopping)
     if isinstance(subject, AssociationAnalysisIR):
         return association_report(subject.lower(), stopping=subject.plan.stopping)
-    if isinstance(subject, WaldAnalysisIR):
-        return wald_report(subject.plan.model.n_control, subject.squared_cutoff, subject.alpha)
+    if isinstance(subject, ProportionZAnalysisIR):
+        return proportion_z_report(
+            subject.plan.model.n_control,
+            subject.squared_cutoff,
+            subject.alpha,
+            pooled=subject.test == "score_test",
+        )
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject
     if analysis.alternative == "margin":
         observed = None

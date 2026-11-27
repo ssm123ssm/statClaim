@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 from typing import Literal as Choice
 
 from statclaim.association import (
@@ -30,6 +30,7 @@ from statclaim.language_contracts import (
     FISHER_CONTRACT,
     MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
+    SCORE_CONTRACT,
     WALD_CONTRACT,
     HypothesisContract,
 )
@@ -356,15 +357,26 @@ class AnalysisIR(TwoArmTestIR, LevelTestIR):
 
 
 @dataclass(frozen=True)
-class WaldAnalysisIR(LevelTestIR):
+class ProportionZAnalysisIR(LevelTestIR):
     plan: PlanIR
     hypothesis: HypothesisIR
     alpha: Fraction
     squared_cutoff: Fraction
 
-    @property
-    def contract(self) -> HypothesisContract:
-        return WALD_CONTRACT
+    test: ClassVar[str]
+    contract: ClassVar[HypothesisContract]
+
+
+@dataclass(frozen=True)
+class WaldAnalysisIR(ProportionZAnalysisIR):
+    test = "wald_test"
+    contract = WALD_CONTRACT
+
+
+@dataclass(frozen=True)
+class ScoreAnalysisIR(ProportionZAnalysisIR):
+    test = "score_test"
+    contract = SCORE_CONTRACT
 
 
 # Every null hypothesis: the classes derived from NullIR.
@@ -1623,7 +1635,7 @@ class ClaimIR:
             return subject.guarantee
         if isinstance(subject, ComposedFamilyIR):
             return subject.lower().guarantee
-        if self.kind == "typeI" and isinstance(subject, (AnalysisIR, WaldAnalysisIR)):
+        if self.kind == "typeI" and isinstance(subject, (AnalysisIR, ProportionZAnalysisIR)):
             return Guarantee(
                 "type_I_error",
                 "at_most",

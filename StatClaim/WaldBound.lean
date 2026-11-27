@@ -8,7 +8,7 @@ public import Mathlib.Algebra.Order.Floor.Semiring
 public import Mathlib.Tactic.Linarith
 
 /-!
-Finite-sample size of the two-sided unpooled Wald test with equally sized
+Finite-sample size of two-sided Wald and score tests with equally sized
 independent binomial arms. Condition on the pooled successes, bound each
 hypergeometric tail by a geometric series, and mix using the binomial law.
 -/
@@ -17,38 +17,70 @@ hypergeometric tail by a geometric series, and mix using the binomial law.
 
 namespace StatClaim
 
-/-- `a / b` is the squared critical value. At zero estimated variance, the
-strict cross-multiplied rule rejects exactly when the estimates differ. -/
-def balancedWaldReject (n a b total k : ℕ) : Prop :=
+/-- The cross-multiplied balanced two-proportion test. The adjustment is `a`
+for the unpooled Wald test and zero for the pooled score test. -/
+def balancedZReject (n a b adjustment total k : ℕ) : Prop :=
   a * total * (2 * n - total) <
-    (b * (2 * n) + a) * ((2 * k - total) + (total - 2 * k)) ^ 2
+    (b * (2 * n) + adjustment) * ((2 * k - total) + (total - 2 * k)) ^ 2
 
-instance (n a b total k : ℕ) : Decidable (balancedWaldReject n a b total k) :=
+instance (n a b adjustment total k : ℕ) :
+    Decidable (balancedZReject n a b adjustment total k) :=
   inferInstanceAs (Decidable (_ < _))
 
 /-- The first success count on the upper side of the rejection region. -/
-def balancedWaldUpperCutoff (n a b total : ℕ) : ℕ :=
-  (total + Nat.sqrt (a * total * (2 * n - total) / (b * (2 * n) + a))) / 2 + 1
+def balancedZUpperCutoff (n a b adjustment total : ℕ) : ℕ :=
+  (total + Nat.sqrt (a * total * (2 * n - total) / (b * (2 * n) + adjustment))) / 2 + 1
 
-private theorem upperCutoff_above_center (n a b total : ℕ) :
-    total < 2 * balancedWaldUpperCutoff n a b total := by
-  unfold balancedWaldUpperCutoff
+abbrev balancedWaldReject (n a b : ℕ) :=
+  balancedZReject n a b a
+
+abbrev balancedWaldUpperCutoff (n a b : ℕ) :=
+  balancedZUpperCutoff n a b a
+
+private theorem upperCutoff_above_center (n a b adjustment total : ℕ) :
+    total < 2 * balancedZUpperCutoff n a b adjustment total := by
+  unfold balancedZUpperCutoff
   omega
 
-private theorem wald_reject_upper_iff (n a b total k : ℕ)
-    (den_pos : 0 < b * (2 * n) + a) (above_center : total ≤ 2 * k) :
-    balancedWaldReject n a b total k ↔ balancedWaldUpperCutoff n a b total ≤ k := by
-  unfold balancedWaldReject balancedWaldUpperCutoff
+private theorem balancedZ_reject_upper_iff (n a b adjustment total k : ℕ)
+    (den_pos : 0 < b * (2 * n) + adjustment) (above_center : total ≤ 2 * k) :
+    balancedZReject n a b adjustment total k ↔
+      balancedZUpperCutoff n a b adjustment total ≤ k := by
+  unfold balancedZReject balancedZUpperCutoff
   rw [Nat.sub_eq_zero_of_le above_center, Nat.add_zero]
-  rw [mul_comm (b * (2 * n) + a), ← Nat.div_lt_iff_lt_mul den_pos, pow_two, ← Nat.sqrt_lt]
+  rw [mul_comm (b * (2 * n) + adjustment), ← Nat.div_lt_iff_lt_mul den_pos, pow_two, ← Nat.sqrt_lt]
   omega
 
-private theorem wald_reject_reflect (n a b total k : ℕ) (hk : k ≤ total) :
-    balancedWaldReject n a b total (total - k) ↔ balancedWaldReject n a b total k := by
-  unfold balancedWaldReject
+private theorem balancedZ_reject_reflect (n a b adjustment total k : ℕ) (hk : k ≤ total) :
+    balancedZReject n a b adjustment total (total - k) ↔ balancedZReject n a b adjustment total k := by
+  unfold balancedZReject
   have : (2 * (total - k) - total) + (total - 2 * (total - k)) =
       (2 * k - total) + (total - 2 * k) := by omega
   rw [this]
+
+theorem balancedZReject_iff (n a b adjustment x y : ℕ) (hx : x ≤ n) (hy : y ≤ n) :
+    balancedZReject n a b adjustment (x + y) x ↔
+      (a : ℝ) * (x + y) * (2 * n - (x + y)) <
+        (b * (2 * n) + adjustment) * ((x : ℝ) - y) ^ 2 := by
+  have total_le : x + y ≤ 2 * n := by omega
+  unfold balancedZReject
+  change
+      (a * (x + y) * (2 * n - (x + y)) <
+        (b * (2 * n) + adjustment) * ((2 * x - (x + y)) + ((x + y) - 2 * x)) ^ 2) ↔
+      (a : ℝ) * (x + y) * (2 * n - (x + y)) <
+        (b * (2 * n) + adjustment) * ((x : ℝ) - y) ^ 2
+  rw [← Nat.cast_lt (α := ℝ)]
+  push_cast [Nat.cast_sub total_le]
+  have abs_sq : (((2 * x - (x + y)) + ((x + y) - 2 * x) : ℕ) : ℝ) ^ 2 =
+      ((x : ℝ) - y) ^ 2 := by
+    rcases le_total x y with h | h
+    · have eq : (2 * x - (x + y)) + ((x + y) - 2 * x) = y - x := by omega
+      rw [eq, Nat.cast_sub h]
+      ring
+    · have eq : (2 * x - (x + y)) + ((x + y) - 2 * x) = x - y := by omega
+      rw [eq, Nat.cast_sub h]
+  rw [Nat.cast_add] at abs_sq
+  rw [abs_sq]
 
 /-- Squared unpooled standard error of the difference in arm proportions. -/
 noncomputable def balancedWaldSquaredSE (n x y : ℕ) : ℝ :=
@@ -65,26 +97,7 @@ theorem balancedWaldReject_iff (n a b x y : ℕ) (hn : 0 < n) (hb : 0 < b)
   unfold balancedWaldSquaredSE
   have hn' : (0 : ℝ) < n := by exact_mod_cast hn
   have hb' : (0 : ℝ) < b := by exact_mod_cast hb
-  have total_le : x + y ≤ 2 * n := by omega
-  unfold balancedWaldReject
-  have cast_comparison :
-      (a * (x + y) * (2 * n - (x + y)) <
-        (b * (2 * n) + a) * ((2 * x - (x + y)) + ((x + y) - 2 * x)) ^ 2) ↔
-      (a : ℝ) * (x + y) * (2 * n - (x + y)) <
-        (b * (2 * n) + a) * ((x : ℝ) - y) ^ 2 := by
-    rw [← Nat.cast_lt (α := ℝ)]
-    push_cast [Nat.cast_sub total_le]
-    have abs_sq : (((2 * x - (x + y)) + ((x + y) - 2 * x) : ℕ) : ℝ) ^ 2 =
-        ((x : ℝ) - y) ^ 2 := by
-      rcases le_total x y with h | h
-      · have eq : (2 * x - (x + y)) + ((x + y) - 2 * x) = y - x := by omega
-        rw [eq, Nat.cast_sub h]
-        ring
-      · have eq : (2 * x - (x + y)) + ((x + y) - 2 * x) = x - y := by omega
-        rw [eq, Nat.cast_sub h]
-    rw [Nat.cast_add] at abs_sq
-    rw [abs_sq]
-  rw [cast_comparison]
+  rw [balancedWaldReject, balancedZReject_iff n a b a x y hx hy]
   have factor_pos : (0 : ℝ) < 2 * b * n ^ 3 := by positivity
   rw [← mul_lt_mul_iff_of_pos_left (c := (((x : ℝ) / n - (y : ℝ) / n) ^ 2)) factor_pos]
   have lhs :
@@ -98,6 +111,33 @@ theorem balancedWaldReject_iff (n a b x y : ℕ) (hn : 0 < n) (hb : 0 < b)
       (b : ℝ) * (2 * n) * ((x : ℝ) - y) ^ 2 := by
     field_simp
   rw [lhs, rhs, sub_lt_iff_lt_add, ← add_mul]
+
+/-- Squared standard error using the common rate estimated from both arms. -/
+noncomputable def balancedScoreSquaredSE (n x y : ℕ) : ℝ :=
+  let pooled := ((x : ℝ) + y) / (2 * n)
+  pooled * (1 - pooled) * (2 / n)
+
+/-- The pooled score comparison uses a strict squared cutoff. At a zero
+pooled variance both observed proportions agree, so it does not reject. -/
+theorem balancedScoreReject_iff (n a b x y : ℕ) (hn : 0 < n) (hb : 0 < b)
+    (hx : x ≤ n) (hy : y ≤ n) :
+    balancedZReject n a b 0 (x + y) x ↔
+      ((a : ℝ) / b) * balancedScoreSquaredSE n x y <
+        ((x : ℝ) / n - (y : ℝ) / n) ^ 2 := by
+  have hn' : (0 : ℝ) < n := by exact_mod_cast hn
+  have hb' : (0 : ℝ) < b := by exact_mod_cast hb
+  rw [balancedZReject_iff n a b 0 x y hx hy]
+  have scale : (0 : ℝ) < 2 * b * n ^ 3 := by positivity
+  rw [← mul_lt_mul_iff_of_pos_left (c := (((x : ℝ) / n - (y : ℝ) / n) ^ 2)) scale]
+  have lhs :
+      2 * (b : ℝ) * n ^ 3 * (a / b * balancedScoreSquaredSE n x y) =
+        (a : ℝ) * (x + y) * (2 * n - (x + y)) := by
+    unfold balancedScoreSquaredSE
+    field_simp
+  have rhs : 2 * (b : ℝ) * n ^ 3 * ((x : ℝ) / n - (y : ℝ) / n) ^ 2 =
+      (b : ℝ) * (2 * n) * ((x : ℝ) - y) ^ 2 := by
+    field_simp
+  rw [lhs, rhs, Nat.cast_zero, add_zero]
 
 /-- Ratio of consecutive upper hypergeometric weights in the feasible tail. -/
 def waldTailRatio (n total k : ℕ) : ℚ :=
@@ -222,31 +262,31 @@ private theorem tail_sum_le_waldTailWeightBound (n total k terms : ℕ)
     · have hlen : min n total + 1 - k = 0 := by omega
       simp [waldTailWeightBound, hk, hlen]
 
-private theorem waldRejectionWeight_eq (n a b total : ℕ)
-    (den_pos : 0 < b * (2 * n) + a) (ht : total ≤ 2 * n) :
+private theorem balancedZRejectionWeight_eq (n a b adjustment total : ℕ)
+    (den_pos : 0 < b * (2 * n) + adjustment) (ht : total ≤ 2 * n) :
     (∑ k ∈ hypergeometricSupport n n total,
-      if balancedWaldReject n a b total k then (hypergeometricWeight n n total k : ℚ) else 0) =
-      2 * ∑ j ∈ Finset.range (min n total + 1 - balancedWaldUpperCutoff n a b total),
-        (hypergeometricWeight n n total (balancedWaldUpperCutoff n a b total + j) : ℚ) := by
-  let start := balancedWaldUpperCutoff n a b total
-  have center := upperCutoff_above_center n a b total
+      if balancedZReject n a b adjustment total k then (hypergeometricWeight n n total k : ℚ) else 0) =
+      2 * ∑ j ∈ Finset.range (min n total + 1 - balancedZUpperCutoff n a b adjustment total),
+        (hypergeometricWeight n n total (balancedZUpperCutoff n a b adjustment total + j) : ℚ) := by
+  let start := balancedZUpperCutoff n a b adjustment total
+  have center := upperCutoff_above_center n a b adjustment total
   change total < 2 * start at center
   let support := hypergeometricSupport n n total
   let weight (k : ℕ) : ℚ := hypergeometricWeight n n total k
   have mem_support (k : ℕ) : k ∈ support ↔ total - n ≤ k ∧ k ≤ min n total :=
     mem_hypergeometricSupport_iff _ _ _ _
   have decomposition : ∀ k ∈ support,
-      (if balancedWaldReject n a b total k then weight k else 0) =
+      (if balancedZReject n a b adjustment total k then weight k else 0) =
       (if start ≤ k then weight k else 0) + (if start ≤ total - k then weight k else 0) := by
     intro k hk
     have hbnds := (mem_support k).mp hk
     have hk_total : k ≤ total := le_trans hbnds.2 (min_le_right _ _)
     by_cases hc : total ≤ 2 * k
     · have hlow : ¬ start ≤ total - k := by omega
-      simp [wald_reject_upper_iff n a b total k den_pos hc, hlow, start]
+      simp [balancedZ_reject_upper_iff n a b adjustment total k den_pos hc, hlow, start]
     · have hhigh : ¬ start ≤ k := by omega
-      have hr := (wald_reject_reflect n a b total k hk_total).symm.trans
-        (wald_reject_upper_iff n a b total (total - k) den_pos (by omega))
+      have hr := (balancedZ_reject_reflect n a b adjustment total k hk_total).symm.trans
+        (balancedZ_reject_upper_iff n a b adjustment total (total - k) den_pos (by omega))
       simp [hr, hhigh, start]
   have mirror :
       (∑ k ∈ support.filter (fun k => start ≤ total - k), weight k) =
@@ -288,36 +328,36 @@ private theorem waldRejectionWeight_eq (n a b total : ℕ)
       omega
     · intro j _
       rfl
-  change (∑ k ∈ support, if balancedWaldReject n a b total k then weight k else 0) =
+  change (∑ k ∈ support, if balancedZReject n a b adjustment total k then weight k else 0) =
     2 * ∑ j ∈ Finset.range (min n total + 1 - start), weight (start + j)
   rw [Finset.sum_congr rfl decomposition, Finset.sum_add_distrib,
     ← Finset.sum_filter, ← Finset.sum_filter, mirror, reindex, two_mul]
 
-/-- Exact null rejection probability of the specified balanced Wald rule. -/
-noncomputable def balancedWaldNullRejectionProbability (n a b : ℕ) (p : ℝ) : ℝ :=
+/-- Exact null rejection probability of the specified balanced two-proportion rule. -/
+noncomputable def balancedZNullRejectionProbability (n a b adjustment : ℕ) (p : ℝ) : ℝ :=
   ∑ counts ∈ binomialCountSupport n n,
-    if balancedWaldReject n a b (counts.1 + counts.2) counts.1
+    if balancedZReject n a b adjustment (counts.1 + counts.2) counts.1
     then independentBinomialMass n n p counts else 0
 
 /-- Group the exact rejection mass by pooled successes and reflect the two tails. -/
-theorem balancedWaldNullRejectionProbability_eq_pooledSum (n a b : ℕ) (p : ℝ)
-    (den_pos : 0 < b * (2 * n) + a) :
-    balancedWaldNullRejectionProbability n a b p =
+theorem balancedZNullRejectionProbability_eq_pooledSum (n a b adjustment : ℕ) (p : ℝ)
+    (den_pos : 0 < b * (2 * n) + adjustment) :
+    balancedZNullRejectionProbability n a b adjustment p =
       ∑ total ∈ Finset.range (2 * n + 1), (2 : ℝ) *
-        (∑ j ∈ Finset.range (min n total + 1 - balancedWaldUpperCutoff n a b total),
-          (hypergeometricWeight n n total (balancedWaldUpperCutoff n a b total + j) : ℝ)) *
+        (∑ j ∈ Finset.range (min n total + 1 - balancedZUpperCutoff n a b adjustment total),
+          (hypergeometricWeight n n total (balancedZUpperCutoff n a b adjustment total + j) : ℝ)) *
         (p ^ total * (1 - p) ^ (2 * n - total)) := by
-  unfold balancedWaldNullRejectionProbability
+  unfold balancedZNullRejectionProbability
   rw [sum_binomialCountSupport_by_total, ← two_mul n]
   apply Finset.sum_congr rfl
   intro total ht
   have ht' : total ≤ 2 * n := by simpa using ht
   have eq : (∑ k ∈ hypergeometricSupport n n total,
-      if balancedWaldReject n a b total k then (hypergeometricWeight n n total k : ℝ) else 0) =
+      if balancedZReject n a b adjustment total k then (hypergeometricWeight n n total k : ℝ) else 0) =
       (2 : ℝ) *
-        ∑ j ∈ Finset.range (min n total + 1 - balancedWaldUpperCutoff n a b total),
-          (hypergeometricWeight n n total (balancedWaldUpperCutoff n a b total + j) : ℝ) := by
-    exact_mod_cast waldRejectionWeight_eq n a b total den_pos ht'
+        ∑ j ∈ Finset.range (min n total + 1 - balancedZUpperCutoff n a b adjustment total),
+          (hypergeometricWeight n n total (balancedZUpperCutoff n a b adjustment total + j) : ℝ) := by
+    exact_mod_cast balancedZRejectionWeight_eq n a b adjustment total den_pos ht'
   rw [← eq, Finset.sum_mul]
   apply Finset.sum_congr rfl
   intro k hk
@@ -335,39 +375,62 @@ theorem balancedWaldNullRejectionProbability_eq_pooledSum (n a b : ℕ) (p : ℝ
 /-- A rational upper bound for every common null proportion in `[lo, hi]`.
 Per pooled count the computation uses a square root and at most `terms + 1`
 hypergeometric weights. It does not visit the tables in the residual tail. -/
-def balancedWaldIntervalBound (n a b terms : ℕ) (lo hi : ℚ) : ℚ :=
+def balancedZIntervalBound (n a b adjustment terms : ℕ) (lo hi : ℚ) : ℚ :=
   ∑ total ∈ Finset.range (2 * n + 1),
-    2 * waldTailWeightBound n total (balancedWaldUpperCutoff n a b total) terms *
+    2 * waldTailWeightBound n total (balancedZUpperCutoff n a b adjustment total) terms *
       (hi ^ total * (1 - lo) ^ (2 * n - total))
 
 /-- The interval bound covers all real null rates in the interval, including
 both endpoints whenever they lie in the interval. -/
-theorem balancedWaldNullRejectionProbability_le_intervalBound
-    (n a b terms : ℕ) (p : ℝ) (lo hi : ℚ)
-    (den_pos : 0 < b * (2 * n) + a)
+theorem balancedZNullRejectionProbability_le_intervalBound
+    (n a b adjustment terms : ℕ) (p : ℝ) (lo hi : ℚ)
+    (den_pos : 0 < b * (2 * n) + adjustment)
     (hp₀ : 0 ≤ p) (hp₁ : p ≤ 1) (hlo : (lo : ℝ) ≤ p) (hhi : p ≤ (hi : ℝ)) :
-    balancedWaldNullRejectionProbability n a b p ≤
-      (balancedWaldIntervalBound n a b terms lo hi : ℝ) := by
-  rw [balancedWaldNullRejectionProbability_eq_pooledSum n a b p den_pos]
-  push_cast [balancedWaldIntervalBound]
+    balancedZNullRejectionProbability n a b adjustment p ≤
+      (balancedZIntervalBound n a b adjustment terms lo hi : ℝ) := by
+  rw [balancedZNullRejectionProbability_eq_pooledSum n a b adjustment p den_pos]
+  push_cast [balancedZIntervalBound]
   apply Finset.sum_le_sum
   intro total ht
   have ht' : total ≤ 2 * n := by simpa using ht
-  have ctr := upperCutoff_above_center n a b total
+  have ctr := upperCutoff_above_center n a b adjustment total
   have hTail := tail_sum_le_waldTailWeightBound n total
-    (balancedWaldUpperCutoff n a b total) terms (by omega) (by omega)
-  have hTail' : (∑ j ∈ Finset.range (min n total + 1 - balancedWaldUpperCutoff n a b total),
-      (hypergeometricWeight n n total (balancedWaldUpperCutoff n a b total + j) : ℝ)) ≤
-      (waldTailWeightBound n total (balancedWaldUpperCutoff n a b total) terms : ℝ) := by
+    (balancedZUpperCutoff n a b adjustment total) terms (by omega) (by omega)
+  have hTail' : (∑ j ∈ Finset.range (min n total + 1 - balancedZUpperCutoff n a b adjustment total),
+      (hypergeometricWeight n n total (balancedZUpperCutoff n a b adjustment total + j) : ℝ)) ≤
+      (waldTailWeightBound n total (balancedZUpperCutoff n a b adjustment total) terms : ℝ) := by
     exact_mod_cast hTail
   have hNonneg : (0 : ℝ) ≤ ∑ j ∈ Finset.range
-      (min n total + 1 - balancedWaldUpperCutoff n a b total),
-      (hypergeometricWeight n n total (balancedWaldUpperCutoff n a b total + j) : ℝ) :=
+      (min n total + 1 - balancedZUpperCutoff n a b adjustment total),
+      (hypergeometricWeight n n total (balancedZUpperCutoff n a b adjustment total + j) : ℝ) :=
     Finset.sum_nonneg (fun _ _ => Nat.cast_nonneg _)
   have hi₀ : (0 : ℝ) ≤ (hi : ℝ) := hp₀.trans hhi
   have hlo₁ : (lo : ℝ) ≤ 1 := hlo.trans hp₁
   have cap_nonneg := hNonneg.trans hTail'
   gcongr
+
+noncomputable abbrev balancedWaldNullRejectionProbability (n a b : ℕ) :=
+  balancedZNullRejectionProbability n a b a
+
+theorem balancedWaldNullRejectionProbability_eq_pooledSum (n a b : ℕ) (p : ℝ)
+    (den_pos : 0 < b * (2 * n) + a) :
+    balancedWaldNullRejectionProbability n a b p =
+      ∑ total ∈ Finset.range (2 * n + 1), (2 : ℝ) *
+        (∑ j ∈ Finset.range (min n total + 1 - balancedWaldUpperCutoff n a b total),
+          (hypergeometricWeight n n total (balancedWaldUpperCutoff n a b total + j) : ℝ)) *
+        (p ^ total * (1 - p) ^ (2 * n - total)) :=
+  balancedZNullRejectionProbability_eq_pooledSum n a b a p den_pos
+
+abbrev balancedWaldIntervalBound (n a b terms : ℕ) :=
+  balancedZIntervalBound n a b a terms
+
+theorem balancedWaldNullRejectionProbability_le_intervalBound
+    (n a b terms : ℕ) (p : ℝ) (lo hi : ℚ)
+    (den_pos : 0 < b * (2 * n) + a)
+    (hp₀ : 0 ≤ p) (hp₁ : p ≤ 1) (hlo : (lo : ℝ) ≤ p) (hhi : p ≤ (hi : ℝ)) :
+    balancedWaldNullRejectionProbability n a b p ≤
+      (balancedWaldIntervalBound n a b terms lo hi : ℝ) :=
+  balancedZNullRejectionProbability_le_intervalBound n a b a terms p lo hi den_pos hp₀ hp₁ hlo hhi
 
 /-- Take the largest of the bounds over `splits + 1` equal closed
 subintervals of the full null parameter space `[0, 1]`. -/

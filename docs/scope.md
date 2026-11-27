@@ -15,6 +15,11 @@ What is supported:
   and verifies a ceiling of 8.24% over the entire null.
   If the upper-bound search falls short, statClaim tries candidate null rates.
   A Lean-checked exact rejection probability above the ceiling refutes the claim.
+- **Two arms, pooled score.** `score_test` uses the pooled variance for the two-sided
+  test of equal proportions, with fixed and equal binomial arm sizes. The
+  [20-per-arm example](../examples/score_bound.stat) uses a critical value of
+  1.96 and a Type I error ceiling of 5.4%. Change the ceiling to 5% to check a
+  counterexample at a common success rate of 25%.
 - **Two arms with a margin.** An exact test of "treatment exceeds control by at
   most a margin", for non-inferiority or superiority, with an error bound over
   the whole null. Up to 120 participants per arm.

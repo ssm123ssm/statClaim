@@ -127,6 +127,13 @@ WALD_CONTRACT = HypothesisContract(
     "squared critical value. Alpha is the requested finite-sample error ceiling.",
 )
 
+SCORE_CONTRACT = HypothesisContract(
+    WALD_CONTRACT.supported_predicates,
+    "p_treatment = p_control (equal arm success probabilities)",
+    "The two-sided pooled score test uses equal arm sizes and a positive rational "
+    "squared critical value. Alpha is the requested finite-sample error ceiling.",
+)
+
 RANDOMISATION_CONTRACT = HypothesisContract(
     ("no_effect",),
     "treatment changes no participant's outcome (the sharp null)",

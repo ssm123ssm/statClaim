@@ -507,7 +507,7 @@ theorem association_key_inj : ∀ m₁ ∈ Generated.associationMethods,
 
 /-- The keys of the tests a canonical program writes by name, other than cited ones. -/
 def reservedKeys : List String :=
-  ["fisher", "wald_test", "fisher_exact", "mcnemar", "rate_test", "randomisation",
+  ["fisher", "wald_test", "score_test", "fisher_exact", "mcnemar", "rate_test", "randomisation",
     "binomial_exact_one_sided", "two_stage", "declared_test"]
 
 def trialKeys : List String := Generated.trialMethods.map (·.key)
@@ -589,7 +589,7 @@ def Form.tag (f : Form) : ℕ :=
   | some s =>
     if s = "fisher" then
       if f.get "alternative" = none then 0 else 1
-    else if s = "wald_test" then 1
+    else if s = "wald_test" ∨ s = "score_test" then 1
     else if s ∈ ["fisher_exact", "mcnemar", "rate_test"] then 3
     else if s = "randomisation" then 4
     else if s = "binomial_exact_one_sided" then 5
@@ -618,8 +618,10 @@ def Test.tag : Test → ℕ
   | .sequence .. => 14
 
 theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
-  | .exact _ .fisherOneSided .., _ | .exact _ (.margin ..) .., _ | .exact _ (.wald ..) .., _ => by
+  | .exact _ .fisherOneSided .., _ | .exact _ (.margin ..) .., _ => by
     simp [Test.form, Form.tag, Form.text, Test.tag]
+  | .exact _ (.proportionZ pooled _) .., _ => by
+    cases pooled <;> simp [Test.form, Form.tag, Form.text, Test.tag, ExactKind.key]
   | .exactStudy _ kind .., _ => by
     cases kind <;> simp [Test.form, Form.tag, Form.text, Test.tag, ExactStudyKind.key]
   | .member _, c => by simp [Test.canonical] at c
@@ -695,7 +697,9 @@ theorem Test.agree (t₁ t₂ : Test) (c₁ : t₁.canonical = true) (c₂ : t�
     simp at e; casesm* _ ∧ _; subst_vars; exact Agree.of_eq rfl
   -- exact
   · rename_i k₁ d₁ nl₁ a₁ k₂ d₂ nl₂ a₂
-    cases k₁ <;> cases k₂ <;> simp only [Test.form] at h
+    cases k₁ <;> cases k₂
+    all_goals repeat cases ‹Bool›
+    all_goals simp only [Test.form, ExactKind.key, Bool.false_eq_true, ite_false, ite_true] at h
     all_goals try separate h ["squared_cutoff"]
     all_goals same_object h as e
     all_goals simp at e
