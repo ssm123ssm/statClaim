@@ -341,9 +341,13 @@ def lean_markdown(lean: dict) -> list[str]:
         lines += ["Premises: " + ", ".join(f"`{name}`" for name in lean["premises"]) + ".", ""]
     if lean["refuted"]:
         lines += [
-            f"- `{claim}`: its design stops by a rule that depends on the data, so it supplies "
-            "no sampling law; the semantics states the claim as False, and nothing proves it."
-            for claim in lean["refuted"]
+            f"- `{claim}` "
+            + (
+                "has no sampling law because its stopping rule depends on the data."
+                if reason == "no sampling law"
+                else f"was refuted in Lean. {reason}"
+            )
+            for claim, reason in lean["refuted"].items()
         ]
         lines.append("")
     if lean.get("unproved"):

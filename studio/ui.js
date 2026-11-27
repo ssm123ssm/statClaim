@@ -292,6 +292,7 @@ const OUTCOMES = {
   declared: ['declared', 'Declared by the author, not checked', 'alert'],
   calculated: ['calculated', 'Calculated, no certificate', 'spark'],
   simulated: ['simulated', 'Simulated, not a proof', 'dice'],
+  refuted: ['error', 'Refuted in Lean', 'x'],
   unresolved_obligation: ['open', 'Not established', 'alert'],
   backend_error: ['error', 'The backend failed', 'x'],
   not_executed: ['open', 'Not run', 'info'],
@@ -443,6 +444,10 @@ export function headline(request) {
   }
   const guarantee = request.evidence?.guarantee;
   if (guarantee?.bound) return {text: human(guarantee.quantity || 'error').replace(/^./, ch => ch.toUpperCase()) + ' at most ' + guarantee.bound, tone: null};
+  if (request.counterexample) {
+    const {p, typeI_error, alpha} = request.counterexample;
+    return {text: 'At p = ' + p + ', Type I error ' + percent(typeI_error, alpha) + ' exceeds ' + percent(alpha, typeI_error), tone: 'warn', title: request.message};
+  }
   if (decision) return {text: human(decision).replace(/^./, ch => ch.toUpperCase()), tone: null};
   if (request.message) return {text: firstSentence(request.message), tone: null, title: request.message};
   return null;

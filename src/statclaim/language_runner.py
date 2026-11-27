@@ -364,7 +364,12 @@ def _result_value(
         not in ("sampling_scope", "allocation", "typeI_target", "power_target", "search_exhausted")
     ):
         status = "backend_error"
-    return VerificationResult(index, request.claim, source_id, status, evidence, diagnostics)
+    counterexample = details.get("counterexample")
+    if counterexample is not None:
+        counterexample = {**counterexample, "certificate": details["certificate"]}
+    return VerificationResult(
+        index, request.claim, source_id, status, evidence, diagnostics, counterexample
+    )
 
 
 def check_source(
@@ -553,6 +558,7 @@ def check_source(
         (
             status
             for status in (
+                "refuted",
                 "unresolved_obligation",
                 "declared",
                 "cited",
@@ -1192,7 +1198,10 @@ def render_report(report: dict, source: Source) -> str:
             status = request["status"]
         lines.append(f"{status}{label}: {request['claim']}({request['subject']})")
         lines.extend(_weakest_line(request) if "weakest_link" in request else [])
-        if details["certificate_issued"]:
+        if status == "refuted":
+            lines.append(f"  Refuted in Lean. {details['verification']['message']}")
+            lines.append(f"  Certificate: {details['certificate']['directory']}")
+        elif details["certificate_issued"]:
             evidence = request["value"]["evidence"]
             lines.append(
                 f"  Evidence: {GRADES[evidence['grade']].label}; "

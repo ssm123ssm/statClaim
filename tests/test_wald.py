@@ -9,9 +9,10 @@ from statclaim.language_compiler import compile_source
 from statclaim.language_printer import program_source
 from statclaim.language_runner import check_source
 from statclaim.language_syntax import Source
+from statclaim.lean_translation.certificate import payload
 from statclaim.lean_translation.data import declarations, verify_claims
-from statclaim.verification import recheck_certificate
-from statclaim.wald import GRID, find_certificate
+from statclaim.verification import VerificationError, certify_program, recheck_certificate
+from statclaim.wald import GRID, find_certificate, find_counterexample
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples/wald_bound.stat"
@@ -62,16 +63,54 @@ def test_wald_search_covers_the_null_for_824_percent():
     assert find_certificate(20, cutoff, Fraction(1, 20)) is None
 
 
+def test_wald_counterexample_search_can_leave_the_midpoint():
+    cutoff = Fraction(2401, 625)
+    assert find_counterexample(20, cutoff, Fraction(1, 20)) == (
+        Fraction(1, 2),
+        Fraction(22195551235, 274877906944),
+    )
+    rate, risk = find_counterexample(37, cutoff, Fraction(1, 20))
+    assert rate == Fraction(1, 4)
+    assert Fraction(1, 20) < risk
+    assert find_counterexample(20, cutoff, Fraction(101, 1250)) is None
+
+
 @pytest.mark.lean
 @pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
-def test_checked_wald_bound_replays_and_does_not_certify_five_percent(tmp_path):
-    report = check_source(Source(TEXT, str(EXAMPLE)), project=ROOT, output=tmp_path / "valid")
-    assert report["status"] == "verified", report["diagnostics"]
-    bundle = Path(report["lean"]["certificate_directory"])
-    assert recheck_certificate(bundle, project=ROOT)["status"] == "verified"
-
-    too_small = Source(TEXT.replace("103/1250", "1/20"), "wald_005.stat")
-    report = check_source(too_small, project=ROOT, output=tmp_path / "too-small")
-    assert report["status"] == "unresolved_obligation"
-    assert report["requests"][0]["value"]["status"] == "unresolved_obligation"
+def test_wald_verification_refutation_and_unresolved_claim_share_one_program(tmp_path):
+    text = (
+        TEXT
+        + """
+let tighter = wald_test(design=design, null=null, squared_cutoff=2401/625, alpha=101/1250)
+let unresolved = verify(typeI(tighter))
+let study37 = two_arm_binomial(n_control=37, n_treatment=37)
+let design37 = fixed(model=study37)
+let null37 = equal_proportions(model=study37)
+let wald37 = wald_test(design=design37, null=null37, squared_cutoff=2401/625, alpha=1/20)
+let refuted = verify(typeI(wald37))
+"""
+    )
+    report = check_source(Source(text), project=ROOT, output=tmp_path / "checked")
+    assert report["status"] == "refuted", report["diagnostics"]
+    proved, open_claim, refuted = report["requests"]
+    assert proved["status"] == "verified"
+    assert open_claim["value"]["status"] == "unresolved_obligation"
     assert "wald_bound_unproved" in {item["code"] for item in report["diagnostics"]}
+    assert refuted["value"]["status"] == "refuted"
+    witness = refuted["value"]["counterexample"]
+    assert witness["p"] == "1/4"
+    assert Fraction(witness["typeI_error"]) > Fraction(witness["alpha"])
+    assert witness["certificate"]["directory"] == report["lean"]["certificate_directory"]
+    replay = recheck_certificate(Path(report["lean"]["certificate_directory"]), project=ROOT)
+    assert replay["status"] == "verified"
+    assert replay["counterexamples"][0]["request_id"] == refuted["request_id"]
+    assert replay["counterexamples"][0]["typeI_error"] == witness["typeI_error"]
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_lean_rejects_an_incorrect_wald_rejection_probability(tmp_path):
+    inputs = payload(Source(TEXT.replace("103/1250", "1/20")), ROOT)
+    inputs["wald_counterexamples"]["0"]["typeI_error"] = "1/10"
+    with pytest.raises(VerificationError, match="decide"):
+        certify_program(inputs, project=ROOT, output=tmp_path / "bad-witness")

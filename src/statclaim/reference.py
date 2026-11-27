@@ -108,6 +108,7 @@ RESULT_STATUSES = {
 PROGRAM_STATUSES = {
     "invalid": "The file has an error and nothing was run.",
     "elaborated": "The file compiles with no open requirement; nothing was run.",
+    "refuted": "Lean verified a counterexample to at least one claim.",
     "unresolved_obligation": "At least one claim has an unmet requirement.",
     "declared": "Every claim went through; the weakest part anywhere is a declared test.",
     "cited": "Every claim went through; the weakest part anywhere is cited.",

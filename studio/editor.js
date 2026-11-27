@@ -1296,9 +1296,9 @@ function leanSection(run, stale) {
     row.append(chip, ' Lean grades it ' + claim.grade + ', but StatClaim\'s contract check grades it ' + claim.python + '. This disagreement is a defect; please report it.');
     section.append(row);
   }
-  for (const name of Object.keys(result.refuted || {})) {
+  for (const [name, reason] of Object.entries(result.refuted || {})) {
     const row = el('p', 'results-note');
-    row.append(el('code', '', name), ' The stopping rule supplies no sampling law for this claim.');
+    row.append(el('code', '', name), ' ' + (reason === 'no sampling law' ? 'The stopping rule supplies no sampling law for this claim.' : reason));
     section.append(row);
   }
   const left = Object.entries(result.outside_lean || {}).filter(([name]) => !(name in (result.refuted || {})));

@@ -409,5 +409,6 @@ def _recheck_certificate(bundle: Path, *, project: Path, timeout: float) -> dict
         # What the replayed certificate establishes; a composition leaves members assumed.
         "certificate_status": profile["status"],
         "claims": profile["claims"],
+        **({"counterexamples": profile["counterexamples"]} if "counterexamples" in profile else {}),
         "certificate_directory": str(bundle),
     }

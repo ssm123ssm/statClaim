@@ -28,6 +28,8 @@ run_cmd do
     ``StatClaim.balancedWaldNullRejectionProbabilityAt_le_uniformBound,
     ``StatClaim.Modules.Wald.region_iff,
     ``StatClaim.Modules.Wald.level,
+    ``StatClaim.Modules.Wald.exact_at_of_check,
+    ``StatClaim.Semantics.Program.wald_refuted,
     ``StatClaim.fisher_typeI_error_le_alpha,
     ``StatClaim.Modules.Bonferroni.strong_control,
     ``StatClaim.Modules.FisherFamily.marginal_bound,

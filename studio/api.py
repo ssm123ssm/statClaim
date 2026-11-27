@@ -1191,6 +1191,9 @@ def run_document(source, backend, only=None):
                 "status": status,
                 "weakest_link": request.get("weakest_link"),
                 "evidence": value.get("evidence"),
+                **(
+                    {"counterexample": value["counterexample"]} if "counterexample" in value else {}
+                ),
                 "target": details.get("target_property"),
                 "established": details.get("established_properties") or [],
                 "assumptions": details.get("required_assumptions") or [],

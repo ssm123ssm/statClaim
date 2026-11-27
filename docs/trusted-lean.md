@@ -18,7 +18,7 @@ parser and elaborator are trusted; see [certificates](certificates.md).
 out of date: a change to a trusted file changes its line count here, so it shows in
 review. Run `uv run python scripts/check_trusted_lean.py` after a reviewed change.
 
-Trusted in full: 2235 lines. Definitions trusted, with proofs Lean checks: 7815 lines. Proofs only: 1900 lines.
+Trusted in full: 2235 lines. Definitions trusted, with proofs Lean checks: 7884 lines. Proofs only: 1930 lines.
 
 | File | What is trusted | Lines |
 | --- | --- | ---: |
@@ -53,7 +53,7 @@ Trusted in full: 2235 lines. Definitions trusted, with proofs Lean checks: 7815 
 | `StatClaim/Modules/Randomisation.lean` | Definitions trusted; Lean checks the proofs | 503 |
 | `StatClaim/Modules/TwoArmBinomial.lean` | Definitions trusted; Lean checks the proofs | 87 |
 | `StatClaim/Modules/TwoStageBinomial.lean` | Definitions trusted; Lean checks the proofs | 225 |
-| `StatClaim/Modules/Wald.lean` | Definitions trusted; Lean checks the proofs | 189 |
+| `StatClaim/Modules/Wald.lean` | Definitions trusted; Lean checks the proofs | 258 |
 | `StatClaim/ProductBinomial.lean` | Definitions trusted; Lean checks the proofs | 154 |
 | `StatClaim/Semantics/Contracts.lean` | Trusted in full | 320 |
 | `StatClaim/Semantics/Encode.lean` | Trusted in full | 450 |

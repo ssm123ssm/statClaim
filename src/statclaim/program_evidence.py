@@ -100,6 +100,10 @@ def build(source: Source, *, project: Path, output: Path, timeout: float) -> Pro
                     failures[requests[index]] = f"Lean did not prove this claim: {error}"
             inputs = {**inputs, "omitted": sorted(failing)}
     listed = {claim["request_id"]: claim for claim in certificate.claims(inputs)}
+    listed.update(
+        (entry["request_id"], {**entry, "grade": "refuted"})
+        for entry in certificate.counterexamples(inputs)
+    )
     return ProgramRun(issued, bundle, listed, failures, contract_facts=facts)
 
 
@@ -186,6 +190,19 @@ def attach(report: dict) -> dict | None:
         "sha256": digest((bundle / "certificate.json").read_bytes()),
     }
     program_claim = {"kind": issued["kind"], "theorem": claim["theorem"], "grade": grade}
+    if grade == "refuted":
+        witness = {key: claim[key] for key in ("p", "typeI_error", "alpha", "theorem")}
+        report.update(
+            status="refuted",
+            backend_invoked=True,
+            certificate_issued=True,
+            outstanding_obligations=[],
+            verification={"stage": "counterexample", "message": claim["message"]},
+            counterexample=witness,
+            certificate=certificate,
+            program_claim=program_claim,
+        )
+        return report
     if grade in ("cited", "declared"):
         # Python's account of the cited guarantee stands; Lean checked the declarations'
         # contract facts and that the claim rests on its own premise.

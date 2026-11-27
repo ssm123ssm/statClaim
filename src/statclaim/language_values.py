@@ -262,6 +262,7 @@ class VerificationResult:
     status: str
     evidence: Evidence | None = None
     diagnostics: tuple[Diagnostic, ...] = ()
+    counterexample: Mapping | None = None
 
     def __post_init__(self):
         if (self.status in STATUS_GRADES) != (self.evidence is not None):
@@ -270,6 +271,9 @@ class VerificationResult:
             raise ValueError("A verified result needs evidence checked by Lean.")
         if self.evidence is not None and self.evidence.claim != self.claim:
             raise ValueError("Evidence must establish the verification result's claim.")
+        if (self.status == "refuted") != (self.counterexample is not None):
+            raise ValueError("A refuted result needs a checked counterexample.")
+        object.__setattr__(self, "counterexample", freeze(self.counterexample))
 
     def to_dict(self) -> dict:
         return {
@@ -279,6 +283,7 @@ class VerificationResult:
             "source_sha256": self.source_sha256,
             "status": self.status,
             "evidence": self.evidence.to_dict() if self.evidence else None,
+            **({"counterexample": thaw(self.counterexample)} if self.counterexample else {}),
             "diagnostics": [d.to_dict() for d in self.diagnostics],
         }
 

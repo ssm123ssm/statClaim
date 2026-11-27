@@ -9,6 +9,7 @@ from math import ceil, comb, isqrt
 WEIGHT_SCALE = 1024
 EXACT_TAIL_TERMS = 12
 GRID = 16384
+COUNTEREXAMPLE_GRID = 128
 
 
 @dataclass(frozen=True)
@@ -17,11 +18,15 @@ class WaldCertificate:
     cells: tuple[int, ...]
 
 
-def _scaled_weight(n: int, cutoff: Fraction, total: int) -> int:
-    """Round up twice the upper-tail weight after bounding its remainder."""
+def _upper_start(n: int, cutoff: Fraction, total: int) -> int:
     size = 2 * n
     a, b = cutoff.numerator, cutoff.denominator
-    start = (total + isqrt(a * total * (size - total) // (b * size + a))) // 2 + 1
+    return (total + isqrt(a * total * (size - total) // (b * size + a))) // 2 + 1
+
+
+def _scaled_weight(n: int, cutoff: Fraction, total: int) -> int:
+    """Round up twice the upper-tail weight after bounding its remainder."""
+    start = _upper_start(n, cutoff, total)
     end = min(n, total)
     residual = start + EXACT_TAIL_TERMS
     leading = sum(comb(n, k) * comb(n, total - k) for k in range(start, min(end + 1, residual)))
@@ -53,3 +58,32 @@ def find_certificate(n: int, cutoff: Fraction, alpha: Fraction) -> WaldCertifica
             middle = (low + high) // 2
             pending.extend(((middle, high), (low, middle)))
     return WaldCertificate(weights, tuple(endpoints))
+
+
+@lru_cache(maxsize=64)
+def find_counterexample(
+    n: int, cutoff: Fraction, alpha: Fraction
+) -> tuple[Fraction, Fraction] | None:
+    """Propose a rational null rate and its exact rejection probability for Lean to check."""
+    choose = [comb(n, k) for k in range(n + 1)]
+    weights = [
+        2
+        * sum(
+            choose[k] * choose[total - k]
+            for k in range(_upper_start(n, cutoff, total), min(n, total) + 1)
+        )
+        for total in range(2 * n + 1)
+    ]
+    # Try the middle first, then the new interior points of progressively finer grids.
+    for depth in range(1, COUNTEREXAMPLE_GRID.bit_length()):
+        den = 1 << depth
+        scale = den ** (2 * n)
+        for num in range(1, den, 2):
+            complement = den - num
+            value, power = 0, 1
+            for weight in reversed(weights):
+                value = weight * power + num * value
+                power *= complement
+            if value * alpha.denominator > alpha.numerator * scale:
+                return Fraction(num, den), Fraction(value, scale)
+    return None

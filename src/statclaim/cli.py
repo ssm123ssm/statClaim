@@ -244,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
                 2
                 if report["status"] == "invalid"
                 else 1
-                if report["status"] in ("unresolved_obligation", "stale_source")
+                if report["status"] in ("refuted", "unresolved_obligation", "stale_source")
                 else 0
             )
         if options.command == "check-certificate":

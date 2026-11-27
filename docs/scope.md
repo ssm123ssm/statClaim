@@ -13,6 +13,8 @@ What is supported:
   times the estimated variance, including when that variance is zero.
   [The 20-per-arm example](../examples/wald_bound.stat) uses a cutoff of 1.96
   and verifies a ceiling of 8.24% over the entire null.
+  If the upper-bound search falls short, statClaim tries candidate null rates.
+  A Lean-checked exact rejection probability above the ceiling refutes the claim.
 - **Two arms with a margin.** An exact test of "treatment exceeds control by at
   most a margin", for non-inferiority or superiority, with an error bound over
   the whole null. Up to 120 participants per arm.

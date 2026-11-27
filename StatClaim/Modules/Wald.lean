@@ -18,7 +18,7 @@ set_option autoImplicit false
 namespace StatClaim.Modules.Wald
 
 open MeasureTheory TwoArmBinomial
-open DifferenceTest (cellsOk lastOf cell_exists)
+open DifferenceTest (cellsOk lastOf cell_exists list_sum_range)
 
 def weightScale : ℕ := 1024
 def terms : ℕ := 12
@@ -185,5 +185,74 @@ theorem level (sizes : FixedSampleDesign) (balanced : sizes.nTreatment = sizes.n
   rw [productBinomial_real_eq_sum]
   exact typeI_of_check n a b boundNum boundDen hint sizes.controlPositive hb hden ok θ.1
     θ.1.property.1 θ.1.property.2
+
+def exactWeight (n a b total : ℕ) : ℕ :=
+  let start := balancedWaldUpperCutoff n a b total
+  2 * ((List.range (min n total + 1 - start)).map
+    (fun j => waldFastWeight n total (start + j))).sum
+
+/-- The exact rejection probability at a rational common success rate. -/
+def pointProbability (n a b : ℕ) (rate : ℚ) : ℚ :=
+  let num := rate.num.toNat
+  let den := rate.den
+  let ws := (List.range (2 * n + 1)).map (exactWeight n a b)
+  ((evaluate num (den - num) ws).1 : ℚ) / (den : ℚ) ^ (2 * n)
+
+theorem pointProbability_eq (n a b : ℕ) (rate : ℚ) (hn : 0 < n) (hb : 0 < b)
+    (h₀ : 0 ≤ rate) (h₁ : rate ≤ 1) :
+    (pointProbability n a b rate : ℝ) =
+      balancedWaldNullRejectionProbability n a b (rate : ℝ) := by
+  have den_pos : (0 : ℝ) < rate.den := by exact_mod_cast rate.den_pos
+  have rate_eq : ((rate.num.toNat : ℕ) : ℝ) / rate.den = (rate : ℝ) := by
+    have eq : ((rate.num.toNat : ℕ) : ℚ) / rate.den = rate := by
+      rw [← Int.cast_natCast, Int.toNat_of_nonneg (Rat.num_nonneg.mpr h₀)]
+      exact Rat.num_div_den rate
+    simpa only [Rat.cast_div, Rat.cast_natCast] using
+      congrArg (fun q : ℚ => (q : ℝ)) eq
+  have num_le : rate.num.toNat ≤ rate.den := by
+    have h : ((rate.num.toNat : ℕ) : ℝ) / rate.den ≤ 1 :=
+      rate_eq ▸ (by exact_mod_cast h₁)
+    rw [div_le_one den_pos] at h
+    exact_mod_cast h
+  have complement : (((rate.den - rate.num.toNat : ℕ) : ℝ) / rate.den) = 1 - (rate : ℝ) := by
+    rw [Nat.cast_sub num_le, sub_div, div_self den_pos.ne', rate_eq]
+  rw [balancedWaldNullRejectionProbability_eq_pooledSum _ _ _ _ (by positivity)]
+  simp only [pointProbability, evaluate_eq, List.length_map, List.length_range, Nat.add_sub_cancel,
+    Rat.cast_div, Rat.cast_natCast, Rat.cast_pow, Nat.cast_sum]
+  rw [Rat.cast_sum, Finset.sum_div]
+  apply Finset.sum_congr rfl
+  intro total mem
+  have ht : total ≤ 2 * n := by simpa using mem
+  simp [Finset.mem_range.mp mem]
+  have den_pow : (rate.den : ℝ) ^ (2 * n) =
+      (rate.den : ℝ) ^ total * (rate.den : ℝ) ^ (2 * n - total) := by
+    rw [← pow_add, Nat.add_sub_of_le ht]
+  rw [den_pow, mul_assoc, mul_div_assoc, ← div_mul_div_comm, ← div_pow, ← div_pow,
+    rate_eq, complement]
+  simp only [exactWeight, list_sum_range]
+  push_cast
+  simp_rw [waldFastWeight_eq]
+
+def checkCounterexample (n a b : ℕ) (alpha rate reported : ℚ) : Bool :=
+  decide (0 ≤ rate ∧ rate ≤ 1 ∧ reported = pointProbability n a b rate ∧ alpha < reported)
+
+theorem exact_at_of_check (sizes : FixedSampleDesign) (balanced : sizes.nTreatment = sizes.nControl)
+    (a b : ℕ) (hb : 0 < b) (alpha rate reported : ℚ)
+    (ok : checkCounterexample sizes.nControl a b alpha rate reported = true) :
+    ∃ θ : Parameters, equalProportions θ ∧
+      (θ.1 : ℝ) = (rate : ℝ) ∧
+      ((model sizes).law θ).real (region sizes.nControl a b) = (reported : ℝ) ∧
+      (alpha : ℝ) < (reported : ℝ) := by
+  obtain ⟨h₀, h₁, equal, excess⟩ := of_decide_eq_true ok
+  let p : unitInterval := ⟨(rate : ℝ), by exact_mod_cast h₀, by exact_mod_cast h₁⟩
+  refine ⟨(p, p), rfl, rfl, ?_, by exact_mod_cast excess⟩
+  rw [law_under_null sizes (p, p) rfl]
+  change (productBinomial sizes.nControl sizes.nTreatment p p).real _ = _
+  rw [balanced]
+  let n := sizes.nControl
+  let (counts : Counts) : Decidable (counts ∈ region n a b) :=
+    inferInstanceAs (Decidable (balancedWaldReject n a b (counts.1 + counts.2) counts.1))
+  rw [productBinomial_real_eq_sum, equal, pointProbability_eq n a b rate sizes.controlPositive hb h₀ h₁]
+  rfl
 
 end StatClaim.Modules.Wald
