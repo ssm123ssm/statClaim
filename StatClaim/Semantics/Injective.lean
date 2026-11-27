@@ -507,7 +507,7 @@ theorem association_key_inj : ∀ m₁ ∈ Generated.associationMethods,
 
 /-- The keys of the tests a canonical program writes by name, other than cited ones. -/
 def reservedKeys : List String :=
-  ["fisher", "fisher_exact", "mcnemar", "rate_test", "randomisation",
+  ["fisher", "wald_test", "fisher_exact", "mcnemar", "rate_test", "randomisation",
     "binomial_exact_one_sided", "two_stage", "declared_test"]
 
 def trialKeys : List String := Generated.trialMethods.map (·.key)
@@ -589,6 +589,7 @@ def Form.tag (f : Form) : ℕ :=
   | some s =>
     if s = "fisher" then
       if f.get "alternative" = none then 0 else 1
+    else if s = "wald_test" then 1
     else if s ∈ ["fisher_exact", "mcnemar", "rate_test"] then 3
     else if s = "randomisation" then 4
     else if s = "binomial_exact_one_sided" then 5
@@ -617,7 +618,7 @@ def Test.tag : Test → ℕ
   | .sequence .. => 14
 
 theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
-  | .exact _ .fisherOneSided .., _ | .exact _ (.margin ..) .., _ => by
+  | .exact _ .fisherOneSided .., _ | .exact _ (.margin ..) .., _ | .exact _ (.wald ..) .., _ => by
     simp [Test.form, Form.tag, Form.text, Test.tag]
   | .exactStudy _ kind .., _ => by
     cases kind <;> simp [Test.form, Form.tag, Form.text, Test.tag, ExactStudyKind.key]
@@ -694,12 +695,16 @@ theorem Test.agree (t₁ t₂ : Test) (c₁ : t₁.canonical = true) (c₂ : t�
     simp at e; casesm* _ ∧ _; subst_vars; exact Agree.of_eq rfl
   -- exact
   · rename_i k₁ d₁ nl₁ a₁ k₂ d₂ nl₂ a₂
-    unfold Test.form at h; same_object h as e
-    simp at e; casesm* _ ∧ _; subst_vars
-    cases k₁ <;> cases k₂ <;> simp_all [Test.canonical]
-    · exact Agree.of_eq rfl
-    · subst_vars
-      exact ⟨rfl, rfl, fun th => by simp_all [Test.thresholds, Form.object]⟩
+    cases k₁ <;> cases k₂ <;> simp only [Test.form] at h
+    all_goals try separate h ["squared_cutoff"]
+    all_goals same_object h as e
+    all_goals simp at e
+    all_goals casesm* _ ∧ _
+    all_goals subst_vars
+    all_goals simp_all [Test.canonical]
+    all_goals try exact Agree.of_eq rfl
+    subst_vars
+    exact ⟨rfl, rfl, fun th => by simp_all [Test.thresholds, Form.object]⟩
   -- exactStudy
   · rename_i k₁ d₁ nl₁ a₁ k₂ d₂ nl₂ a₂
     unfold Test.form at h; same_object h as e

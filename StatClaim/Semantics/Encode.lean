@@ -150,8 +150,12 @@ mutual
 def Test.form : Test → Form
   | .fisher _ design null alpha => .object [("alpha", some (.level alpha)),
       ("design", some design.form), ("null", some null.form), ("test", some (.str "fisher"))]
+  | .exact _ (.wald cutoff) design null alpha => .object [("alpha", some (.level alpha)),
+      ("design", some design.form), ("null", some null.form), ("squared_cutoff", some (.rat cutoff)),
+      ("test", some (.str "wald_test"))]
   | .exact _ kind design null alpha => .object [("alpha", some (.level alpha)),
-      ("alternative", some (.str (match kind with | .fisherOneSided => "greater" | .margin .. => "margin"))),
+      ("alternative", some (.str
+        (match kind with | .fisherOneSided => "greater" | _ => "margin"))),
       ("design", some design.form), ("null", some null.form), ("test", some (.str "fisher"))]
   | .exactStudy _ kind design null alpha => .object [("alpha", some (.level alpha)),
       ("design", some design.form), ("null", some null.form), ("test", some (.str kind.key))]
@@ -390,6 +394,7 @@ def Request.reported : Request → Option Form
 /-- The type of the binding that declares a test. -/
 def Test.binding : Test → String
   | .fisher .. => "AnalysisIR"
+  | .exact _ (.wald ..) .. => "WaldAnalysisIR"
   | .exact .. => "AnalysisIR"
   | .exactStudy _ kind .. => kind.binding
   | .randomised .. => "RandomisationAnalysisIR"

@@ -101,6 +101,7 @@ from statclaim.language import (
     TwoStageObservationIR,
     ValueType,
     VerificationResultIR,
+    WaldAnalysisIR,
     fail,
     planned_analysis,
 )
@@ -345,6 +346,12 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
         "predicate": FieldSpec(str),
         "value": FieldSpec(Fraction),
         "statement": FieldSpec(str),
+    },
+    WaldAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(HypothesisIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
+        "squared_cutoff": FieldSpec(Fraction, description="Squared Wald critical value."),
     },
     AnalysisIR: {
         "design": FieldSpec(PlanIR, attribute="plan"),

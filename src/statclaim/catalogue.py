@@ -34,6 +34,11 @@ MODULE_CLASSES = {
         '"treatment no better than control", with Lean-backed result and Type I claims '
         "under fixed sampling.",
     ),
+    "tests.wald": (
+        "Analyses and claims",
+        "Two-sided unpooled Wald rule for equal binomial proportions and balanced fixed arms. "
+        "Lean checks a uniform finite-sample Type I error ceiling for the specified cutoff.",
+    ),
     "tests.randomisation": (
         "Analyses and claims",
         "Randomisation test of the sharp null that treatment changes no participant's "
@@ -175,6 +180,11 @@ OBJECT_CLASSES = {
     "StudyDesign": ("Core statistical objects", "Model with a stopping rule."),
     "Hypothesis": ("Core statistical objects", "A null restriction, not an assertion of truth."),
     "Analysis": ("Core statistical objects", "Design, compatible null and exact alpha."),
+    "WaldAnalysis": (
+        "Core statistical objects",
+        "Design, equality null, squared Wald critical value and requested "
+        "finite-sample error ceiling.",
+    ),
     "OutcomeModel": (
         "Core statistical objects",
         "Two arms: an assignment and a continuous, survival or other registered outcome.",

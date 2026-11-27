@@ -120,6 +120,13 @@ MARGIN_CONTRACT = HypothesisContract(
     "non-inferiority question; zero is superiority.",
 )
 
+WALD_CONTRACT = HypothesisContract(
+    ("equal_proportions",),
+    "p_treatment = p_control (equal arm success probabilities)",
+    "The two-sided unpooled Wald analysis uses equal arm sizes and a positive rational "
+    "squared critical value. Alpha is the requested finite-sample error ceiling.",
+)
+
 RANDOMISATION_CONTRACT = HypothesisContract(
     ("no_effect",),
     "treatment changes no participant's outcome (the sharp null)",

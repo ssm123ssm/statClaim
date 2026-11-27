@@ -6,6 +6,13 @@ What is supported:
   null, and the two-sided Fisher test in exact rational arithmetic.
 - **Two arms, one-sided.** The one-sided Fisher test of "treatment no better than
   control". Its error bound covers every such pair of rates.
+- **Two arms, unpooled Wald.** A pre-data Type I error certificate for the
+  two-sided Wald rule with equal fixed binomial arm sizes and an equality null.
+  Specify `squared_cutoff` for the rule and `alpha` for the requested error ceiling.
+  The rule rejects when the squared observed difference exceeds `squared_cutoff`
+  times the estimated variance, including when that variance is zero.
+  [The 20-per-arm example](../examples/wald_bound.stat) uses a cutoff of 1.96
+  and verifies a ceiling of 8.24% over the entire null.
 - **Two arms with a margin.** An exact test of "treatment exceeds control by at
   most a margin", for non-inferiority or superiority, with an error bound over
   the whole null. Up to 120 participants per arm.
@@ -79,7 +86,7 @@ What is supported:
   large-sample guarantee. Lean checks one question at growing sizes.
 - **Look sizes.** Every look's size searched freely by a minimax or optimal
   criterion: exact for Fisher's test, simulated for t-tests. A calculation.
-- **Mixed families.** Bonferroni over any of the exact two-arm tests and cited tests.
+- **Mixed families.** Bonferroni over supported exact two-arm tests and cited tests. Wald certificates are supported for individual claims.
   Lean checks that the levels fit the budget and that the union bound gives the
   family bound. Each member's own bound is a hypothesis of that theorem.
 - **Two survival curves, cited.** The two-sided log-rank test, with a

@@ -283,6 +283,7 @@ DIAGNOSTICS = {
         "A test that relies on randomised arms is given an observational study, whose "
         "exposure was not assigned.",
     ),
+    "unequal_arm_sizes": ("error", "The Wald bound requires the same fixed size in both arms."),
     "unit_mismatch": (
         "error",
         "The test's unit does not fit the declared design: it assumes independent participants "
@@ -329,6 +330,10 @@ DIAGNOSTICS = {
         "A look's level exceeds the nominal level its spending boundary allows there.",
     ),
     # Open requirements
+    "wald_bound_unproved": (
+        "obligation",
+        "The checked Wald bounds over the null intervals do not establish the requested ceiling.",
+    ),
     "sampling_scope": (
         "obligation",
         "The design stops on the data, which the guarantee does "

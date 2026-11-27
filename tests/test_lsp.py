@@ -157,6 +157,7 @@ def test_incomplete_input_keeps_all_editor_requests_responsive(connection, text)
 def test_module_constructor_and_builtin_completion_use_registry():
     assert set(complete("use tests.")) == {
         "tests.fisher",
+        "tests.wald",
         "tests.binomial",
         "tests.difference",
         "tests.t",

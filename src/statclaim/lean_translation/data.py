@@ -16,6 +16,7 @@ from statclaim.composition import CITED_RULES, cited_rule
 from statclaim.lean_translation.emit import rational
 from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
 from statclaim.planning import MarginTest, fisher_bounds, margin_grid
+from statclaim.wald import find_certificate
 
 SEMANTICS = "StatClaim.Semantics"
 # Every program Lean reads is checked for its contracts and for canonical form: the form
@@ -56,6 +57,7 @@ SCOPES = {"finite_sample": "finiteSample", "asymptotic": "largeSample"}
 # null, observed data, a planning input or a claim declares nothing of its own, however the
 # file binds it. A test checks that every kind of test and combination is listed here.
 DECLARATIONS = (
+    "WaldAnalysisIR",
     "AnalysisIR",
     "AssociationAnalysisIR",
     "MatchedAnalysisIR",
@@ -314,6 +316,13 @@ def test(name: object, value: object) -> str:
     declared = isinstance(value, dict) and value.get("test") == DECLARED
     if isinstance(value, dict) and value.get("test") in ("binomial_exact_one_sided", "two_stage"):
         return policy_test(label, value)
+    if isinstance(value, dict) and value.get("test") == "wald_test":
+        record = fields(value, ANALYSIS | {"squared_cutoff"}, "A Wald analysis")
+        cutoff = exact(record["squared_cutoff"], "A squared cutoff")
+        return (
+            f".exact {label} (.wald {cutoff})\n      {design(record['design'])}\n      "
+            f"{null(record['null'])}\n      {level(record['alpha'])}"
+        )
     if isinstance(value, dict) and value.get("test") == "randomisation":
         return randomised(label, value)
     if isinstance(value, dict) and value.get("test") in EXACT_STUDY:
@@ -899,7 +908,14 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
     return (
         []
         if analysis["test"]
-        in {"fisher", "randomisation", "binomial_exact_one_sided", "two_stage", *EXACT_STUDY}
+        in {
+            "fisher",
+            "wald_test",
+            "randomisation",
+            "binomial_exact_one_sided",
+            "two_stage",
+            *EXACT_STUDY,
+        }
         else [("level", name)]
     )
 
@@ -942,6 +958,13 @@ def claim_theorem(index: int, hint: str | None = None) -> str:
 
 def level_hint(subject: dict) -> str | None:
     """Hints for fixed-sample Type I checks. A conditional family assumes its members."""
+    if subject.get("test") == "wald_test" and fixed(subject):
+        hint = find_certificate(
+            subject["design"]["model"]["n_control"],
+            Fraction(subject["squared_cutoff"]),
+            Fraction(subject["alpha"]),
+        )
+        return "⟨[], []⟩" if hint is None else f"⟨{list(hint.weights)}, {list(hint.cells)}⟩"
     if one_sided(subject):
         model = subject["design"]["model"]
         alpha = Fraction(subject["alpha"])

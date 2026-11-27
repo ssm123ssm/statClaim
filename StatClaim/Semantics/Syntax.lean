@@ -135,10 +135,12 @@ def Guarantee.scope : Guarantee → Interface.Scope
 inductive ExactKind where
   | fisherOneSided
   | margin (value : ℚ) (thresholds : List ℕ)
+  | wald (squaredCutoff : ℚ)
 
 def ExactKind.key : ExactKind → String
   | .fisherOneSided => "fisher_one_sided"
   | .margin .. => "difference_test"
+  | .wald .. => "wald_test"
 
 /-- A probability represented by the natural numbers used in the kernel checks, in
 lowest terms, so its value determines it. -/

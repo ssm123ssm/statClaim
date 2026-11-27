@@ -67,6 +67,7 @@ from statclaim.language.ir import (
     SequentialIR,
     SharpNullIR,
     TwoArmModelIR,
+    WaldAnalysisIR,
 )
 from statclaim.language_contracts import (
     HypothesisContract,
@@ -857,6 +858,18 @@ def _fisher(alternative: str) -> Callable:
         return AnalysisIR(plan, hypothesis, arguments["alpha"].value, alternative)
 
     return build
+
+
+def _wald_test(arguments: dict[str, LocatedValue], span: Span) -> WaldAnalysisIR:
+    design, null, cutoff = (arguments[key] for key in ("design", "null", "squared_cutoff"))
+    _observational_refused(design, "wald_test")
+    model = design.value.model
+    check_design(model, BINOMIAL_ASSUMPTIONS, "wald_test", design.span)
+    if model.n_control != model.n_treatment:
+        fail("unequal_arm_sizes", "The Wald bound requires equal sizes in both arms.", design.span)
+    if cutoff.value <= 0:
+        fail("domain", "squared_cutoff must be strictly positive.", cutoff.span)
+    return WaldAnalysisIR(design.value, null.value, arguments["alpha"].value, cutoff.value)
 
 
 def _difference(

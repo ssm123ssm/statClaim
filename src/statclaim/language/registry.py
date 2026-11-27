@@ -44,6 +44,7 @@ from statclaim.language.analyses import (
     _rate_result,
     _rate_test,
     _sequential,
+    _wald_test,
 )
 from statclaim.language.checks import (
     _interval_sizes,
@@ -189,6 +190,7 @@ from statclaim.language_contracts import (
     MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
     RANDOMISATION_CONTRACT,
+    WALD_CONTRACT,
     HypothesisContract,
 )
 from statclaim.matched import (
@@ -650,6 +652,26 @@ MODULES = {
                     documentation=ONE_SIDED_FISHER_CONTRACT.guidance,
                     lean=in_lean("analysis", "Modules/FisherOneSided"),
                 ),
+            ),
+        ),
+        Module(
+            "tests.wald",
+            (
+                _constructor(
+                    "wald_test",
+                    (
+                        ("design", PlanIR),
+                        ("null", HypothesisIR),
+                        ("squared_cutoff", "number"),
+                        ("alpha", "level"),
+                    ),
+                    "WaldAnalysis",
+                    _wald_test,
+                    hypothesis_contract=WALD_CONTRACT,
+                    documentation=WALD_CONTRACT.guidance,
+                    lean=in_lean("analysis", "Modules/Wald", "WaldBound"),
+                ),
+                TYPE_I,
             ),
         ),
         Module(

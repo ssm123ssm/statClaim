@@ -135,6 +135,7 @@ mutual
 def Test.emptyHints : (t : Test) → t.Hints
   | .exact _ .fisherOneSided .. => []
   | .exact _ (.margin ..) .. => ⟨0, 0, 0, []⟩
+  | .exact _ (.wald ..) .. => ⟨[], []⟩
   | .exactStudy _ .fisherGroups .. | .exactStudy _ .fisherMixture ..
   | .exactStudy _ .matched .. | .exactStudy _ .incidence .. => PUnit.unit
   | .bonferroni _ members .. | .looks _ members .. | .sequence _ members .. => Test.emptyMemberHints members
@@ -405,7 +406,7 @@ theorem Request.sound (q : Request) (contracts : q.check = true) (fixed : q.fixe
       cases kind with
       | fisherOneSided =>
         exact OneSided.result.sound ((design.model.sizes, alpha), observed, reported) hints valid
-      | margin => simp [Request.check, Test.isOneSidedFisher] at contracts
+      | margin | wald => simp [Request.check, Test.isOneSidedFisher] at contracts
     | _ => simp [Request.check, Test.isOneSidedFisher] at contracts
   | checkedResult _ t d => exact (t.checkedResult d).sound () hints valid
   | interval _ d => exact d.checked.sound () hints valid

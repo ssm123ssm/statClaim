@@ -30,6 +30,7 @@ from statclaim.language_contracts import (
     FISHER_CONTRACT,
     MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
+    WALD_CONTRACT,
     HypothesisContract,
 )
 from statclaim.language_syntax import (
@@ -352,6 +353,18 @@ class AnalysisIR(TwoArmTestIR, LevelTestIR):
             self.alpha,
             self.alternative,
         )
+
+
+@dataclass(frozen=True)
+class WaldAnalysisIR(LevelTestIR):
+    plan: PlanIR
+    hypothesis: HypothesisIR
+    alpha: Fraction
+    squared_cutoff: Fraction
+
+    @property
+    def contract(self) -> HypothesisContract:
+        return WALD_CONTRACT
 
 
 # Every null hypothesis: the classes derived from NullIR.
@@ -1610,7 +1623,7 @@ class ClaimIR:
             return subject.guarantee
         if isinstance(subject, ComposedFamilyIR):
             return subject.lower().guarantee
-        if self.kind == "typeI" and isinstance(subject, AnalysisIR):
+        if self.kind == "typeI" and isinstance(subject, (AnalysisIR, WaldAnalysisIR)):
             return Guarantee(
                 "type_I_error",
                 "at_most",

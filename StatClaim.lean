@@ -4,6 +4,7 @@ public import StatClaim.Design
 public import StatClaim.FinitePValue
 public import StatClaim.Hypergeometric
 public import StatClaim.BinomialModel
+public import StatClaim.WaldBound
 public import StatClaim.Fisher
 public import StatClaim.Computation
 public import StatClaim.Core.Objects

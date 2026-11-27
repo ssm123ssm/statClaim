@@ -174,6 +174,11 @@ def Test.check : Test → Bool
     decide (sizes.nControl ≤ 120 ∧ sizes.nTreatment ≤ 120 ∧ -1 < margin ∧ margin < 1) &&
     decide (thresholds.length = sizes.nControl + 1) &&
     thresholds.all (fun t => decide (t ≤ sizes.nTreatment + 1))
+  | .exact _ (.wald cutoff) design null _ =>
+    let sizes := design.model.sizes
+    null.fits design && decide (design.model.outcome = .binary) &&
+    decide (null.key = .equal_proportions) && design.model.features.isEmpty &&
+    decide (sizes.nControl = sizes.nTreatment ∧ 0 < cutoff)
   | .exactStudy _ kind design null alpha =>
     let study := design.model
     decide (null.model = study) && decide (study.survey = .simple_random) &&

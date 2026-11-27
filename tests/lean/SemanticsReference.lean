@@ -19,6 +19,14 @@ example :
       ⟨.proportion_difference_at_most, model, some 0⟩ alpha)).Holds i ↔
     ((FisherOneSided.analysis model.sizes alpha).typeIClaim (alpha.value : ℝ)).statement := Iff.rfl
 
+example (cutoff : ℚ) :
+    (Request.typeI (.exact "w" (.wald cutoff) (fixed model)
+      ⟨.equal_proportions, model, none⟩ alpha)).Holds i ↔
+    ∀ θ, TwoArmBinomial.equalProportions θ →
+      ((TwoArmBinomial.model model.sizes).law θ).real
+        {x | balancedWaldReject model.sizes.nControl cutoff.num.toNat cutoff.den
+          (x.1 + x.2) x.1} ≤ (alpha.value : ℝ) := Iff.rfl
+
 example :
     (Request.typeI (.exactStudy "a" .fisherGroups ⟨study, .fixed⟩ ⟨study⟩ alpha)).Holds i ↔
     ((Fisher.analysis study.groupSizes

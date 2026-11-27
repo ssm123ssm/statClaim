@@ -43,6 +43,7 @@ from statclaim.language import (
     SequentialIR,
     TotalCandidatesIR,
     TwoStageAnalysisIR,
+    WaldAnalysisIR,
     cited_formula,
     exact_looks,
     named_outcomes,
@@ -190,6 +191,10 @@ RULES = {
     "cited-contract": Rule(
         "The same-model, supported-null, level-interior and enough-data rules hold.",
         "{subject}: the design, the null and the level fit this cited method.",
+    ),
+    "wald-design": Rule(
+        "The Wald certificate uses equal positive arm sizes and a positive squared cutoff.",
+        "{subject}: both arms have {n} observations and the squared cutoff is {squared_cutoff}.",
     ),
     "analysis-contract": Rule(
         "The same-model, supported-null and level-range rules hold for this analysis.",
@@ -447,6 +452,7 @@ MCNEMAR_CONTRACT_ID = "tests.association/mcnemar"
 RATE_CONTRACT_ID = "tests.association/rate_test"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 MARGIN_CONTRACT_ID = "tests.difference/difference_test"
+WALD_CONTRACT_ID = "tests.wald/wald_test"
 CONTRACT_IDS = {
     "two_sided": "tests.fisher/fisher",
     "greater": ONE_SIDED_CONTRACT,
@@ -627,7 +633,7 @@ def _declared_design(builder: _Builder, name: str, analysis: CitedAnalysisIR) ->
     )
 
 
-def _analysis_steps(builder: _Builder, name: str, analysis: AnalysisIR) -> int:
+def _analysis_steps(builder: _Builder, name: str, analysis: AnalysisIR | WaldAnalysisIR) -> int:
     plan, null = analysis.plan, analysis.hypothesis
     used = (
         builder.apply(
@@ -646,6 +652,17 @@ def _analysis_steps(builder: _Builder, name: str, analysis: AnalysisIR) -> int:
         ),
         builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
     )
+    if isinstance(analysis, WaldAnalysisIR):
+        used += (
+            builder.apply(
+                "wald-design",
+                {
+                    "subject": name,
+                    "n": plan.model.n_control,
+                    "squared_cutoff": str(analysis.squared_cutoff),
+                },
+            ),
+        )
     return builder.apply("analysis-contract", {"subject": name}, used)
 
 
@@ -654,17 +671,19 @@ def _fixed(name: str, analysis) -> tuple[str, dict, bool]:
     return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
 
 
-def _sampling(builder: _Builder, name: str, analysis: AnalysisIR) -> None:
+def _sampling(builder: _Builder, name: str, analysis: AnalysisIR | WaldAnalysisIR) -> None:
     builder.settle(*_fixed(name, analysis))
 
 
-def derive_analysis(name: str, analysis: AnalysisIR) -> Derivation:
+def derive_analysis(name: str, analysis: AnalysisIR | WaldAnalysisIR) -> Derivation:
     builder = _Builder()
     final = _analysis_steps(builder, name, analysis)
     _sampling(builder, name, analysis)
     return Derivation(
         name,
-        CONTRACT_IDS[analysis.alternative],
+        WALD_CONTRACT_ID
+        if isinstance(analysis, WaldAnalysisIR)
+        else CONTRACT_IDS[analysis.alternative],
         builder.steps[final].conclusion,
         tuple(builder.steps),
         ANALYSIS_ASSUMPTIONS,
@@ -1809,7 +1828,7 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
     derivations = []
     for binding in program.bindings:
         value = binding.value
-        if isinstance(value, AnalysisIR):
+        if isinstance(value, (AnalysisIR, WaldAnalysisIR)):
             derivations.append(derive_analysis(binding.name, value))
         elif isinstance(value, CitedAnalysisIR):
             derivations.append(derive_cited(binding.name, value))

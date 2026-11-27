@@ -380,6 +380,11 @@ class _Printer:
             if "alternative" in value and value["alternative"] not in NOT_FISHER:
                 raise Unprintable(f"Unknown alternative {value['alternative']!r}.")
             return _call(name, self.arguments(value, [*common, ("alternative", "", str)]))
+        if test == "wald_test":
+            return _call(
+                test,
+                self.arguments(value, [*common, ("squared_cutoff", "squared_cutoff", _number)]),
+            )
         if test == "randomisation":
             fields = [*common, ("draws", "draws", _integer)]
             return _call("randomisation_test", self.arguments(value, fields))

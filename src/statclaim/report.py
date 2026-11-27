@@ -671,6 +671,35 @@ def run_stage_result(
     return _certified(report)
 
 
+def wald_report(n: int, cutoff: Fraction, alpha: Fraction) -> dict:
+    return planning_report(
+        "design",
+        f"Two-sided unpooled Wald test with {n} per arm and squared cutoff {cutoff} "
+        f"has Type I error at most {alpha} for every common null proportion.",
+        [
+            "The arm counts are independent binomial samples.",
+            "The arm sizes and the cutoff are fixed before outcomes are observed.",
+        ],
+    )
+
+
+def run_wald(n: int, cutoff: Fraction, alpha: Fraction) -> dict:
+    from statclaim.wald import find_certificate
+
+    report = _certified(wald_report(n, cutoff, alpha))
+    if (
+        report.get("verification", {}).get("stage") == "proof"
+        and find_certificate(n, cutoff, alpha) is None
+    ):
+        return _unmet(
+            report,
+            "typeI_target",
+            "wald_bound_unproved",
+            f"The Wald interval check did not establish the requested ceiling {alpha}.",
+        )
+    return report
+
+
 def margin_report(test: MarginTest, *, verify: bool) -> dict:
     null = f"p_treatment - p_control <= {test.margin}"
     text = (

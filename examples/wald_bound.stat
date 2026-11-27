@@ -1,0 +1,12 @@
+# A two-sided unpooled Wald test with 20 observations per arm.
+use models.two_arm_binomial
+use sampling
+use tests.wald
+
+let study = two_arm_binomial(n_control=20, n_treatment=20)
+let design = fixed(model=study)
+let null = equal_proportions(model=study)
+
+# 1.96 squared is the test cutoff. Alpha is the ceiling requested of Lean.
+let wald = wald_test(design=design, null=null, squared_cutoff=2401/625, alpha=103/1250)
+let guarantee = verify(typeI(wald))

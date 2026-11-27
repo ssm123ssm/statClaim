@@ -8,6 +8,7 @@ public import StatClaim.Modules.Matched
 public import StatClaim.Modules.Incidence
 public import StatClaim.Modules.DifferenceTest
 public import StatClaim.Modules.Randomisation
+public import StatClaim.Modules.Wald
 
 /-!
 Exact claims state a proposition about data and certify it with a kernel check.
@@ -493,15 +494,67 @@ def moduleSpec : ExactModule where
 
 end Margin
 
+namespace WaldExact
+
+structure Input where
+  sizes : FixedSampleDesign
+  alpha : SignificanceLevel
+  squaredCutoff : ℚ
+
+def typeI : Checked Input where
+  Statement := fun x => ∀ θ, TwoArmBinomial.equalProportions θ →
+    ((TwoArmBinomial.model x.sizes).law θ).real
+        (Modules.Wald.region x.sizes.nControl x.squaredCutoff.num.toNat x.squaredCutoff.den) ≤
+      (x.alpha.value : ℝ)
+  Hint := Modules.Wald.Certificate
+  empty := ⟨[], []⟩
+  check := fun x h => decide (x.sizes.nTreatment = x.sizes.nControl) &&
+    Modules.Wald.check x.sizes.nControl x.squaredCutoff.num.toNat x.squaredCutoff.den
+      x.alpha.value.num.toNat x.alpha.value.den h
+  sound := by
+    intro x h ok θ null
+    obtain ⟨balanced, cells⟩ := Bool.and_eq_true_iff.mp ok
+    have level := Modules.Wald.level x.sizes (of_decide_eq_true balanced) _ _
+      x.alpha.value.num.toNat x.alpha.value.den x.squaredCutoff.den_pos x.alpha.value.den_pos
+      h cells θ null
+    have alpha := congrArg (fun q : ℚ => (q : ℝ)) (OneSided.level_eq (x.sizes, x.alpha))
+    simp only [OneSided.levelNum, Rat.cast_div, Rat.cast_natCast] at alpha
+    exact level.trans alpha.ge
+
+def moduleSpec : ExactModule where
+  Input := Input
+  Parameter := TwoArmBinomial.Parameters
+  Outcome := TwoArmBinomial.Counts
+  law := fun x => TwoArmBinomial.model x.sizes
+  null := fun _ => TwoArmBinomial.equalProportions
+  procedure := fun x =>
+    ⟨Modules.Wald.region x.sizes.nControl x.squaredCutoff.num.toNat x.squaredCutoff.den,
+      .of_discrete⟩
+  level := fun x => x.alpha.value
+  typeI := typeI
+  bound := fun _ h => h
+  Observation := ObservedCounts
+  Report := ReportedResult
+  Point := BinomialPoint
+  Target := ProbabilityFraction
+  Endpoints := PUnit
+  result := none
+  interval := none
+  power := none
+
+end WaldExact
+
 def ExactKind.moduleSpec : ExactKind → ExactModule
   | .fisherOneSided => OneSided.moduleSpec
   | .margin .. => Margin.moduleSpec
+  | .wald .. => WaldExact.moduleSpec
 
 def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : SignificanceLevel) :
     kind.moduleSpec.Input :=
   match kind with
   | .fisherOneSided => (sizes, alpha)
   | .margin value thresholds => ⟨sizes, alpha, value, thresholds⟩
+  | .wald cutoff => ⟨sizes, alpha, cutoff⟩
 
 theorem ExactKind.input_level (kind : ExactKind) (sizes : FixedSampleDesign)
     (alpha : SignificanceLevel) : kind.moduleSpec.level (kind.input sizes alpha) = alpha.value := by
