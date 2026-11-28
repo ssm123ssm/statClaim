@@ -4,7 +4,12 @@ import re
 from fractions import Fraction
 from pathlib import Path
 
-from statclaim.asymptotic import fm_regions, fm_witness, mcnemar_witness
+from statclaim.asymptotic import (
+    fm_regions,
+    fm_witness,
+    mcnemar_witness,
+    one_sample_score_probability,
+)
 from statclaim.language_compiler import compile_source
 from statclaim.language_printer import program_source
 from statclaim.language_syntax import Source
@@ -18,7 +23,12 @@ NAMESPACE = "StatClaimProgram"
 LABEL = "program"
 COUNTEREXAMPLE_KEYS = {
     test: f"{test.removesuffix('_test')}_counterexamples"
-    for test in (*PROPORTION_Z_TESTS, "mcnemar_asymptotic", "farrington_manning")
+    for test in (
+        *PROPORTION_Z_TESTS,
+        "mcnemar_asymptotic",
+        "farrington_manning",
+        "binomial_score_test",
+    )
 }
 
 AUDIT = """
@@ -60,6 +70,12 @@ def payload(source: Source, project: Path | None = None) -> dict:
             witness = mcnemar_witness(*data.mcnemar_parameters(subject))
         elif test == "farrington_manning":
             witness = fm_witness(*data.fm_parameters(subject))
+        elif test == "binomial_score_test":
+            reference = Fraction(subject["null_rate"])
+            risk = one_sample_score_probability(
+                subject["model"]["n"], reference, Fraction(subject["squared_cutoff"])
+            )
+            witness = (reference, risk) if risk > Fraction(subject["alpha"]) else None
         else:
             n = subject["design"]["model"]["n_control"]
             cutoff, alpha = Fraction(subject["squared_cutoff"]), Fraction(subject["alpha"])
@@ -296,6 +312,8 @@ def counterexamples(inputs: dict) -> list[dict]:
         lower_bound = test == "farrington_manning"
         if test == "mcnemar_asymptotic":
             location = f"discordance probability q = {witness['p']}"
+        elif test == "binomial_score":
+            location = f"null response rate p = {witness['p']}"
         elif lower_bound:
             treatment = Fraction(witness["p"]) + Fraction(subject["null"]["value"])
             location = f"p_control = {witness['p']} and p_treatment = {treatment}"
@@ -321,6 +339,8 @@ def refutation_theorem(refutation: dict, subject: dict | None = None) -> str:
     hint = ""
     if name.startswith("mcnemar_asymptotic_"):
         theorem = "mcnemarAsymptotic_refuted"
+    elif name.startswith("binomial_score_"):
+        theorem = "oneSampleScore_refuted"
     elif name.startswith("farrington_manning_"):
         assert subject is not None
         theorem = "farringtonManning_refuted"

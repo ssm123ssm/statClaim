@@ -36,6 +36,7 @@ from statclaim.language import (
     ObservationalStudyIR,
     OneArmCandidatesIR,
     OneSampleAnalysisIR,
+    OneSampleScoreAnalysisIR,
     PlannedIntervalIR,
     ProgramIR,
     ProportionZAnalysisIR,
@@ -306,6 +307,10 @@ RULES = {
     "null-rate-interior": Rule(
         "The null rate lies strictly between 0 and 1.",
         "{subject}: the null rate {rate} leaves room for both larger and smaller rates.",
+    ),
+    "one-sample-score-cutoff": Rule(
+        "The squared score cutoff is positive.",
+        "{subject}: the squared cutoff is {squared_cutoff}.",
     ),
     "one-sample-contract": Rule(
         "The sample-size-range, null-rate-interior and level-range rules hold for this test.",
@@ -1309,12 +1314,24 @@ def derive_family(name: str, family: FamilyIR) -> Derivation:
     )
 
 
-def _one_sample_steps(builder: _Builder, name: str, analysis: OneSampleAnalysisIR) -> int:
+def _one_sample_steps(
+    builder: _Builder, name: str, analysis: OneSampleAnalysisIR | OneSampleScoreAnalysisIR
+) -> int:
     used = (
         builder.apply("sample-size-range", {"subject": name, "n": analysis.model.n}),
         builder.apply("null-rate-interior", {"subject": name, "rate": str(analysis.null_rate)}),
         builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
     )
+    if isinstance(analysis, OneSampleScoreAnalysisIR):
+        used += (
+            builder.apply(
+                "one-sample-score-cutoff",
+                {
+                    "subject": name,
+                    "squared_cutoff": str(analysis.squared_cutoff),
+                },
+            ),
+        )
     return builder.apply("one-sample-contract", {"subject": name}, used)
 
 
@@ -1331,12 +1348,16 @@ def _two_stage_steps(builder: _Builder, name: str, analysis: TwoStageAnalysisIR)
     return builder.apply("two-stage-contract", {"subject": name}, used)
 
 
-def derive_one_sample(name: str, analysis: OneSampleAnalysisIR) -> Derivation:
+def derive_one_sample(
+    name: str, analysis: OneSampleAnalysisIR | OneSampleScoreAnalysisIR
+) -> Derivation:
     builder = _Builder()
     final = _one_sample_steps(builder, name, analysis)
     return Derivation(
         name,
-        "tests.binomial/binomial_test",
+        "tests.binomial/binomial_score_test"
+        if isinstance(analysis, OneSampleScoreAnalysisIR)
+        else "tests.binomial/binomial_test",
         builder.steps[final].conclusion,
         tuple(builder.steps),
         ONE_SAMPLE_ASSUMPTIONS,
@@ -1908,7 +1929,7 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
             derivations.append(derive_composed(binding.name, value))
         elif isinstance(value, FamilyIR):
             derivations.append(derive_family(binding.name, value))
-        elif isinstance(value, OneSampleAnalysisIR):
+        elif isinstance(value, (OneSampleAnalysisIR, OneSampleScoreAnalysisIR)):
             derivations.append(derive_one_sample(binding.name, value))
         elif isinstance(value, TwoStageAnalysisIR):
             derivations.append(derive_two_stage(binding.name, value))

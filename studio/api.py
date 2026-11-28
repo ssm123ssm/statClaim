@@ -890,6 +890,11 @@ def reading(value, expression):
     if hasattr(value, "hypothesis") and hasattr(value, "alpha"):
         statement, at = value.hypothesis.statement, level(value.alpha)
         return f"{analysis_title(value)} of {statement}, at level {at}"
+    if kind == "OneSampleScoreAnalysisIR":
+        return (
+            f"Two-sided score test of response rate {value.null_rate}, with squared "
+            f"cutoff {value.squared_cutoff} and claimed Type I error at most {level(value.alpha)}"
+        )
     if kind == "OneSampleAnalysisIR":
         return (
             f"Exact binomial test that the response rate exceeds {value.null_rate}, "

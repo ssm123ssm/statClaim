@@ -31,6 +31,7 @@ from statclaim.language import (
     MatchedResultIR,
     ObservationIR,
     OneSampleObservationIR,
+    OneSampleScoreAnalysisIR,
     ProportionIR,
     ProportionZAnalysisIR,
     RandomisationAnalysisIR,
@@ -71,6 +72,7 @@ from statclaim.report import (
     margin_report,
     matched_report,
     mcnemar_asymptotic_report,
+    one_sample_score_report,
     planning_report,
     proportion_z_report,
     randomisation_report,
@@ -432,6 +434,10 @@ def _inspect(request: RequestIR) -> dict:
         return randomisation_report(subject.lower(), stopping=subject.plan.stopping)
     if isinstance(subject, AssociationAnalysisIR):
         return association_report(subject.lower(), stopping=subject.plan.stopping)
+    if isinstance(subject, OneSampleScoreAnalysisIR):
+        return one_sample_score_report(
+            subject.model.n, subject.null_rate, subject.squared_cutoff, subject.alpha
+        )
     if isinstance(subject, AsymptoticMcNemarAnalysisIR):
         return mcnemar_asymptotic_report(
             subject.plan.model.pairs, subject.squared_cutoff, subject.alpha

@@ -37,6 +37,7 @@ from statclaim.language import (
     ObservationIR,
     OneArmCandidatesIR,
     OneSampleObservationIR,
+    OneSampleScoreAnalysisIR,
     ProportionIR,
     ProportionZAnalysisIR,
     RandomisationAnalysisIR,
@@ -88,6 +89,7 @@ from statclaim.report import (
     run_margin_search,
     run_matched,
     run_mcnemar_asymptotic,
+    run_one_sample_score,
     run_one_sample_search,
     run_policy_plan,
     run_power_plan,
@@ -144,6 +146,10 @@ def _count_template(analysis, target, bounds: tuple[int, int], minimal: bool):
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
+    if isinstance(subject, OneSampleScoreAnalysisIR):
+        return run_one_sample_score(
+            subject.model.n, subject.null_rate, subject.squared_cutoff, subject.alpha
+        )
     if isinstance(subject, AsymptoticMcNemarAnalysisIR):
         return run_mcnemar_asymptotic(
             subject.plan.model.pairs, subject.squared_cutoff, subject.alpha

@@ -41,6 +41,12 @@ example :
       (Core.StudyDesign.fixed (TwoArmBinomial.model study.groupSizes)) alpha).typeIClaim
         (Core.Compatibility.fixed _) (alpha.value : ℝ)).statement := Iff.rfl
 
+example (n : ℕ) (reference ceiling : ProbabilityFraction) (cutoff : ℚ) :
+    (Request.typeI (.oneSampleScore "s" n reference ceiling cutoff)).Holds i ↔
+    (ProbabilityTheory.binomial n
+      (ratPoint reference.num reference.den reference.bounded reference.positive)).real
+        (OneSampleScore.rejection n reference.value cutoff) ≤ (ceiling.value : ℝ) := Iff.rfl
+
 def random (m : Model) (a : SignificanceLevel) : Randomised :=
   ⟨fixed { m with randomisation := some "complete" }, m, a, none⟩
 

@@ -65,3 +65,37 @@ def test_lean_checks_both_claims_and_rejects_tampered_witness(tmp_path, stem, te
     inputs[f"{test}_counterexamples"]["0"]["typeI_error"] = "1/10"
     with pytest.raises(VerificationError, match="decide"):
         certify_program(inputs, project=ROOT, output=tmp_path / "bad-witness")
+
+
+def test_one_sample_score_binds_a_point_null():
+    source = lesson("50_one_sample_score")
+    compiled = compile_source(source)
+    assert not compiled.diagnostics
+    assert len(compiled.derivations) == 3
+    assert all(not check_derivation(d.to_dict()) for d in compiled.derivations)
+    quarter, half, wider = (req.claim.guarantee for req in compiled.program.requests)
+    assert quarter.null == wider.null == "response rate = 1/4"
+    assert half.null == "response rate = 1/2"
+    canonical = compiled.program.to_dict()
+    printed = compile_source(Source(program_source(canonical)))
+    assert not printed.diagnostics
+    assert declarations(printed.program.to_dict()) == declarations(canonical)
+    assert verify_claims(printed.program.to_dict()) == verify_claims(canonical)
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_lean_checks_one_sample_score_at_the_declared_null(tmp_path):
+    source = lesson("50_one_sample_score")
+    report = check_source(source, project=ROOT, output=tmp_path / "score")
+    quarter, half, wider = report["requests"]
+    assert quarter["status"] == "refuted"
+    assert half["status"] == wider["status"] == "verified"
+    witness = quarter["value"]["counterexample"]
+    assert witness["p"] == "1/4"
+    assert witness["typeI_error"] == "71729711503/1099511627776"
+
+    inputs = payload(source, ROOT)
+    inputs["binomial_score_counterexamples"]["0"]["p"] = "1/2"
+    with pytest.raises(VerificationError, match="decide"):
+        certify_program(inputs, project=ROOT, output=tmp_path / "wrong-null")

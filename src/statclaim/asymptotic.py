@@ -161,3 +161,15 @@ def fm_witness(
         alpha,
         lambda p: margin_rejection_probability(nc, nt, inner[0], p, p + margin),
     )
+
+
+def one_sample_score_probability(n: int, reference: Fraction, cutoff: Fraction) -> Fraction:
+    """Exact size of the two-sided score test at its point null."""
+    a, d = reference.as_integer_ratio()
+    critical = cutoff.numerator * a * (d - a) * n
+    weight = sum(
+        comb(n, k) * a**k * (d - a) ** (n - k)
+        for k in range(n + 1)
+        if cutoff.denominator * (k * d - n * a) ** 2 > critical
+    )
+    return Fraction(weight, d**n)

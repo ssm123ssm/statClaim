@@ -219,7 +219,7 @@ def _probability(text: str) -> bool:
 
 def _one_sample_expectations(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
     n, rate = analysis["model"]["n"], analysis["null_rate"]
-    return [
+    steps = [
         ("sample-size-range", {"subject": name, "n": n}, _whole(n, 1) and n <= ONE_ARM_LIMIT),
         ("null-rate-interior", {"subject": name, "rate": rate}, 0 < Fraction(rate) < 1),
         (
@@ -228,6 +228,17 @@ def _one_sample_expectations(name: str, analysis: dict) -> list[tuple[str, dict,
             _probability(analysis["alpha"]),
         ),
     ]
+
+    if analysis["test"] == "binomial_score_test":
+        cutoff = analysis["squared_cutoff"]
+        steps.append(
+            (
+                "one-sample-score-cutoff",
+                {"subject": name, "squared_cutoff": cutoff},
+                Fraction(cutoff) > 0,
+            )
+        )
+    return steps
 
 
 def _rule_well_formed(rule: dict) -> bool:
@@ -316,6 +327,7 @@ BLOCKS = {
     "farrington_manning": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
     **{test: ("analysis-contract", ANALYSIS_ASSUMPTIONS) for test in PROPORTION_Z_CONTRACT_IDS},
     "binomial_exact_one_sided": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
+    "binomial_score_test": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
     "two_stage": ("two-stage-contract", TWO_STAGE_ASSUMPTIONS),
 }
 
@@ -355,7 +367,7 @@ def _premises(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
                 valid,
             ),
         ]
-    if analysis["test"] == "binomial_exact_one_sided":
+    if analysis["test"] in ("binomial_exact_one_sided", "binomial_score_test"):
         return _one_sample_expectations(name, analysis)
     if analysis["test"] == "two_stage":
         return _two_stage_expectations(name, analysis)
@@ -2628,8 +2640,13 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
             [_sampling_expectation(name, subject)],
             assumptions,
         )
-    if contract in ("tests.binomial/binomial_test", "designs.two_stage/two_stage_test"):
-        expected = "binomial_exact_one_sided" if "binomial" in contract else "two_stage"
+    policy_contracts = {
+        "tests.binomial/binomial_test": "binomial_exact_one_sided",
+        "tests.binomial/binomial_score_test": "binomial_score_test",
+        "designs.two_stage/two_stage_test": "two_stage",
+    }
+    if contract in policy_contracts:
+        expected = policy_contracts[contract]
         if subject["test"] != expected:
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [], BLOCKS[expected][1]

@@ -11,6 +11,7 @@ public import StatClaim.Modules.Randomisation
 public import StatClaim.Modules.Wald
 public import StatClaim.Modules.McNemarAsymptotic
 public import StatClaim.Modules.FarringtonManning
+public import StatClaim.Modules.OneSampleScore
 
 /-!
 Exact claims state a proposition about data and certify it with a kernel check.
@@ -722,6 +723,53 @@ def moduleSpec : ExactModule where
   power := none
 
 end FarringtonManningExact
+
+namespace OneSampleScoreExact
+
+open Modules.OneSampleScore
+
+structure Input where
+  n : ℕ
+  reference : ProbabilityFraction
+  alpha : ProbabilityFraction
+  cutoff : ℚ
+
+def risk (x : Input) : ℚ :=
+  (numerator x.n x.reference.num x.reference.den x.cutoff : ℚ) / x.reference.den ^ x.n
+
+theorem risk_eq (x : Input) :
+    (risk x : ℝ) =
+      (ProbabilityTheory.binomial x.n
+        (ratPoint x.reference.num x.reference.den x.reference.bounded x.reference.positive)).real
+          (rejection x.n x.reference.value x.cutoff) := by
+  simpa [risk, ProbabilityFraction.value] using
+    (probability x.n x.reference.num x.reference.den x.cutoff
+      x.reference.bounded x.reference.positive).symm
+
+def typeI : Checked Input where
+  Statement := fun x =>
+    (ProbabilityTheory.binomial x.n
+      (ratPoint x.reference.num x.reference.den x.reference.bounded x.reference.positive)).real
+        (rejection x.n x.reference.value x.cutoff) ≤ (x.alpha.value : ℝ)
+  Hint := PUnit
+  empty := PUnit.unit
+  check := fun x _ => decide (risk x ≤ x.alpha.value)
+  sound := by
+    intro x _ checked
+    rw [← risk_eq]
+    exact (Rat.cast_le (K := ℝ)).mpr (of_decide_eq_true checked)
+
+def checkCounterexample (x : Input) (rate reported : ℚ) : Bool :=
+  decide (rate = x.reference.value ∧ reported = risk x ∧ x.alpha.value < reported)
+
+theorem counterexample (x : Input) (rate reported : ℚ)
+    (valid : checkCounterexample x rate reported = true) : ¬ typeI.Statement x := by
+  obtain ⟨_, eq, above⟩ := of_decide_eq_true valid
+  change ¬ (_ ≤ (x.alpha.value : ℝ))
+  rw [← risk_eq]
+  exact not_le_of_gt ((Rat.cast_lt (K := ℝ)).mpr (eq ▸ above))
+
+end OneSampleScoreExact
 
 def ExactKind.moduleSpec : ExactKind → ExactModule
   | .fisherOneSided => OneSided.moduleSpec

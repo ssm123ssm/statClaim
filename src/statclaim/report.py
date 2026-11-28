@@ -700,6 +700,22 @@ def run_proportion_z(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool)
     return report
 
 
+def one_sample_score_report(n: int, rate: Fraction, cutoff: Fraction, alpha: Fraction) -> dict:
+    return planning_report(
+        "design",
+        f"Two-sided binomial score test with {n} responses and squared cutoff {cutoff} "
+        f"has Type I error at most {alpha} when the response probability is {rate}.",
+        [
+            "Responses are independent with one common response rate.",
+            "The sample size, null rate and level were fixed before outcomes were observed.",
+        ],
+    )
+
+
+def run_one_sample_score(n: int, rate: Fraction, cutoff: Fraction, alpha: Fraction) -> dict:
+    return _certified(one_sample_score_report(n, rate, cutoff, alpha))
+
+
 def mcnemar_asymptotic_report(n: int, cutoff: Fraction, alpha: Fraction) -> dict:
     return planning_report(
         "design",

@@ -25,6 +25,7 @@ from statclaim.language import (
     MatchedResultIR,
     ObservationIR,
     OneSampleObservationIR,
+    OneSampleScoreAnalysisIR,
     ProgramIR,
     ProportionIR,
     ProportionZAnalysisIR,
@@ -152,6 +153,7 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
         subject,
         (
             OneSampleObservationIR,
+            OneSampleScoreAnalysisIR,
             TwoStageObservationIR,
             IntervalIR,
             DifferenceIntervalIR,

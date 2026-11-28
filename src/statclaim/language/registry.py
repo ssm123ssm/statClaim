@@ -171,6 +171,7 @@ from statclaim.language.points import (
 )
 from statclaim.language.searches import (
     _allocated,
+    _binomial_score_test,
     _binomial_test,
     _candidates,
     _cluster_counts,
@@ -1851,6 +1852,22 @@ MODULES = {
                     "probability at null_rate is at most alpha.",
                     lean=in_lean("analysis", ONE_SAMPLE),
                 ),
+                _constructor(
+                    "binomial_score_test",
+                    (
+                        ("model", OneArmModelIR),
+                        ("null_rate", "number"),
+                        ("squared_cutoff", "number"),
+                        ("alpha", "level"),
+                    ),
+                    "OneSampleScoreAnalysis",
+                    _binomial_score_test,
+                    documentation="Two-sided one-sample score rule for a binomial response "
+                    "rate equal to null_rate. Lean checks the exact rejection probability "
+                    "at that rate against the requested finite-sample ceiling.",
+                    lean=in_lean("analysis", "Modules/OneSampleScore"),
+                ),
+                TYPE_I,
                 _constructor(
                     "confidence_interval",
                     (("model", OneArmModelIR), ("count", "integer"), ("level", "number")),

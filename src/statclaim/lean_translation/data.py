@@ -68,6 +68,7 @@ DECLARATIONS = (
     "RateAnalysisIR",
     "RandomisationAnalysisIR",
     "OneSampleAnalysisIR",
+    "OneSampleScoreAnalysisIR",
     "TwoStageAnalysisIR",
     "CitedAnalysisIR",
     "CitedAssociationIR",
@@ -318,7 +319,11 @@ def test(name: object, value: object) -> str:
             return f"{stated} {law}"
         return stated
     declared = isinstance(value, dict) and value.get("test") == DECLARED
-    if isinstance(value, dict) and value.get("test") in ("binomial_exact_one_sided", "two_stage"):
+    if isinstance(value, dict) and value.get("test") in (
+        "binomial_exact_one_sided",
+        "binomial_score_test",
+        "two_stage",
+    ):
         return policy_test(label, value)
     if isinstance(value, dict) and value.get("test") in PROPORTION_Z_TESTS:
         record = fields(value, ANALYSIS | {"squared_cutoff"}, "A two-proportion Z analysis")
@@ -436,14 +441,20 @@ def randomised(label: str, value: object) -> str:
 
 
 def policy_test(label: str, value: dict) -> str:
-    if value["test"] == "binomial_exact_one_sided":
-        record = fields(value, {"test", "model", "null_rate", "alpha"}, "A one-sample analysis")
+    if value["test"] in ("binomial_exact_one_sided", "binomial_score_test"):
+        score = value["test"] == "binomial_score_test"
+        keys = {"test", "model", "null_rate", "alpha"}
+        record = fields(
+            value, keys | ({"squared_cutoff"} if score else set()), "A one-sample analysis"
+        )
         model = fields(record["model"], {"module", "n"}, "A one-arm model")
         if model["module"] != "one_arm_binomial":
             raise Outside("A one-sample analysis requires a one-arm model.")
         return (
-            f".oneSample {label} {count(model['n'], 'A sample size')} "
+            f".{'oneSampleScore' if score else 'oneSample'} {label} "
+            f"{count(model['n'], 'A sample size')} "
             f"{probability(record['null_rate'])} {probability(record['alpha'])}"
+            + (f" {exact(record['squared_cutoff'], 'A squared cutoff')}" if score else "")
         )
     record = fields(value, {"test", "design", "rule", "null_rate"}, "A two-stage analysis")
     stages = fields(record["design"], {"module", "n_stage1", "n_stage2"}, "Stage sizes")
@@ -935,6 +946,7 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
             "farrington_manning",
             "randomisation",
             "binomial_exact_one_sided",
+            "binomial_score_test",
             "two_stage",
             *EXACT_STUDY,
         }
@@ -1014,13 +1026,13 @@ def level_hint(subject: dict) -> str | None:
         )
         return "⟨[], []⟩" if hint is None else f"⟨{list(hint.weights)}, {list(hint.cells)}⟩"
     if subject.get("test") == "mcnemar_asymptotic" and fixed(subject):
-        cells = mcnemar_certificate(*mcnemar_parameters(subject))
-        return str(list(cells or ()))
+        mcnemar_cells = mcnemar_certificate(*mcnemar_parameters(subject))
+        return str(list(mcnemar_cells or ()))
     if subject.get("test") == "farrington_manning" and fixed(subject):
-        hint = fm_certificate(*fm_parameters(subject))
-        if hint is None:
+        margin_hint = fm_certificate(*fm_parameters(subject))
+        if margin_hint is None:
             return "⟨⟨[], []⟩, 0, 0, []⟩"
-        region, grid, shift, cells = hint
+        region, grid, shift, cells = margin_hint
         return f"⟨{fm_region(region)}, {grid}, {shift}, {list(cells)}⟩"
     if one_sided(subject):
         model = subject["design"]["model"]

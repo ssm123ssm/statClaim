@@ -1361,6 +1361,24 @@ class OneSampleAnalysisIR(PlannableIR):
 
 
 @dataclass(frozen=True)
+class OneSampleScoreAnalysisIR(LevelTestIR):
+    model: OneArmModelIR
+    null_rate: Fraction
+    alpha: Fraction
+    squared_cutoff: Fraction
+
+    @property
+    def guarantee(self) -> Guarantee:
+        return Guarantee(
+            "type_I_error",
+            "at_most",
+            self.alpha,
+            f"response rate = {self.null_rate}",
+            "finite_sample",
+        )
+
+
+@dataclass(frozen=True)
 class OneSampleObservationIR:
     analysis: OneSampleAnalysisIR
     responses: int
@@ -1648,6 +1666,7 @@ class ClaimIR:
             (
                 CitedAnalysisIR,
                 RandomisationAnalysisIR,
+                OneSampleScoreAnalysisIR,
                 AssociationAnalysisIR,
                 MatchedAnalysisIR,
                 RateAnalysisIR,

@@ -281,6 +281,7 @@ inductive Test where
       (alpha : SignificanceLevel)
   | randomised (name : String) (test : Randomised)
   | oneSample (name : String) (n : ℕ) (nullRate alpha : ProbabilityFraction)
+  | oneSampleScore (name : String) (n : ℕ) (nullRate alpha : ProbabilityFraction) (cutoff : ℚ)
   | twoStage (name : String) (stages : Stages) (rule : StageRule) (nullRate : ProbabilityFraction)
   /-- A conditional composition supplies a view and level premise for this test. -/
   | member (test : Test)
@@ -371,7 +372,7 @@ def Test.name : Test → String
   | .exact name .. => name
   | .exactStudy name .. => name
   | .randomised name .. => name
-  | .oneSample name .. | .twoStage name .. => name
+  | .oneSample name .. | .oneSampleScore name .. | .twoStage name .. => name
   | .member test => test.name
   | .assumed name .. => name
   | .associated name .. => name
@@ -390,6 +391,11 @@ def Test.level : Test → SignificanceLevel
   | .exact _ _ _ _ alpha => alpha
   | .exactStudy _ _ _ _ alpha => alpha
   | .randomised _ r => r.alpha
+  | .oneSampleScore _ _ _ alpha _ =>
+    ⟨alpha.value, by unfold ProbabilityFraction.value; positivity,
+      by
+        unfold ProbabilityFraction.value
+        exact (div_le_one (by exact_mod_cast alpha.positive)).mpr (by exact_mod_cast alpha.bounded)⟩
   | .oneSample .. | .twoStage .. => defaultLevel
   | .member test => test.level
   | .assumed _ _ _ _ alpha => alpha

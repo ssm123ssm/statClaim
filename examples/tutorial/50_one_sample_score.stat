@@ -1,0 +1,15 @@
+# Audit the two-sided one-sample score rule with 20 binary observations.
+use tests.binomial
+
+let study = one_arm_binomial(n=20)
+
+# The nominal 5% claim depends on the reference rate.
+let quarter = binomial_score_test(model=study, null_rate=1/4, squared_cutoff=2401/625, alpha=1/20)
+let quarter_claim = verify(typeI(quarter))
+
+let half = binomial_score_test(model=study, null_rate=1/2, squared_cutoff=2401/625, alpha=1/20)
+let half_claim = verify(typeI(half))
+
+# Keep the reference rate and cutoff fixed, and try a wider error ceiling.
+let audited = binomial_score_test(model=study, null_rate=1/4, squared_cutoff=2401/625, alpha=7/100)
+let audited_claim = verify(typeI(audited))

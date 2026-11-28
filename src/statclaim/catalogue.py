@@ -339,6 +339,10 @@ OBJECT_CLASSES = {
         "Core statistical objects",
         "One-sided exact binomial test with its null rate and alpha.",
     ),
+    "OneSampleScoreAnalysis": (
+        "Core statistical objects",
+        "A fixed one-arm sample, point null, squared cutoff and requested Type I error ceiling.",
+    ),
     "OneSampleObservation": (
         "Core statistical objects",
         "Observed responses for a one-sample test.",

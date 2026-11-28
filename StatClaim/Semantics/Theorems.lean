@@ -172,6 +172,24 @@ theorem Program.farringtonManning_refuted (program : Program) (r : ℕ) (rate re
     exact FarringtonManningExact.counterexample _ h rate reported checked holds
   next => contradiction
 
+def Program.checkOneSampleScoreCounterexample (p : Program) (r : ℕ) (rate reported : ℚ) : Bool :=
+  match p.requests[r]? with
+  | some (.typeI (.oneSampleScore _ n reference alpha cutoff)) =>
+    OneSampleScoreExact.checkCounterexample ⟨n, reference, alpha, cutoff⟩ rate reported
+  | _ => false
+
+theorem Program.oneSampleScore_refuted (p : Program) (r : ℕ) (rate reported : ℚ)
+    (checked : p.checkOneSampleScoreCounterexample r rate reported = true) : ¬ p.Claim r := by
+  intro claim
+  have holds := claim Instance.trivial (p.satisfiable r)
+  unfold Program.checkOneSampleScoreCounterexample at checked
+  split at checked
+  next name n reference alpha cutoff found =>
+    unfold Program.claimAt at holds
+    rw [found] at holds
+    exact OneSampleScoreExact.counterexample ⟨n, reference, alpha, cutoff⟩ rate reported checked holds
+  next => contradiction
+
 end
 
 end StatClaim.Semantics

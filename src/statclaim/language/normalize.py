@@ -62,6 +62,7 @@ from statclaim.language.ir import (
     OneArmModelIR,
     OneSampleAnalysisIR,
     OneSampleObservationIR,
+    OneSampleScoreAnalysisIR,
     OutcomeIR,
     OutcomeMeansIR,
     OutcomeNullIR,
@@ -533,6 +534,14 @@ def normalize(value: object) -> object:
             }
         case OneArmModelIR(n=n):
             return {"module": "one_arm_binomial", "n": n}
+        case OneSampleScoreAnalysisIR(model, rate, alpha, cutoff):
+            return {
+                "test": "binomial_score_test",
+                "model": normalize(model),
+                "null_rate": str(rate),
+                "alpha": str(alpha),
+                "squared_cutoff": str(cutoff),
+            }
         case OneSampleAnalysisIR(model=model, null_rate=rate, alpha=alpha):
             return {
                 "test": "binomial_exact_one_sided",
