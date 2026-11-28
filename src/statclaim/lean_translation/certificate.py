@@ -64,6 +64,17 @@ def payload(source: Source, project: Path | None = None) -> dict:
     program = compilation.program
     reported, _ = material(program, project or Path.cwd())
     canonical = program.to_dict()
+    return {
+        "translation_version": TRANSLATION_VERSION,
+        "source": {"path": source.path, "text": source.text},
+        "program": canonical,
+        "reported": reported,
+        **witness_inputs(canonical),
+    }
+
+
+def witness_inputs(canonical: dict) -> dict[str, dict[str, dict[str, str]]]:
+    """Propose exact rational witnesses for fixed-sample Type I claims."""
     witnesses: dict[str, dict[str, dict[str, str]]] = {}
     for index, claim in enumerate(data.verify_claims(canonical)):
         subject = claim["subject"]
@@ -74,7 +85,7 @@ def payload(source: Source, project: Path | None = None) -> dict:
             witness = mcnemar_witness(*data.mcnemar_parameters(subject))
         elif test == "farrington_manning":
             witness = fm_witness(*data.fm_parameters(subject))
-        elif test in ("pearson_test", "likelihood_ratio_test"):
+        elif test in ("pearson_test", "likelihood_ratio_test") or data.unbalanced_wald(subject):
             witness = table_witness(*data.table_parameters(subject))
         elif test in ("binomial_score_test", "binomial_wald_test"):
             reference = Fraction(subject["null_rate"])
@@ -100,13 +111,7 @@ def payload(source: Source, project: Path | None = None) -> dict:
                 "p": str(rate),
                 "typeI_error": str(risk),
             }
-    return {
-        "translation_version": TRANSLATION_VERSION,
-        "source": {"path": source.path, "text": source.text},
-        "program": canonical,
-        "reported": reported,
-        **witnesses,
-    }
+    return witnesses
 
 
 def is_fixed_typeI(claim: dict, test: str) -> bool:
@@ -344,7 +349,14 @@ def counterexamples(inputs: dict) -> list[dict]:
 def refutation_theorem(refutation: dict, subject: dict | None = None) -> str:
     index = refutation["index"]
     name = refutation["theorem"].removeprefix(f"{NAMESPACE}.")
-    theorem = "wald_refuted" if name.startswith("wald_") else "proportionZ_refuted"
+    if name.startswith("wald_"):
+        theorem = (
+            "unbalancedWald_refuted"
+            if subject and data.unbalanced_wald(subject)
+            else "wald_refuted"
+        )
+    else:
+        theorem = "proportionZ_refuted"
     hint = ""
     if name.startswith("mcnemar_asymptotic_"):
         theorem = "mcnemarAsymptotic_refuted"

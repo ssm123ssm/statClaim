@@ -153,6 +153,9 @@ def Test.form : Test → Form
   | .exact _ (.proportionZ pooled cutoff) design null alpha => .object [("alpha", some (.level alpha)),
       ("design", some design.form), ("null", some null.form), ("squared_cutoff", some (.rat cutoff)),
       ("test", some (.str (ExactKind.proportionZ pooled cutoff).key))]
+  | .exact _ (.unbalancedWald cutoff) design null alpha => .object
+      [("alpha", some (.level alpha)), ("design", some design.form), ("null", some null.form),
+        ("squared_cutoff", some (.rat cutoff)), ("test", some (.str "wald_test"))]
   | .exact _ (.likelihoodRatio cutoff) design null alpha => .object
       [("alpha", some (.level alpha)), ("design", some design.form), ("null", some null.form),
         ("ratio_cutoff", some (.rat cutoff)), ("test", some (.str "likelihood_ratio_test"))]
@@ -419,6 +422,7 @@ def Test.binding : Test → String
   | .exact _ (.farringtonManning ..) .. => "FarringtonManningAnalysisIR"
   | .exact _ (.pearson ..) .. => "PearsonAnalysisIR"
   | .exact _ (.likelihoodRatio _) .. => "LikelihoodRatioAnalysisIR"
+  | .exact _ (.unbalancedWald _) .. => "WaldAnalysisIR"
   | .exact .. => "AnalysisIR"
   | .exactStudy _ kind .. => kind.binding
   | .randomised .. => "RandomisationAnalysisIR"

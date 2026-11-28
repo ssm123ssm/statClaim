@@ -256,6 +256,30 @@ theorem Program.likelihoodRatio_refuted (p : Program) (r : ℕ) (rate reported :
     exact BinomialPolynomialExact.counterexample _ rate reported checked holds
   next => contradiction
 
+def Program.checkUnbalancedWaldCounterexample (p : Program) (r : ℕ) (rate reported : ℚ) : Bool :=
+  match p.requests[r]? with
+  | some (.typeI (.exact _ (.unbalancedWald cutoff) design _ alpha)) =>
+    decide (design.stopping = .fixed) &&
+      BinomialPolynomialExact.checkCounterexample ⟨design.model.sizes, alpha, cutoff, .unpooledWald⟩ rate reported
+  | _ => false
+
+theorem Program.unbalancedWald_refuted (p : Program) (r : ℕ) (rate reported : ℚ)
+    (valid : p.checkUnbalancedWaldCounterexample r rate reported = true) : ¬ p.Claim r := by
+  intro claim
+  have holds := claim Instance.trivial (p.satisfiable r)
+  unfold Program.checkUnbalancedWaldCounterexample at valid
+  split at valid
+  next name cutoff design null alpha found =>
+    obtain ⟨compatible, checked⟩ := Bool.and_eq_true_iff.mp valid
+    have stopping := of_decide_eq_true compatible
+    unfold Program.claimAt at holds
+    rw [found] at holds
+    simp only [Request.Holds, Request.fixed, Request.test, Option.all_some, Test.fixed,
+      stopping, beq_self_eq_true, Test.typeI, ExactKind.moduleSpec, ExactKind.input,
+      BinomialPolynomialExact.moduleSpec] at holds
+    exact BinomialPolynomialExact.counterexample _ rate reported checked holds
+  next => contradiction
+
 end
 
 end StatClaim.Semantics

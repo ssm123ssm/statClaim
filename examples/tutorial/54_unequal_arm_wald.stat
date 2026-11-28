@@ -1,0 +1,14 @@
+# The unpooled Wald rule with unequal fixed binomial arm sizes.
+use models.two_arm_binomial
+use sampling
+use tests.wald
+
+let study = two_arm_binomial(n_control=10, n_treatment=14)
+let design = fixed(model=study)
+let null = equal_proportions(model=study)
+
+let nominal = wald_test(design=design, null=null, squared_cutoff=2401/625, alpha=1/20)
+let nominal_claim = verify(typeI(nominal))
+
+let audited = wald_test(design=design, null=null, squared_cutoff=2401/625, alpha=1/10)
+let audited_claim = verify(typeI(audited))

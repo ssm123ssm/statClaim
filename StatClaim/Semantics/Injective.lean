@@ -419,6 +419,10 @@ members of a conditional combination are wrapped exactly when they are exact. -/
 def Test.canonical : Test → Bool
   | .exact _ (.margin margin _) _ null _
   | .exact _ (.farringtonManning margin _) _ null _ => null.value == some margin
+  | .exact _ (.proportionZ false _) design .. =>
+    decide (design.model.sizes.nControl = design.model.sizes.nTreatment)
+  | .exact _ (.unbalancedWald _) design .. =>
+    decide (design.model.sizes.nControl ≠ design.model.sizes.nTreatment)
   | .exactStudy _ kind design .. => kind.matchesStudy design.model
   | .member _ => false
   | .assumed _ (.cited method) .. => Generated.trialMethods.contains method
@@ -630,7 +634,7 @@ theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
   | .exact _ .fisherOneSided .., _ | .exact _ (.margin ..) .., _ => by
     simp [Test.form, Form.tag, Form.text, Test.tag]
   | .exact _ (.farringtonManning ..) .., _ | .exact _ (.pearson ..) .., _
-  | .exact _ (.likelihoodRatio _) .., _ => by
+  | .exact _ (.likelihoodRatio _) .., _ | .exact _ (.unbalancedWald _) .., _ => by
     simp [Test.form, Form.tag, Form.text, Test.tag]
   | .exact _ (.proportionZ pooled _) .., _ => by
     cases pooled <;> simp [Test.form, Form.tag, Form.text, Test.tag, ExactKind.key]

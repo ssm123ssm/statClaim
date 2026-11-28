@@ -879,7 +879,7 @@ def _proportion_z(analysis: type[ProportionZAnalysisIR]) -> Callable:
         _observational_refused(design, analysis.test)
         model = design.value.model
         check_design(model, BINOMIAL_ASSUMPTIONS, analysis.test, design.span)
-        if model.n_control != model.n_treatment:
+        if analysis.test == "score_test" and model.n_control != model.n_treatment:
             fail("unequal_arm_sizes", "This test requires equal sizes in both arms.", design.span)
         return analysis(
             design.value, null.value, arguments["alpha"].value, _positive_cutoff(cutoff)

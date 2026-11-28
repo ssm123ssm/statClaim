@@ -7,7 +7,8 @@ What is supported:
 - **Two arms, one-sided.** The one-sided Fisher test of "treatment no better than
   control". Its error bound covers every such pair of rates.
 - **Two arms, unpooled Wald.** A pre-data Type I error certificate for the
-  two-sided Wald rule with equal fixed binomial arm sizes and an equality null.
+  two-sided Wald rule with fixed binomial arms and an equality null. Equal and unequal
+  arm sizes are supported.
   Specify `squared_cutoff` for the rule and `alpha` for the requested error ceiling.
   The rule rejects when the squared observed difference exceeds `squared_cutoff`
   times the estimated variance, including when that variance is zero.
@@ -15,6 +16,7 @@ What is supported:
   and verifies a ceiling of 8.24% over the entire null.
   If the upper-bound search falls short, statClaim tries candidate null rates.
   A Lean-checked exact rejection probability above the ceiling refutes the claim.
+  [Unequal-arm tutorial](../examples/tutorial/54_unequal_arm_wald.stat).
 - **Two arms, pooled score.** `score_test` uses the pooled variance for the two-sided
   test of equal proportions, with fixed and equal binomial arm sizes. The
   [20-per-arm example](../examples/score_bound.stat) uses a critical value of

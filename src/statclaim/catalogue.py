@@ -36,7 +36,7 @@ MODULE_CLASSES = {
     ),
     "tests.wald": (
         "Analyses and claims",
-        "Two-sided unpooled Wald rule for equal binomial proportions and balanced fixed arms. "
+        "Two-sided unpooled Wald rule for equal proportions and fixed binomial arms. "
         "Lean checks a uniform finite-sample Type I error ceiling for the specified cutoff.",
     ),
     "tests.score": (

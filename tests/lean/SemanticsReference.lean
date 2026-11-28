@@ -28,6 +28,14 @@ example (cutoff : ℚ) :
           (x.1 + x.2) x.1} ≤ (alpha.value : ℝ) := Iff.rfl
 
 example (cutoff : ℚ) :
+    (Request.typeI (.exact "w" (.unbalancedWald cutoff) (fixed model)
+      ⟨.equal_proportions, model, none⟩ alpha)).Holds i ↔
+    ∀ θ, TwoArmBinomial.equalProportions θ →
+      ((TwoArmBinomial.model model.sizes).law θ).real
+        (UnpooledWald.rejection model.sizes cutoff.num.toNat cutoff.den) ≤ (alpha.value : ℝ) :=
+  Iff.rfl
+
+example (cutoff : ℚ) :
     (Request.typeI (.exact "s" (.score cutoff) (fixed model)
       ⟨.equal_proportions, model, none⟩ alpha)).Holds i ↔
     ∀ θ, TwoArmBinomial.equalProportions θ →

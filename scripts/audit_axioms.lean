@@ -31,6 +31,8 @@ run_cmd do
     ``StatClaim.Modules.Wald.level,
     ``StatClaim.Modules.Wald.exact_at_of_check,
     ``StatClaim.Semantics.Program.wald_refuted,
+    ``StatClaim.Modules.UnpooledWald.rejection_iff_real,
+    ``StatClaim.Semantics.Program.unbalancedWald_refuted,
     ``StatClaim.Semantics.Program.proportionZ_refuted,
     ``StatClaim.Modules.McNemarAsymptotic.probability,
     ``StatClaim.Modules.McNemarAsymptotic.typeI_of_check,

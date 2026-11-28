@@ -53,6 +53,15 @@ def test_every_program_is_written_as_data_or_says_why_not():
         assert len(requests) == len(verify_claims(program))
 
 
+def test_corpus_proves_the_refutation_of_a_false_type_i_ceiling():
+    path = ROOT / "examples/tutorial/54_unequal_arm_wald.stat"
+    text, _, _, refuted = semantics_checker().block(path.name, path.read_text(), "", "Corpus")
+    assert refuted == {0}
+    assert "theorem wald_refuted_0 : ¬ program.Claim 0" in text
+    assert "theorem claim_0" not in text
+    assert "theorem claim_1 : program.Claim 1" in text
+
+
 def test_frozen_claims_have_pinned_sources():
     checker = semantics_checker()
     frozen = checker.fixtures()

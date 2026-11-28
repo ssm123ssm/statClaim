@@ -191,6 +191,7 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
             subject.squared_cutoff,
             subject.alpha,
             pooled=subject.test == "score_test",
+            n_treatment=subject.plan.model.n_treatment,
         )
     if isinstance(subject, (CitedAnalysisIR, CitedAssociationIR)):
         # The contract checks passed during compilation. No backend runs: the

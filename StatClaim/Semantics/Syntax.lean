@@ -142,6 +142,7 @@ inductive ExactKind where
   | farringtonManning (margin squaredCutoff : ℚ)
   | pearson (corrected : Bool) (squaredCutoff : ℚ)
   | likelihoodRatio (ratioCutoff : ℚ)
+  | unbalancedWald (squaredCutoff : ℚ)
 
 abbrev ExactKind.wald (cutoff : ℚ) : ExactKind := .proportionZ false cutoff
 abbrev ExactKind.score (cutoff : ℚ) : ExactKind := .proportionZ true cutoff
@@ -153,6 +154,7 @@ def ExactKind.key : ExactKind → String
   | .farringtonManning .. => "farrington_manning"
   | .pearson .. => "pearson_test"
   | .likelihoodRatio _ => "likelihood_ratio_test"
+  | .unbalancedWald _ => "wald_test"
 
 /-- A probability represented by the natural numbers used in the kernel checks, in
 lowest terms, so its value determines it. -/

@@ -479,6 +479,7 @@ def _inspect(request: RequestIR) -> dict:
             subject.squared_cutoff,
             subject.alpha,
             pooled=subject.test == "score_test",
+            n_treatment=subject.plan.model.n_treatment,
         )
     analysis = subject.analysis if isinstance(subject, ObservationIR) else subject
     if analysis.alternative == "margin":

@@ -137,7 +137,8 @@ def Test.emptyHints : (t : Test) → t.Hints
   | .exact _ (.margin ..) .. => ⟨0, 0, 0, []⟩
   | .exact _ (.proportionZ ..) .. => ⟨[], []⟩
   | .exact _ (.farringtonManning ..) .. => ⟨⟨[], []⟩, 0, 0, []⟩
-  | .exact _ (.pearson ..) .. | .exact _ (.likelihoodRatio _) .. => []
+  | .exact _ (.pearson ..) .. | .exact _ (.likelihoodRatio _) ..
+  | .exact _ (.unbalancedWald _) .. => []
   | .exactStudy _ (.matchedAsymptotic _) .. => []
   | .exactStudy _ .fisherGroups .. | .exactStudy _ .fisherMixture ..
   | .exactStudy _ .matched .. | .exactStudy _ .incidence .. => PUnit.unit
@@ -418,7 +419,7 @@ theorem Request.sound (q : Request) (contracts : q.check = true) (fixed : q.fixe
       cases kind with
       | fisherOneSided =>
         exact OneSided.result.sound ((design.model.sizes, alpha), observed, reported) hints valid
-      | margin | proportionZ | farringtonManning | pearson | likelihoodRatio => simp [Request.check, Test.isOneSidedFisher] at contracts
+      | margin | proportionZ | farringtonManning | pearson | likelihoodRatio | unbalancedWald => simp [Request.check, Test.isOneSidedFisher] at contracts
     | _ => simp [Request.check, Test.isOneSidedFisher] at contracts
   | checkedResult _ t d => exact (t.checkedResult d).sound () hints valid
   | interval _ d => exact d.checked.sound () hints valid

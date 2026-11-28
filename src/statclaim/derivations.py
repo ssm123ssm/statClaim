@@ -198,8 +198,9 @@ RULES = {
         "{subject}: the design, the null and the level fit this cited method.",
     ),
     "wald-design": Rule(
-        "The Wald certificate uses equal positive arm sizes and a positive squared cutoff.",
-        "{subject}: both arms have {n} observations and the squared cutoff is {squared_cutoff}.",
+        "The Wald certificate uses positive arm sizes and a positive squared cutoff.",
+        "{subject}: control has {n_control} observations, treatment has {n_treatment}, "
+        "and the squared cutoff is {squared_cutoff}.",
     ),
     "score-design": Rule(
         "The score certificate uses equal positive arm sizes and a positive squared cutoff.",
@@ -706,7 +707,11 @@ def _analysis_steps(
                 f"{analysis.test.removesuffix('_test')}-design",
                 {
                     "subject": name,
-                    "n": plan.model.n_control,
+                    **(
+                        {"n_control": plan.model.n_control, "n_treatment": plan.model.n_treatment}
+                        if analysis.test == "wald_test"
+                        else {"n": plan.model.n_control}
+                    ),
                     "squared_cutoff": str(analysis.squared_cutoff),
                 },
             ),

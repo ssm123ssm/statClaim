@@ -680,7 +680,9 @@ MODULES = {
                         _proportion_z(analysis),
                         hypothesis_contract=analysis.contract,
                         documentation=analysis.contract.guidance,
-                        lean=in_lean("analysis", "Modules/Wald", "WaldBound"),
+                        lean=in_lean(
+                            "analysis", "Modules/Wald", "Modules/UnpooledWald", "WaldBound"
+                        ),
                     ),
                     TYPE_I,
                 ),

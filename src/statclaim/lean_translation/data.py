@@ -19,6 +19,7 @@ from statclaim.asymptotic import (
     mcnemar_certificate,
     pearson_weights,
     table_certificate,
+    unbalanced_wald_weights,
 )
 from statclaim.composition import CITED_RULES, cited_rule
 from statclaim.lean_translation.emit import rational
@@ -339,7 +340,7 @@ def test(name: object, value: object) -> str:
     if isinstance(value, dict) and value.get("test") in PROPORTION_Z_TESTS:
         record = fields(value, ANALYSIS | {"squared_cutoff"}, "A two-proportion Z analysis")
         cutoff = exact(record["squared_cutoff"], "A squared cutoff")
-        kind = record["test"].removesuffix("_test")
+        kind = "unbalancedWald" if unbalanced_wald(record) else record["test"].removesuffix("_test")
         return (
             f".exact {label} (.{kind} {cutoff})\n      {design(record['design'])}\n      "
             f"{null(record['null'])}\n      {level(record['alpha'])}"
@@ -1045,11 +1046,22 @@ def pearson_parameters(subject: dict) -> tuple[int, int, Fraction, Fraction, boo
     )
 
 
+def unbalanced_wald(subject: dict) -> bool:
+    if subject.get("test") != "wald_test":
+        return False
+    model = subject["design"]["model"]
+    return model["n_control"] != model["n_treatment"]
+
+
 def table_parameters(subject: dict) -> tuple[tuple[int, ...], Fraction]:
     if subject["test"] == "pearson_test":
         nc, nt, cutoff, alpha, corrected = pearson_parameters(subject)
         return pearson_weights(nc, nt, cutoff, corrected), alpha
     model = subject["design"]["model"]
+    if unbalanced_wald(subject):
+        return unbalanced_wald_weights(
+            model["n_control"], model["n_treatment"], Fraction(subject["squared_cutoff"])
+        ), Fraction(subject["alpha"])
     return likelihood_ratio_weights(
         model["n_control"], model["n_treatment"], Fraction(subject["ratio_cutoff"])
     ), Fraction(subject["alpha"])
@@ -1074,6 +1086,8 @@ def fm_region(hint: Region) -> str:
 
 def level_hint(subject: dict) -> str | None:
     """Hints for fixed-sample Type I checks. A conditional family assumes its members."""
+    if unbalanced_wald(subject) and fixed(subject):
+        return str(list(table_certificate(*table_parameters(subject)) or ()))
     if subject.get("test") in PROPORTION_Z_TESTS and fixed(subject):
         hint = find_certificate(
             subject["design"]["model"]["n_control"],

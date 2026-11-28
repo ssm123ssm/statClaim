@@ -390,14 +390,23 @@ def _premises(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
         valid = (
             model == null["model"]
             and model["module"] == "two_arm_binomial"
-            and 0 < n == model["n_treatment"]
+            and min(n, model["n_treatment"]) > 0
+            and (analysis["test"] == "wald_test" or n == model["n_treatment"])
             and Fraction(cutoff) > 0
         )
         return [
             *_analysis_expectations(name, analysis),
             (
                 f"{analysis['test'].removesuffix('_test')}-design",
-                {"subject": name, "n": n, "squared_cutoff": cutoff},
+                {
+                    "subject": name,
+                    **(
+                        {"n_control": n, "n_treatment": model["n_treatment"]}
+                        if analysis["test"] == "wald_test"
+                        else {"n": n}
+                    ),
+                    "squared_cutoff": cutoff,
+                },
                 valid,
             ),
         ]

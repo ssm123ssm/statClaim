@@ -14,6 +14,7 @@ public import StatClaim.Modules.FarringtonManning
 public import StatClaim.Modules.OneSampleScore
 public import StatClaim.Modules.Pearson
 public import StatClaim.Modules.LikelihoodRatio
+public import StatClaim.Modules.UnpooledWald
 
 /-!
 Exact claims state a proposition about data and certify it with a kernel check.
@@ -779,6 +780,7 @@ namespace BinomialPolynomialExact
 inductive Rule where
   | pearson (corrected : Bool)
   | likelihoodRatio
+  | unpooledWald
 
 structure Input where
   sizes : FixedSampleDesign
@@ -796,6 +798,7 @@ def Input.rejects (x : Input) : ℕ → ℕ → Prop :=
   match x.rule with
   | .pearson corrected => Modules.Pearson.rejects nc nt a b corrected
   | .likelihoodRatio => Modules.LikelihoodRatio.rejects nc nt a b
+  | .unpooledWald => Modules.UnpooledWald.rejects nc nt a b
 
 instance (x : Input) : DecidableRel x.rejects := by
   intro k l
@@ -878,7 +881,7 @@ def ExactKind.moduleSpec : ExactKind → ExactModule
   | .margin .. => Margin.moduleSpec
   | .proportionZ pooled _ => ProportionZExact.moduleSpec pooled
   | .farringtonManning .. => FarringtonManningExact.moduleSpec
-  | .pearson .. | .likelihoodRatio _ => BinomialPolynomialExact.moduleSpec
+  | .pearson .. | .likelihoodRatio _ | .unbalancedWald _ => BinomialPolynomialExact.moduleSpec
 
 def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : SignificanceLevel) :
     kind.moduleSpec.Input :=
@@ -889,6 +892,7 @@ def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : Sign
   | .farringtonManning value cutoff => ⟨sizes, alpha, value, cutoff⟩
   | .pearson corrected cutoff => ⟨sizes, alpha, cutoff, .pearson corrected⟩
   | .likelihoodRatio cutoff => ⟨sizes, alpha, cutoff, .likelihoodRatio⟩
+  | .unbalancedWald cutoff => ⟨sizes, alpha, cutoff, .unpooledWald⟩
 
 theorem ExactKind.input_level (kind : ExactKind) (sizes : FixedSampleDesign)
     (alpha : SignificanceLevel) : kind.moduleSpec.level (kind.input sizes alpha) = alpha.value := by

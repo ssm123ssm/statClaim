@@ -13,7 +13,7 @@ from statclaim.language_compiler import compile_source
 from statclaim.language_inspection import best_status
 from statclaim.language_syntax import Source
 from statclaim.language_values import STATUS_GRADES
-from statclaim.lean_translation import data
+from statclaim.lean_translation import certificate, data
 from statclaim.lean_translation.material import material
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,14 +74,23 @@ def block(name: str, source: str, agreement: str, namespace: str):
     program = compiled.program.to_dict()
     outputs, hints = material(compiled.program, ROOT)
     definition = data.program_data(program, reported=outputs)
+    refs = certificate.counterexamples({"program": program, **certificate.witness_inputs(program)})
+    refuted = frozenset(entry["index"] for entry in refs)
+    subjects = data.verify_claims(program)
+    refutations = "\n".join(
+        certificate.refutation_theorem(entry, subjects[entry["index"]]["subject"]) for entry in refs
+    )
+    theorems = data.claims(program, hints, outputs, refuted)
     text = (
-        f"namespace {namespace}\n\n{definition}\n{data.claims(program, hints, outputs)}\n"
+        f"namespace {namespace}\n\n{definition}\n{theorems}\n{refutations}\n"
         f"{data.report(name)}\n{agreement}\nend {namespace}\n"
     )
-    return text, compiled.program, outputs
+    return text, compiled.program, outputs, refuted
 
 
-def grade_problems(name: str, compiled, reported: list, output: str) -> list[str]:
+def grade_problems(
+    name: str, compiled, reported: list, output: str, refuted: frozenset[int] = frozenset()
+) -> list[str]:
     grades = data.printed_grades(output, name)
     requests = [r for r in compiled.requests if r.operation == "verify"]
     if grades is None or len(grades) != len(requests):
@@ -89,7 +98,7 @@ def grade_problems(name: str, compiled, reported: list, output: str) -> list[str
     problems = []
     canonical = data.verify_claims(compiled.to_dict())
     for index, (request, grade) in enumerate(zip(requests, grades, strict=True)):
-        if not data.ready(canonical[index], reported, index):
+        if index in refuted or not data.ready(canonical[index], reported, index):
             continue
         expected = STATUS_GRADES[best_status(request.claim)]
         if grade != expected and not (
@@ -121,7 +130,7 @@ def main() -> int:
     # Run the same checks in batches so a large exact search releases its Lean heap
     # before the next batch starts.
     checks_to_run = list(checks(found, frozen))
-    proved = 0
+    proved, disproved = 0, 0
     agreements = sum(
         line.count("program.claimAt")
         for _, text in frozen.values()
@@ -133,7 +142,7 @@ def main() -> int:
         for start in range(0, len(checks_to_run), 12):
             inputs = checks_to_run[start : start + 12]
             built = [block(*entry, f"Corpus{i}") for i, entry in enumerate(inputs)]
-            file.write_text(OPTIONS + "\n".join(text for text, _, _ in built))
+            file.write_text(OPTIONS + "\n".join(text for text, _, _, _ in built))
             run = subprocess.run(
                 ["lake", "env", "lean", str(file)], cwd=ROOT, capture_output=True, text=True
             )
@@ -143,21 +152,25 @@ def main() -> int:
                 print("\n".join(line for line in output.splitlines() if "STATCLAIM_" not in line))
                 return 1
             problems = []
-            for (name, _, _), (_, compiled, reported) in zip(inputs, built, strict=True):
+            for (name, _, _), (_, compiled, reported, refuted) in zip(inputs, built, strict=True):
                 program = compiled.to_dict()
                 if problem := data.binding_problem(output, name, program, reported=reported):
                     problems.append(problem)
-                problems.extend(grade_problems(name, compiled, reported, output))
+                problems.extend(grade_problems(name, compiled, reported, output, refuted))
                 if not name.startswith("frozen/"):
                     proved += sum(
-                        data.ready(claim, reported, i)
+                        i not in refuted and data.ready(claim, reported, i)
                         for i, claim in enumerate(data.verify_claims(program))
                     )
+                    disproved += len(refuted)
             if problems:
                 print("\n".join(problems))
                 return 1
             print(f"Checked {start + len(inputs)}/{len(checks_to_run)} programs.", flush=True)
-    print(f"Lean proved {proved} live corpus claims and checked {agreements} frozen statements.")
+    print(
+        f"Lean proved {proved} live corpus claims, refuted {disproved}, "
+        f"and checked {agreements} frozen statements."
+    )
     return 0
 
 

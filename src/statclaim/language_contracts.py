@@ -123,7 +123,7 @@ MARGIN_CONTRACT = HypothesisContract(
 WALD_CONTRACT = HypothesisContract(
     ("equal_proportions",),
     "p_treatment = p_control (equal arm success probabilities)",
-    "The two-sided unpooled Wald analysis uses equal arm sizes and a positive rational "
+    "The two-sided unpooled Wald analysis uses fixed binomial arms and a positive rational "
     "squared critical value. Alpha is the requested finite-sample error ceiling.",
 )
 

@@ -249,3 +249,17 @@ def table_witness(
         return Fraction(_integer_polynomial(coefficients, a, d - a), d ** (len(coefficients) - 1))
 
     return _witness(Fraction(0), alpha, probability)
+
+
+@lru_cache(maxsize=32)
+def unbalanced_wald_weights(nc: int, nt: int, cutoff: Fraction) -> tuple[int, ...]:
+    a, b = cutoff.as_integer_ratio()
+    nc_cube, nt_cube = nc**3, nt**3
+    scale = b * nc * nt
+
+    def rejects(x: int, y: int) -> bool:
+        return (
+            a * (x * (nc - x) * nt_cube + y * (nt - y) * nc_cube) < scale * (y * nc - x * nt) ** 2
+        )
+
+    return _table_weights(nc, nt, rejects)

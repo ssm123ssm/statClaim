@@ -672,11 +672,16 @@ def run_stage_result(
     return _certified(report)
 
 
-def proportion_z_report(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool) -> dict:
+def proportion_z_report(
+    n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool, n_treatment: int | None = None
+) -> dict:
+    sample = (
+        f"{n} per arm" if n_treatment in (None, n) else f"{n} controls and {n_treatment} treated"
+    )
     test = "pooled score" if pooled else "unpooled Wald"
     return planning_report(
         "design",
-        f"Two-sided {test} test with {n} per arm and squared cutoff {cutoff} "
+        f"Two-sided {test} test with {sample} and squared cutoff {cutoff} "
         f"has Type I error at most {alpha} for every common null proportion.",
         [
             "The arm counts are independent binomial samples.",
@@ -685,14 +690,25 @@ def proportion_z_report(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bo
     )
 
 
-def run_proportion_z(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool) -> dict:
+def run_proportion_z(
+    n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool, n_treatment: int | None = None
+) -> dict:
+    from statclaim.asymptotic import table_certificate, unbalanced_wald_weights
     from statclaim.wald import find_certificate
 
-    report = _certified(proportion_z_report(n, cutoff, alpha, pooled=pooled))
-    if (
-        report.get("verification", {}).get("stage") == "proof"
-        and find_certificate(n, cutoff, alpha, pooled=pooled) is None
-    ):
+    report = _certified(
+        proportion_z_report(n, cutoff, alpha, pooled=pooled, n_treatment=n_treatment)
+    )
+    if report.get("verification", {}).get("stage") == "proof":
+        if not pooled and n_treatment is not None and n_treatment != n:
+            found = (
+                table_certificate(unbalanced_wald_weights(n, n_treatment, cutoff), alpha)
+                is not None
+            )
+        else:
+            found = find_certificate(n, cutoff, alpha, pooled=pooled) is not None
+        if found:
+            return report
         message = f"The interval check did not establish the requested ceiling {alpha}."
         if pooled:
             return _unmet(report, "typeI_target", "score_bound_unproved", message)

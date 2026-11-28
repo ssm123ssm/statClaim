@@ -359,10 +359,10 @@ Two-sided Fisher analysis for the equality null and one-sided analysis for "trea
 
 ### `tests.wald` — Analyses and claims
 
-Two-sided unpooled Wald rule for equal binomial proportions and balanced fixed arms. Lean checks a uniform finite-sample Type I error ceiling for the specified cutoff.
+Two-sided unpooled Wald rule for equal proportions and fixed binomial arms. Lean checks a uniform finite-sample Type I error ceiling for the specified cutoff.
 
 - `wald_test(design: StudyDesign, null: Hypothesis, squared_cutoff: number, alpha: level) -> WaldAnalysis`
-  The two-sided unpooled Wald analysis uses equal arm sizes and a positive rational squared critical value. Alpha is the requested finite-sample error ceiling.
+  The two-sided unpooled Wald analysis uses fixed binomial arms and a positive rational squared critical value. Alpha is the requested finite-sample error ceiling.
   Required null: p_treatment = p_control (equal arm success probabilities); same model required.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 

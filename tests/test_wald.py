@@ -38,7 +38,6 @@ def test_wald_and_score_claim_and_cutoff_round_trip(source, ceiling):
 @pytest.mark.parametrize(
     ("original", "replacement", "diagnostic"),
     (
-        ("n_treatment=20", "n_treatment=21", "unequal_arm_sizes"),
         ("2401/625", "0", "domain"),
         ("fixed(model=study)", "adaptive(model=study)", "sampling_scope"),
         (
@@ -49,11 +48,16 @@ def test_wald_and_score_claim_and_cutoff_round_trip(source, ceiling):
     ),
 )
 @pytest.mark.parametrize("source", (TEXT, SCORE_TEXT), ids=("wald", "score"))
-def test_proportion_z_requires_its_declared_fixed_balanced_equality_design(
+def test_proportion_z_requires_its_declared_fixed_equality_design(
     source, original, replacement, diagnostic
 ):
     compiled = compile_source(Source(source.replace(original, replacement)))
     assert diagnostic in {item.code for item in compiled.diagnostics}
+
+
+def test_pooled_score_requires_equal_arm_sizes():
+    compiled = compile_source(Source(SCORE_TEXT.replace("n_treatment=20", "n_treatment=21")))
+    assert "unequal_arm_sizes" in {item.code for item in compiled.diagnostics}
 
 
 def test_wald_search_covers_the_null_for_824_percent():
@@ -139,3 +143,21 @@ let counterexample = verify(typeI(smaller))
     replay = recheck_certificate(Path(report["lean"]["certificate_directory"]), project=ROOT)
     assert replay["status"] == "verified"
     assert replay["counterexamples"][0]["typeI_error"] == witness["typeI_error"]
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_wald_certifies_a_ceiling_for_unequal_arms_and_refutes_nominal_level(tmp_path):
+    example = ROOT / "examples/tutorial/54_unequal_arm_wald.stat"
+    source = Source(example.read_text(), str(example))
+    compiled = compile_source(source)
+    assert not compiled.diagnostics
+    assert len(compiled.derivations) == 2
+    assert all(not check_derivation(d.to_dict()) for d in compiled.derivations)
+    report = check_source(source, project=ROOT, output=tmp_path / "unequal")
+    nominal, audited = report["requests"]
+    assert nominal["status"] == "refuted"
+    assert audited["status"] == "verified"
+    witness = nominal["value"]["counterexample"]
+    assert witness["p"] == "1/2"
+    assert witness["typeI_error"] == "357887/4194304"
