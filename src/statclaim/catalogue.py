@@ -44,6 +44,11 @@ MODULE_CLASSES = {
         "Two-sided pooled score test for equal binomial proportions and balanced fixed arms. "
         "Lean checks a finite-sample Type I error ceiling or an exact counterexample.",
     ),
+    "tests.likelihood_ratio": (
+        "Analyses and claims",
+        "Binomial likelihood-ratio test of equal proportions. Lean checks the exact rule "
+        "at a rational likelihood-ratio cutoff over every common probability.",
+    ),
     "tests.pearson": (
         "Analyses and claims",
         "Pearson's two-by-two chi-square rule for independent fixed binomial arms, "
@@ -208,6 +213,10 @@ OBJECT_CLASSES = {
     "AsymptoticMcNemarAnalysis": (
         "Core statistical objects",
         "Matched design, no-association null, squared cutoff and requested Type I error ceiling.",
+    ),
+    "LikelihoodRatioAnalysis": (
+        "Core statistical objects",
+        "Independent binomial arms, equality null, likelihood-ratio cutoff and Type I ceiling.",
     ),
     "PearsonAnalysis": (
         "Core statistical objects",

@@ -179,16 +179,44 @@ def one_sample_score_probability(n: int, reference: Fraction, cutoff: Fraction) 
 def pearson_weights(nc: int, nt: int, cutoff: Fraction, corrected: bool) -> tuple[int, ...]:
     total_n = nc + nt
     a, b = cutoff.as_integer_ratio()
+    correction = total_n if corrected else 0
+
+    def rejects(x: int, y: int) -> bool:
+        total = x + y
+        gap = max(0, 2 * abs(y * nc - x * nt) - correction)
+        return 4 * a * nc * nt * total * (total_n - total) < b * total_n * gap**2
+
+    return _table_weights(nc, nt, rejects)
+
+
+@lru_cache(maxsize=32)
+def likelihood_ratio_weights(nc: int, nt: int, cutoff: Fraction) -> tuple[int, ...]:
+    def fitted(n: int) -> list[int]:
+        return [k**k * (n - k) ** (n - k) for k in range(n + 1)]
+
+    total_n = nc + nt
+    a, b = cutoff.as_integer_ratio()
+    control, treatment, pooled = fitted(nc), fitted(nt), fitted(total_n)
+    null_multiplier = a * nc**nc * nt**nt
+    alternative_multiplier = b * total_n**total_n
+    return _table_weights(
+        nc,
+        nt,
+        lambda x, y: (
+            null_multiplier * pooled[x + y] < alternative_multiplier * control[x] * treatment[y]
+        ),
+    )
+
+
+def _table_weights(nc: int, nt: int, rejects: Callable[[int, int], bool]) -> tuple[int, ...]:
+    total_n = nc + nt
     control_weights = [comb(nc, x) for x in range(nc + 1)]
     treatment_weights = [comb(nt, y) for y in range(nt + 1)]
-    correction = total_n if corrected else 0
     coefficients = [0] * (total_n + 1)
     for x, weight_x in enumerate(control_weights):
         for y, weight_y in enumerate(treatment_weights):
-            total = x + y
-            gap = max(0, 2 * abs(y * nc - x * nt) - correction)
-            if 4 * a * nc * nt * total * (total_n - total) < b * total_n * gap**2:
-                coefficients[total] += weight_x * weight_y
+            if rejects(x, y):
+                coefficients[x + y] += weight_x * weight_y
     return tuple(coefficients)
 
 
@@ -200,11 +228,8 @@ def _integer_polynomial(weights: tuple[int, ...], point: int, complement: int) -
 
 
 @lru_cache(maxsize=64)
-def pearson_certificate(
-    nc: int, nt: int, cutoff: Fraction, alpha: Fraction, corrected: bool
-) -> tuple[int, ...] | None:
-    coefficients = pearson_weights(nc, nt, cutoff, corrected)
-    limit = alpha * GRID ** (nc + nt)
+def table_certificate(coefficients: tuple[int, ...], alpha: Fraction) -> tuple[int, ...] | None:
+    limit = alpha * GRID ** (len(coefficients) - 1)
     return _cover(
         0,
         GRID,
@@ -213,13 +238,11 @@ def pearson_certificate(
 
 
 @lru_cache(maxsize=64)
-def pearson_witness(
-    nc: int, nt: int, cutoff: Fraction, alpha: Fraction, corrected: bool
+def table_witness(
+    coefficients: tuple[int, ...], alpha: Fraction
 ) -> tuple[Fraction, Fraction] | None:
-    coefficients = pearson_weights(nc, nt, cutoff, corrected)
-
     def probability(p: Fraction) -> Fraction:
         a, d = p.as_integer_ratio()
-        return Fraction(_integer_polynomial(coefficients, a, d - a), d ** (nc + nt))
+        return Fraction(_integer_polynomial(coefficients, a, d - a), d ** (len(coefficients) - 1))
 
     return _witness(Fraction(0), alpha, probability)

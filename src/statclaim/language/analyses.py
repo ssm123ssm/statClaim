@@ -50,6 +50,7 @@ from statclaim.language.ir import (
     FamilyLikeIR,
     FarringtonManningAnalysisIR,
     HypothesisIR,
+    LikelihoodRatioAnalysisIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
     MatchedPairsIR,
@@ -891,6 +892,19 @@ def _positive_cutoff(cutoff: LocatedValue) -> Fraction:
     if cutoff.value <= 0:
         fail("domain", "squared_cutoff must be strictly positive.", cutoff.span)
     return cutoff.value
+
+
+def _likelihood_ratio_test(
+    arguments: dict[str, LocatedValue], span: Span
+) -> LikelihoodRatioAnalysisIR:
+    design, null, cutoff = (arguments[key] for key in ("design", "null", "ratio_cutoff"))
+    _observational_refused(design, "likelihood_ratio_test")
+    check_design(design.value.model, BINOMIAL_ASSUMPTIONS, "likelihood_ratio_test", design.span)
+    if cutoff.value <= 1:
+        fail("domain", "ratio_cutoff must be greater than one.", cutoff.span)
+    return LikelihoodRatioAnalysisIR(
+        design.value, null.value, arguments["alpha"].value, cutoff.value
+    )
 
 
 def _pearson_test(arguments: dict[str, LocatedValue], span: Span) -> PearsonAnalysisIR:

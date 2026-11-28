@@ -29,6 +29,7 @@ from statclaim.language.analyses import (
     _fixed_sequence,
     _graphical,
     _group_sequential,
+    _likelihood_ratio_test,
     _matched_case_control,
     _matched_result,
     _mcnemar,
@@ -109,6 +110,7 @@ from statclaim.language.ir import (
     FarringtonManningAnalysisIR,
     HypothesisIR,
     LevelTestIR,
+    LikelihoodRatioAnalysisIR,
     MatchedAnalysisIR,
     MatchedPairsIR,
     MatchedStudyIR,
@@ -683,6 +685,26 @@ MODULES = {
                 ),
             )
             for name, analysis in (("wald", WaldAnalysisIR), ("score", ScoreAnalysisIR))
+        ),
+        Module(
+            "tests.likelihood_ratio",
+            (
+                _constructor(
+                    "likelihood_ratio_test",
+                    (
+                        ("design", PlanIR),
+                        ("null", HypothesisIR),
+                        ("ratio_cutoff", "number"),
+                        ("alpha", "level"),
+                    ),
+                    "LikelihoodRatioAnalysis",
+                    _likelihood_ratio_test,
+                    hypothesis_contract=LikelihoodRatioAnalysisIR.contract,
+                    documentation=LikelihoodRatioAnalysisIR.contract.guidance,
+                    lean=in_lean("analysis", "Modules/LikelihoodRatio"),
+                ),
+                TYPE_I,
+            ),
         ),
         Module(
             "tests.pearson",

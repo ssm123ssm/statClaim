@@ -31,6 +31,7 @@ from statclaim.language import (
     FamilyIR,
     FarringtonManningAnalysisIR,
     FeasibilityIR,
+    LikelihoodRatioAnalysisIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
     MatchedResultIR,
@@ -86,6 +87,7 @@ from statclaim.report import (
     run_farrington_manning,
     run_incidence,
     run_interval,
+    run_likelihood_ratio,
     run_margin,
     run_margin_search,
     run_matched,
@@ -148,6 +150,11 @@ def _count_template(analysis, target, bounds: tuple[int, int], minimal: bool):
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
+    if isinstance(subject, LikelihoodRatioAnalysisIR):
+        model = subject.plan.model
+        return run_likelihood_ratio(
+            model.n_control, model.n_treatment, subject.ratio_cutoff, subject.alpha
+        )
     if isinstance(subject, PearsonAnalysisIR):
         model = subject.plan.model
         return run_pearson(

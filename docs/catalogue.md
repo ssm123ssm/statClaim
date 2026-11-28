@@ -71,6 +71,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | WaldAnalysis | Design, equality null, squared Wald critical value and requested finite-sample error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number` |
 | ScoreAnalysis | Design, equality null, squared score critical value and requested finite-sample error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number` |
 | AsymptoticMcNemarAnalysis | Matched design, no-association null, squared cutoff and requested Type I error ceiling. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `squared_cutoff: exact number` |
+| LikelihoodRatioAnalysis | Independent binomial arms, equality null, likelihood-ratio cutoff and Type I ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `ratio_cutoff: exact number` |
 | PearsonAnalysis | Fixed binomial arms, equality null, squared cutoff, choice of continuity correction and requested Type I error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number`, `correction: string` |
 | FarringtonManningAnalysis | Independent binomial arms, negative noninferiority margin, squared cutoff and requested Type I error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number` |
 | OutcomeModel | Two arms: an assignment and a continuous, survival or other registered outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
@@ -370,6 +371,15 @@ Two-sided pooled score test for equal binomial proportions and balanced fixed ar
 
 - `score_test(design: StudyDesign, null: Hypothesis, squared_cutoff: number, alpha: level) -> ScoreAnalysis`
   The two-sided pooled score test uses equal arm sizes and a positive rational squared critical value. Alpha is the requested finite-sample error ceiling.
+  Required null: p_treatment = p_control (equal arm success probabilities); same model required.
+- `typeI(analysis: Analysis) -> TypeIClaim`
+
+### `tests.likelihood_ratio` — Analyses and claims
+
+Binomial likelihood-ratio test of equal proportions. Lean checks the exact rule at a rational likelihood-ratio cutoff over every common probability.
+
+- `likelihood_ratio_test(design: StudyDesign, null: Hypothesis, ratio_cutoff: number, alpha: level) -> LikelihoodRatioAnalysis`
+  The binomial likelihood-ratio test uses independent fixed arms and a rational likelihood-ratio cutoff greater than one.
   Required null: p_treatment = p_control (equal arm success probabilities); same model required.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
@@ -1110,6 +1120,7 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `wald_bound_unproved` | obligation | The checked Wald bounds over the null intervals do not establish the requested ceiling. |
 | `score_bound_unproved` | obligation | The checked score bounds over the null intervals do not establish the requested ceiling. |
 | `mcnemar_bound_unproved` | obligation | A uniform finite-sample Type I error ceiling for the McNemar rule remains open. |
+| `likelihood_ratio_bound_unproved` | obligation | The finite-sample Type I error ceiling for the likelihood-ratio rule remains open. |
 | `pearson_bound_unproved` | obligation | The finite-sample Type I error ceiling for the Pearson rule remains open. |
 | `farrington_manning_bound_unproved` | obligation | The finite-sample Type I error ceiling for the Farrington–Manning rule remains open. |
 | `sampling_scope` | obligation | The design stops on the data, which the guarantee does not cover. Not evidence of inflated error. |

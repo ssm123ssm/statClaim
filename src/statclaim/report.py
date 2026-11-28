@@ -700,6 +700,35 @@ def run_proportion_z(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool)
     return report
 
 
+def likelihood_ratio_report(nc: int, nt: int, cutoff: Fraction, alpha: Fraction) -> dict:
+    return planning_report(
+        "design",
+        f"Binomial likelihood-ratio test with {nc} controls, {nt} treated participants and "
+        f"ratio cutoff {cutoff} has Type I error at most {alpha} for every common null proportion.",
+        [
+            "The arm counts are independent binomial samples.",
+            "The arm sizes and the cutoff are fixed before outcomes are observed.",
+        ],
+    )
+
+
+def run_likelihood_ratio(nc: int, nt: int, cutoff: Fraction, alpha: Fraction) -> dict:
+    from statclaim.asymptotic import likelihood_ratio_weights, table_certificate
+
+    report = _certified(likelihood_ratio_report(nc, nt, cutoff, alpha))
+    if (
+        report.get("verification", {}).get("stage") == "proof"
+        and table_certificate(likelihood_ratio_weights(nc, nt, cutoff), alpha) is None
+    ):
+        return _unmet(
+            report,
+            "typeI_target",
+            "likelihood_ratio_bound_unproved",
+            f"The interval check did not establish the requested ceiling {alpha}.",
+        )
+    return report
+
+
 def pearson_report(nc: int, nt: int, cutoff: Fraction, alpha: Fraction, *, corrected: bool) -> dict:
     rule = "Pearson's test with Yates's correction" if corrected else "Uncorrected Pearson test"
     return planning_report(
@@ -714,12 +743,12 @@ def pearson_report(nc: int, nt: int, cutoff: Fraction, alpha: Fraction, *, corre
 
 
 def run_pearson(nc: int, nt: int, cutoff: Fraction, alpha: Fraction, *, corrected: bool) -> dict:
-    from statclaim.asymptotic import pearson_certificate
+    from statclaim.asymptotic import pearson_weights, table_certificate
 
     report = _certified(pearson_report(nc, nt, cutoff, alpha, corrected=corrected))
     if (
         report.get("verification", {}).get("stage") == "proof"
-        and pearson_certificate(nc, nt, cutoff, alpha, corrected) is None
+        and table_certificate(pearson_weights(nc, nt, cutoff, corrected), alpha) is None
     ):
         return _unmet(
             report,

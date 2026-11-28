@@ -13,6 +13,7 @@ public import StatClaim.Modules.McNemarAsymptotic
 public import StatClaim.Modules.FarringtonManning
 public import StatClaim.Modules.OneSampleScore
 public import StatClaim.Modules.Pearson
+public import StatClaim.Modules.LikelihoodRatio
 
 /-!
 Exact claims state a proposition about data and certify it with a kernel check.
@@ -772,23 +773,43 @@ theorem counterexample (x : Input) (rate reported : ℚ)
 
 end OneSampleScoreExact
 
-namespace PearsonExact
+namespace BinomialPolynomialExact
 
-open Modules.Pearson
+inductive Rule where
+  | pearson (corrected : Bool)
+  | likelihoodRatio
 
 structure Input where
   sizes : FixedSampleDesign
   alpha : SignificanceLevel
   cutoff : ℚ
-  corrected : Bool
+  rule : Rule
 
 def Input.degree (x : Input) : ℕ := x.sizes.nControl + x.sizes.nTreatment
 
+def Input.rejects (x : Input) : ℕ → ℕ → Prop :=
+  let nc := x.sizes.nControl
+  let nt := x.sizes.nTreatment
+  let a := x.cutoff.num.toNat
+  let b := x.cutoff.den
+  match x.rule with
+  | .pearson corrected => Modules.Pearson.rejects nc nt a b corrected
+  | .likelihoodRatio => Modules.LikelihoodRatio.rejects nc nt a b
+
+instance (x : Input) : DecidableRel x.rejects := by
+  intro k l
+  cases x with
+  | mk sizes alpha cutoff rule =>
+    cases rule <;> unfold Input.rejects <;> infer_instance
+
+def Input.weight (x : Input) : ℕ → ℕ :=
+  BinomialPolynomial.weight x.sizes.nControl x.sizes.nTreatment x.rejects
+
 def Input.coefficients (x : Input) : List ℕ :=
-  weights x.sizes x.cutoff.num.toNat x.cutoff.den x.corrected
+  PolynomialBound.weights x.degree x.weight
 
 def region (x : Input) : Set TwoArmBinomial.Counts :=
-  rejection x.sizes x.cutoff.num.toNat x.cutoff.den x.corrected
+  BinomialPolynomial.region x.rejects
 
 def typeI : Checked Input where
   Statement := fun x => ∀ θ, TwoArmBinomial.equalProportions θ →
@@ -801,8 +822,8 @@ def typeI : Checked Input where
     intro x h ok θ null
     rw [TwoArmBinomial.law_under_null _ _ null]
     change (productBinomial x.sizes.nControl x.sizes.nTreatment θ.1 θ.1).real
-      (rejection x.sizes x.cutoff.num.toNat x.cutoff.den x.corrected) ≤ _
-    rw [probability]
+      (region x) ≤ _
+    rw [region, BinomialPolynomial.probability]
     have cap := PolynomialBound.le_of_check _ 1 _ _ _ h (by decide) x.alpha.value.den_pos ok θ.1
     have level := congrArg (fun q : ℚ => (q : ℝ)) (OneSided.level_eq (x.sizes, x.alpha))
     simp only [OneSided.levelNum, Rat.cast_div, Rat.cast_natCast] at level
@@ -816,17 +837,18 @@ def checkCounterexample (x : Input) (rate reported : ℚ) : Bool :=
 theorem counterexample (x : Input) (rate reported : ℚ)
     (checked : checkCounterexample x rate reported = true) : ¬ typeI.Statement x := by
   obtain ⟨lower, upper, exactRisk, above⟩ := of_decide_eq_true checked
-  obtain ⟨p, _, risk⟩ := PolynomialBound.pointProbability_eq x.degree 1
-    (weight x.sizes.nControl x.sizes.nTreatment x.cutoff.num.toNat x.cutoff.den x.corrected)
+  obtain ⟨p, _, risk⟩ := PolynomialBound.pointProbability_eq x.degree 1 x.weight
     rate lower upper
   intro claim
   have equal : TwoArmBinomial.equalProportions (p, p) := rfl
   have bound := claim (p, p) equal
   rw [TwoArmBinomial.law_under_null _ _ equal] at bound
   change (productBinomial x.sizes.nControl x.sizes.nTreatment p p).real
-    (rejection x.sizes x.cutoff.num.toNat x.cutoff.den x.corrected) ≤ _ at bound
-  simp only [Input.degree, Input.coefficients, weights] at risk exactRisk
-  rw [probability, risk, ← exactRisk] at bound
+    (region x) ≤ _ at bound
+  rw [region, BinomialPolynomial.probability] at bound
+  change PolynomialBound.value x.degree 1 x.weight p ≤ _ at bound
+  change _ = (PolynomialBound.pointProbability x.degree 1 x.coefficients rate : ℝ) at risk
+  rw [risk, ← exactRisk] at bound
   exact (not_le_of_gt (show (x.alpha.value : ℝ) < (reported : ℝ) by exact_mod_cast above)) bound
 
 def moduleSpec : ExactModule where
@@ -848,14 +870,14 @@ def moduleSpec : ExactModule where
   interval := none
   power := none
 
-end PearsonExact
+end BinomialPolynomialExact
 
 def ExactKind.moduleSpec : ExactKind → ExactModule
   | .fisherOneSided => OneSided.moduleSpec
   | .margin .. => Margin.moduleSpec
   | .proportionZ pooled _ => ProportionZExact.moduleSpec pooled
   | .farringtonManning .. => FarringtonManningExact.moduleSpec
-  | .pearson .. => PearsonExact.moduleSpec
+  | .pearson .. | .likelihoodRatio _ => BinomialPolynomialExact.moduleSpec
 
 def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : SignificanceLevel) :
     kind.moduleSpec.Input :=
@@ -864,7 +886,8 @@ def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : Sign
   | .margin value thresholds => ⟨sizes, alpha, value, thresholds⟩
   | .proportionZ _ cutoff => ⟨sizes, alpha, cutoff⟩
   | .farringtonManning value cutoff => ⟨sizes, alpha, value, cutoff⟩
-  | .pearson corrected cutoff => ⟨sizes, alpha, cutoff, corrected⟩
+  | .pearson corrected cutoff => ⟨sizes, alpha, cutoff, .pearson corrected⟩
+  | .likelihoodRatio cutoff => ⟨sizes, alpha, cutoff, .likelihoodRatio⟩
 
 theorem ExactKind.input_level (kind : ExactKind) (sizes : FixedSampleDesign)
     (alpha : SignificanceLevel) : kind.moduleSpec.level (kind.input sizes alpha) = alpha.value := by

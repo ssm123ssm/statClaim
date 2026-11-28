@@ -20,6 +20,7 @@ from statclaim.language import (
     FarringtonManningAnalysisIR,
     FeasibilityIR,
     IntervalIR,
+    LikelihoodRatioAnalysisIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
     MatchedResultIR,
@@ -269,7 +270,13 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
         for analysis in analyses:
             assert isinstance(
                 analysis,
-                (AnalysisIR, ProportionZAnalysisIR, FarringtonManningAnalysisIR, PearsonAnalysisIR),
+                (
+                    AnalysisIR,
+                    ProportionZAnalysisIR,
+                    FarringtonManningAnalysisIR,
+                    PearsonAnalysisIR,
+                    LikelihoodRatioAnalysisIR,
+                ),
             )
             if analysis.plan.stopping != "fixed" and id(analysis.plan) not in seen_plans:
                 seen_plans.add(id(analysis.plan))

@@ -12,7 +12,14 @@ import json
 import re
 from fractions import Fraction
 
-from statclaim.asymptotic import Region, fm_certificate, mcnemar_certificate, pearson_certificate
+from statclaim.asymptotic import (
+    Region,
+    fm_certificate,
+    likelihood_ratio_weights,
+    mcnemar_certificate,
+    pearson_weights,
+    table_certificate,
+)
 from statclaim.composition import CITED_RULES, cited_rule
 from statclaim.lean_translation.emit import rational
 from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
@@ -61,6 +68,7 @@ DECLARATIONS = (
     "WaldAnalysisIR",
     "ScoreAnalysisIR",
     "PearsonAnalysisIR",
+    "LikelihoodRatioAnalysisIR",
     "AsymptoticMcNemarAnalysisIR",
     "FarringtonManningAnalysisIR",
     "AnalysisIR",
@@ -333,6 +341,14 @@ def test(name: object, value: object) -> str:
         return (
             f".exact {label} (.{kind} {cutoff})\n      {design(record['design'])}\n      "
             f"{null(record['null'])}\n      {level(record['alpha'])}"
+        )
+    if isinstance(value, dict) and value.get("test") == "likelihood_ratio_test":
+        record = fields(value, ANALYSIS | {"ratio_cutoff"}, "A likelihood-ratio analysis")
+        cutoff = exact(record["ratio_cutoff"], "A likelihood-ratio cutoff")
+        return (
+            f".exact {label} (.likelihoodRatio {cutoff})\n"
+            f"      {design(record['design'])}\n      {null(record['null'])}\n"
+            f"      {level(record['alpha'])}"
         )
     if isinstance(value, dict) and value.get("test") == "pearson_test":
         record = fields(value, ANALYSIS | {"squared_cutoff", "correction"}, "A Pearson analysis")
@@ -954,6 +970,7 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
             "fisher",
             *PROPORTION_Z_TESTS,
             "pearson_test",
+            "likelihood_ratio_test",
             "farrington_manning",
             "randomisation",
             "binomial_exact_one_sided",
@@ -1020,6 +1037,16 @@ def pearson_parameters(subject: dict) -> tuple[int, int, Fraction, Fraction, boo
     )
 
 
+def table_parameters(subject: dict) -> tuple[tuple[int, ...], Fraction]:
+    if subject["test"] == "pearson_test":
+        nc, nt, cutoff, alpha, corrected = pearson_parameters(subject)
+        return pearson_weights(nc, nt, cutoff, corrected), alpha
+    model = subject["design"]["model"]
+    return likelihood_ratio_weights(
+        model["n_control"], model["n_treatment"], Fraction(subject["ratio_cutoff"])
+    ), Fraction(subject["alpha"])
+
+
 def fm_parameters(subject: dict) -> tuple[int, int, Fraction, Fraction, Fraction]:
     model = subject["design"]["model"]
     return (
@@ -1047,9 +1074,10 @@ def level_hint(subject: dict) -> str | None:
             pooled=subject["test"] == "score_test",
         )
         return "⟨[], []⟩" if hint is None else f"⟨{list(hint.weights)}, {list(hint.cells)}⟩"
-    if subject.get("test") == "pearson_test" and fixed(subject):
-        pearson_cells = pearson_certificate(*pearson_parameters(subject))
-        return str(list(pearson_cells or ()))
+    if subject.get("test") in ("pearson_test", "likelihood_ratio_test") and fixed(subject):
+        coefficients, alpha = table_parameters(subject)
+        boundaries = table_certificate(coefficients, alpha)
+        return str(list(boundaries or ()))
     if subject.get("test") == "mcnemar_asymptotic" and fixed(subject):
         mcnemar_cells = mcnemar_certificate(*mcnemar_parameters(subject))
         return str(list(mcnemar_cells or ()))

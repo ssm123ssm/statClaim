@@ -29,6 +29,7 @@ from statclaim.language.core import (
 from statclaim.language_contracts import (
     FARRINGTON_MANNING_CONTRACT,
     FISHER_CONTRACT,
+    LIKELIHOOD_RATIO_CONTRACT,
     MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
     PEARSON_CONTRACT,
@@ -379,6 +380,17 @@ class WaldAnalysisIR(ProportionZAnalysisIR):
 class ScoreAnalysisIR(ProportionZAnalysisIR):
     test = "score_test"
     contract = SCORE_CONTRACT
+
+
+@dataclass(frozen=True)
+class LikelihoodRatioAnalysisIR(LevelTestIR):
+    plan: PlanIR
+    hypothesis: HypothesisIR
+    alpha: Fraction
+    ratio_cutoff: Fraction
+
+    test = "likelihood_ratio_test"
+    contract = LIKELIHOOD_RATIO_CONTRACT
 
 
 @dataclass(frozen=True)
@@ -1697,6 +1709,7 @@ class ClaimIR:
                 FarringtonManningAnalysisIR,
                 AsymptoticMcNemarAnalysisIR,
                 PearsonAnalysisIR,
+                LikelihoodRatioAnalysisIR,
             ),
         ):
             return Guarantee(

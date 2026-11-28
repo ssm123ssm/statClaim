@@ -508,7 +508,8 @@ theorem association_key_inj : ∀ m₁ ∈ Generated.associationMethods,
 
 /-- The keys of the tests a canonical program writes by name, other than cited ones. -/
 def reservedKeys : List String :=
-  ["fisher", "wald_test", "score_test", "pearson_test", "farrington_manning", "fisher_exact",
+  ["fisher", "wald_test", "score_test", "pearson_test", "likelihood_ratio_test",
+    "farrington_manning", "fisher_exact",
     "mcnemar", "mcnemar_asymptotic", "rate_test", "randomisation",
     "binomial_exact_one_sided", "binomial_score_test", "two_stage", "declared_test"]
 
@@ -591,7 +592,8 @@ def Form.tag (f : Form) : ℕ :=
   | some s =>
     if s = "fisher" then
       if f.get "alternative" = none then 0 else 1
-    else if s = "wald_test" ∨ s = "score_test" ∨ s = "farrington_manning" ∨ s = "pearson_test" then 1
+    else if s = "wald_test" ∨ s = "score_test" ∨ s = "farrington_manning" ∨ s = "pearson_test" ∨
+      s = "likelihood_ratio_test" then 1
     else if s ∈ ["fisher_exact", "mcnemar", "mcnemar_asymptotic", "rate_test"] then 3
     else if s = "randomisation" then 4
     else if s = "binomial_exact_one_sided" then 5
@@ -624,7 +626,8 @@ def Test.tag : Test → ℕ
 theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
   | .exact _ .fisherOneSided .., _ | .exact _ (.margin ..) .., _ => by
     simp [Test.form, Form.tag, Form.text, Test.tag]
-  | .exact _ (.farringtonManning ..) .., _ | .exact _ (.pearson ..) .., _ => by
+  | .exact _ (.farringtonManning ..) .., _ | .exact _ (.pearson ..) .., _
+  | .exact _ (.likelihoodRatio _) .., _ => by
     simp [Test.form, Form.tag, Form.text, Test.tag]
   | .exact _ (.proportionZ pooled _) .., _ => by
     cases pooled <;> simp [Test.form, Form.tag, Form.text, Test.tag, ExactKind.key]
@@ -706,6 +709,7 @@ theorem Test.agree (t₁ t₂ : Test) (c₁ : t₁.canonical = true) (c₂ : t�
     cases k₁ <;> cases k₂
     all_goals repeat cases ‹Bool›
     all_goals simp only [Test.form, ExactKind.key, Bool.false_eq_true, ite_false, ite_true] at h
+    all_goals try separate h ["ratio_cutoff"]
     all_goals try separate h ["correction"]
     all_goals try separate h ["squared_cutoff"]
     all_goals same_object h as e

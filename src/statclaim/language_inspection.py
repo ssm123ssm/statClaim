@@ -25,6 +25,7 @@ from statclaim.language import (
     FarringtonManningAnalysisIR,
     FeasibilityIR,
     IntervalIR,
+    LikelihoodRatioAnalysisIR,
     LocatedValue,
     MatchedAnalysisIR,
     MatchedIntervalIR,
@@ -70,6 +71,7 @@ from statclaim.report import (
     farrington_manning_report,
     incidence_report,
     interval_report,
+    likelihood_ratio_report,
     margin_report,
     matched_report,
     mcnemar_asymptotic_report,
@@ -436,6 +438,11 @@ def _inspect(request: RequestIR) -> dict:
         return randomisation_report(subject.lower(), stopping=subject.plan.stopping)
     if isinstance(subject, AssociationAnalysisIR):
         return association_report(subject.lower(), stopping=subject.plan.stopping)
+    if isinstance(subject, LikelihoodRatioAnalysisIR):
+        model = subject.plan.model
+        return likelihood_ratio_report(
+            model.n_control, model.n_treatment, subject.ratio_cutoff, subject.alpha
+        )
     if isinstance(subject, PearsonAnalysisIR):
         model = subject.plan.model
         return pearson_report(

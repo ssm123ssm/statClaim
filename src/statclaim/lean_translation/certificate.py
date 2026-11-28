@@ -9,7 +9,7 @@ from statclaim.asymptotic import (
     fm_witness,
     mcnemar_witness,
     one_sample_score_probability,
-    pearson_witness,
+    table_witness,
 )
 from statclaim.language_compiler import compile_source
 from statclaim.language_printer import program_source
@@ -30,6 +30,7 @@ COUNTEREXAMPLE_KEYS = {
         "farrington_manning",
         "binomial_score_test",
         "pearson_test",
+        "likelihood_ratio_test",
     )
 }
 
@@ -72,8 +73,8 @@ def payload(source: Source, project: Path | None = None) -> dict:
             witness = mcnemar_witness(*data.mcnemar_parameters(subject))
         elif test == "farrington_manning":
             witness = fm_witness(*data.fm_parameters(subject))
-        elif test == "pearson_test":
-            witness = pearson_witness(*data.pearson_parameters(subject))
+        elif test in ("pearson_test", "likelihood_ratio_test"):
+            witness = table_witness(*data.table_parameters(subject))
         elif test == "binomial_score_test":
             reference = Fraction(subject["null_rate"])
             risk = one_sample_score_probability(
@@ -343,6 +344,8 @@ def refutation_theorem(refutation: dict, subject: dict | None = None) -> str:
     hint = ""
     if name.startswith("mcnemar_asymptotic_"):
         theorem = "mcnemarAsymptotic_refuted"
+    elif name.startswith("likelihood_ratio_"):
+        theorem = "likelihoodRatio_refuted"
     elif name.startswith("pearson_"):
         theorem = "pearson_refuted"
     elif name.startswith("binomial_score_"):

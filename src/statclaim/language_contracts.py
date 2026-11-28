@@ -134,6 +134,13 @@ SCORE_CONTRACT = HypothesisContract(
     "squared critical value. Alpha is the requested finite-sample error ceiling.",
 )
 
+LIKELIHOOD_RATIO_CONTRACT = HypothesisContract(
+    ("equal_proportions",),
+    "p_treatment = p_control (equal arm success probabilities)",
+    "The binomial likelihood-ratio test uses independent fixed arms and a rational "
+    "likelihood-ratio cutoff greater than one.",
+)
+
 PEARSON_CONTRACT = HypothesisContract(
     ("equal_proportions",),
     "p_treatment = p_control (equal arm success probabilities)",

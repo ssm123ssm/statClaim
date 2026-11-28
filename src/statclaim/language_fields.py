@@ -46,6 +46,7 @@ from statclaim.language import (
     IncidenceRatesIR,
     IntervalCandidatesIR,
     IntervalIR,
+    LikelihoodRatioAnalysisIR,
     LocatedValue,
     LookCandidatesIR,
     MatchedAnalysisIR,
@@ -360,6 +361,12 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
             "squared_cutoff": FieldSpec(Fraction, description="Squared critical value."),
         }
         for kind in (WaldAnalysisIR, ScoreAnalysisIR, FarringtonManningAnalysisIR)
+    },
+    LikelihoodRatioAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(HypothesisIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
+        "ratio_cutoff": FieldSpec(Fraction, description="Critical ratio of fitted likelihoods."),
     },
     PearsonAnalysisIR: {
         "design": FieldSpec(PlanIR, attribute="plan"),

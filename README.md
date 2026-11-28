@@ -192,6 +192,7 @@ Methods with guarantees proved in Lean:
 | Comparison of two proportions | `tests.fisher` | Type I error (two-sided and one-sided), exact p-value and decision |
 | Audit a two-sided Wald or pooled score rule for two proportions | `tests.wald`, `tests.score` | Finite-sample Type I error ceiling or a null counterexample |
 | Audit Pearson's two-by-two chi-square rule with any fixed arm sizes | `tests.pearson` | Finite-sample Type I error ceiling or a null counterexample, with optional Yates correction |
+| Audit a binomial likelihood-ratio rule for equal proportions | `tests.likelihood_ratio` | Type I error ceiling or a null counterexample at a specified likelihood ratio cutoff |
 | Audit the one-sided Farrington–Manning rule for noninferiority | `tests.farrington_manning` | Type I error ceiling over the composite null or a null counterexample |
 | Audit the uncorrected McNemar rule for matched pairs | `tests.association` | Type I error ceiling over all discordance probabilities or a null counterexample |
 | Non-inferiority or superiority for a difference in proportions | `tests.difference` | Type I error over the composite null, power and decision |

@@ -181,6 +181,9 @@ def Test.check : Test → Bool
     null.fits design && decide (design.model.outcome = .binary) &&
     decide (null.key = .equal_proportions) && design.model.features.isEmpty &&
     decide (sizes.nControl = sizes.nTreatment ∧ 0 < cutoff)
+  | .exact _ (.likelihoodRatio cutoff) design null _ =>
+    null.fits design && decide (design.model.outcome = .binary) &&
+    decide (null.key = .equal_proportions) && design.model.features.isEmpty && decide (1 < cutoff)
   | .exact _ (.pearson _ cutoff) design null _ =>
     null.fits design && decide (design.model.outcome = .binary) &&
     decide (null.key = .equal_proportions) && design.model.features.isEmpty && decide (0 < cutoff)

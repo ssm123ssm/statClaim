@@ -45,6 +45,7 @@ from statclaim.derivations import (
     DECLARED_NOT_ESTABLISHED,
     FAMILY_ASSUMPTIONS,
     FARRINGTON_MANNING_CONTRACT_ID,
+    LIKELIHOOD_RATIO_CONTRACT_ID,
     MCNEMAR_CONTRACT_ID,
     NOT_ESTABLISHED,
     ONE_SAMPLE_ASSUMPTIONS,
@@ -327,6 +328,7 @@ BLOCKS = {
     "fisher": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
     "farrington_manning": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
     "pearson_test": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
+    "likelihood_ratio_test": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
     **{test: ("analysis-contract", ANALYSIS_ASSUMPTIONS) for test in PROPORTION_Z_CONTRACT_IDS},
     "binomial_exact_one_sided": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
     "binomial_score_test": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
@@ -337,6 +339,20 @@ BLOCKS = {
 def _premises(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
     if analysis["test"] == "fisher":
         return _analysis_expectations(name, analysis)
+    if analysis["test"] == "likelihood_ratio_test":
+        model, null = analysis["design"]["model"], analysis["null"]
+        cutoff = analysis["ratio_cutoff"]
+        return [
+            *_analysis_expectations(name, analysis),
+            (
+                "likelihood-ratio-cutoff",
+                {"subject": name, "ratio_cutoff": cutoff},
+                model == null["model"]
+                and model["module"] == "two_arm_binomial"
+                and min(model["n_control"], model["n_treatment"]) > 0
+                and Fraction(cutoff) > 1,
+            ),
+        ]
     if analysis["test"] == "pearson_test":
         model, null = analysis["design"]["model"], analysis["null"]
         cutoff, correction = analysis["squared_cutoff"], analysis["correction"]
@@ -2612,6 +2628,10 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
         return carried[:3]
     if contract in PROPORTION_Z_CONTRACT_IDS.values():
         if contract != PROPORTION_Z_CONTRACT_IDS.get(subject["test"]):
+            raise ValueError("the contract does not match the declaration")
+        return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+    if contract == LIKELIHOOD_RATIO_CONTRACT_ID:
+        if subject.get("test") != "likelihood_ratio_test":
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
     if contract == PEARSON_CONTRACT_ID:

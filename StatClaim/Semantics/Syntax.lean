@@ -141,6 +141,7 @@ inductive ExactKind where
   | proportionZ (pooled : Bool) (squaredCutoff : ℚ)
   | farringtonManning (margin squaredCutoff : ℚ)
   | pearson (corrected : Bool) (squaredCutoff : ℚ)
+  | likelihoodRatio (ratioCutoff : ℚ)
 
 abbrev ExactKind.wald (cutoff : ℚ) : ExactKind := .proportionZ false cutoff
 abbrev ExactKind.score (cutoff : ℚ) : ExactKind := .proportionZ true cutoff
@@ -151,6 +152,7 @@ def ExactKind.key : ExactKind → String
   | .proportionZ pooled _ => if pooled then "score_test" else "wald_test"
   | .farringtonManning .. => "farrington_manning"
   | .pearson .. => "pearson_test"
+  | .likelihoodRatio _ => "likelihood_ratio_test"
 
 /-- A probability represented by the natural numbers used in the kernel checks, in
 lowest terms, so its value determines it. -/

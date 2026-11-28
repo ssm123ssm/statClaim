@@ -32,6 +32,7 @@ from statclaim.language import (
     FarringtonManningAnalysisIR,
     FeasibilityIR,
     GroupCandidatesIR,
+    LikelihoodRatioAnalysisIR,
     MatchedAnalysisIR,
     ObservationalStudyIR,
     OneArmCandidatesIR,
@@ -203,6 +204,10 @@ RULES = {
     "score-design": Rule(
         "The score certificate uses equal positive arm sizes and a positive squared cutoff.",
         "{subject}: both arms have {n} observations and the squared cutoff is {squared_cutoff}.",
+    ),
+    "likelihood-ratio-cutoff": Rule(
+        "The critical likelihood ratio is strictly greater than one.",
+        "{subject}: the likelihood-ratio cutoff is {ratio_cutoff}.",
     ),
     "pearson-cutoff": Rule(
         "The squared cutoff is positive and the table uses the declared correction.",
@@ -476,6 +481,7 @@ RANDOMISATION_CONTRACT_ID = "tests.randomisation/randomisation_test"
 ASSOCIATION_CONTRACT_ID = "tests.association/fisher_exact"
 MCNEMAR_CONTRACT_ID = "tests.association/mcnemar"
 ASYMPTOTIC_MCNEMAR_CONTRACT_ID = "tests.association/mcnemar_asymptotic"
+LIKELIHOOD_RATIO_CONTRACT_ID = "tests.likelihood_ratio/likelihood_ratio_test"
 PEARSON_CONTRACT_ID = "tests.pearson/pearson_test"
 FARRINGTON_MANNING_CONTRACT_ID = "tests.farrington_manning/farrington_manning"
 RATE_CONTRACT_ID = "tests.association/rate_test"
@@ -668,7 +674,13 @@ def _declared_design(builder: _Builder, name: str, analysis: CitedAnalysisIR) ->
 def _analysis_steps(
     builder: _Builder,
     name: str,
-    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR | PearsonAnalysisIR,
+    analysis: (
+        AnalysisIR
+        | ProportionZAnalysisIR
+        | FarringtonManningAnalysisIR
+        | PearsonAnalysisIR
+        | LikelihoodRatioAnalysisIR
+    ),
 ) -> int:
     plan, null = analysis.plan, analysis.hypothesis
     used = (
@@ -697,6 +709,13 @@ def _analysis_steps(
                     "n": plan.model.n_control,
                     "squared_cutoff": str(analysis.squared_cutoff),
                 },
+            ),
+        )
+    if isinstance(analysis, LikelihoodRatioAnalysisIR):
+        used += (
+            builder.apply(
+                "likelihood-ratio-cutoff",
+                {"subject": name, "ratio_cutoff": str(analysis.ratio_cutoff)},
             ),
         )
     if isinstance(analysis, PearsonAnalysisIR):
@@ -732,20 +751,34 @@ def _fixed(name: str, analysis) -> tuple[str, dict, bool]:
 def _sampling(
     builder: _Builder,
     name: str,
-    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR | PearsonAnalysisIR,
+    analysis: (
+        AnalysisIR
+        | ProportionZAnalysisIR
+        | FarringtonManningAnalysisIR
+        | PearsonAnalysisIR
+        | LikelihoodRatioAnalysisIR
+    ),
 ) -> None:
     builder.settle(*_fixed(name, analysis))
 
 
 def derive_analysis(
     name: str,
-    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR | PearsonAnalysisIR,
+    analysis: (
+        AnalysisIR
+        | ProportionZAnalysisIR
+        | FarringtonManningAnalysisIR
+        | PearsonAnalysisIR
+        | LikelihoodRatioAnalysisIR
+    ),
 ) -> Derivation:
     builder = _Builder()
     final = _analysis_steps(builder, name, analysis)
     _sampling(builder, name, analysis)
     if isinstance(analysis, ProportionZAnalysisIR):
         contract = PROPORTION_Z_CONTRACT_IDS[analysis.test]
+    elif isinstance(analysis, LikelihoodRatioAnalysisIR):
+        contract = LIKELIHOOD_RATIO_CONTRACT_ID
     elif isinstance(analysis, PearsonAnalysisIR):
         contract = PEARSON_CONTRACT_ID
     elif isinstance(analysis, FarringtonManningAnalysisIR):
@@ -1933,7 +1966,13 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
         value = binding.value
         if isinstance(
             value,
-            (AnalysisIR, ProportionZAnalysisIR, FarringtonManningAnalysisIR, PearsonAnalysisIR),
+            (
+                AnalysisIR,
+                ProportionZAnalysisIR,
+                FarringtonManningAnalysisIR,
+                PearsonAnalysisIR,
+                LikelihoodRatioAnalysisIR,
+            ),
         ):
             derivations.append(derive_analysis(binding.name, value))
         elif isinstance(value, CitedAnalysisIR):

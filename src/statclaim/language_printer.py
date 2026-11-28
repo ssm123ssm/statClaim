@@ -382,6 +382,17 @@ class _Printer:
             if "alternative" in value and value["alternative"] not in NOT_FISHER:
                 raise Unprintable(f"Unknown alternative {value['alternative']!r}.")
             return _call(name, self.arguments(value, [*common, ("alternative", "", str)]))
+        if test == "likelihood_ratio_test":
+            return _call(
+                test,
+                self.arguments(
+                    value,
+                    [
+                        *common,
+                        ("ratio_cutoff", "ratio_cutoff", _number),
+                    ],
+                ),
+            )
         if test == "pearson_test":
             return _call(
                 test,

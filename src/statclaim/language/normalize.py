@@ -46,6 +46,7 @@ from statclaim.language.ir import (
     IncidenceRatesIR,
     IntervalCandidatesIR,
     IntervalIR,
+    LikelihoodRatioAnalysisIR,
     LookCandidatesIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
@@ -336,6 +337,14 @@ def normalize(value: object) -> object:
             if predicate != "equal_proportions":
                 result["value"] = str(bound)
             return result
+        case LikelihoodRatioAnalysisIR(plan, hypothesis, alpha, cutoff):
+            return {
+                "test": value.test,
+                "design": normalize(plan),
+                "null": normalize(hypothesis),
+                "alpha": str(alpha),
+                "ratio_cutoff": str(cutoff),
+            }
         case PearsonAnalysisIR(plan, hypothesis, alpha, cutoff, correction):
             return {
                 "test": value.test,

@@ -25,6 +25,10 @@ What is supported:
   applies the [continuity correction](https://search.r-project.org/R/refmans/stats/html/chisq.test.html)
   used for a two-by-two table. Lean checks the error over all common rates or
   certifies an exact counterexample. [Worked example](../examples/tutorial/51_pearson_unequal_arms.stat).
+- **Two arms, likelihood ratio.** `likelihood_ratio_test` checks independent
+  fixed binomial arms under the equality null. Set a rational `ratio_cutoff`
+  greater than one. Twice its logarithm is the corresponding deviance cutoff.
+  [Worked example](../examples/tutorial/52_likelihood_ratio.stat).
 - **Two arms, Farrington–Manning.** A one-sided noninferiority score rule with
   independent fixed binomial arms, a margin strictly between −1 and 0, and a
   positive rational squared cutoff. Lean checks rational brackets for the

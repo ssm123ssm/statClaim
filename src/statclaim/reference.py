@@ -348,6 +348,10 @@ DIAGNOSTICS = {
         "obligation",
         "A uniform finite-sample Type I error ceiling for the McNemar rule remains open.",
     ),
+    "likelihood_ratio_bound_unproved": (
+        "obligation",
+        "The finite-sample Type I error ceiling for the likelihood-ratio rule remains open.",
+    ),
     "pearson_bound_unproved": (
         "obligation",
         "The finite-sample Type I error ceiling for the Pearson rule remains open.",

@@ -128,3 +128,31 @@ def test_lean_checks_pearson_with_and_without_the_correction(tmp_path):
     assert plain["value"]["counterexample"]["typeI_error"] == "135/2048"
     replay = recheck_certificate(Path(report["lean"]["certificate_directory"]), project=ROOT)
     assert replay["status"] == "verified"
+
+
+def test_likelihood_ratio_rule_and_null_round_trip():
+    source = lesson("52_likelihood_ratio")
+    compiled = compile_source(source)
+    assert not compiled.diagnostics
+    assert len(compiled.derivations) == 2
+    assert all(not check_derivation(d.to_dict()) for d in compiled.derivations)
+    canonical = compiled.program.to_dict()
+    printed = compile_source(Source(program_source(canonical)))
+    assert not printed.diagnostics
+    assert declarations(printed.program.to_dict()) == declarations(canonical)
+    assert verify_claims(printed.program.to_dict()) == verify_claims(canonical)
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_lean_audits_an_unequal_arm_likelihood_ratio_test(tmp_path):
+    source = lesson("52_likelihood_ratio")
+    report = check_source(source, project=ROOT, output=tmp_path / "likelihood-ratio")
+    nominal, certified = report["requests"]
+    assert nominal["status"] == "refuted"
+    assert certified["status"] == "verified"
+    witness = nominal["value"]["counterexample"]
+    assert witness["typeI_error"] == "263/4096"
+    assert witness["p"] == "1/2"
+    replay = recheck_certificate(Path(report["lean"]["certificate_directory"]), project=ROOT)
+    assert replay["status"] == "verified"

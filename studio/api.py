@@ -34,6 +34,7 @@ from statclaim.language import (
     ClaimIR,
     FarringtonManningAnalysisIR,
     FieldIR,
+    LikelihoodRatioAnalysisIR,
     LocatedValue,
     PearsonAnalysisIR,
     ProportionZAnalysisIR,
@@ -891,6 +892,11 @@ def reading(value, expression):
             f"{analysis_title(value)} of {value.hypothesis.statement}, "
             f"with squared cutoff {value.squared_cutoff} and claimed Type I error "
             f"at most {level(value.alpha)}"
+        )
+    if isinstance(value, LikelihoodRatioAnalysisIR):
+        return (
+            f"{analysis_title(value)} of {value.hypothesis.statement}, with ratio cutoff "
+            f"{value.ratio_cutoff} and claimed Type I error at most {level(value.alpha)}"
         )
     if hasattr(value, "hypothesis") and hasattr(value, "alpha"):
         statement, at = value.hypothesis.statement, level(value.alpha)
