@@ -10,12 +10,14 @@ from statclaim.language import (
     AnalysisIR,
     AssociationAnalysisIR,
     AssociationResultIR,
+    AsymptoticMcNemarAnalysisIR,
     CitedAnalysisIR,
     CitedAssociationIR,
     ComposedFamilyIR,
     DifferenceIntervalIR,
     EffectIntervalIR,
     FamilyIR,
+    FarringtonManningAnalysisIR,
     FeasibilityIR,
     IntervalIR,
     MatchedAnalysisIR,
@@ -175,7 +177,7 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
                 "obligation",
             ),
         )
-    if isinstance(subject, MatchedAnalysisIR):
+    if isinstance(subject, (MatchedAnalysisIR, AsymptoticMcNemarAnalysisIR)):
         if request.operation != "verify" or subject.plan.stopping == "fixed":
             return ()
         return (
@@ -262,7 +264,9 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
     if request.operation == "verify":
         seen_plans: set[int] = set()
         for analysis in analyses:
-            assert isinstance(analysis, (AnalysisIR, ProportionZAnalysisIR))
+            assert isinstance(
+                analysis, (AnalysisIR, ProportionZAnalysisIR, FarringtonManningAnalysisIR)
+            )
             if analysis.plan.stopping != "fixed" and id(analysis.plan) not in seen_plans:
                 seen_plans.add(id(analysis.plan))
                 diagnostics.append(

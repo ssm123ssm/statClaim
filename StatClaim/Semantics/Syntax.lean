@@ -109,17 +109,20 @@ inductive ExactStudyKind where
   | fisherGroups
   | fisherMixture
   | matched
+  | matchedAsymptotic (squaredCutoff : ℚ)
   | incidence
   deriving DecidableEq
 
 def ExactStudyKind.key : ExactStudyKind → String
   | .fisherGroups | .fisherMixture => "fisher_exact"
   | .matched => "mcnemar"
+  | .matchedAsymptotic _ => "mcnemar_asymptotic"
   | .incidence => "rate_test"
 
 def ExactStudyKind.binding : ExactStudyKind → String
   | .fisherGroups | .fisherMixture => "AssociationAnalysisIR"
   | .matched => "MatchedAnalysisIR"
+  | .matchedAsymptotic _ => "AsymptoticMcNemarAnalysisIR"
   | .incidence => "RateAnalysisIR"
 
 /-- Where an assumed test's guarantee comes from: a method in the registry, or the
@@ -136,6 +139,7 @@ inductive ExactKind where
   | fisherOneSided
   | margin (value : ℚ) (thresholds : List ℕ)
   | proportionZ (pooled : Bool) (squaredCutoff : ℚ)
+  | farringtonManning (margin squaredCutoff : ℚ)
 
 abbrev ExactKind.wald (cutoff : ℚ) : ExactKind := .proportionZ false cutoff
 abbrev ExactKind.score (cutoff : ℚ) : ExactKind := .proportionZ true cutoff
@@ -144,6 +148,7 @@ def ExactKind.key : ExactKind → String
   | .fisherOneSided => "fisher_one_sided"
   | .margin .. => "difference_test"
   | .proportionZ pooled _ => if pooled then "score_test" else "wald_test"
+  | .farringtonManning .. => "farrington_manning"
 
 /-- A probability represented by the natural numbers used in the kernel checks, in
 lowest terms, so its value determines it. -/

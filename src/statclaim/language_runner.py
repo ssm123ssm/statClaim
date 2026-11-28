@@ -23,11 +23,13 @@ from statclaim.language import (
     AnalysisIR,
     AssociationAnalysisIR,
     AssociationResultIR,
+    AsymptoticMcNemarAnalysisIR,
     CitedAnalysisIR,
     CitedAssociationIR,
     ComposedFamilyIR,
     EffectIntervalIR,
     FamilyIR,
+    FarringtonManningAnalysisIR,
     FeasibilityIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
@@ -79,11 +81,13 @@ from statclaim.report import (
     run_composition,
     run_count_search,
     run_effect_interval,
+    run_farrington_manning,
     run_incidence,
     run_interval,
     run_margin,
     run_margin_search,
     run_matched,
+    run_mcnemar_asymptotic,
     run_one_sample_search,
     run_policy_plan,
     run_power_plan,
@@ -140,6 +144,19 @@ def _count_template(analysis, target, bounds: tuple[int, int], minimal: bool):
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
+    if isinstance(subject, AsymptoticMcNemarAnalysisIR):
+        return run_mcnemar_asymptotic(
+            subject.plan.model.pairs, subject.squared_cutoff, subject.alpha
+        )
+    if isinstance(subject, FarringtonManningAnalysisIR):
+        model = subject.plan.model
+        return run_farrington_manning(
+            model.n_control,
+            model.n_treatment,
+            subject.hypothesis.value,
+            subject.squared_cutoff,
+            subject.alpha,
+        )
     if isinstance(subject, ProportionZAnalysisIR):
         return run_proportion_z(
             subject.plan.model.n_control,

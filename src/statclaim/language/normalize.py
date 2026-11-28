@@ -17,6 +17,7 @@ from statclaim.language.ir import (
     AssociationNullIR,
     AssociationResultIR,
     AssociationTableIR,
+    AsymptoticMcNemarAnalysisIR,
     CalculationResultIR,
     CandidatesIR,
     CaseControlStudyIR,
@@ -36,6 +37,7 @@ from statclaim.language.ir import (
     ExponentialSurvivalIR,
     ExposurePrevalenceIR,
     FamilyIR,
+    FarringtonManningAnalysisIR,
     FeasibilityIR,
     FieldIR,
     GroupCandidatesIR,
@@ -332,8 +334,10 @@ def normalize(value: object) -> object:
             if predicate != "equal_proportions":
                 result["value"] = str(bound)
             return result
-        case ProportionZAnalysisIR(
-            plan=plan, hypothesis=hypothesis, alpha=alpha, squared_cutoff=cutoff
+        case (
+            ProportionZAnalysisIR(plan, hypothesis, alpha, cutoff)
+            | AsymptoticMcNemarAnalysisIR(plan, hypothesis, alpha, cutoff)
+            | FarringtonManningAnalysisIR(plan, hypothesis, alpha, cutoff)
         ):
             return {
                 "test": value.test,

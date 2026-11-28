@@ -417,7 +417,8 @@ mutual
 of association is the one for its study, a cited method is a registry entry, and the
 members of a conditional combination are wrapped exactly when they are exact. -/
 def Test.canonical : Test → Bool
-  | .exact _ (.margin margin _) _ null _ => null.value == some margin
+  | .exact _ (.margin margin _) _ null _
+  | .exact _ (.farringtonManning margin _) _ null _ => null.value == some margin
   | .exactStudy _ kind design .. => kind.matchesStudy design.model
   | .member _ => false
   | .assumed _ (.cited method) .. => Generated.trialMethods.contains method
@@ -507,7 +508,8 @@ theorem association_key_inj : ∀ m₁ ∈ Generated.associationMethods,
 
 /-- The keys of the tests a canonical program writes by name, other than cited ones. -/
 def reservedKeys : List String :=
-  ["fisher", "wald_test", "score_test", "fisher_exact", "mcnemar", "rate_test", "randomisation",
+  ["fisher", "wald_test", "score_test", "farrington_manning", "fisher_exact",
+    "mcnemar", "mcnemar_asymptotic", "rate_test", "randomisation",
     "binomial_exact_one_sided", "two_stage", "declared_test"]
 
 def trialKeys : List String := Generated.trialMethods.map (·.key)
@@ -589,8 +591,8 @@ def Form.tag (f : Form) : ℕ :=
   | some s =>
     if s = "fisher" then
       if f.get "alternative" = none then 0 else 1
-    else if s = "wald_test" ∨ s = "score_test" then 1
-    else if s ∈ ["fisher_exact", "mcnemar", "rate_test"] then 3
+    else if s = "wald_test" ∨ s = "score_test" ∨ s = "farrington_manning" then 1
+    else if s ∈ ["fisher_exact", "mcnemar", "mcnemar_asymptotic", "rate_test"] then 3
     else if s = "randomisation" then 4
     else if s = "binomial_exact_one_sided" then 5
     else if s = "two_stage" then 6
@@ -619,6 +621,8 @@ def Test.tag : Test → ℕ
 
 theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
   | .exact _ .fisherOneSided .., _ | .exact _ (.margin ..) .., _ => by
+    simp [Test.form, Form.tag, Form.text, Test.tag]
+  | .exact _ (.farringtonManning ..) .., _ => by
     simp [Test.form, Form.tag, Form.text, Test.tag]
   | .exact _ (.proportionZ pooled _) .., _ => by
     cases pooled <;> simp [Test.form, Form.tag, Form.text, Test.tag, ExactKind.key]
@@ -711,14 +715,18 @@ theorem Test.agree (t₁ t₂ : Test) (c₁ : t₁.canonical = true) (c₂ : t�
     exact ⟨rfl, rfl, fun th => by simp_all [Test.thresholds, Form.object]⟩
   -- exactStudy
   · rename_i k₁ d₁ nl₁ a₁ k₂ d₂ nl₂ a₂
-    unfold Test.form at h; same_object h as e
-    simp at e; casesm* _ ∧ _; subst_vars
-    cases k₁ <;> cases k₂ <;> (try simp only [ExactStudyKind.key] at *) <;>
+    cases k₁ <;> cases k₂
+    all_goals simp only [Test.form, ExactStudyKind.key] at h
+    all_goals try separate h ["squared_cutoff"]
+    all_goals same_object h as e
+    all_goals simp at e
+    all_goals casesm* _ ∧ _
+    all_goals subst_vars
+    all_goals
       first
       | exact Agree.of_eq rfl
       | (simp only [Test.canonical, ExactStudyKind.matchesStudy] at c₁ c₂
          first | (rw [c₁] at c₂; simp at c₂) | (rw [c₂] at c₁; simp at c₁))
-      | (exfalso; simp_all)
   -- randomised
   · rename_i r₁ r₂
     unfold Test.form at h; same_object h as e

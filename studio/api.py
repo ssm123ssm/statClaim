@@ -29,8 +29,10 @@ from statclaim.language import (
     MODULES,
     OPERATION_BACKENDS,
     OPERATIONS,
+    AsymptoticMcNemarAnalysisIR,
     CalculationResultIR,
     ClaimIR,
+    FarringtonManningAnalysisIR,
     FieldIR,
     LocatedValue,
     ProportionZAnalysisIR,
@@ -588,6 +590,10 @@ def level(alpha):
 def analysis_title(value):
     if hasattr(value, "method"):
         return value.method.title
+    if isinstance(value, AsymptoticMcNemarAnalysisIR):
+        return "Uncorrected McNemar test"
+    if isinstance(value, FarringtonManningAnalysisIR):
+        return "Farrington–Manning score test"
     if isinstance(value, ProportionZAnalysisIR):
         return "Pooled score test" if value.test == "score_test" else "Unpooled Wald test"
     if type(value).__name__ == "RandomisationAnalysisIR":
@@ -873,7 +879,9 @@ def reading(value, expression):
         return f"A fixed sample of {sizes}" if value.stopping == "fixed" else f"Sampling of {sizes}"
     if hasattr(value, "statement") and hasattr(value, "predicate"):
         return f"Null: {value.statement}"
-    if isinstance(value, ProportionZAnalysisIR):
+    if isinstance(
+        value, (ProportionZAnalysisIR, AsymptoticMcNemarAnalysisIR, FarringtonManningAnalysisIR)
+    ):
         return (
             f"{analysis_title(value)} of {value.hypothesis.statement}, "
             f"with squared cutoff {value.squared_cutoff} and claimed Type I error "

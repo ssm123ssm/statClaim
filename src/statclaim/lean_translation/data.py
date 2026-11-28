@@ -12,6 +12,7 @@ import json
 import re
 from fractions import Fraction
 
+from statclaim.asymptotic import Region, fm_certificate, mcnemar_certificate
 from statclaim.composition import CITED_RULES, cited_rule
 from statclaim.lean_translation.emit import rational
 from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
@@ -59,6 +60,8 @@ SCOPES = {"finite_sample": "finiteSample", "asymptotic": "largeSample"}
 DECLARATIONS = (
     "WaldAnalysisIR",
     "ScoreAnalysisIR",
+    "AsymptoticMcNemarAnalysisIR",
+    "FarringtonManningAnalysisIR",
     "AnalysisIR",
     "AssociationAnalysisIR",
     "MatchedAnalysisIR",
@@ -72,7 +75,7 @@ DECLARATIONS = (
     "SequentialIR",
     "FamilyIR",
 )
-EXACT_STUDY = {"fisher_exact", "mcnemar", "rate_test"}
+EXACT_STUDY = {"fisher_exact", "mcnemar", "mcnemar_asymptotic", "rate_test"}
 # What an observational study declares: its design, the sizes it fixes, its variables,
 # and how they were measured and sampled. Scales and surveys must be ones the registry's
 # methods name, so Lean has them.
@@ -325,6 +328,15 @@ def test(name: object, value: object) -> str:
             f".exact {label} (.{kind} {cutoff})\n      {design(record['design'])}\n      "
             f"{null(record['null'])}\n      {level(record['alpha'])}"
         )
+    if isinstance(value, dict) and value.get("test") == "farrington_manning":
+        record = fields(value, ANALYSIS | {"squared_cutoff"}, "A Farrington–Manning analysis")
+        cutoff = exact(record["squared_cutoff"], "A squared cutoff")
+        margin = exact(record["null"]["value"], "A risk-difference margin")
+        return (
+            f".exact {label} (.farringtonManning {margin} {cutoff})\n"
+            f"      {design(record['design'])}\n      {null(record['null'])}\n"
+            f"      {level(record['alpha'])}"
+        )
     if isinstance(value, dict) and value.get("test") == "randomisation":
         return randomised(label, value)
     if isinstance(value, dict) and value.get("test") in EXACT_STUDY:
@@ -389,16 +401,23 @@ def study_null(value: object) -> str:
 
 
 def exact_study(label: str, value: object) -> str:
-    record = fields(value, ANALYSIS, "An exact association analysis")
+    asymptotic = isinstance(value, dict) and value.get("test") == "mcnemar_asymptotic"
+    record = fields(
+        value,
+        ANALYSIS | ({"squared_cutoff"} if asymptotic else set()),
+        "An exact association analysis",
+    )
     model = fields(record["design"], {"model", "stopping"}, "A design")["model"]
     method = record["test"]
     if method == "fisher_exact":
         has_groups = model["study"] == "case_control" or {"exposed", "unexposed"} <= model.keys()
-        kind = "fisherGroups" if has_groups else "fisherMixture"
+        kind = ".fisherGroups" if has_groups else ".fisherMixture"
     else:
-        kind = "matched" if method == "mcnemar" else "incidence"
+        kind = ".matched" if method == "mcnemar" else ".incidence"
+    if asymptotic:
+        kind = f"(.matchedAsymptotic {exact(record['squared_cutoff'], 'A squared cutoff')})"
     return (
-        f".exactStudy {label} .{kind}\n      {study_design(record['design'])}\n"
+        f".exactStudy {label} {kind}\n      {study_design(record['design'])}\n"
         f"      {study_null(record['null'])}\n      {level(record['alpha'])}"
     )
 
@@ -913,6 +932,7 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
         in {
             "fisher",
             *PROPORTION_Z_TESTS,
+            "farrington_manning",
             "randomisation",
             "binomial_exact_one_sided",
             "two_stage",
@@ -958,6 +978,31 @@ def claim_theorem(index: int, hint: str | None = None) -> str:
     )
 
 
+def mcnemar_parameters(subject: dict) -> tuple[int, Fraction, Fraction]:
+    return (
+        subject["design"]["model"]["pairs"],
+        Fraction(subject["squared_cutoff"]),
+        Fraction(subject["alpha"]),
+    )
+
+
+def fm_parameters(subject: dict) -> tuple[int, int, Fraction, Fraction, Fraction]:
+    model = subject["design"]["model"]
+    return (
+        model["n_control"],
+        model["n_treatment"],
+        Fraction(subject["null"]["value"]),
+        Fraction(subject["squared_cutoff"]),
+        Fraction(subject["alpha"]),
+    )
+
+
+def fm_region(hint: Region) -> str:
+    thresholds, bounds = hint
+    brackets = ", ".join(f"({rational(lo)}, {rational(hi)})" for lo, hi in bounds)
+    return f"⟨{list(thresholds)}, [{brackets}]⟩"
+
+
 def level_hint(subject: dict) -> str | None:
     """Hints for fixed-sample Type I checks. A conditional family assumes its members."""
     if subject.get("test") in PROPORTION_Z_TESTS and fixed(subject):
@@ -968,6 +1013,15 @@ def level_hint(subject: dict) -> str | None:
             pooled=subject["test"] == "score_test",
         )
         return "⟨[], []⟩" if hint is None else f"⟨{list(hint.weights)}, {list(hint.cells)}⟩"
+    if subject.get("test") == "mcnemar_asymptotic" and fixed(subject):
+        cells = mcnemar_certificate(*mcnemar_parameters(subject))
+        return str(list(cells or ()))
+    if subject.get("test") == "farrington_manning" and fixed(subject):
+        hint = fm_certificate(*fm_parameters(subject))
+        if hint is None:
+            return "⟨⟨[], []⟩, 0, 0, []⟩"
+        region, grid, shift, cells = hint
+        return f"⟨{fm_region(region)}, {grid}, {shift}, {list(cells)}⟩"
     if one_sided(subject):
         model = subject["design"]["model"]
         alpha = Fraction(subject["alpha"])

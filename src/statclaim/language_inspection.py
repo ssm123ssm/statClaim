@@ -13,6 +13,7 @@ from statclaim.family import inspect_family
 from statclaim.language import (
     AssociationAnalysisIR,
     AssociationResultIR,
+    AsymptoticMcNemarAnalysisIR,
     CalculationResultIR,
     CitedAnalysisIR,
     CitedAssociationIR,
@@ -21,6 +22,7 @@ from statclaim.language import (
     DifferenceIntervalIR,
     EffectIntervalIR,
     FamilyIR,
+    FarringtonManningAnalysisIR,
     FeasibilityIR,
     IntervalIR,
     LocatedValue,
@@ -63,10 +65,12 @@ from statclaim.report import (
     association_report,
     association_result_report,
     effect_interval_report,
+    farrington_manning_report,
     incidence_report,
     interval_report,
     margin_report,
     matched_report,
+    mcnemar_asymptotic_report,
     planning_report,
     proportion_z_report,
     randomisation_report,
@@ -428,6 +432,19 @@ def _inspect(request: RequestIR) -> dict:
         return randomisation_report(subject.lower(), stopping=subject.plan.stopping)
     if isinstance(subject, AssociationAnalysisIR):
         return association_report(subject.lower(), stopping=subject.plan.stopping)
+    if isinstance(subject, AsymptoticMcNemarAnalysisIR):
+        return mcnemar_asymptotic_report(
+            subject.plan.model.pairs, subject.squared_cutoff, subject.alpha
+        )
+    if isinstance(subject, FarringtonManningAnalysisIR):
+        model = subject.plan.model
+        return farrington_manning_report(
+            model.n_control,
+            model.n_treatment,
+            subject.hypothesis.value,
+            subject.squared_cutoff,
+            subject.alpha,
+        )
     if isinstance(subject, ProportionZAnalysisIR):
         return proportion_z_report(
             subject.plan.model.n_control,

@@ -1,0 +1,16 @@
+# Audit a small noninferiority trial with independent binomial arms.
+use models.two_arm_binomial
+use sampling
+use tests.farrington_manning
+
+let study = two_arm_binomial(n_control=6, n_treatment=8)
+let design = fixed(model=study)
+let null = proportion_difference_at_most(model=study, value=-1/5)
+
+# Squared cutoff 1.645^2 for a right-tailed score test.
+let nominal = farrington_manning(design=design, null=null, squared_cutoff=108241/40000, alpha=1/20)
+let nominal_claim = verify(typeI(nominal))
+
+# Keep the cutoff and margin fixed and ask whether the size is at most 10%.
+let audited = farrington_manning(design=design, null=null, squared_cutoff=108241/40000, alpha=1/10)
+let audited_claim = verify(typeI(audited))

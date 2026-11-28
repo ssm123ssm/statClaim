@@ -7,6 +7,7 @@ from statclaim.composition import composition_claims
 from statclaim.design import Design, inspect_design
 from statclaim.family import FisherFamily, inspect_family
 from statclaim.fisher import FisherResult, fisher_exact
+from statclaim.matched import matched_assumptions
 from statclaim.planning import (
     DIFFERENCE_ASSUMPTIONS,
     INTERVAL_ASSUMPTIONS,
@@ -696,6 +697,66 @@ def run_proportion_z(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool)
         if pooled:
             return _unmet(report, "typeI_target", "score_bound_unproved", message)
         return _unmet(report, "typeI_target", "wald_bound_unproved", message)
+    return report
+
+
+def mcnemar_asymptotic_report(n: int, cutoff: Fraction, alpha: Fraction) -> dict:
+    return planning_report(
+        "design",
+        f"Uncorrected two-sided McNemar test with {n} matched pairs and squared cutoff "
+        f"{cutoff} has Type I error at most {alpha} for every discordance probability.",
+        list(matched_assumptions()),
+    )
+
+
+def farrington_manning_report(
+    nc: int, nt: int, margin: Fraction, cutoff: Fraction, alpha: Fraction
+) -> dict:
+    return planning_report(
+        "design",
+        f"One-sided Farrington–Manning test with {nc} controls, {nt} treated participants and "
+        f"squared cutoff {cutoff} has Type I error at most {alpha} whenever "
+        f"p_treatment - p_control <= {margin}.",
+        [
+            "The arm counts are independent binomial samples.",
+            "The arm sizes and the cutoff are fixed before outcomes are observed.",
+        ],
+    )
+
+
+def run_mcnemar_asymptotic(n: int, cutoff: Fraction, alpha: Fraction) -> dict:
+    from statclaim.asymptotic import mcnemar_certificate
+
+    report = _certified(mcnemar_asymptotic_report(n, cutoff, alpha))
+    if (
+        report.get("verification", {}).get("stage") == "proof"
+        and mcnemar_certificate(n, cutoff, alpha) is None
+    ):
+        return _unmet(
+            report,
+            "typeI_target",
+            "mcnemar_bound_unproved",
+            f"The interval check did not establish the requested ceiling {alpha}.",
+        )
+    return report
+
+
+def run_farrington_manning(
+    nc: int, nt: int, margin: Fraction, cutoff: Fraction, alpha: Fraction
+) -> dict:
+    from statclaim.asymptotic import fm_certificate
+
+    report = _certified(farrington_manning_report(nc, nt, margin, cutoff, alpha))
+    if (
+        report.get("verification", {}).get("stage") == "proof"
+        and fm_certificate(nc, nt, margin, cutoff, alpha) is None
+    ):
+        return _unmet(
+            report,
+            "typeI_target",
+            "farrington_manning_bound_unproved",
+            f"The interval check did not establish the requested ceiling {alpha}.",
+        )
     return report
 
 

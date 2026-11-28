@@ -27,6 +27,7 @@ from statclaim.language.core import (
     LocatedValue,
 )
 from statclaim.language_contracts import (
+    FARRINGTON_MANNING_CONTRACT,
     FISHER_CONTRACT,
     MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
@@ -377,6 +378,17 @@ class WaldAnalysisIR(ProportionZAnalysisIR):
 class ScoreAnalysisIR(ProportionZAnalysisIR):
     test = "score_test"
     contract = SCORE_CONTRACT
+
+
+@dataclass(frozen=True)
+class FarringtonManningAnalysisIR(LevelTestIR):
+    plan: PlanIR
+    hypothesis: HypothesisIR
+    alpha: Fraction
+    squared_cutoff: Fraction
+
+    test = "farrington_manning"
+    contract = FARRINGTON_MANNING_CONTRACT
 
 
 # Every null hypothesis: the classes derived from NullIR.
@@ -734,6 +746,16 @@ class MatchedAnalysisIR(LevelTestIR, PlannableIR):
         # mcnemar refuses a design that is not a matched study.
         assert isinstance(model, MatchedStudyIR)
         return MatchedTest(model.pairs, self.alpha, model.exposure, model.outcome)
+
+
+@dataclass(frozen=True)
+class AsymptoticMcNemarAnalysisIR(LevelTestIR):
+    plan: PlanIR
+    hypothesis: AssociationNullIR
+    alpha: Fraction
+    squared_cutoff: Fraction
+
+    test = "mcnemar_asymptotic"
 
 
 @dataclass(frozen=True)
@@ -1635,7 +1657,15 @@ class ClaimIR:
             return subject.guarantee
         if isinstance(subject, ComposedFamilyIR):
             return subject.lower().guarantee
-        if self.kind == "typeI" and isinstance(subject, (AnalysisIR, ProportionZAnalysisIR)):
+        if self.kind == "typeI" and isinstance(
+            subject,
+            (
+                AnalysisIR,
+                ProportionZAnalysisIR,
+                FarringtonManningAnalysisIR,
+                AsymptoticMcNemarAnalysisIR,
+            ),
+        ):
             return Guarantee(
                 "type_I_error",
                 "at_most",

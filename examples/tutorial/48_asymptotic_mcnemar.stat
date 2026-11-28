@@ -1,0 +1,16 @@
+# Compare two finite-sample claims about the uncorrected McNemar rule.
+use models.observational
+use sampling
+use tests.association
+
+let study = matched_case_control(pairs=8, exposure="exposure", outcome="case status")
+let design = fixed(model=study)
+let null = no_association(model=study)
+
+# Squared cutoff 1.96^2, with the nominal 5% ceiling checked as a claim.
+let nominal = mcnemar_asymptotic(design=design, null=null, squared_cutoff=2401/625, alpha=1/20)
+let nominal_claim = verify(typeI(nominal))
+
+# The same rejection rule with a 10% ceiling over every discordance probability.
+let audited = mcnemar_asymptotic(design=design, null=null, squared_cutoff=2401/625, alpha=1/10)
+let audited_claim = verify(typeI(audited))

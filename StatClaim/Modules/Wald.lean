@@ -46,7 +46,7 @@ def evaluate (high complement : ℕ) : List ℕ → ℕ × ℕ
       let (value, power) := evaluate high complement rest
       (weight * power + high * value, complement * power)
 
-private theorem evaluate_eq (high complement : ℕ) (ws : List ℕ) :
+theorem evaluate_eq (high complement : ℕ) (ws : List ℕ) :
     evaluate high complement ws =
       (∑ t ∈ Finset.range ws.length,
         (ws[t]?.getD 0) * high ^ t * complement ^ (ws.length - 1 - t),

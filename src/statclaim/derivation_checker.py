@@ -38,11 +38,13 @@ from statclaim.association import (
 from statclaim.derivations import (
     ANALYSIS_ASSUMPTIONS,
     ASSOCIATION_CONTRACT_ID,
+    ASYMPTOTIC_MCNEMAR_CONTRACT_ID,
     CITED_NOT_ESTABLISHED,
     COMPOSED_NOT_ESTABLISHED,
     CONTRACT_IDS,
     DECLARED_NOT_ESTABLISHED,
     FAMILY_ASSUMPTIONS,
+    FARRINGTON_MANNING_CONTRACT_ID,
     MCNEMAR_CONTRACT_ID,
     NOT_ESTABLISHED,
     ONE_SAMPLE_ASSUMPTIONS,
@@ -311,6 +313,7 @@ def _cluster_search_valid(search: dict, fewest: int) -> bool:
 # The contract rule and assumptions for each kind of analysis, keyed by its test.
 BLOCKS = {
     "fisher": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
+    "farrington_manning": ("analysis-contract", ANALYSIS_ASSUMPTIONS),
     **{test: ("analysis-contract", ANALYSIS_ASSUMPTIONS) for test in PROPORTION_Z_CONTRACT_IDS},
     "binomial_exact_one_sided": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
     "two_stage": ("two-stage-contract", TWO_STAGE_ASSUMPTIONS),
@@ -320,6 +323,21 @@ BLOCKS = {
 def _premises(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
     if analysis["test"] == "fisher":
         return _analysis_expectations(name, analysis)
+    if analysis["test"] == "farrington_manning":
+        model, null = analysis["design"]["model"], analysis["null"]
+        margin, cutoff = null["value"], analysis["squared_cutoff"]
+        return [
+            *_analysis_expectations(name, {**analysis, "alternative": "margin"}),
+            (
+                "farrington-manning-cutoff",
+                {"subject": name, "margin": margin, "squared_cutoff": cutoff},
+                model == null["model"]
+                and model["module"] == "two_arm_binomial"
+                and min(model["n_control"], model["n_treatment"]) > 0
+                and -1 < Fraction(margin) < 0
+                and Fraction(cutoff) > 0,
+            ),
+        ]
     if analysis["test"] in PROPORTION_Z_CONTRACT_IDS:
         model, null = analysis["design"]["model"], analysis["null"]
         n, cutoff = model["n_control"], analysis["squared_cutoff"]
@@ -2389,14 +2407,14 @@ def _association_expected(name: str, subject: dict) -> tuple[list[tuple], tuple[
 
 def _matched_expected(name: str, subject: dict) -> list[tuple]:
     """McNemar's test, re-evaluated from the serialized subject."""
-    if subject.get("test") != "mcnemar":
+    if subject.get("test") not in ("mcnemar", "mcnemar_asymptotic"):
         raise ValueError("the contract does not match the declaration")
     study, null = subject["design"]["model"], subject["null"]
     if study.get("study") != "matched_case_control":
         raise ValueError("McNemar's test needs a matched design")
     pairs = study.get("pairs")
     alpha = Fraction(subject["alpha"])
-    return [
+    steps = [
         (
             "same-model",
             {"subject": name, "design_model": study, "null_model": null["model"]},
@@ -2421,8 +2439,19 @@ def _matched_expected(name: str, subject: dict) -> list[tuple]:
             isinstance(pairs, int) and pairs >= 1,
             (),
         ),
-        ("mcnemar-contract", {"subject": name}, True, (0, 1, 2, 3)),
     ]
+    if subject["test"] == "mcnemar_asymptotic":
+        cutoff = subject["squared_cutoff"]
+        steps.append(
+            (
+                "mcnemar-cutoff",
+                {"subject": name, "squared_cutoff": cutoff},
+                Fraction(cutoff) > 0,
+                (),
+            )
+        )
+    steps.append(("mcnemar-contract", {"subject": name}, True, tuple(range(len(steps)))))
+    return steps
 
 
 def _rate_expected(name: str, subject: dict) -> list[tuple]:
@@ -2556,6 +2585,10 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
         if contract != PROPORTION_Z_CONTRACT_IDS.get(subject["test"]):
             raise ValueError("the contract does not match the declaration")
         return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
+    if contract == FARRINGTON_MANNING_CONTRACT_ID:
+        if subject.get("test") != "farrington_manning":
+            raise ValueError("the contract does not match the declaration")
+        return _block(name, subject), [_sampling_expectation(name, subject)], ANALYSIS_ASSUMPTIONS
     if contract in CONTRACT_IDS.values():
         if subject["test"] != "fisher" or contract != CONTRACT_IDS.get(
             subject.get("alternative", "two_sided")
@@ -2568,7 +2601,9 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     if contract == RATE_CONTRACT_ID:
         assumptions = (POISSON_EVENTS, PERSON_TIME, PRESPECIFIED, RATE_NULL)
         return _rate_expected(name, subject), [_sampling_expectation(name, subject)], assumptions
-    if contract == MCNEMAR_CONTRACT_ID:
+    if contract in (MCNEMAR_CONTRACT_ID, ASYMPTOTIC_MCNEMAR_CONTRACT_ID):
+        if contract != f"tests.association/{subject.get('test')}":
+            raise ValueError("the contract does not match the declaration")
         assumptions = (PAIRS_SAMPLED, WITHIN_PAIRS, SOURCE_POPULATION, PRESPECIFIED, MATCHED_NULL)
         return _matched_expected(name, subject), [_sampling_expectation(name, subject)], assumptions
     if contract == ASSOCIATION_CONTRACT_ID:

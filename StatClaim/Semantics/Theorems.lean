@@ -120,6 +120,58 @@ theorem Program.wald_refuted (program : Program) (r : ℕ) (rate reported : ℚ)
     (valid : program.checkProportionZCounterexample r rate reported = true) : ¬ program.Claim r :=
   program.proportionZ_refuted r rate reported valid
 
+def Program.checkMcNemarCounterexample (program : Program) (r : ℕ) (rate reported : ℚ) : Bool :=
+  match program.requests[r]? with
+  | some (.typeI (.exactStudy _ (.matchedAsymptotic cutoff) design _ alpha)) =>
+    decide (design.stopping = .fixed) &&
+      AsymptoticMcNemar.checkCounterexample ⟨design.model.pairs.getD 0, alpha, cutoff⟩ rate reported
+  | _ => false
+
+theorem Program.mcnemarAsymptotic_refuted (program : Program) (r : ℕ) (rate reported : ℚ)
+    (valid : program.checkMcNemarCounterexample r rate reported = true) : ¬ program.Claim r := by
+  intro claim
+  have holds := claim Instance.trivial (program.satisfiable r)
+  unfold Program.checkMcNemarCounterexample at valid
+  split at valid
+  next name cutoff design null alpha found =>
+    obtain ⟨compatible, checked⟩ := Bool.and_eq_true_iff.mp valid
+    have stopping := of_decide_eq_true compatible
+    unfold Program.claimAt at holds
+    rw [found] at holds
+    simp only [Request.Holds, Request.fixed, Request.test, Option.all_some, Test.fixed,
+      stopping, beq_self_eq_true, Test.typeI, ExactStudyKind.moduleSpec, ExactStudyKind.input,
+      AsymptoticMcNemar.moduleSpec] at holds
+    exact AsymptoticMcNemar.counterexample _ rate reported checked holds
+  next => contradiction
+
+def Program.checkFarringtonManningCounterexample (program : Program) (r : ℕ)
+    (rate reported : ℚ) (h : Modules.FarringtonManning.RegionHint) : Bool :=
+  match program.requests[r]? with
+  | some (.typeI (.exact _ (.farringtonManning margin cutoff) design _ alpha)) =>
+    decide (design.stopping = .fixed) &&
+      FarringtonManningExact.checkCounterexample ⟨design.model.sizes, alpha, margin, cutoff⟩
+        h rate reported
+  | _ => false
+
+theorem Program.farringtonManning_refuted (program : Program) (r : ℕ) (rate reported : ℚ)
+    (h : Modules.FarringtonManning.RegionHint)
+    (valid : program.checkFarringtonManningCounterexample r rate reported h = true) :
+    ¬ program.Claim r := by
+  intro claim
+  have holds := claim Instance.trivial (program.satisfiable r)
+  unfold Program.checkFarringtonManningCounterexample at valid
+  split at valid
+  next name margin cutoff design null alpha found =>
+    obtain ⟨compatible, checked⟩ := Bool.and_eq_true_iff.mp valid
+    have stopping := of_decide_eq_true compatible
+    unfold Program.claimAt at holds
+    rw [found] at holds
+    simp only [Request.Holds, Request.fixed, Request.test, Option.all_some, Test.fixed,
+      stopping, beq_self_eq_true, Test.typeI, ExactKind.moduleSpec, ExactKind.input,
+      FarringtonManningExact.moduleSpec] at holds
+    exact FarringtonManningExact.counterexample _ h rate reported checked holds
+  next => contradiction
+
 end
 
 end StatClaim.Semantics

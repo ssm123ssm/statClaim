@@ -37,6 +37,7 @@ from statclaim.language.ir import (
     AssociationNullIR,
     AssociationResultIR,
     AssociationTableIR,
+    AsymptoticMcNemarAnalysisIR,
     CaseControlStudyIR,
     CitedAnalysisIR,
     CitedAssociationIR,
@@ -47,6 +48,7 @@ from statclaim.language.ir import (
     EffectIntervalIR,
     FamilyIR,
     FamilyLikeIR,
+    FarringtonManningAnalysisIR,
     HypothesisIR,
     MatchedAnalysisIR,
     MatchedIntervalIR,
@@ -502,6 +504,15 @@ def _mcnemar(arguments: dict[str, LocatedValue], span: Span) -> MatchedAnalysisI
     return MatchedAnalysisIR(design.value, null.value, arguments["alpha"].value)
 
 
+def _mcnemar_asymptotic(
+    arguments: dict[str, LocatedValue], span: Span
+) -> AsymptoticMcNemarAnalysisIR:
+    matched = _mcnemar(arguments, span)
+    _simple_binary(arguments["design"], "mcnemar_asymptotic")
+    cutoff = _positive_cutoff(arguments["squared_cutoff"])
+    return AsymptoticMcNemarAnalysisIR(matched.plan, matched.hypothesis, matched.alpha, cutoff)
+
+
 def _matched_result(arguments: dict[str, LocatedValue], span: Span) -> ClaimIR:
     analysis, observed = arguments["analysis"], arguments["pairs"]
     if analysis.value.plan.model != observed.value.model:
@@ -868,11 +879,30 @@ def _proportion_z(analysis: type[ProportionZAnalysisIR]) -> Callable:
         check_design(model, BINOMIAL_ASSUMPTIONS, analysis.test, design.span)
         if model.n_control != model.n_treatment:
             fail("unequal_arm_sizes", "This test requires equal sizes in both arms.", design.span)
-        if cutoff.value <= 0:
-            fail("domain", "squared_cutoff must be strictly positive.", cutoff.span)
-        return analysis(design.value, null.value, arguments["alpha"].value, cutoff.value)
+        return analysis(
+            design.value, null.value, arguments["alpha"].value, _positive_cutoff(cutoff)
+        )
 
     return build
+
+
+def _positive_cutoff(cutoff: LocatedValue) -> Fraction:
+    if cutoff.value <= 0:
+        fail("domain", "squared_cutoff must be strictly positive.", cutoff.span)
+    return cutoff.value
+
+
+def _farrington_manning(
+    arguments: dict[str, LocatedValue], span: Span
+) -> FarringtonManningAnalysisIR:
+    design, null, cutoff = (arguments[key] for key in ("design", "null", "squared_cutoff"))
+    _observational_refused(design, "farrington_manning")
+    check_design(design.value.model, BINOMIAL_ASSUMPTIONS, "farrington_manning", design.span)
+    if not -1 < null.value.value < 0:
+        fail("domain", "The Farrington–Manning margin must lie between -1 and 0.", null.span)
+    return FarringtonManningAnalysisIR(
+        design.value, null.value, arguments["alpha"].value, _positive_cutoff(cutoff)
+    )
 
 
 def _difference(

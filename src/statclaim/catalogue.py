@@ -44,6 +44,11 @@ MODULE_CLASSES = {
         "Two-sided pooled score test for equal binomial proportions and balanced fixed arms. "
         "Lean checks a finite-sample Type I error ceiling or an exact counterexample.",
     ),
+    "tests.farrington_manning": (
+        "Analyses and claims",
+        "One-sided Farrington–Manning score test of binomial noninferiority at a negative "
+        "risk-difference margin. Lean checks a uniform Type I error ceiling or a null witness.",
+    ),
     "tests.randomisation": (
         "Analyses and claims",
         "Randomisation test of the sharp null that treatment changes no participant's "
@@ -194,6 +199,15 @@ OBJECT_CLASSES = {
         "Core statistical objects",
         "Design, equality null, squared score critical value and requested "
         "finite-sample error ceiling.",
+    ),
+    "AsymptoticMcNemarAnalysis": (
+        "Core statistical objects",
+        "Matched design, no-association null, squared cutoff and requested Type I error ceiling.",
+    ),
+    "FarringtonManningAnalysis": (
+        "Core statistical objects",
+        "Independent binomial arms, negative noninferiority margin, squared cutoff and "
+        "requested Type I error ceiling.",
     ),
     "OutcomeModel": (
         "Core statistical objects",

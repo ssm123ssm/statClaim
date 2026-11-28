@@ -9,6 +9,8 @@ public import StatClaim.Modules.Incidence
 public import StatClaim.Modules.DifferenceTest
 public import StatClaim.Modules.Randomisation
 public import StatClaim.Modules.Wald
+public import StatClaim.Modules.McNemarAsymptotic
+public import StatClaim.Modules.FarringtonManning
 
 /-!
 Exact claims state a proposition about data and certify it with a kernel check.
@@ -272,10 +274,82 @@ def incidenceModule : ExactModule where
   interval := none
   power := none
 
+namespace AsymptoticMcNemar
+
+structure Input where
+  n : ℕ
+  alpha : SignificanceLevel
+  cutoff : ℚ
+
+def region (x : Input) : Set (ℕ × ℕ) :=
+  Modules.McNemarAsymptotic.rejection x.n x.cutoff.num.toNat x.cutoff.den
+
+private theorem alpha_eq (alpha : SignificanceLevel) :
+    (alpha.value : ℝ) = (alpha.value.num.toNat : ℝ) / alpha.value.den := by
+  have nonnegative : 0 ≤ alpha.value.num := Rat.num_nonneg.mpr alpha.nonnegative
+  have cast : (alpha.value.num.toNat : ℝ) = (alpha.value.num : ℝ) := by
+    exact_mod_cast Int.toNat_of_nonneg nonnegative
+  rw [cast, ← Rat.cast_intCast, ← Rat.cast_natCast, ← Rat.cast_div, Rat.num_div_den]
+
+def typeI : Checked Input where
+  Statement := fun x => ∀ q, (Matched.pairsLaw x.n q Matched.half).real (region x) ≤ (x.alpha.value : ℝ)
+  Hint := List ℕ
+  empty := []
+  check := fun x h => Modules.McNemarAsymptotic.check x.n x.cutoff.num.toNat x.cutoff.den
+    x.alpha.value.num.toNat x.alpha.value.den h
+  sound := by
+    intro x h checked q
+    rw [alpha_eq]
+    exact Modules.McNemarAsymptotic.typeI_of_check _ _ _ _ _ _ x.alpha.value.den_pos checked q
+
+def checkCounterexample (x : Input) (rate reported : ℚ) : Bool :=
+  decide (0 ≤ rate ∧ rate ≤ 1 ∧ reported =
+    (Modules.McNemarAsymptotic.numerator x.n x.cutoff.num.toNat x.cutoff.den
+      rate.num.toNat (rate.den - rate.num.toNat) : ℚ) /
+      (Modules.McNemarAsymptotic.denominator x.n rate.den : ℚ)) &&
+    Modules.McNemarAsymptotic.checkCounterexample x.n x.cutoff.num.toNat x.cutoff.den
+      x.alpha.value.num.toNat x.alpha.value.den rate.num.toNat rate.den
+
+theorem counterexample (x : Input) (rate reported : ℚ)
+    (checked : checkCounterexample x rate reported = true) : ¬ typeI.Statement x := by
+  obtain ⟨_, point⟩ := Bool.and_eq_true_iff.mp checked
+  obtain ⟨q, excess⟩ := Modules.McNemarAsymptotic.counterexample _ _ _ _ _ _ _
+    x.alpha.value.den_pos point
+  intro claim
+  exact (not_le_of_gt excess) ((claim q).trans_eq (alpha_eq x.alpha))
+
+def moduleSpec : ExactModule where
+  Input := Input
+  Parameter := unitInterval × unitInterval
+  Outcome := ℕ × ℕ
+  law := fun x => modelOfLaw (fun θ => Matched.pairsLaw x.n θ.1 θ.2)
+    (fun θ => ⟨Matched.pairsLaw_univ x.n θ.1 θ.2⟩)
+  null := fun _ θ => θ.2 = Matched.half
+  procedure := fun x => ⟨region x, .of_discrete⟩
+  level := fun x => x.alpha.value
+  typeI := typeI
+  bound := by
+    intro x h θ null
+    change θ.2 = Matched.half at null
+    change (Matched.pairsLaw x.n θ.1 θ.2).real _ ≤ _
+    rw [null]
+    exact h θ.1
+  Observation := ObservedCounts
+  Report := ReportedResult
+  Point := BinomialPoint
+  Target := ProbabilityFraction
+  Endpoints := PUnit
+  result := none
+  interval := none
+  power := none
+
+end AsymptoticMcNemar
+
 def ExactStudyKind.moduleSpec : ExactStudyKind → ExactModule
   | .fisherGroups => fisherGroupsModule
   | .fisherMixture => mixtureModule
   | .matched => matchedModule
+  | .matchedAsymptotic _ => AsymptoticMcNemar.moduleSpec
   | .incidence => incidenceModule
 
 def ExactStudyKind.input (kind : ExactStudyKind) (study : Study) (alpha : SignificanceLevel) :
@@ -284,6 +358,7 @@ def ExactStudyKind.input (kind : ExactStudyKind) (study : Study) (alpha : Signif
   | .fisherGroups => (study.groupSizes, alpha)
   | .fisherMixture => (study.n.getD 0, alpha)
   | .matched => (study.pairs.getD 0, alpha)
+  | .matchedAsymptotic cutoff => ⟨study.pairs.getD 0, alpha, cutoff⟩
   | .incidence => alpha
 
 theorem ExactStudyKind.input_level (kind : ExactStudyKind) (study : Study)
@@ -545,10 +620,114 @@ def moduleSpec (pooled : Bool) : ExactModule where
 
 end ProportionZExact
 
+namespace FarringtonManningExact
+
+open Modules.FarringtonManning
+
+structure Input where
+  sizes : FixedSampleDesign
+  alpha : SignificanceLevel
+  margin : ℚ
+  cutoff : ℚ
+
+structure Hint where
+  region : RegionHint
+  grid : ℕ
+  shift : ℕ
+  cells : List ℕ
+
+def typeI : Checked Input where
+  Statement := fun x => ((analysis x.sizes (-x.margin) x.cutoff).typeIClaim (x.alpha.value : ℝ)).statement
+  Hint := Hint
+  empty := ⟨⟨[], []⟩, 0, 0, []⟩
+  check := fun x h => regionCheck x.sizes (-x.margin) x.cutoff h.region true &&
+    Margin.typeI.check ⟨x.sizes, x.alpha, -(-x.margin), h.region.thresholds⟩
+      ⟨h.grid, 0, h.shift, h.cells⟩
+  sound := by
+    intro x h ok
+    obtain ⟨region, cells⟩ := Bool.and_eq_true_iff.mp ok
+    exact typeI_of_region _ _ _ _ region _ (Margin.typeI.sound _ _ cells)
+
+def witnessValue (x : Input) (h : RegionHint) (rate : ℚ) : ℚ :=
+  let treatment := rate + x.margin
+  let nc := x.sizes.nControl
+  let nt := x.sizes.nTreatment
+  (DifferenceTest.thresholdNumerator nc nt rate.num.toNat rate.den
+    treatment.num.toNat treatment.den h.thresholds : ℚ) /
+    (rejectionDenominator nc nt rate.den treatment.den : ℚ)
+
+def checkCounterexample (x : Input) (h : RegionHint) (rate reported : ℚ) : Bool :=
+  decide (0 ≤ rate ∧ rate ≤ 1 ∧ 0 ≤ rate + x.margin ∧ rate + x.margin ≤ 1 ∧
+    reported = witnessValue x h rate ∧ x.alpha.value < reported) &&
+    regionCheck x.sizes (-x.margin) x.cutoff h false
+
+private theorem rational_rate (p : ℚ) (h0 : 0 ≤ p) :
+    (p.num.toNat : ℚ) / p.den = p := by
+  rw [← Int.cast_natCast, Int.toNat_of_nonneg (Rat.num_nonneg.mpr h0), Rat.num_div_den]
+
+private theorem point (p : ℚ) (h0 : 0 ≤ p) (h1 : p ≤ 1) : p.num.toNat ≤ p.den := by
+  have h : (p.num.toNat : ℚ) / p.den ≤ 1 := (rational_rate p h0).trans_le h1
+  rw [div_le_one (by exact_mod_cast p.den_pos : (0 : ℚ) < p.den)] at h
+  exact_mod_cast h
+
+theorem counterexample (x : Input) (h : RegionHint) (rate reported : ℚ)
+    (checked : checkCounterexample x h rate reported = true) : ¬ typeI.Statement x := by
+  obtain ⟨info, region⟩ := Bool.and_eq_true_iff.mp checked
+  obtain ⟨h0, h1, t0, t1, reported_eq, above⟩ := of_decide_eq_true info
+  let t := rate + x.margin
+  let pc := ratPoint rate.num.toNat rate.den (point rate h0 h1) rate.den_pos
+  let pt := ratPoint t.num.toNat t.den (point t t0 t1) t.den_pos
+  have cp : (pc : ℝ) = (rate : ℝ) := by
+    simpa [pc, ratPoint] using congrArg (fun q : ℚ => (q : ℝ)) (rational_rate rate h0)
+  have tp : (pt : ℝ) = (t : ℝ) := by
+    simpa [pt, ratPoint] using congrArg (fun q : ℚ => (q : ℝ)) (rational_rate t t0)
+  have null : (analysis x.sizes (-x.margin) x.cutoff).hypothesis (pc, pt) := by
+    change (pt : ℝ) - (pc : ℝ) ≤ ((-(-x.margin) : ℚ) : ℝ)
+    rw [cp, tp]
+    simp [t]
+  intro claim
+  have cap := claim (pc, pt) null
+  rw [Core.Policy.fixed_law] at cap
+  have lower := probability_ge_of_region x.sizes (-x.margin) x.cutoff h region pc pt
+  have eq : (productBinomial x.sizes.nControl x.sizes.nTreatment pc pt).real
+      (DifferenceTest.region x.sizes.nTreatment h.thresholds) = (reported : ℝ) := by
+    rw [reported_eq]
+    rw [DifferenceTest.rejection_probability]
+    simp only [witnessValue, DifferenceTest.thresholdNumerator_eq, Rat.cast_div, Rat.cast_natCast]
+    rfl
+  rw [eq] at lower
+  exact (not_le_of_gt (show (x.alpha.value : ℝ) < (reported : ℝ) by exact_mod_cast above))
+    (lower.trans cap)
+
+def moduleSpec : ExactModule where
+  Input := Input
+  Parameter := TwoArmBinomial.Parameters
+  Outcome := TwoArmBinomial.Counts
+  law := fun x => TwoArmBinomial.model x.sizes
+  null := fun x => (analysis x.sizes (-x.margin) x.cutoff).hypothesis
+  procedure := fun x => ⟨rejection x.sizes (-x.margin) x.cutoff, .of_discrete⟩
+  level := fun x => x.alpha.value
+  typeI := typeI
+  bound := by
+    intro x h θ holds
+    rw [← Core.Policy.fixed_law]
+    exact h θ holds
+  Observation := ObservedCounts
+  Report := ReportedResult
+  Point := BinomialPoint
+  Target := ProbabilityFraction
+  Endpoints := PUnit
+  result := none
+  interval := none
+  power := none
+
+end FarringtonManningExact
+
 def ExactKind.moduleSpec : ExactKind → ExactModule
   | .fisherOneSided => OneSided.moduleSpec
   | .margin .. => Margin.moduleSpec
   | .proportionZ pooled _ => ProportionZExact.moduleSpec pooled
+  | .farringtonManning .. => FarringtonManningExact.moduleSpec
 
 def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : SignificanceLevel) :
     kind.moduleSpec.Input :=
@@ -556,6 +735,7 @@ def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : Sign
   | .fisherOneSided => (sizes, alpha)
   | .margin value thresholds => ⟨sizes, alpha, value, thresholds⟩
   | .proportionZ _ cutoff => ⟨sizes, alpha, cutoff⟩
+  | .farringtonManning value cutoff => ⟨sizes, alpha, value, cutoff⟩
 
 theorem ExactKind.input_level (kind : ExactKind) (sizes : FixedSampleDesign)
     (alpha : SignificanceLevel) : kind.moduleSpec.level (kind.input sizes alpha) = alpha.value := by

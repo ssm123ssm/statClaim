@@ -20,6 +20,7 @@ from statclaim.incidence import rate_assumptions
 from statclaim.language import (
     AnalysisIR,
     AssociationAnalysisIR,
+    AsymptoticMcNemarAnalysisIR,
     CandidatesIR,
     CitedAnalysisIR,
     CitedAssociationIR,
@@ -28,6 +29,7 @@ from statclaim.language import (
     ComposedFamilyIR,
     CountCandidatesIR,
     FamilyIR,
+    FarringtonManningAnalysisIR,
     FeasibilityIR,
     GroupCandidatesIR,
     MatchedAnalysisIR,
@@ -199,6 +201,16 @@ RULES = {
     "score-design": Rule(
         "The score certificate uses equal positive arm sizes and a positive squared cutoff.",
         "{subject}: both arms have {n} observations and the squared cutoff is {squared_cutoff}.",
+    ),
+    "farrington-manning-cutoff": Rule(
+        "The independent binomial arms have positive sizes, the margin is strictly negative "
+        "and above minus one, and the squared cutoff is positive.",
+        "{subject}: the noninferiority margin is {margin} and the squared cutoff is "
+        "{squared_cutoff}.",
+    ),
+    "mcnemar-cutoff": Rule(
+        "The squared chi-square cutoff is positive.",
+        "{subject}: the squared cutoff is {squared_cutoff}.",
     ),
     "analysis-contract": Rule(
         "The same-model, supported-null and level-range rules hold for this analysis.",
@@ -453,6 +465,8 @@ RULES = {
 RANDOMISATION_CONTRACT_ID = "tests.randomisation/randomisation_test"
 ASSOCIATION_CONTRACT_ID = "tests.association/fisher_exact"
 MCNEMAR_CONTRACT_ID = "tests.association/mcnemar"
+ASYMPTOTIC_MCNEMAR_CONTRACT_ID = "tests.association/mcnemar_asymptotic"
+FARRINGTON_MANNING_CONTRACT_ID = "tests.farrington_manning/farrington_manning"
 RATE_CONTRACT_ID = "tests.association/rate_test"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
 MARGIN_CONTRACT_ID = "tests.difference/difference_test"
@@ -641,7 +655,9 @@ def _declared_design(builder: _Builder, name: str, analysis: CitedAnalysisIR) ->
 
 
 def _analysis_steps(
-    builder: _Builder, name: str, analysis: AnalysisIR | ProportionZAnalysisIR
+    builder: _Builder,
+    name: str,
+    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR,
 ) -> int:
     plan, null = analysis.plan, analysis.hypothesis
     used = (
@@ -672,6 +688,17 @@ def _analysis_steps(
                 },
             ),
         )
+    if isinstance(analysis, FarringtonManningAnalysisIR):
+        used += (
+            builder.apply(
+                "farrington-manning-cutoff",
+                {
+                    "subject": name,
+                    "margin": str(null.value),
+                    "squared_cutoff": str(analysis.squared_cutoff),
+                },
+            ),
+        )
     return builder.apply("analysis-contract", {"subject": name}, used)
 
 
@@ -680,19 +707,29 @@ def _fixed(name: str, analysis) -> tuple[str, dict, bool]:
     return ("fixed-sampling", {"subject": name, "stopping": stopping}, stopping == "fixed")
 
 
-def _sampling(builder: _Builder, name: str, analysis: AnalysisIR | ProportionZAnalysisIR) -> None:
+def _sampling(
+    builder: _Builder,
+    name: str,
+    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR,
+) -> None:
     builder.settle(*_fixed(name, analysis))
 
 
-def derive_analysis(name: str, analysis: AnalysisIR | ProportionZAnalysisIR) -> Derivation:
+def derive_analysis(
+    name: str, analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR
+) -> Derivation:
     builder = _Builder()
     final = _analysis_steps(builder, name, analysis)
     _sampling(builder, name, analysis)
+    if isinstance(analysis, ProportionZAnalysisIR):
+        contract = PROPORTION_Z_CONTRACT_IDS[analysis.test]
+    elif isinstance(analysis, FarringtonManningAnalysisIR):
+        contract = FARRINGTON_MANNING_CONTRACT_ID
+    else:
+        contract = CONTRACT_IDS[analysis.alternative]
     return Derivation(
         name,
-        PROPORTION_Z_CONTRACT_IDS[analysis.test]
-        if isinstance(analysis, ProportionZAnalysisIR)
-        else CONTRACT_IDS[analysis.alternative],
+        contract,
         builder.steps[final].conclusion,
         tuple(builder.steps),
         ANALYSIS_ASSUMPTIONS,
@@ -831,14 +868,18 @@ def _association_steps(builder: _Builder, name: str, analysis: AssociationAnalys
     return builder.apply("association-contract", {"subject": name}, used)
 
 
-def derive_matched(name: str, analysis: MatchedAnalysisIR) -> Derivation:
+def derive_matched(
+    name: str, analysis: MatchedAnalysisIR | AsymptoticMcNemarAnalysisIR
+) -> Derivation:
     """Why McNemar's test fits. Its guarantee is proved, not carried."""
     builder = _Builder()
     final = _matched_steps(builder, name, analysis)
     _sampling(builder, name, analysis)
     return Derivation(
         name,
-        MCNEMAR_CONTRACT_ID,
+        ASYMPTOTIC_MCNEMAR_CONTRACT_ID
+        if isinstance(analysis, AsymptoticMcNemarAnalysisIR)
+        else MCNEMAR_CONTRACT_ID,
         builder.steps[final].conclusion,
         tuple(builder.steps),
         matched_assumptions(),
@@ -847,7 +888,9 @@ def derive_matched(name: str, analysis: MatchedAnalysisIR) -> Derivation:
     )
 
 
-def _matched_steps(builder: _Builder, name: str, analysis: MatchedAnalysisIR) -> int:
+def _matched_steps(
+    builder: _Builder, name: str, analysis: MatchedAnalysisIR | AsymptoticMcNemarAnalysisIR
+) -> int:
     study = normalize(analysis.plan.model)
     used = (
         builder.apply(
@@ -870,6 +913,16 @@ def _matched_steps(builder: _Builder, name: str, analysis: MatchedAnalysisIR) ->
         builder.apply("level-range", {"subject": name, "alpha": str(analysis.alpha)}),
         builder.apply("matched-sampling", {"subject": name, "pairs": study["pairs"]}),
     )
+    if isinstance(analysis, AsymptoticMcNemarAnalysisIR):
+        used += (
+            builder.apply(
+                "mcnemar-cutoff",
+                {
+                    "subject": name,
+                    "squared_cutoff": str(analysis.squared_cutoff),
+                },
+            ),
+        )
     return builder.apply("mcnemar-contract", {"subject": name}, used)
 
 
@@ -1837,7 +1890,7 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
     derivations = []
     for binding in program.bindings:
         value = binding.value
-        if isinstance(value, (AnalysisIR, ProportionZAnalysisIR)):
+        if isinstance(value, (AnalysisIR, ProportionZAnalysisIR, FarringtonManningAnalysisIR)):
             derivations.append(derive_analysis(binding.name, value))
         elif isinstance(value, CitedAnalysisIR):
             derivations.append(derive_cited(binding.name, value))
@@ -1845,7 +1898,7 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
             derivations.append(derive_randomisation(binding.name, value))
         elif isinstance(value, AssociationAnalysisIR):
             derivations.append(derive_association(binding.name, value))
-        elif isinstance(value, MatchedAnalysisIR):
+        elif isinstance(value, (MatchedAnalysisIR, AsymptoticMcNemarAnalysisIR)):
             derivations.append(derive_matched(binding.name, value))
         elif isinstance(value, RateAnalysisIR):
             derivations.append(derive_rate(binding.name, value))

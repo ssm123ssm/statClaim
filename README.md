@@ -190,6 +190,9 @@ Methods with guarantees proved in Lean:
 | Purpose | Module | Proved in Lean |
 | --- | --- | --- |
 | Comparison of two proportions | `tests.fisher` | Type I error (two-sided and one-sided), exact p-value and decision |
+| Audit a two-sided Wald or pooled score rule for two proportions | `tests.wald`, `tests.score` | Finite-sample Type I error ceiling or a null counterexample |
+| Audit the one-sided Farrington–Manning rule for noninferiority | `tests.farrington_manning` | Type I error ceiling over the composite null or a null counterexample |
+| Audit the uncorrected McNemar rule for matched pairs | `tests.association` | Type I error ceiling over all discordance probabilities or a null counterexample |
 | Non-inferiority or superiority for a difference in proportions | `tests.difference` | Type I error over the composite null, power and decision |
 | Randomisation tests, by participant or cluster, with strata or blocks | `tests.randomisation` | Type I error under the sharp null, for any test statistic |
 | Association in cohort, case-control and cross-sectional studies | `tests.association` | Type I error of Fisher's exact test for each design, of McNemar's test for matched pairs and of the exact rate test for person-time data |

@@ -382,7 +382,7 @@ class _Printer:
             if "alternative" in value and value["alternative"] not in NOT_FISHER:
                 raise Unprintable(f"Unknown alternative {value['alternative']!r}.")
             return _call(name, self.arguments(value, [*common, ("alternative", "", str)]))
-        if test in PROPORTION_Z_TESTS:
+        if test in (*PROPORTION_Z_TESTS, "mcnemar_asymptotic", "farrington_manning"):
             return _call(
                 test,
                 self.arguments(value, [*common, ("squared_cutoff", "squared_cutoff", _number)]),

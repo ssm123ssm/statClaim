@@ -84,6 +84,12 @@ Only the discordant pairs, where exactly one was exposed, carry information.
   number and, since that number is binomial too, on average
   (`StatClaim.Modules.Matched.typeI`). `matched_result` checks the p-value and
   decision for observed pairs.
+- `mcnemar_asymptotic(design, null, squared_cutoff, alpha)` audits the uncorrected
+  two-sided rule. For `d > 0` discordant pairs with the case alone exposed in
+  `k` of them, the rule rejects if `(2*k - d)^2 > squared_cutoff*d`. With zero
+  discordant pairs it never rejects. Lean checks the finite-sample error ceiling
+  over all discordance probabilities or refutes it with an exact witness.
+  [Worked example](../examples/tutorial/48_asymptotic_mcnemar.stat).
 - `conditional_odds_ratio(pairs, level)` is the odds that the case is the exposed
   one in a discordant pair, from the exact interval for that probability
   (`pairs_coverage`, `odds_contains`).

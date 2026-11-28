@@ -15,6 +15,7 @@ from statclaim.language import (
     AssociationNullIR,
     AssociationResultIR,
     AssociationTableIR,
+    AsymptoticMcNemarAnalysisIR,
     CalculationResultIR,
     CandidatesIR,
     CandidateSpaceIR,
@@ -36,6 +37,7 @@ from statclaim.language import (
     ExponentialSurvivalIR,
     ExposurePrevalenceIR,
     FamilyIR,
+    FarringtonManningAnalysisIR,
     FeasibilityIR,
     FieldIR,
     GroupCandidatesIR,
@@ -355,7 +357,13 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
             "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
             "squared_cutoff": FieldSpec(Fraction, description="Squared critical value."),
         }
-        for kind in (WaldAnalysisIR, ScoreAnalysisIR)
+        for kind in (WaldAnalysisIR, ScoreAnalysisIR, FarringtonManningAnalysisIR)
+    },
+    AsymptoticMcNemarAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(AssociationNullIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
+        "squared_cutoff": FieldSpec(Fraction, description="Squared critical value."),
     },
     AnalysisIR: {
         "design": FieldSpec(PlanIR, attribute="plan"),

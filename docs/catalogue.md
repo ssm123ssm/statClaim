@@ -70,6 +70,8 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | Analysis | Design, compatible null and exact alpha. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number` |
 | WaldAnalysis | Design, equality null, squared Wald critical value and requested finite-sample error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number` |
 | ScoreAnalysis | Design, equality null, squared score critical value and requested finite-sample error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number` |
+| AsymptoticMcNemarAnalysis | Matched design, no-association null, squared cutoff and requested Type I error ceiling. | `design: StudyDesign`, `null: AssociationNull`, `alpha: exact number`, `squared_cutoff: exact number` |
+| FarringtonManningAnalysis | Independent binomial arms, negative noninferiority margin, squared cutoff and requested Type I error ceiling. | `design: StudyDesign`, `null: Hypothesis`, `alpha: exact number`, `squared_cutoff: exact number` |
 | OutcomeModel | Two arms: an assignment and a continuous, survival or other registered outcome. | `assignment: Assignment`, `outcome: Outcome`, `n_control: integer`, `n_treatment: integer`, `better: Option[string]` |
 | OutcomeNull | A null restriction for such a model. | `model: OutcomeModel`, `predicate: string`, `value: exact number`, `statement: string` |
 | Stratum | One stratum of a stratified or blocked assignment: randomised units per arm. | `control: integer`, `treatment: integer` |
@@ -369,6 +371,15 @@ Two-sided pooled score test for equal binomial proportions and balanced fixed ar
   Required null: p_treatment = p_control (equal arm success probabilities); same model required.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 
+### `tests.farrington_manning` — Analyses and claims
+
+One-sided Farrington–Manning score test of binomial noninferiority at a negative risk-difference margin. Lean checks a uniform Type I error ceiling or a null witness.
+
+- `farrington_manning(design: StudyDesign, null: Hypothesis, squared_cutoff: number, alpha: level) -> FarringtonManningAnalysis`
+  The one-sided Farrington–Manning score test uses independent binomial arms and fits the arm rates under the boundary of the noninferiority null. Provide a positive rational squared critical value and a finite-sample error ceiling.
+  Required null: p_treatment - p_control <= margin, for a margin strictly between -1 and 0; same model required.
+- `typeI(analysis: Analysis) -> TypeIClaim`
+
 ### `tests.randomisation` — Analyses and claims
 
 Randomisation test of the sharp null that treatment changes no participant's outcome, for any two-arm model. Its level follows from the complete, stratified or blocked randomisation declared on the assignment; Lean proves it for every statistic fixed in advance. With clusters randomised, the test permutes clusters. Up to 10,000 randomised units and 1,000 strata or blocks.
@@ -414,6 +425,8 @@ Fisher's exact test of no association in an observational 2x2 study, proved in L
   Claim about the exact p-value and decision of the rate test for the observed events, with the test's Type I bound.
 - `mcnemar(design: StudyDesign, null: AssociationNull, alpha: level) -> MatchedAnalysis`
   McNemar's exact test of no association within matched pairs: given the discordant pairs, a two-sided binomial test at one half. Lean proves its level given the number of discordant pairs and on average over it.
+- `mcnemar_asymptotic(design: StudyDesign, null: AssociationNull, squared_cutoff: number, alpha: level) -> AsymptoticMcNemarAnalysis`
+  McNemar's two-sided chi-square test without continuity correction. Its finite-sample Type I error is checked over all discordance probabilities in the fixed matched-pairs design.
 - `matched_result(analysis: MatchedAnalysis, pairs: MatchedPairs) -> ResultClaim`
   Claim about the exact p-value and decision of McNemar's test for the observed pairs, with the test's Type I bound.
 - `association_result(analysis: AssociationAnalysis, table: AssociationTable) -> ResultClaim`
@@ -1081,6 +1094,8 @@ An `error` makes the file invalid. An `obligation` leaves a claim unresolved; it
 | `sequential_boundary` | error | A look's level exceeds the nominal level its spending boundary allows there. |
 | `wald_bound_unproved` | obligation | The checked Wald bounds over the null intervals do not establish the requested ceiling. |
 | `score_bound_unproved` | obligation | The checked score bounds over the null intervals do not establish the requested ceiling. |
+| `mcnemar_bound_unproved` | obligation | A uniform finite-sample Type I error ceiling for the McNemar rule remains open. |
+| `farrington_manning_bound_unproved` | obligation | The finite-sample Type I error ceiling for the Farrington–Manning rule remains open. |
 | `sampling_scope` | obligation | The design stops on the data, which the guarantee does not cover. Not evidence of inflated error. |
 | `allocation` | obligation | The members' levels sum to more than the overall level. |
 | `typeI_target_not_established` | obligation | The analysis's level exceeds the requested Type I bound. |

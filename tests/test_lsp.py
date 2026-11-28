@@ -159,6 +159,7 @@ def test_module_constructor_and_builtin_completion_use_registry():
         "tests.fisher",
         "tests.wald",
         "tests.score",
+        "tests.farrington_manning",
         "tests.binomial",
         "tests.difference",
         "tests.t",
@@ -179,6 +180,8 @@ def test_module_constructor_and_builtin_completion_use_registry():
         "models.two_arm_survival",
         "models.observational",
     }
+    assert "farrington_manning" in complete("use tests.farrington_manning\nlet x = far")
+    assert "mcnemar_asymptotic" in complete("use tests.association\nlet x = mcn")
     assert "fisher" not in complete("let x = fi")
     assert "fisher" in complete(PREFIX + "let x = fi")
     assert "verify" in complete("let x = ver")

@@ -340,6 +340,14 @@ DIAGNOSTICS = {
         "obligation",
         "The checked score bounds over the null intervals do not establish the requested ceiling.",
     ),
+    "mcnemar_bound_unproved": (
+        "obligation",
+        "A uniform finite-sample Type I error ceiling for the McNemar rule remains open.",
+    ),
+    "farrington_manning_bound_unproved": (
+        "obligation",
+        "The finite-sample Type I error ceiling for the Farrington–Manning rule remains open.",
+    ),
     "sampling_scope": (
         "obligation",
         "The design stops on the data, which the guarantee does "

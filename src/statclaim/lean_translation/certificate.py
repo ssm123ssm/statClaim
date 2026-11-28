@@ -4,6 +4,7 @@ import re
 from fractions import Fraction
 from pathlib import Path
 
+from statclaim.asymptotic import fm_regions, fm_witness, mcnemar_witness
 from statclaim.language_compiler import compile_source
 from statclaim.language_printer import program_source
 from statclaim.language_syntax import Source
@@ -16,7 +17,8 @@ TRANSLATION_VERSION = 3
 NAMESPACE = "StatClaimProgram"
 LABEL = "program"
 COUNTEREXAMPLE_KEYS = {
-    test: f"{test.removesuffix('_test')}_counterexamples" for test in PROPORTION_Z_TESTS
+    test: f"{test.removesuffix('_test')}_counterexamples"
+    for test in (*PROPORTION_Z_TESTS, "mcnemar_asymptotic", "farrington_manning")
 }
 
 AUDIT = """
@@ -52,19 +54,27 @@ def payload(source: Source, project: Path | None = None) -> dict:
     for index, claim in enumerate(data.verify_claims(canonical)):
         subject = claim["subject"]
         test = subject.get("test")
-        if test not in COUNTEREXAMPLE_KEYS or not is_fixed_proportion_z(claim, test):
+        if test not in COUNTEREXAMPLE_KEYS or not is_fixed_typeI(claim, test):
             continue
-        n = subject["design"]["model"]["n_control"]
-        cutoff, alpha = Fraction(subject["squared_cutoff"]), Fraction(subject["alpha"])
-        pooled = test == "score_test"
-        if find_certificate(n, cutoff, alpha, pooled=pooled) is None:
-            witness = find_counterexample(n, cutoff, alpha, pooled=pooled)
-            if witness is not None:
-                rate, risk = witness
-                witnesses.setdefault(COUNTEREXAMPLE_KEYS[test], {})[str(index)] = {
-                    "p": str(rate),
-                    "typeI_error": str(risk),
-                }
+        if test == "mcnemar_asymptotic":
+            witness = mcnemar_witness(*data.mcnemar_parameters(subject))
+        elif test == "farrington_manning":
+            witness = fm_witness(*data.fm_parameters(subject))
+        else:
+            n = subject["design"]["model"]["n_control"]
+            cutoff, alpha = Fraction(subject["squared_cutoff"]), Fraction(subject["alpha"])
+            pooled = test == "score_test"
+            witness = (
+                find_counterexample(n, cutoff, alpha, pooled=pooled)
+                if find_certificate(n, cutoff, alpha, pooled=pooled) is None
+                else None
+            )
+        if witness is not None:
+            rate, risk = witness
+            witnesses.setdefault(COUNTEREXAMPLE_KEYS[test], {})[str(index)] = {
+                "p": str(rate),
+                "typeI_error": str(risk),
+            }
     return {
         "translation_version": TRANSLATION_VERSION,
         "source": {"path": source.path, "text": source.text},
@@ -74,7 +84,7 @@ def payload(source: Source, project: Path | None = None) -> dict:
     }
 
 
-def is_fixed_proportion_z(claim: dict, test: str) -> bool:
+def is_fixed_typeI(claim: dict, test: str) -> bool:
     return (
         claim["kind"] == "typeI"
         and claim["subject"].get("test") == test
@@ -116,13 +126,15 @@ def check_counterexample_inputs(witnesses: object, claims: list, test: str) -> N
             or len(index) > len(str(count))
             or index != str(int(index))
             or int(index) >= count
-            or not is_fixed_proportion_z(claims[int(index)], test)
+            or not is_fixed_typeI(claims[int(index)], test)
         ):
             raise Unchecked(
                 f"A {test} counterexample must refer to a matching fixed Type I request."
             )
         if not isinstance(witness, dict) or set(witness) != {"p", "typeI_error"}:
-            raise Unchecked("A counterexample needs a rate and an exact Type I error.")
+            raise Unchecked(
+                "A counterexample needs a null rate and a rational rejection probability."
+            )
         try:
             for value in witness.values():
                 if not isinstance(value, str) or str(Fraction(value)) != value:
@@ -153,7 +165,10 @@ def failing_claims(proof_text: str, output: str) -> set[int] | None:
     by_line = []
     for line in proof_text.splitlines():
         if re.match(r"^(?:theorem |def |end )", line):
-            match = re.match(r"^theorem (?:claim|wald_refuted|score_refuted)_(\d+)\b", line)
+            match = re.match(
+                r"^theorem (?:claim|[a-z_]+_refuted)_(\d+)\b",
+                line,
+            )
             owner = int(match.group(1)) if match else None
         by_line.append(owner)
     end = proof_text.splitlines().index(f"end {NAMESPACE}") + 1
@@ -178,6 +193,7 @@ def proof(inputs: dict, input_sha256: str) -> str:
     written = semantic(inputs)
     _, hints = material(checked(inputs), Path.cwd())
     refutations = counterexamples(inputs)
+    subjects = [request["claim"]["subject"] for request in requests(inputs)]
     theorems = [
         "contracts",
         "canonical",
@@ -204,7 +220,10 @@ def proof(inputs: dict, input_sha256: str) -> str:
                 frozenset(inputs.get("omitted", []))
                 | frozenset(map(int, counterexample_inputs(inputs))),
             ),
-            *(refutation_theorem(refutation) for refutation in refutations),
+            *(
+                refutation_theorem(refutation, subjects[refutation["index"]])
+                for refutation in refutations
+            ),
             data.report(LABEL),
             f"end {NAMESPACE}",
             AUDIT.format(names=names, input_sha256=input_sha256),
@@ -270,8 +289,17 @@ def counterexamples(inputs: dict) -> list[dict]:
         if index in omitted or witness is None:
             continue
         claim = request["claim"]
-        test = claim["subject"]["test"].removesuffix("_test")
-        alpha = claim["subject"]["alpha"]
+        subject = claim["subject"]
+        test = subject["test"].removesuffix("_test")
+        alpha = subject["alpha"]
+        location = f"common p = {witness['p']}"
+        lower_bound = test == "farrington_manning"
+        if test == "mcnemar_asymptotic":
+            location = f"discordance probability q = {witness['p']}"
+        elif lower_bound:
+            treatment = Fraction(witness["p"]) + Fraction(subject["null"]["value"])
+            location = f"p_control = {witness['p']} and p_treatment = {treatment}"
+        amount = "a lower bound on Type I error is" if lower_bound else "the exact Type I error is"
         found.append(
             {
                 **witness,
@@ -280,22 +308,30 @@ def counterexamples(inputs: dict) -> list[dict]:
                 "request_id": request["request_id"],
                 "claim": claim_name(claim),
                 "theorem": f"{NAMESPACE}.{test}_refuted_{index}",
-                "message": f"At common p = {witness['p']}, the exact Type I error "
-                f"{witness['typeI_error']} exceeds {alpha}.",
+                "message": f"At {location}, {amount} {witness['typeI_error']}, exceeding {alpha}.",
             }
         )
     return found
 
 
-def refutation_theorem(refutation: dict) -> str:
+def refutation_theorem(refutation: dict, subject: dict | None = None) -> str:
     index = refutation["index"]
     name = refutation["theorem"].removeprefix(f"{NAMESPACE}.")
     theorem = "wald_refuted" if name.startswith("wald_") else "proportionZ_refuted"
+    hint = ""
+    if name.startswith("mcnemar_asymptotic_"):
+        theorem = "mcnemarAsymptotic_refuted"
+    elif name.startswith("farrington_manning_"):
+        assert subject is not None
+        theorem = "farringtonManning_refuted"
+        _, inner = fm_regions(*data.fm_parameters(subject)[:-1])
+        hint = f" {data.fm_region(inner)}"
     rate = data.rational(Fraction(refutation["p"]))
     risk = data.rational(Fraction(refutation["typeI_error"]))
     return (
         f"theorem {name} : ¬ program.Claim {index} :=\n"
-        f"  {data.SEMANTICS}.Program.{theorem} program {index} {rate} {risk} (by decide +kernel)"
+        f"  {data.SEMANTICS}.Program.{theorem} program {index} {rate} {risk}{hint}"
+        " (by decide +kernel)"
     )
 
 

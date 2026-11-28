@@ -20,6 +20,17 @@ What is supported:
   [20-per-arm example](../examples/score_bound.stat) uses a critical value of
   1.96 and a Type I error ceiling of 5.4%. Change the ceiling to 5% to check a
   counterexample at a common success rate of 25%.
+- **Two arms, Farrington–Manning.** A one-sided noninferiority score rule with
+  independent fixed binomial arms, a margin strictly between −1 and 0, and a
+  positive rational squared cutoff. Lean checks rational brackets for the
+  constrained maximum-likelihood fit for each relevant table. An enclosing
+  rejection region gives an upper bound over the whole composite null. An
+  inner region can refute the ceiling at a pair of rates on the null boundary.
+  [Worked example](../examples/tutorial/49_farrington_manning.stat).
+- **Matched pairs, uncorrected McNemar.** The two-sided chi-square rule uses the
+  observed number of discordant pairs and their imbalance. Lean checks a
+  bound over every discordance probability or an exact rational witness above
+  the ceiling. [Worked example](../examples/tutorial/48_asymptotic_mcnemar.stat).
 - **Two arms with a margin.** An exact test of "treatment exceeds control by at
   most a margin", for non-inferiority or superiority, with an error bound over
   the whole null. Up to 120 participants per arm.
@@ -93,7 +104,7 @@ What is supported:
   large-sample guarantee. Lean checks one question at growing sizes.
 - **Look sizes.** Every look's size searched freely by a minimax or optimal
   criterion: exact for Fisher's test, simulated for t-tests. A calculation.
-- **Mixed families.** Bonferroni over supported exact two-arm tests and cited tests. Wald certificates are supported for individual claims.
+- **Mixed families.** Bonferroni over supported exact two-arm tests and cited tests. Finite-sample audits of asymptotic rules are supported for individual claims.
   Lean checks that the levels fit the budget and that the union bound gives the
   family bound. Each member's own bound is a hypothesis of that theorem.
 - **Two survival curves, cited.** The two-sided log-rank test, with a

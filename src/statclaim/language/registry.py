@@ -23,6 +23,7 @@ from statclaim.language.analyses import (
     _effect_interval,
     _family,
     _familywise,
+    _farrington_manning,
     _fisher,
     _fisher_exact,
     _fixed_sequence,
@@ -31,6 +32,7 @@ from statclaim.language.analyses import (
     _matched_case_control,
     _matched_result,
     _mcnemar,
+    _mcnemar_asymptotic,
     _no_association,
     _no_effect,
     _observe,
@@ -103,6 +105,7 @@ from statclaim.language.ir import (
     ClaimIR,
     EstimableModelIR,
     FamilyLikeIR,
+    FarringtonManningAnalysisIR,
     HypothesisIR,
     LevelTestIR,
     MatchedAnalysisIR,
@@ -679,6 +682,26 @@ MODULES = {
             for name, analysis in (("wald", WaldAnalysisIR), ("score", ScoreAnalysisIR))
         ),
         Module(
+            "tests.farrington_manning",
+            (
+                _constructor(
+                    "farrington_manning",
+                    (
+                        ("design", PlanIR),
+                        ("null", HypothesisIR),
+                        ("squared_cutoff", "number"),
+                        ("alpha", "level"),
+                    ),
+                    "FarringtonManningAnalysis",
+                    _farrington_manning,
+                    hypothesis_contract=FarringtonManningAnalysisIR.contract,
+                    documentation=FarringtonManningAnalysisIR.contract.guidance,
+                    lean=in_lean("analysis", "Modules/FarringtonManning"),
+                ),
+                TYPE_I,
+            ),
+        ),
+        Module(
             "tests.randomisation",
             (
                 _constructor(
@@ -872,6 +895,21 @@ MODULES = {
                     "Lean proves its level given the number of discordant pairs and on "
                     "average over it.",
                     lean=in_lean("analysis", MATCHED),
+                ),
+                _constructor(
+                    "mcnemar_asymptotic",
+                    (
+                        ("design", PlanIR),
+                        ("null", AssociationNullIR),
+                        ("squared_cutoff", "number"),
+                        ("alpha", "level"),
+                    ),
+                    "AsymptoticMcNemarAnalysis",
+                    _mcnemar_asymptotic,
+                    documentation="McNemar's two-sided chi-square test without continuity "
+                    "correction. Its finite-sample Type I error is checked over all "
+                    "discordance probabilities in the fixed matched-pairs design.",
+                    lean=in_lean("analysis", "Modules/McNemarAsymptotic"),
                 ),
                 _constructor(
                     "matched_result",

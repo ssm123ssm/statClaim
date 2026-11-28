@@ -134,6 +134,14 @@ SCORE_CONTRACT = HypothesisContract(
     "squared critical value. Alpha is the requested finite-sample error ceiling.",
 )
 
+FARRINGTON_MANNING_CONTRACT = HypothesisContract(
+    ("proportion_difference_at_most",),
+    "p_treatment - p_control <= margin, for a margin strictly between -1 and 0",
+    "The one-sided Farrington–Manning score test uses independent binomial arms and "
+    "fits the arm rates under the boundary of the noninferiority null. Provide a "
+    "positive rational squared critical value and a finite-sample error ceiling.",
+)
+
 RANDOMISATION_CONTRACT = HypothesisContract(
     ("no_effect",),
     "treatment changes no participant's outcome (the sharp null)",

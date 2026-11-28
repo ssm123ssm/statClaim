@@ -153,10 +153,16 @@ def Test.form : Test → Form
   | .exact _ (.proportionZ pooled cutoff) design null alpha => .object [("alpha", some (.level alpha)),
       ("design", some design.form), ("null", some null.form), ("squared_cutoff", some (.rat cutoff)),
       ("test", some (.str (ExactKind.proportionZ pooled cutoff).key))]
+  | .exact _ (.farringtonManning _ cutoff) design null alpha => .object
+      [("alpha", some (.level alpha)), ("design", some design.form), ("null", some null.form),
+        ("squared_cutoff", some (.rat cutoff)), ("test", some (.str "farrington_manning"))]
   | .exact _ kind design null alpha => .object [("alpha", some (.level alpha)),
       ("alternative", some (.str
         (match kind with | .fisherOneSided => "greater" | _ => "margin"))),
       ("design", some design.form), ("null", some null.form), ("test", some (.str "fisher"))]
+  | .exactStudy _ (.matchedAsymptotic cutoff) design null alpha => .object
+      [("alpha", some (.level alpha)), ("design", some design.form), ("null", some null.form),
+        ("squared_cutoff", some (.rat cutoff)), ("test", some (.str "mcnemar_asymptotic"))]
   | .exactStudy _ kind design null alpha => .object [("alpha", some (.level alpha)),
       ("design", some design.form), ("null", some null.form), ("test", some (.str kind.key))]
   | .randomised _ r => .object [("alpha", some (.level r.alpha)),
@@ -395,6 +401,7 @@ def Request.reported : Request → Option Form
 def Test.binding : Test → String
   | .fisher .. => "AnalysisIR"
   | .exact _ (.proportionZ pooled _) .. => if pooled then "ScoreAnalysisIR" else "WaldAnalysisIR"
+  | .exact _ (.farringtonManning ..) .. => "FarringtonManningAnalysisIR"
   | .exact .. => "AnalysisIR"
   | .exactStudy _ kind .. => kind.binding
   | .randomised .. => "RandomisationAnalysisIR"

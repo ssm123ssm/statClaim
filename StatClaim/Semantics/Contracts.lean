@@ -76,6 +76,8 @@ def ExactStudyKind.fits (kind : ExactStudyKind) (study : Study) : Bool :=
     study.groups.isNone && decide (study.design = .cohort ∨ study.design = .cross_sectional) &&
     decide (0 < study.n.getD 0)
   | .matched => decide (study.design = .matched_case_control ∧ 0 < study.pairs.getD 0)
+  | .matchedAsymptotic cutoff =>
+    decide (study.design = .matched_case_control ∧ 0 < study.pairs.getD 0 ∧ 0 < cutoff)
   | .incidence => decide (study.design = .person_time_cohort)
 
 /-- A design with looks. -/
@@ -179,6 +181,11 @@ def Test.check : Test → Bool
     null.fits design && decide (design.model.outcome = .binary) &&
     decide (null.key = .equal_proportions) && design.model.features.isEmpty &&
     decide (sizes.nControl = sizes.nTreatment ∧ 0 < cutoff)
+  | .exact _ (.farringtonManning margin cutoff) design null alpha =>
+    null.fits design && decide (design.model.outcome = .binary) &&
+    decide (null.key = .proportion_difference_at_most ∧ null.value = some margin) &&
+    design.model.features.isEmpty && decide (-1 < margin ∧ margin < 0 ∧ 0 < cutoff) &&
+    decide (0 < alpha.value ∧ alpha.value < 1)
   | .exactStudy _ kind design null alpha =>
     let study := design.model
     decide (null.model = study) && decide (study.survey = .simple_random) &&
