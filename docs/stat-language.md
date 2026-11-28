@@ -1,6 +1,6 @@
 # The statistical file-language prototype
 
-Language version `0.13.0` provides a small declaration grammar over the existing
+Language version `0.43.0` provides a small declaration grammar over the existing
 statistical objects and Lean backend. Claims, verification results, and calculation
 results are first-class values. The statistical language is the researcher-facing
 interface; the Lean and TOML interfaces remain supported.
@@ -11,10 +11,12 @@ interface; the Lean and TOML interfaces remain supported.
 | `models.two_arm_continuous`, `tests.t` | Two means with cited t-tests ([cited methods](cited-methods.md)) |
 | `models.two_arm_survival`, `tests.survival` | Two survival curves with the cited log-rank test |
 | `tests.difference` | Exact test with a margin, such as non-inferiority ([planning](planning.md)) |
+| `tests.wald`, `tests.score`, `tests.pearson`, `tests.likelihood_ratio`, `tests.farrington_manning` | Finite-sample Type I error audits for two-arm binomial tests ([scope](scope.md)) |
+| `tests.association` | Tests of association, including an audit of the uncorrected McNemar rule ([observational studies](observational.md#matched-pairs)) |
 | `tests.randomisation` | Randomisation test of the sharp null, proved in Lean (below) |
 | `multiplicity.bonferroni` | Several endpoints ([multiple testing](multiple-testing.md)) |
 | `planning` | Power targets and sample-size searches ([planning](planning.md)) |
-| `tests.binomial` | One-sample exact test and confidence interval ([planning](planning.md)) |
+| `tests.binomial` | One-sample exact test, confidence interval, and Type I error audits for the score and Wald rules ([scope](scope.md)) |
 | `estimation` | Confidence interval for a difference of two proportions ([planning](planning.md)) |
 | `designs.two_stage` | Two-stage designs with an interim stop ([planning](planning.md)) |
 | `designs.group_sequential` | Interim looks: a split of the level, spending boundaries and look-size searches ([multiple testing](multiple-testing.md), [planning](planning.md)) |
@@ -278,18 +280,21 @@ executes one verification, not three. Two separate calls to `verify(validity)`
 create two operations; there is no persistent proof cache. Calls inside lists
 also work, and operations execute in source order, left to right within a list.
 
-An executed verification result has one of these statuses:
+These statuses cover common outcomes of `verify(...)`.
 
 | Status | Meaning |
 | --- | --- |
 | `verified` | Lean checked the claim; the result contains an `Evidence` object with certificate references, established properties, and required assumptions |
+| `refuted` | Lean checked a counterexample to the requested claim. The run reports the witness and its certificate. |
 | `unresolved_obligation` | A known statistical requirement prevents the supported proof route; no evidence is supplied |
 | `backend_error` | The verification backend could not complete the proof or certificate operation; no evidence is supplied |
 
-Neither unresolved requirements nor backend errors disprove a claim. A successful
-result establishes the listed claim under the listed assumptions, rather than
-establishing that real data obey the model. A verification result cannot be passed
-where a claim or an analysis is expected.
+For a Type I error audit, a single null parameter value whose rejection
+probability exceeds alpha is enough to refute the claim. An open requirement or
+a backend error leaves the claim's truth open. Checked results apply to the
+declared model under its listed assumptions. A verification result cannot be
+passed where a claim or an analysis is expected. See the
+[complete status list](catalogue.md#statuses-and-other-fixed-values).
 
 Calculation results carry the exact numerical calculation and, when supported,
 the decision. Their status is `calculated` or `unresolved_obligation`; they contain
@@ -407,10 +412,10 @@ under `.statclaim/programs/`. A run retains:
   dependencies, per-request statuses, diagnostics, and certificate references.
 - `lean/`: the program's certificate. Every program a check runs is built in
   Lean once (`statclaim_program_certificate`), even one that only calculates:
-  Lean decides the declarations' contract facts and proves each `verify` claim
-  the semantics states, and each request takes its claim's evidence from it. A
-  claim Lean does not prove is left out and stays unresolved; the rest is then
-  built again in `lean-proved/`. Calculated and simulated values are not proved.
+  Lean decides the declarations' contract facts and checks proofs and
+  refutations of `verify` claims. Each request takes its checked result from the
+  bundle. If a proof attempt leaves a claim unresolved, the rest can be built
+  again in `lean-proved/`. See [certificate replay](certificates.md).
 
 `run.json` is a provenance/reporting record, not a mathematical certificate.
 Its `program` records static objects and typed execution slots. Its `values` map
@@ -434,17 +439,16 @@ execution, the aggregate status is `stale_source`; rerun the current file.
 Immutable result values continue to describe their recorded `source_sha256`;
 their evidence must not be presented as verification of the newly edited file.
 
-Independent requests have separate results. A run can retain a successfully
-verified claim while another remains unresolved; the aggregate exit code is then
-1. `certificate_issued` means at least one request issued a certificate. Inspect
-the per-request statuses for its scope.
+Independent requests have separate results. A run can retain a verified claim
+alongside a refuted or unresolved claim and exit with code 1. Inspect the
+per-request statuses to see what the certificate establishes.
 
 Add `--json` to obtain the structured report. Exit codes are:
 
 | Code | Meaning |
 | --- | --- |
 | `0` | Requested verification succeeded, calculation completed, or explicit elaboration-only checks passed; consult the reported status |
-| `1` | A requested guarantee/calculation remains unresolved, or the source became stale |
+| `1` | A requested guarantee was refuted, a request remains unresolved, or the source became stale |
 | `2` | Syntax/type/domain errors, malformed arguments, or file/output errors |
 
 With no requests, the status is only `elaborated`, and no artifacts are written.

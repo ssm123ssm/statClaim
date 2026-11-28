@@ -19,12 +19,15 @@ as Lean data, adds numerical hints, and proves:
 
 - `contracts`: every declared test and combination meets its contracts, and every
   claim has its shape, decided by `decide +kernel`;
-- one theorem `program.Claim r` per claim that is ready, whose designs stop at fixed
-  sizes, whose levels add up to at most each combination's own, and whose plan met
-  its targets: the claim, as `StatClaim/Semantics` defines it, holds for every
-  instance meeting the premises of the tests it involves. Each is proved by the
-  soundness theorem, `Program.sound`, after the kernel checks the claim's hints. A
-  wrong hint fails the build; it cannot change what is claimed.
+- A theorem `program.Claim r` for each established claim. The claim, as
+  `StatClaim/Semantics` defines it, holds for every instance meeting the premises of
+  the tests it involves. `Program.sound` proves it after the kernel checks the
+  claim's hints. An invalid hint prevents proof of the stated claim.
+- A theorem `¬ program.Claim r` for a Type I error claim with a checked
+  counterexample. Lean checks that the proposed parameter value satisfies the
+  declared null and that the rejection probability there exceeds the requested
+  alpha. Depending on the test, the certificate checks the exact probability or
+  a lower bound sufficient to exceed alpha. The request's status is `refuted`.
 
 The semantics covers Type I and familywise claims of exact, cited and declared
 tests and their combinations (Bonferroni families, designs with looks, fixed
@@ -44,12 +47,12 @@ states it as false, and nothing proves it. A claim whose levels exceed their bud
 stays unresolved, as Python leaves it. A run whose reported values differ from the
 ones Lean checked loses the claim's evidence.
 
-A claim whose proof Lean rejects is left out: the inputs name it, it stays
-unresolved in the run, and the rest is built again in `lean-proved/`. An error in
-the declarations themselves leaves every claim unresolved.
+If a proof attempt leaves a claim unresolved, the inputs list it as omitted and
+the remaining claims can be built again in `lean-proved/`. An error in the
+declarations themselves leaves every claim unresolved.
 
 Before Lean prints its completion marker, which is bound to the inputs' SHA-256,
-an audit checks that the contract facts and every claim use no axiom beyond
+an audit checks that the contract facts, proofs and refutations use no axiom beyond
 `propext`, `Classical.choice` and `Quot.sound`. A zero exit code by itself is
 insufficient. There is no `native_decide`.
 
@@ -57,11 +60,11 @@ insufficient. There is no `native_decide`.
 
 | File | Purpose |
 | --- | --- |
-| `inputs.json` | The source, the canonical program, the reported values, and any claims left out |
+| `inputs.json` | The source, the canonical program, the reported values, proposed counterexamples, and any claims left out |
 | `Proof.lean` | The program as Lean data, its hints, the theorems and the audit, for review |
 | `Proof.olean` | The compiled, checked proof |
 | `transcript.log` | Build, environment, dependency and Lean transcript |
-| `certificate.json` | Claims with their grades, premises, trust boundary, versions and hashes |
+| `certificate.json` | Claims, checked counterexamples, grades, premises, trust boundary, versions and hashes |
 
 The output directory must not exist. Without `--output`, `check` creates one under
 `.statclaim/programs/` and `report --lean` under `.statclaim/certificates/`. Use
@@ -76,6 +79,20 @@ hints again and requires the same `Proof.lean`, then reruns Lean with the same t
 dependency pins and StatClaim version, and checks the grades again. It leaves the
 bundle unchanged. A self-consistent set of rehashed files cannot pass: the proof
 must be the one the inputs state, and Lean must check it.
+
+Replay also rebuilds and checks refutation theorems from the recorded witnesses.
+For a run that proves one ceiling and refutes another, use the
+[unequal-arm Wald example](../examples/tutorial/54_unequal_arm_wald.stat).
+The first command exits with code 1 because the 5% claim was refuted. Run replay
+separately to check the bundle containing both results.
+
+```sh
+uv run --locked statclaim check examples/tutorial/54_unequal_arm_wald.stat --output .statclaim/wald-audit
+uv run --locked statclaim check-certificate .statclaim/wald-audit/lean
+```
+
+On successful replay, `verified` describes the bundle check. The report lists
+the refuted requests and their witnesses under `counterexamples`.
 
 Certificates of the earlier, per-claim kinds, and program certificates whose claims
 the retired translator stated, replay with the StatClaim version that issued them.
