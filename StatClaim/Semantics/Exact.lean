@@ -12,6 +12,7 @@ public import StatClaim.Modules.Wald
 public import StatClaim.Modules.McNemarAsymptotic
 public import StatClaim.Modules.FarringtonManning
 public import StatClaim.Modules.OneSampleScore
+public import StatClaim.Modules.Pearson
 
 /-!
 Exact claims state a proposition about data and certify it with a kernel check.
@@ -771,11 +772,90 @@ theorem counterexample (x : Input) (rate reported : ℚ)
 
 end OneSampleScoreExact
 
+namespace PearsonExact
+
+open Modules.Pearson
+
+structure Input where
+  sizes : FixedSampleDesign
+  alpha : SignificanceLevel
+  cutoff : ℚ
+  corrected : Bool
+
+def Input.degree (x : Input) : ℕ := x.sizes.nControl + x.sizes.nTreatment
+
+def Input.coefficients (x : Input) : List ℕ :=
+  weights x.sizes x.cutoff.num.toNat x.cutoff.den x.corrected
+
+def region (x : Input) : Set TwoArmBinomial.Counts :=
+  rejection x.sizes x.cutoff.num.toNat x.cutoff.den x.corrected
+
+def typeI : Checked Input where
+  Statement := fun x => ∀ θ, TwoArmBinomial.equalProportions θ →
+    ((TwoArmBinomial.model x.sizes).law θ).real (region x) ≤ (x.alpha.value : ℝ)
+  Hint := List ℕ
+  empty := []
+  check := fun x h =>
+    PolynomialBound.check x.degree 1 x.coefficients x.alpha.value.num.toNat x.alpha.value.den h
+  sound := by
+    intro x h ok θ null
+    rw [TwoArmBinomial.law_under_null _ _ null]
+    change (productBinomial x.sizes.nControl x.sizes.nTreatment θ.1 θ.1).real
+      (rejection x.sizes x.cutoff.num.toNat x.cutoff.den x.corrected) ≤ _
+    rw [probability]
+    have cap := PolynomialBound.le_of_check _ 1 _ _ _ h (by decide) x.alpha.value.den_pos ok θ.1
+    have level := congrArg (fun q : ℚ => (q : ℝ)) (OneSided.level_eq (x.sizes, x.alpha))
+    simp only [OneSided.levelNum, Rat.cast_div, Rat.cast_natCast] at level
+    exact cap.trans level.ge
+
+def checkCounterexample (x : Input) (rate reported : ℚ) : Bool :=
+  decide (0 ≤ rate ∧ rate ≤ 1 ∧
+    reported = PolynomialBound.pointProbability x.degree 1 x.coefficients rate ∧
+    x.alpha.value < reported)
+
+theorem counterexample (x : Input) (rate reported : ℚ)
+    (checked : checkCounterexample x rate reported = true) : ¬ typeI.Statement x := by
+  obtain ⟨lower, upper, exactRisk, above⟩ := of_decide_eq_true checked
+  obtain ⟨p, _, risk⟩ := PolynomialBound.pointProbability_eq x.degree 1
+    (weight x.sizes.nControl x.sizes.nTreatment x.cutoff.num.toNat x.cutoff.den x.corrected)
+    rate lower upper
+  intro claim
+  have equal : TwoArmBinomial.equalProportions (p, p) := rfl
+  have bound := claim (p, p) equal
+  rw [TwoArmBinomial.law_under_null _ _ equal] at bound
+  change (productBinomial x.sizes.nControl x.sizes.nTreatment p p).real
+    (rejection x.sizes x.cutoff.num.toNat x.cutoff.den x.corrected) ≤ _ at bound
+  simp only [Input.degree, Input.coefficients, weights] at risk exactRisk
+  rw [probability, risk, ← exactRisk] at bound
+  exact (not_le_of_gt (show (x.alpha.value : ℝ) < (reported : ℝ) by exact_mod_cast above)) bound
+
+def moduleSpec : ExactModule where
+  Input := Input
+  Parameter := TwoArmBinomial.Parameters
+  Outcome := TwoArmBinomial.Counts
+  law := fun x => TwoArmBinomial.model x.sizes
+  null := fun _ => TwoArmBinomial.equalProportions
+  procedure := fun x => ⟨region x, .of_discrete⟩
+  level := fun x => x.alpha.value
+  typeI := typeI
+  bound := fun _ h => h
+  Observation := ObservedCounts
+  Report := ReportedResult
+  Point := BinomialPoint
+  Target := ProbabilityFraction
+  Endpoints := PUnit
+  result := none
+  interval := none
+  power := none
+
+end PearsonExact
+
 def ExactKind.moduleSpec : ExactKind → ExactModule
   | .fisherOneSided => OneSided.moduleSpec
   | .margin .. => Margin.moduleSpec
   | .proportionZ pooled _ => ProportionZExact.moduleSpec pooled
   | .farringtonManning .. => FarringtonManningExact.moduleSpec
+  | .pearson .. => PearsonExact.moduleSpec
 
 def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : SignificanceLevel) :
     kind.moduleSpec.Input :=
@@ -784,6 +864,7 @@ def ExactKind.input (kind : ExactKind) (sizes : FixedSampleDesign) (alpha : Sign
   | .margin value thresholds => ⟨sizes, alpha, value, thresholds⟩
   | .proportionZ _ cutoff => ⟨sizes, alpha, cutoff⟩
   | .farringtonManning value cutoff => ⟨sizes, alpha, value, cutoff⟩
+  | .pearson corrected cutoff => ⟨sizes, alpha, cutoff, corrected⟩
 
 theorem ExactKind.input_level (kind : ExactKind) (sizes : FixedSampleDesign)
     (alpha : SignificanceLevel) : kind.moduleSpec.level (kind.input sizes alpha) = alpha.value := by

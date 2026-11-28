@@ -41,6 +41,14 @@ example :
       (Core.StudyDesign.fixed (TwoArmBinomial.model study.groupSizes)) alpha).typeIClaim
         (Core.Compatibility.fixed _) (alpha.value : ℝ)).statement := Iff.rfl
 
+example (corrected : Bool) (cutoff : ℚ) :
+    (Request.typeI (.exact "p" (.pearson corrected cutoff) (fixed model)
+      ⟨.equal_proportions, model, none⟩ alpha)).Holds i ↔
+    ∀ θ, TwoArmBinomial.equalProportions θ →
+      ((TwoArmBinomial.model model.sizes).law θ).real
+        (Pearson.rejection model.sizes cutoff.num.toNat cutoff.den corrected) ≤
+          (alpha.value : ℝ) := Iff.rfl
+
 example (n : ℕ) (reference ceiling : ProbabilityFraction) (cutoff : ℚ) :
     (Request.typeI (.oneSampleScore "s" n reference ceiling cutoff)).Holds i ↔
     (ProbabilityTheory.binomial n

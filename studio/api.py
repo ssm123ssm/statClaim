@@ -35,6 +35,7 @@ from statclaim.language import (
     FarringtonManningAnalysisIR,
     FieldIR,
     LocatedValue,
+    PearsonAnalysisIR,
     ProportionZAnalysisIR,
     ValueType,
     VerificationResultIR,
@@ -592,6 +593,10 @@ def analysis_title(value):
         return value.method.title
     if isinstance(value, AsymptoticMcNemarAnalysisIR):
         return "Uncorrected McNemar test"
+    if isinstance(value, PearsonAnalysisIR):
+        return (
+            "Pearson test with Yates correction" if value.correction == "yates" else "Pearson test"
+        )
     if isinstance(value, FarringtonManningAnalysisIR):
         return "Farrington–Manning score test"
     if isinstance(value, ProportionZAnalysisIR):

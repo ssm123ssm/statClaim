@@ -164,6 +164,10 @@ ENUMERATIONS = {
 # The values a string input accepts, by parameter name, wherever the parameter appears.
 # Editors offer them as choices; inputs not listed here take free text.
 PARAMETER_CHOICES = {
+    "correction": {
+        "none": "Use Pearson's uncorrected chi-square statistic.",
+        "yates": "Apply Yates's continuity correction to the two-by-two table.",
+    },
     "rejecting": {
         "any": "A family's power is the chance of rejecting at least one endpoint.",
         "all": "A family's power is the chance of rejecting every endpoint.",
@@ -343,6 +347,10 @@ DIAGNOSTICS = {
     "mcnemar_bound_unproved": (
         "obligation",
         "A uniform finite-sample Type I error ceiling for the McNemar rule remains open.",
+    ),
+    "pearson_bound_unproved": (
+        "obligation",
+        "The finite-sample Type I error ceiling for the Pearson rule remains open.",
     ),
     "farrington_manning_bound_unproved": (
         "obligation",

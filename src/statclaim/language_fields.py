@@ -70,6 +70,7 @@ from statclaim.language import (
     OutcomeModelIR,
     OutcomeNullIR,
     OutcomePrevalenceIR,
+    PearsonAnalysisIR,
     PersonTimeStudyIR,
     PlanIR,
     PlannableIR,
@@ -359,6 +360,13 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
             "squared_cutoff": FieldSpec(Fraction, description="Squared critical value."),
         }
         for kind in (WaldAnalysisIR, ScoreAnalysisIR, FarringtonManningAnalysisIR)
+    },
+    PearsonAnalysisIR: {
+        "design": FieldSpec(PlanIR, attribute="plan"),
+        "null": FieldSpec(HypothesisIR, attribute="hypothesis"),
+        "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
+        "squared_cutoff": FieldSpec(Fraction, description="Squared critical value."),
+        "correction": FieldSpec(str, description="Continuity correction, none or yates."),
     },
     AsymptoticMcNemarAnalysisIR: {
         "design": FieldSpec(PlanIR, attribute="plan"),

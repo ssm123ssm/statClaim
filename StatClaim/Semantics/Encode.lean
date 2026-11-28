@@ -153,6 +153,10 @@ def Test.form : Test → Form
   | .exact _ (.proportionZ pooled cutoff) design null alpha => .object [("alpha", some (.level alpha)),
       ("design", some design.form), ("null", some null.form), ("squared_cutoff", some (.rat cutoff)),
       ("test", some (.str (ExactKind.proportionZ pooled cutoff).key))]
+  | .exact _ (.pearson corrected cutoff) design null alpha => .object
+      [("alpha", some (.level alpha)), ("correction", some (.str (if corrected then "yates" else "none"))),
+        ("design", some design.form), ("null", some null.form),
+        ("squared_cutoff", some (.rat cutoff)), ("test", some (.str "pearson_test"))]
   | .exact _ (.farringtonManning _ cutoff) design null alpha => .object
       [("alpha", some (.level alpha)), ("design", some design.form), ("null", some null.form),
         ("squared_cutoff", some (.rat cutoff)), ("test", some (.str "farrington_manning"))]
@@ -406,6 +410,7 @@ def Test.binding : Test → String
   | .fisher .. => "AnalysisIR"
   | .exact _ (.proportionZ pooled _) .. => if pooled then "ScoreAnalysisIR" else "WaldAnalysisIR"
   | .exact _ (.farringtonManning ..) .. => "FarringtonManningAnalysisIR"
+  | .exact _ (.pearson ..) .. => "PearsonAnalysisIR"
   | .exact .. => "AnalysisIR"
   | .exactStudy _ kind .. => kind.binding
   | .randomised .. => "RandomisationAnalysisIR"

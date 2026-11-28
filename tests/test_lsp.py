@@ -159,6 +159,7 @@ def test_module_constructor_and_builtin_completion_use_registry():
         "tests.fisher",
         "tests.wald",
         "tests.score",
+        "tests.pearson",
         "tests.farrington_manning",
         "tests.binomial",
         "tests.difference",

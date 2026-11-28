@@ -99,3 +99,32 @@ def test_lean_checks_one_sample_score_at_the_declared_null(tmp_path):
     inputs["binomial_score_counterexamples"]["0"]["p"] = "1/2"
     with pytest.raises(VerificationError, match="decide"):
         certify_program(inputs, project=ROOT, output=tmp_path / "wrong-null")
+
+
+def test_pearson_distinguishes_the_declared_correction():
+    source = lesson("51_pearson_unequal_arms")
+    compiled = compile_source(source)
+    assert not compiled.diagnostics
+    assert len(compiled.derivations) == 2
+    assert all(not check_derivation(d.to_dict()) for d in compiled.derivations)
+    canonical = compiled.program.to_dict()
+    plain, corrected = verify_claims(canonical)
+    assert plain["subject"]["correction"] == "none"
+    assert corrected["subject"]["correction"] == "yates"
+    printed = compile_source(Source(program_source(canonical)))
+    assert not printed.diagnostics
+    assert declarations(printed.program.to_dict()) == declarations(canonical)
+    assert verify_claims(printed.program.to_dict()) == verify_claims(canonical)
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_lean_checks_pearson_with_and_without_the_correction(tmp_path):
+    source = lesson("51_pearson_unequal_arms")
+    report = check_source(source, project=ROOT, output=tmp_path / "pearson")
+    plain, corrected = report["requests"]
+    assert plain["status"] == "refuted"
+    assert corrected["status"] == "verified"
+    assert plain["value"]["counterexample"]["typeI_error"] == "135/2048"
+    replay = recheck_certificate(Path(report["lean"]["certificate_directory"]), project=ROOT)
+    assert replay["status"] == "verified"

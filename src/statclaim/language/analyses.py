@@ -59,6 +59,7 @@ from statclaim.language.ir import (
     ObservationalStudyIR,
     ObservationIR,
     ObservedEventsIR,
+    PearsonAnalysisIR,
     PersonTimeStudyIR,
     PlanIR,
     ProportionIR,
@@ -890,6 +891,19 @@ def _positive_cutoff(cutoff: LocatedValue) -> Fraction:
     if cutoff.value <= 0:
         fail("domain", "squared_cutoff must be strictly positive.", cutoff.span)
     return cutoff.value
+
+
+def _pearson_test(arguments: dict[str, LocatedValue], span: Span) -> PearsonAnalysisIR:
+    design, null, cutoff = (arguments[key] for key in ("design", "null", "squared_cutoff"))
+    _observational_refused(design, "pearson_test")
+    check_design(design.value.model, BINOMIAL_ASSUMPTIONS, "pearson_test", design.span)
+    correction = cast(
+        Choice["none", "yates"],
+        _choice(arguments, "correction", {"none": None, "yates": None}, "none"),
+    )
+    return PearsonAnalysisIR(
+        design.value, null.value, arguments["alpha"].value, _positive_cutoff(cutoff), correction
+    )
 
 
 def _farrington_manning(

@@ -38,6 +38,7 @@ from statclaim.language import (
     OneArmCandidatesIR,
     OneSampleObservationIR,
     OneSampleScoreAnalysisIR,
+    PearsonAnalysisIR,
     ProportionIR,
     ProportionZAnalysisIR,
     RandomisationAnalysisIR,
@@ -91,6 +92,7 @@ from statclaim.report import (
     run_mcnemar_asymptotic,
     run_one_sample_score,
     run_one_sample_search,
+    run_pearson,
     run_policy_plan,
     run_power_plan,
     run_proportion_z,
@@ -146,6 +148,15 @@ def _count_template(analysis, target, bounds: tuple[int, int], minimal: bool):
 
 def _run_request(request: RequestIR, project: Path, output: Path, timeout: float) -> dict:
     subject = request.claim.subject
+    if isinstance(subject, PearsonAnalysisIR):
+        model = subject.plan.model
+        return run_pearson(
+            model.n_control,
+            model.n_treatment,
+            subject.squared_cutoff,
+            subject.alpha,
+            corrected=subject.correction == "yates",
+        )
     if isinstance(subject, OneSampleScoreAnalysisIR):
         return run_one_sample_score(
             subject.model.n, subject.null_rate, subject.squared_cutoff, subject.alpha

@@ -26,6 +26,7 @@ from statclaim.language import (
     ObservationIR,
     OneSampleObservationIR,
     OneSampleScoreAnalysisIR,
+    PearsonAnalysisIR,
     ProgramIR,
     ProportionIR,
     ProportionZAnalysisIR,
@@ -267,7 +268,8 @@ def requirements(program: ProgramIR, request: RequestIR) -> tuple[Diagnostic, ..
         seen_plans: set[int] = set()
         for analysis in analyses:
             assert isinstance(
-                analysis, (AnalysisIR, ProportionZAnalysisIR, FarringtonManningAnalysisIR)
+                analysis,
+                (AnalysisIR, ProportionZAnalysisIR, FarringtonManningAnalysisIR, PearsonAnalysisIR),
             )
             if analysis.plan.stopping != "fixed" and id(analysis.plan) not in seen_plans:
                 seen_plans.add(id(analysis.plan))

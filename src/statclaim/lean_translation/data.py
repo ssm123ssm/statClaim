@@ -12,7 +12,7 @@ import json
 import re
 from fractions import Fraction
 
-from statclaim.asymptotic import Region, fm_certificate, mcnemar_certificate
+from statclaim.asymptotic import Region, fm_certificate, mcnemar_certificate, pearson_certificate
 from statclaim.composition import CITED_RULES, cited_rule
 from statclaim.lean_translation.emit import rational
 from statclaim.methods import METHODS, NULL_FORMS, OBSERVATIONAL, OUTCOMES
@@ -60,6 +60,7 @@ SCOPES = {"finite_sample": "finiteSample", "asymptotic": "largeSample"}
 DECLARATIONS = (
     "WaldAnalysisIR",
     "ScoreAnalysisIR",
+    "PearsonAnalysisIR",
     "AsymptoticMcNemarAnalysisIR",
     "FarringtonManningAnalysisIR",
     "AnalysisIR",
@@ -332,6 +333,15 @@ def test(name: object, value: object) -> str:
         return (
             f".exact {label} (.{kind} {cutoff})\n      {design(record['design'])}\n      "
             f"{null(record['null'])}\n      {level(record['alpha'])}"
+        )
+    if isinstance(value, dict) and value.get("test") == "pearson_test":
+        record = fields(value, ANALYSIS | {"squared_cutoff", "correction"}, "A Pearson analysis")
+        cutoff = exact(record["squared_cutoff"], "A squared cutoff")
+        corrected = boolean(record["correction"] == "yates")
+        return (
+            f".exact {label} (.pearson {corrected} {cutoff})\n"
+            f"      {design(record['design'])}\n      {null(record['null'])}\n"
+            f"      {level(record['alpha'])}"
         )
     if isinstance(value, dict) and value.get("test") == "farrington_manning":
         record = fields(value, ANALYSIS | {"squared_cutoff"}, "A Farrington–Manning analysis")
@@ -943,6 +953,7 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
         in {
             "fisher",
             *PROPORTION_Z_TESTS,
+            "pearson_test",
             "farrington_manning",
             "randomisation",
             "binomial_exact_one_sided",
@@ -998,6 +1009,17 @@ def mcnemar_parameters(subject: dict) -> tuple[int, Fraction, Fraction]:
     )
 
 
+def pearson_parameters(subject: dict) -> tuple[int, int, Fraction, Fraction, bool]:
+    model = subject["design"]["model"]
+    return (
+        model["n_control"],
+        model["n_treatment"],
+        Fraction(subject["squared_cutoff"]),
+        Fraction(subject["alpha"]),
+        subject["correction"] == "yates",
+    )
+
+
 def fm_parameters(subject: dict) -> tuple[int, int, Fraction, Fraction, Fraction]:
     model = subject["design"]["model"]
     return (
@@ -1025,6 +1047,9 @@ def level_hint(subject: dict) -> str | None:
             pooled=subject["test"] == "score_test",
         )
         return "⟨[], []⟩" if hint is None else f"⟨{list(hint.weights)}, {list(hint.cells)}⟩"
+    if subject.get("test") == "pearson_test" and fixed(subject):
+        pearson_cells = pearson_certificate(*pearson_parameters(subject))
+        return str(list(pearson_cells or ()))
     if subject.get("test") == "mcnemar_asymptotic" and fixed(subject):
         mcnemar_cells = mcnemar_certificate(*mcnemar_parameters(subject))
         return str(list(mcnemar_cells or ()))

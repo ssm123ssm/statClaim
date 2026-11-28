@@ -67,6 +67,7 @@ from statclaim.language.ir import (
     OutcomeMeansIR,
     OutcomeNullIR,
     OutcomePrevalenceIR,
+    PearsonAnalysisIR,
     PersonTimeStudyIR,
     PlanIR,
     PlannedIntervalIR,
@@ -335,6 +336,15 @@ def normalize(value: object) -> object:
             if predicate != "equal_proportions":
                 result["value"] = str(bound)
             return result
+        case PearsonAnalysisIR(plan, hypothesis, alpha, cutoff, correction):
+            return {
+                "test": value.test,
+                "design": normalize(plan),
+                "null": normalize(hypothesis),
+                "alpha": str(alpha),
+                "squared_cutoff": str(cutoff),
+                "correction": correction,
+            }
         case (
             ProportionZAnalysisIR(plan, hypothesis, alpha, cutoff)
             | AsymptoticMcNemarAnalysisIR(plan, hypothesis, alpha, cutoff)

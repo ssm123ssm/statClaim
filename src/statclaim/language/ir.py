@@ -31,6 +31,7 @@ from statclaim.language_contracts import (
     FISHER_CONTRACT,
     MARGIN_CONTRACT,
     ONE_SIDED_FISHER_CONTRACT,
+    PEARSON_CONTRACT,
     SCORE_CONTRACT,
     WALD_CONTRACT,
     HypothesisContract,
@@ -378,6 +379,18 @@ class WaldAnalysisIR(ProportionZAnalysisIR):
 class ScoreAnalysisIR(ProportionZAnalysisIR):
     test = "score_test"
     contract = SCORE_CONTRACT
+
+
+@dataclass(frozen=True)
+class PearsonAnalysisIR(LevelTestIR):
+    plan: PlanIR
+    hypothesis: HypothesisIR
+    alpha: Fraction
+    squared_cutoff: Fraction
+    correction: Choice["none", "yates"]
+
+    test = "pearson_test"
+    contract = PEARSON_CONTRACT
 
 
 @dataclass(frozen=True)
@@ -1683,6 +1696,7 @@ class ClaimIR:
                 ProportionZAnalysisIR,
                 FarringtonManningAnalysisIR,
                 AsymptoticMcNemarAnalysisIR,
+                PearsonAnalysisIR,
             ),
         ):
             return Guarantee(

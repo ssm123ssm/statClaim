@@ -134,6 +134,13 @@ SCORE_CONTRACT = HypothesisContract(
     "squared critical value. Alpha is the requested finite-sample error ceiling.",
 )
 
+PEARSON_CONTRACT = HypothesisContract(
+    ("equal_proportions",),
+    "p_treatment = p_control (equal arm success probabilities)",
+    "Pearson's two-by-two chi-square rule uses independent binomial arms and a positive "
+    "rational squared critical value. The correction can be none or yates.",
+)
+
 FARRINGTON_MANNING_CONTRACT = HypothesisContract(
     ("proportion_difference_at_most",),
     "p_treatment - p_control <= margin, for a margin strictly between -1 and 0",

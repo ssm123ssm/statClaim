@@ -20,6 +20,11 @@ What is supported:
   [20-per-arm example](../examples/score_bound.stat) uses a critical value of
   1.96 and a Type I error ceiling of 5.4%. Change the ceiling to 5% to check a
   counterexample at a common success rate of 25%.
+- **Two arms, Pearson chi-square.** `pearson_test` accepts unequal or equal
+  fixed binomial arm sizes and an equality null. The optional `correction="yates"`
+  applies the [continuity correction](https://search.r-project.org/R/refmans/stats/html/chisq.test.html)
+  used for a two-by-two table. Lean checks the error over all common rates or
+  certifies an exact counterexample. [Worked example](../examples/tutorial/51_pearson_unequal_arms.stat).
 - **Two arms, Farrington–Manning.** A one-sided noninferiority score rule with
   independent fixed binomial arms, a margin strictly between −1 and 0, and a
   positive rational squared cutoff. Lean checks rational brackets for the

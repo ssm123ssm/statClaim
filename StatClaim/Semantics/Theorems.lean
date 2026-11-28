@@ -190,6 +190,30 @@ theorem Program.oneSampleScore_refuted (p : Program) (r : ℕ) (rate reported : 
     exact OneSampleScoreExact.counterexample ⟨n, reference, alpha, cutoff⟩ rate reported checked holds
   next => contradiction
 
+def Program.checkPearsonCounterexample (p : Program) (r : ℕ) (rate reported : ℚ) : Bool :=
+  match p.requests[r]? with
+  | some (.typeI (.exact _ (.pearson corrected cutoff) design _ alpha)) =>
+    decide (design.stopping = .fixed) &&
+      PearsonExact.checkCounterexample ⟨design.model.sizes, alpha, cutoff, corrected⟩ rate reported
+  | _ => false
+
+theorem Program.pearson_refuted (p : Program) (r : ℕ) (rate reported : ℚ)
+    (valid : p.checkPearsonCounterexample r rate reported = true) : ¬ p.Claim r := by
+  intro claim
+  have holds := claim Instance.trivial (p.satisfiable r)
+  unfold Program.checkPearsonCounterexample at valid
+  split at valid
+  next name corrected cutoff design null alpha found =>
+    obtain ⟨compatible, checked⟩ := Bool.and_eq_true_iff.mp valid
+    have stopping := of_decide_eq_true compatible
+    unfold Program.claimAt at holds
+    rw [found] at holds
+    simp only [Request.Holds, Request.fixed, Request.test, Option.all_some, Test.fixed,
+      stopping, beq_self_eq_true, Test.typeI, ExactKind.moduleSpec, ExactKind.input,
+      PearsonExact.moduleSpec] at holds
+    exact PearsonExact.counterexample _ rate reported checked holds
+  next => contradiction
+
 end
 
 end StatClaim.Semantics

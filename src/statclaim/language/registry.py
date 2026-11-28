@@ -39,6 +39,7 @@ from statclaim.language.analyses import (
     _observed_events,
     _observed_pairs,
     _observed_table,
+    _pearson_test,
     _person_time_cohort,
     _proportion,
     _proportion_z,
@@ -122,6 +123,7 @@ from statclaim.language.ir import (
     OneSampleObservationIR,
     OutcomeIR,
     OutcomeModelIR,
+    PearsonAnalysisIR,
     PersonTimeStudyIR,
     PlanIR,
     PlannableIR,
@@ -681,6 +683,27 @@ MODULES = {
                 ),
             )
             for name, analysis in (("wald", WaldAnalysisIR), ("score", ScoreAnalysisIR))
+        ),
+        Module(
+            "tests.pearson",
+            (
+                _constructor(
+                    "pearson_test",
+                    (
+                        ("design", PlanIR),
+                        ("null", HypothesisIR),
+                        ("squared_cutoff", "number"),
+                        ("alpha", "level"),
+                        ("correction", "string", True),
+                    ),
+                    "PearsonAnalysis",
+                    _pearson_test,
+                    hypothesis_contract=PearsonAnalysisIR.contract,
+                    documentation=PearsonAnalysisIR.contract.guidance,
+                    lean=in_lean("analysis", "Modules/Pearson"),
+                ),
+                TYPE_I,
+            ),
         ),
         Module(
             "tests.farrington_manning",

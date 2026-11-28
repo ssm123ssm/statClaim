@@ -173,3 +173,53 @@ def one_sample_score_probability(n: int, reference: Fraction, cutoff: Fraction) 
         if cutoff.denominator * (k * d - n * a) ** 2 > critical
     )
     return Fraction(weight, d**n)
+
+
+@lru_cache(maxsize=32)
+def pearson_weights(nc: int, nt: int, cutoff: Fraction, corrected: bool) -> tuple[int, ...]:
+    total_n = nc + nt
+    a, b = cutoff.as_integer_ratio()
+    control_weights = [comb(nc, x) for x in range(nc + 1)]
+    treatment_weights = [comb(nt, y) for y in range(nt + 1)]
+    correction = total_n if corrected else 0
+    coefficients = [0] * (total_n + 1)
+    for x, weight_x in enumerate(control_weights):
+        for y, weight_y in enumerate(treatment_weights):
+            total = x + y
+            gap = max(0, 2 * abs(y * nc - x * nt) - correction)
+            if 4 * a * nc * nt * total * (total_n - total) < b * total_n * gap**2:
+                coefficients[total] += weight_x * weight_y
+    return tuple(coefficients)
+
+
+def _integer_polynomial(weights: tuple[int, ...], point: int, complement: int) -> int:
+    degree = len(weights) - 1
+    return sum(
+        weight * point**i * complement ** (degree - i) for i, weight in enumerate(weights) if weight
+    )
+
+
+@lru_cache(maxsize=64)
+def pearson_certificate(
+    nc: int, nt: int, cutoff: Fraction, alpha: Fraction, corrected: bool
+) -> tuple[int, ...] | None:
+    coefficients = pearson_weights(nc, nt, cutoff, corrected)
+    limit = alpha * GRID ** (nc + nt)
+    return _cover(
+        0,
+        GRID,
+        lambda low, high: _integer_polynomial(coefficients, high, GRID - low) <= limit,
+    )
+
+
+@lru_cache(maxsize=64)
+def pearson_witness(
+    nc: int, nt: int, cutoff: Fraction, alpha: Fraction, corrected: bool
+) -> tuple[Fraction, Fraction] | None:
+    coefficients = pearson_weights(nc, nt, cutoff, corrected)
+
+    def probability(p: Fraction) -> Fraction:
+        a, d = p.as_integer_ratio()
+        return Fraction(_integer_polynomial(coefficients, a, d - a), d ** (nc + nt))
+
+    return _witness(Fraction(0), alpha, probability)

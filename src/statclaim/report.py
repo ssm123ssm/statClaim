@@ -700,6 +700,36 @@ def run_proportion_z(n: int, cutoff: Fraction, alpha: Fraction, *, pooled: bool)
     return report
 
 
+def pearson_report(nc: int, nt: int, cutoff: Fraction, alpha: Fraction, *, corrected: bool) -> dict:
+    rule = "Pearson's test with Yates's correction" if corrected else "Uncorrected Pearson test"
+    return planning_report(
+        "design",
+        f"{rule} with {nc} controls, {nt} treated participants and squared cutoff {cutoff} "
+        f"has Type I error at most {alpha} for every common null proportion.",
+        [
+            "The arm counts are independent binomial samples.",
+            "The arm sizes and the cutoff are fixed before outcomes are observed.",
+        ],
+    )
+
+
+def run_pearson(nc: int, nt: int, cutoff: Fraction, alpha: Fraction, *, corrected: bool) -> dict:
+    from statclaim.asymptotic import pearson_certificate
+
+    report = _certified(pearson_report(nc, nt, cutoff, alpha, corrected=corrected))
+    if (
+        report.get("verification", {}).get("stage") == "proof"
+        and pearson_certificate(nc, nt, cutoff, alpha, corrected) is None
+    ):
+        return _unmet(
+            report,
+            "typeI_target",
+            "pearson_bound_unproved",
+            f"The interval check did not establish the requested ceiling {alpha}.",
+        )
+    return report
+
+
 def one_sample_score_report(n: int, rate: Fraction, cutoff: Fraction, alpha: Fraction) -> dict:
     return planning_report(
         "design",

@@ -37,6 +37,7 @@ from statclaim.language import (
     OneArmCandidatesIR,
     OneSampleAnalysisIR,
     OneSampleScoreAnalysisIR,
+    PearsonAnalysisIR,
     PlannedIntervalIR,
     ProgramIR,
     ProportionZAnalysisIR,
@@ -202,6 +203,10 @@ RULES = {
     "score-design": Rule(
         "The score certificate uses equal positive arm sizes and a positive squared cutoff.",
         "{subject}: both arms have {n} observations and the squared cutoff is {squared_cutoff}.",
+    ),
+    "pearson-cutoff": Rule(
+        "The squared cutoff is positive and the table uses the declared correction.",
+        "{subject}: the squared cutoff is {squared_cutoff} and correction is {correction}.",
     ),
     "farrington-manning-cutoff": Rule(
         "The independent binomial arms have positive sizes, the margin is strictly negative "
@@ -471,6 +476,7 @@ RANDOMISATION_CONTRACT_ID = "tests.randomisation/randomisation_test"
 ASSOCIATION_CONTRACT_ID = "tests.association/fisher_exact"
 MCNEMAR_CONTRACT_ID = "tests.association/mcnemar"
 ASYMPTOTIC_MCNEMAR_CONTRACT_ID = "tests.association/mcnemar_asymptotic"
+PEARSON_CONTRACT_ID = "tests.pearson/pearson_test"
 FARRINGTON_MANNING_CONTRACT_ID = "tests.farrington_manning/farrington_manning"
 RATE_CONTRACT_ID = "tests.association/rate_test"
 ONE_SIDED_CONTRACT = "tests.fisher/fisher_one_sided"
@@ -662,7 +668,7 @@ def _declared_design(builder: _Builder, name: str, analysis: CitedAnalysisIR) ->
 def _analysis_steps(
     builder: _Builder,
     name: str,
-    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR,
+    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR | PearsonAnalysisIR,
 ) -> int:
     plan, null = analysis.plan, analysis.hypothesis
     used = (
@@ -693,6 +699,17 @@ def _analysis_steps(
                 },
             ),
         )
+    if isinstance(analysis, PearsonAnalysisIR):
+        used += (
+            builder.apply(
+                "pearson-cutoff",
+                {
+                    "subject": name,
+                    "squared_cutoff": str(analysis.squared_cutoff),
+                    "correction": analysis.correction,
+                },
+            ),
+        )
     if isinstance(analysis, FarringtonManningAnalysisIR):
         used += (
             builder.apply(
@@ -715,19 +732,22 @@ def _fixed(name: str, analysis) -> tuple[str, dict, bool]:
 def _sampling(
     builder: _Builder,
     name: str,
-    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR,
+    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR | PearsonAnalysisIR,
 ) -> None:
     builder.settle(*_fixed(name, analysis))
 
 
 def derive_analysis(
-    name: str, analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR
+    name: str,
+    analysis: AnalysisIR | ProportionZAnalysisIR | FarringtonManningAnalysisIR | PearsonAnalysisIR,
 ) -> Derivation:
     builder = _Builder()
     final = _analysis_steps(builder, name, analysis)
     _sampling(builder, name, analysis)
     if isinstance(analysis, ProportionZAnalysisIR):
         contract = PROPORTION_Z_CONTRACT_IDS[analysis.test]
+    elif isinstance(analysis, PearsonAnalysisIR):
+        contract = PEARSON_CONTRACT_ID
     elif isinstance(analysis, FarringtonManningAnalysisIR):
         contract = FARRINGTON_MANNING_CONTRACT_ID
     else:
@@ -1911,7 +1931,10 @@ def derive_program(program: ProgramIR) -> tuple[Derivation, ...]:
     derivations = []
     for binding in program.bindings:
         value = binding.value
-        if isinstance(value, (AnalysisIR, ProportionZAnalysisIR, FarringtonManningAnalysisIR)):
+        if isinstance(
+            value,
+            (AnalysisIR, ProportionZAnalysisIR, FarringtonManningAnalysisIR, PearsonAnalysisIR),
+        ):
             derivations.append(derive_analysis(binding.name, value))
         elif isinstance(value, CitedAnalysisIR):
             derivations.append(derive_cited(binding.name, value))
