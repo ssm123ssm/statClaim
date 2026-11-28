@@ -86,6 +86,7 @@ A field is read with a dot: `analysis.alpha`. Only the fields listed here exist.
 | OneArmModel | One arm with a fixed sample size. | `n: integer` |
 | OneSampleAnalysis | One-sided exact binomial test with its null rate and alpha. | `model: OneArmModel`, `null_rate: exact number`, `alpha: exact number` |
 | OneSampleScoreAnalysis | A fixed one-arm sample, point null, squared cutoff and requested Type I error ceiling. | `model: OneArmModel`, `null_rate: exact number`, `alpha: exact number`, `squared_cutoff: exact number` |
+| OneSampleWaldAnalysis | A fixed one-arm sample, Wald cutoff, point null and requested Type I error ceiling. | `model: OneArmModel`, `null_rate: exact number`, `alpha: exact number`, `squared_cutoff: exact number` |
 | OneSampleObservation | Observed responses for a one-sample test. | `analysis: OneSampleAnalysis`, `responses: integer` |
 | DifferenceInterval | Observed two-arm counts and a confidence level. | `model: Model`, `control_successes: integer`, `treatment_successes: integer`, `level: exact number` |
 | Interval | Observed count and confidence level. | `model: OneArmModel`, `responses: integer`, `level: exact number` |
@@ -679,6 +680,8 @@ One-sided exact binomial test for a single arm. Type I error is checked for ever
   One-sided exact binomial test. Null: response rate <= null_rate. Rejects at the smallest response count whose upper tail probability at null_rate is at most alpha.
 - `binomial_score_test(model: OneArmModel, null_rate: number, squared_cutoff: number, alpha: level) -> OneSampleScoreAnalysis`
   Two-sided one-sample score rule for a binomial response rate equal to null_rate. Lean checks the exact rejection probability at that rate against the requested finite-sample ceiling.
+- `binomial_wald_test(model: OneArmModel, null_rate: number, squared_cutoff: number, alpha: level) -> OneSampleWaldAnalysis`
+  Two-sided one-sample Wald rule for a binomial response rate equal to null_rate. The variance uses the observed proportion. Lean checks the exact rejection probability at the null rate.
 - `typeI(analysis: Analysis) -> TypeIClaim`
 - `confidence_interval(model: OneArmModel, count: integer, level: number) -> IntervalClaim`
   Exact (Clopper-Pearson) confidence interval for the response rate. Endpoints are rounded outward to four decimals, so coverage is at least the stated level for every true rate.

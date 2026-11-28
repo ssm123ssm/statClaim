@@ -555,7 +555,7 @@ def normalize(value: object) -> object:
             return {"module": "one_arm_binomial", "n": n}
         case OneSampleScoreAnalysisIR(model, rate, alpha, cutoff):
             return {
-                "test": "binomial_score_test",
+                "test": value.test,
                 "model": normalize(model),
                 "null_rate": str(rate),
                 "alpha": str(alpha),

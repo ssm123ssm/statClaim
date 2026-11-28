@@ -198,7 +198,7 @@ Methods with guarantees proved in Lean:
 | Non-inferiority or superiority for a difference in proportions | `tests.difference` | Type I error over the composite null, power and decision |
 | Randomisation tests, by participant or cluster, with strata or blocks | `tests.randomisation` | Type I error under the sharp null, for any test statistic |
 | Association in cohort, case-control and cross-sectional studies | `tests.association` | Type I error of Fisher's exact test for each design, of McNemar's test for matched pairs and of the exact rate test for person-time data |
-| Inference for one proportion | `tests.binomial` | Type I error of the exact and score rules, exact p-value and decision for the exact test, and interval coverage |
+| Inference for one proportion | `tests.binomial` | Type I error of the exact, score and Wald rules, exact p-value and decision for the exact test, and interval coverage |
 | Interval estimation for differences, risk and odds ratios and prevalence | `estimation`, `estimation.observational` | Coverage of exact or conservative intervals |
 | Multiple endpoints | `multiplicity.bonferroni` | Familywise error for 2 to 20 endpoints |
 | Sample-size determination | `planning` | Power at the planning point, and minimality within the declared range |

@@ -156,3 +156,20 @@ def test_lean_audits_an_unequal_arm_likelihood_ratio_test(tmp_path):
     assert witness["p"] == "1/2"
     replay = recheck_certificate(Path(report["lean"]["certificate_directory"]), project=ROOT)
     assert replay["status"] == "verified"
+
+
+@pytest.mark.lean
+@pytest.mark.skipif(not shutil.which("lake"), reason="Lean required")
+def test_lean_checks_wald_with_zero_estimated_variance(tmp_path):
+    source = lesson("53_one_sample_wald")
+    compiled = compile_source(source)
+    assert not compiled.diagnostics
+    assert len(compiled.derivations) == 2
+    assert all(not check_derivation(d.to_dict()) for d in compiled.derivations)
+    report = check_source(source, project=ROOT, output=tmp_path / "wald")
+    rejected, proved = report["requests"]
+    assert rejected["status"] == "refuted"
+    assert proved["status"] == "verified"
+    witness = rejected["value"]["counterexample"]
+    assert witness["typeI_error"] == "12396274399953540469/100000000000000000000"
+    assert witness["p"] == "1/10"

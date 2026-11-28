@@ -511,7 +511,8 @@ def reservedKeys : List String :=
   ["fisher", "wald_test", "score_test", "pearson_test", "likelihood_ratio_test",
     "farrington_manning", "fisher_exact",
     "mcnemar", "mcnemar_asymptotic", "rate_test", "randomisation",
-    "binomial_exact_one_sided", "binomial_score_test", "two_stage", "declared_test"]
+    "binomial_exact_one_sided", "binomial_score_test",
+    "binomial_wald_test", "two_stage", "declared_test"]
 
 def trialKeys : List String := Generated.trialMethods.map (·.key)
 
@@ -599,6 +600,7 @@ def Form.tag (f : Form) : ℕ :=
     else if s = "binomial_exact_one_sided" then 5
     else if s = "two_stage" then 6
     else if s = "binomial_score_test" then 15
+    else if s = "binomial_wald_test" then 16
     else if s = "declared_test" ∨ s ∈ trialKeys then 8
     else 9
   | none =>
@@ -614,6 +616,7 @@ def Test.tag : Test → ℕ
   | .randomised .. => 4
   | .oneSample .. => 5
   | .oneSampleScore .. => 15
+  | .oneSampleWald .. => 16
   | .twoStage .. => 6
   | .member _ => 7
   | .assumed .. => 8
@@ -651,7 +654,7 @@ theorem Test.tag_form : (t : Test) → t.canonical → t.form.tag = t.tag
       Generated.procedures, Generated.Procedure.entries, Generated.Procedure.fields,
       Generated.Procedure.graph, Generated.Procedure.field]
   | .bonferroni _ _ _ none, _ | .bonferroni _ _ _ (some _), _ | .fisher .., _
-  | .randomised .., _ | .oneSample .., _ | .oneSampleScore .., _ | .twoStage .., _ | .looks .., _
+  | .randomised .., _ | .oneSample .., _ | .oneSampleScore .., _ | .oneSampleWald .., _ | .twoStage .., _ | .looks .., _
   | .sequence .., _ => by
     simp [Test.form, Form.tag, Form.text, Test.tag, procedure_methods_free]
 
@@ -744,6 +747,9 @@ theorem Test.agree (t₁ t₂ : Test) (c₁ : t₁.canonical = true) (c₂ : t�
   · unfold Test.form at h; same_object h as e
     simp at e; casesm* _ ∧ _; subst_vars; exact Agree.of_eq rfl
   -- oneSampleScore
+  · unfold Test.form at h; same_object h as e
+    simp at e; casesm* _ ∧ _; subst_vars; exact Agree.of_eq rfl
+  -- oneSampleWald
   · unfold Test.form at h; same_object h as e
     simp at e; casesm* _ ∧ _; subst_vars; exact Agree.of_eq rfl
   -- twoStage

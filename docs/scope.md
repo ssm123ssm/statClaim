@@ -54,7 +54,10 @@ What is supported:
 - **One arm.** The one-sided exact binomial test, for planning and for an
   observed count, and exact confidence intervals with coverage for every true
   rate. The two-sided `binomial_score_test` checks the exact rejection
-  probability at a specified null rate. [Worked example](../examples/tutorial/50_one_sample_score.stat).
+  probability at a specified null rate. [Score tutorial](../examples/tutorial/50_one_sample_score.stat).
+  The two-sided `binomial_wald_test` uses the observed variance and rejects
+  a zero-variance count when the difference from the null is nonzero.
+  [Wald tutorial](../examples/tutorial/53_one_sample_wald.stat).
 - **Difference of two proportions.** A confidence interval built from an exact
   interval per arm. It has checked coverage for every pair of rates and is
   conservative.

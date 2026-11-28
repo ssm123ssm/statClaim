@@ -421,14 +421,14 @@ class _Printer:
                 ("null_rate", "null_rate", _number),
             ]
             return _call("two_stage_test", self.arguments(value, fields))
-        if test in ("binomial_exact_one_sided", "binomial_score_test"):
+        if test in ("binomial_exact_one_sided", "binomial_score_test", "binomial_wald_test"):
             fields = [
                 ("test", "", str),
                 ("model", "model", self.nested),
                 ("null_rate", "null_rate", _number),
                 ("alpha", "alpha", _number),
             ]
-            if test == "binomial_score_test":
+            if test != "binomial_exact_one_sided":
                 fields.append(("squared_cutoff", "squared_cutoff", _number))
                 return _call(test, self.arguments(value, fields))
             return _call("binomial_test", self.arguments(value, fields))

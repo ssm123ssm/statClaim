@@ -166,7 +166,11 @@ def _run_request(request: RequestIR, project: Path, output: Path, timeout: float
         )
     if isinstance(subject, OneSampleScoreAnalysisIR):
         return run_one_sample_score(
-            subject.model.n, subject.null_rate, subject.squared_cutoff, subject.alpha
+            subject.model.n,
+            subject.null_rate,
+            subject.squared_cutoff,
+            subject.alpha,
+            estimated=subject.test == "binomial_wald_test",
         )
     if isinstance(subject, AsymptoticMcNemarAnalysisIR):
         return run_mcnemar_asymptotic(

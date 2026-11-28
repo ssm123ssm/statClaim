@@ -177,6 +177,7 @@ from statclaim.language.searches import (
     _allocated,
     _binomial_score_test,
     _binomial_test,
+    _binomial_wald_test,
     _candidates,
     _cluster_counts,
     _cluster_sizes,
@@ -701,7 +702,12 @@ MODULES = {
                     _likelihood_ratio_test,
                     hypothesis_contract=LikelihoodRatioAnalysisIR.contract,
                     documentation=LikelihoodRatioAnalysisIR.contract.guidance,
-                    lean=in_lean("analysis", "Modules/LikelihoodRatio"),
+                    lean=in_lean(
+                        "analysis",
+                        "Modules/LikelihoodRatio",
+                        "Modules/BinomialPolynomial",
+                        "Modules/PolynomialBound",
+                    ),
                 ),
                 TYPE_I,
             ),
@@ -1910,6 +1916,21 @@ MODULES = {
                     documentation="Two-sided one-sample score rule for a binomial response "
                     "rate equal to null_rate. Lean checks the exact rejection probability "
                     "at that rate against the requested finite-sample ceiling.",
+                    lean=in_lean("analysis", "Modules/OneSampleScore"),
+                ),
+                _constructor(
+                    "binomial_wald_test",
+                    (
+                        ("model", OneArmModelIR),
+                        ("null_rate", "number"),
+                        ("squared_cutoff", "number"),
+                        ("alpha", "level"),
+                    ),
+                    "OneSampleWaldAnalysis",
+                    _binomial_wald_test,
+                    documentation="Two-sided one-sample Wald rule for a binomial response "
+                    "rate equal to null_rate. The variance uses the observed proportion. "
+                    "Lean checks the exact rejection probability at the null rate.",
                     lean=in_lean("analysis", "Modules/OneSampleScore"),
                 ),
                 TYPE_I,

@@ -735,24 +735,25 @@ structure Input where
   reference : ProbabilityFraction
   alpha : ProbabilityFraction
   cutoff : ℚ
+  estimated : Bool
 
 def risk (x : Input) : ℚ :=
-  (numerator x.n x.reference.num x.reference.den x.cutoff : ℚ) / x.reference.den ^ x.n
+  (numerator x.n x.reference.num x.reference.den x.cutoff x.estimated : ℚ) / x.reference.den ^ x.n
 
 theorem risk_eq (x : Input) :
     (risk x : ℝ) =
       (ProbabilityTheory.binomial x.n
         (ratPoint x.reference.num x.reference.den x.reference.bounded x.reference.positive)).real
-          (rejection x.n x.reference.value x.cutoff) := by
+          (rejection x.n x.reference.value x.cutoff x.estimated) := by
   simpa [risk, ProbabilityFraction.value] using
     (probability x.n x.reference.num x.reference.den x.cutoff
-      x.reference.bounded x.reference.positive).symm
+      x.reference.bounded x.reference.positive x.estimated).symm
 
 def typeI : Checked Input where
   Statement := fun x =>
     (ProbabilityTheory.binomial x.n
       (ratPoint x.reference.num x.reference.den x.reference.bounded x.reference.positive)).real
-        (rejection x.n x.reference.value x.cutoff) ≤ (x.alpha.value : ℝ)
+        (rejection x.n x.reference.value x.cutoff x.estimated) ≤ (x.alpha.value : ℝ)
   Hint := PUnit
   empty := PUnit.unit
   check := fun x _ => decide (risk x ≤ x.alpha.value)

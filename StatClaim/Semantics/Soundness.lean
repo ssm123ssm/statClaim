@@ -143,7 +143,7 @@ def Test.emptyHints : (t : Test) → t.Hints
   | .exactStudy _ .matched .. | .exactStudy _ .incidence .. => PUnit.unit
   | .bonferroni _ members .. | .looks _ members .. | .sequence _ members .. => Test.emptyMemberHints members
   | .fisher .. | .randomised .. | .member .. | .assumed .. | .associated .. | .procedure ..
-  | .oneSample .. | .oneSampleScore .. | .twoStage .. => PUnit.unit
+  | .oneSample .. | .oneSampleScore .. | .oneSampleWald .. | .twoStage .. => PUnit.unit
 termination_by structural t => t
 
 def Test.emptyMemberHints : (ts : List Test) → Test.MemberHints ts
@@ -159,7 +159,9 @@ def Test.checkHints : (t : Test) → t.Hints → Bool
   | .exactStudy _ kind design _ alpha, hints =>
     kind.moduleSpec.typeI.check (kind.input design.model alpha) hints
   | .oneSampleScore _ n reference alpha cutoff, hints =>
-    OneSampleScoreExact.typeI.check ⟨n, reference, alpha, cutoff⟩ hints
+    OneSampleScoreExact.typeI.check ⟨n, reference, alpha, cutoff, false⟩ hints
+  | .oneSampleWald _ n reference alpha cutoff, hints =>
+    OneSampleScoreExact.typeI.check ⟨n, reference, alpha, cutoff, true⟩ hints
   | .bonferroni _ members .., hints | .looks _ members .., hints | .sequence _ members .., hints =>
     Test.checkMemberHints members hints
   | _, _ => true
@@ -242,7 +244,7 @@ theorem Test.outside_bound (i : Instance) (σ : JointStudy Θ Ω) :
         (kind.moduleSpec.bound input level) θ holds⟩
   | .randomised .., _, _, _, _, _, _, _ => ⟨le_refl 0, fun _ holds => holds.elim⟩
   | .oneSample .., _, _, _, _, _, _, _ | .oneSampleScore .., _, _, _, _, _, _, _
-  | .twoStage .., _, _, _, _, _, _, _ =>
+  | .oneSampleWald .., _, _, _, _, _, _, _ | .twoStage .., _, _, _, _, _, _, _ =>
     ⟨le_refl 0, fun _ holds => holds.elim⟩
   | .member t, ws, _, _, _, _, premises, marginals => by
     have premise := premises.1
@@ -360,7 +362,9 @@ theorem Request.sound (q : Request) (contracts : q.check = true) (fixed : q.fixe
       exact kind.moduleSpec.typeI.sound (kind.input design.model alpha) hints valid
     | randomised _ r => exact Randomised.typeI.sound r hints valid
     | oneSampleScore _ n reference alpha cutoff =>
-      exact OneSampleScoreExact.typeI.sound ⟨n, reference, alpha, cutoff⟩ hints valid
+      exact OneSampleScoreExact.typeI.sound ⟨n, reference, alpha, cutoff, false⟩ hints valid
+    | oneSampleWald _ n reference alpha cutoff =>
+      exact OneSampleScoreExact.typeI.sound ⟨n, reference, alpha, cutoff, true⟩ hints valid
     | assumed name guarantee design null alpha =>
       have premise := premises.1
       simp only [Test.typeI]

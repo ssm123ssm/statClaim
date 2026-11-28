@@ -175,7 +175,7 @@ theorem Program.farringtonManning_refuted (program : Program) (r : ℕ) (rate re
 def Program.checkOneSampleScoreCounterexample (p : Program) (r : ℕ) (rate reported : ℚ) : Bool :=
   match p.requests[r]? with
   | some (.typeI (.oneSampleScore _ n reference alpha cutoff)) =>
-    OneSampleScoreExact.checkCounterexample ⟨n, reference, alpha, cutoff⟩ rate reported
+    OneSampleScoreExact.checkCounterexample ⟨n, reference, alpha, cutoff, false⟩ rate reported
   | _ => false
 
 theorem Program.oneSampleScore_refuted (p : Program) (r : ℕ) (rate reported : ℚ)
@@ -187,7 +187,25 @@ theorem Program.oneSampleScore_refuted (p : Program) (r : ℕ) (rate reported : 
   next name n reference alpha cutoff found =>
     unfold Program.claimAt at holds
     rw [found] at holds
-    exact OneSampleScoreExact.counterexample ⟨n, reference, alpha, cutoff⟩ rate reported checked holds
+    exact OneSampleScoreExact.counterexample ⟨n, reference, alpha, cutoff, false⟩ rate reported checked holds
+  next => contradiction
+
+def Program.checkOneSampleWaldCounterexample (p : Program) (r : ℕ) (rate reported : ℚ) : Bool :=
+  match p.requests[r]? with
+  | some (.typeI (.oneSampleWald _ n reference alpha cutoff)) =>
+    OneSampleScoreExact.checkCounterexample ⟨n, reference, alpha, cutoff, true⟩ rate reported
+  | _ => false
+
+theorem Program.oneSampleWald_refuted (p : Program) (r : ℕ) (rate reported : ℚ)
+    (checked : p.checkOneSampleWaldCounterexample r rate reported = true) : ¬ p.Claim r := by
+  intro claim
+  have holds := claim Instance.trivial (p.satisfiable r)
+  unfold Program.checkOneSampleWaldCounterexample at checked
+  split at checked
+  next name n reference alpha cutoff found =>
+    unfold Program.claimAt at holds
+    rw [found] at holds
+    exact OneSampleScoreExact.counterexample ⟨n, reference, alpha, cutoff, true⟩ rate reported checked holds
   next => contradiction
 
 def Program.checkPearsonCounterexample (p : Program) (r : ℕ) (rate reported : ℚ) : Bool :=

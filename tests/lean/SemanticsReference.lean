@@ -55,6 +55,12 @@ example (n : ℕ) (reference ceiling : ProbabilityFraction) (cutoff : ℚ) :
       (ratPoint reference.num reference.den reference.bounded reference.positive)).real
         (OneSampleScore.rejection n reference.value cutoff) ≤ (ceiling.value : ℝ) := Iff.rfl
 
+example (n : ℕ) (reference ceiling : ProbabilityFraction) (cutoff : ℚ) :
+    (Request.typeI (.oneSampleWald "w" n reference ceiling cutoff)).Holds i ↔
+    (ProbabilityTheory.binomial n
+      (ratPoint reference.num reference.den reference.bounded reference.positive)).real
+        (OneSampleScore.rejection n reference.value cutoff true) ≤ (ceiling.value : ℝ) := Iff.rfl
+
 def random (m : Model) (a : SignificanceLevel) : Randomised :=
   ⟨fixed { m with randomisation := some "complete" }, m, a, none⟩
 

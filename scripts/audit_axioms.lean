@@ -42,6 +42,8 @@ run_cmd do
     ``StatClaim.Modules.OneSampleScore.probability,
     ``StatClaim.Semantics.OneSampleScoreExact.risk_eq,
     ``StatClaim.Semantics.Program.oneSampleScore_refuted,
+    ``StatClaim.Modules.OneSampleScore.wald_rejection_iff_real,
+    ``StatClaim.Semantics.Program.oneSampleWald_refuted,
     ``StatClaim.Modules.PolynomialBound.le_of_check,
     ``StatClaim.Modules.PolynomialBound.pointProbability_eq,
     ``StatClaim.Modules.Pearson.rejection_iff_statistic,

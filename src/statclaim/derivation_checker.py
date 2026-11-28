@@ -231,7 +231,7 @@ def _one_sample_expectations(name: str, analysis: dict) -> list[tuple[str, dict,
         ),
     ]
 
-    if analysis["test"] == "binomial_score_test":
+    if analysis["test"] in ("binomial_score_test", "binomial_wald_test"):
         cutoff = analysis["squared_cutoff"]
         steps.append(
             (
@@ -332,6 +332,7 @@ BLOCKS = {
     **{test: ("analysis-contract", ANALYSIS_ASSUMPTIONS) for test in PROPORTION_Z_CONTRACT_IDS},
     "binomial_exact_one_sided": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
     "binomial_score_test": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
+    "binomial_wald_test": ("one-sample-contract", ONE_SAMPLE_ASSUMPTIONS),
     "two_stage": ("two-stage-contract", TWO_STAGE_ASSUMPTIONS),
 }
 
@@ -400,7 +401,11 @@ def _premises(name: str, analysis: dict) -> list[tuple[str, dict, bool]]:
                 valid,
             ),
         ]
-    if analysis["test"] in ("binomial_exact_one_sided", "binomial_score_test"):
+    if analysis["test"] in (
+        "binomial_exact_one_sided",
+        "binomial_score_test",
+        "binomial_wald_test",
+    ):
         return _one_sample_expectations(name, analysis)
     if analysis["test"] == "two_stage":
         return _two_stage_expectations(name, analysis)
@@ -2684,6 +2689,7 @@ def _expected(derivation: dict) -> tuple[list[tuple], list[tuple], tuple[str, ..
     policy_contracts = {
         "tests.binomial/binomial_test": "binomial_exact_one_sided",
         "tests.binomial/binomial_score_test": "binomial_score_test",
+        "tests.binomial/binomial_wald_test": "binomial_wald_test",
         "designs.two_stage/two_stage_test": "two_stage",
     }
     if contract in policy_contracts:

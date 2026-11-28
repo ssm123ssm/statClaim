@@ -18,7 +18,7 @@ parser and elaborator are trusted; see [certificates](certificates.md).
 out of date: a change to a trusted file changes its line count here, so it shows in
 review. Run `uv run python scripts/check_trusted_lean.py` after a reviewed change.
 
-Trusted in full: 2291 lines. Definitions trusted, with proofs Lean checks: 9270 lines. Proofs only: 2083 lines.
+Trusted in full: 2300 lines. Definitions trusted, with proofs Lean checks: 9286 lines. Proofs only: 2111 lines.
 
 | File | What is trusted | Lines |
 | --- | --- | ---: |
@@ -54,7 +54,7 @@ Trusted in full: 2291 lines. Definitions trusted, with proofs Lean checks: 9270 
 | `StatClaim/Modules/Matched.lean` | Definitions trusted; Lean checks the proofs | 111 |
 | `StatClaim/Modules/McNemarAsymptotic.lean` | Definitions trusted; Lean checks the proofs | 107 |
 | `StatClaim/Modules/OneSampleBinomial.lean` | Definitions trusted; Lean checks the proofs | 146 |
-| `StatClaim/Modules/OneSampleScore.lean` | Definitions trusted; Lean checks the proofs | 55 |
+| `StatClaim/Modules/OneSampleScore.lean` | Definitions trusted; Lean checks the proofs | 70 |
 | `StatClaim/Modules/Pearson.lean` | Definitions trusted; Lean checks the proofs | 121 |
 | `StatClaim/Modules/PolynomialBound.lean` | Definitions trusted; Lean checks the proofs | 117 |
 | `StatClaim/Modules/Randomisation.lean` | Definitions trusted; Lean checks the proofs | 503 |
@@ -63,15 +63,15 @@ Trusted in full: 2291 lines. Definitions trusted, with proofs Lean checks: 9270 
 | `StatClaim/Modules/Wald.lean` | Definitions trusted; Lean checks the proofs | 267 |
 | `StatClaim/ProductBinomial.lean` | Definitions trusted; Lean checks the proofs | 154 |
 | `StatClaim/Semantics/Contracts.lean` | Trusted in full | 335 |
-| `StatClaim/Semantics/Encode.lean` | Trusted in full | 471 |
-| `StatClaim/Semantics/Exact.lean` | Definitions trusted; Lean checks the proofs | 898 |
+| `StatClaim/Semantics/Encode.lean` | Trusted in full | 476 |
+| `StatClaim/Semantics/Exact.lean` | Definitions trusted; Lean checks the proofs | 899 |
 | `StatClaim/Semantics/Grades.lean` | Trusted in full | 50 |
 | `StatClaim/Semantics/Injective.lean` | Not trusted: Lean checks these proofs |  |
 | `StatClaim/Semantics/Intervals.lean` | Definitions trusted; Lean checks the proofs | 307 |
-| `StatClaim/Semantics/Meaning.lean` | Trusted in full | 470 |
+| `StatClaim/Semantics/Meaning.lean` | Trusted in full | 472 |
 | `StatClaim/Semantics/Plans.lean` | Definitions trusted; Lean checks the proofs | 698 |
 | `StatClaim/Semantics/Results.lean` | Definitions trusted; Lean checks the proofs | 386 |
 | `StatClaim/Semantics/Soundness.lean` | Not trusted: Lean checks these proofs |  |
-| `StatClaim/Semantics/Syntax.lean` | Trusted in full | 414 |
+| `StatClaim/Semantics/Syntax.lean` | Trusted in full | 416 |
 | `StatClaim/Semantics/Theorems.lean` | Not trusted: Lean checks these proofs |  |
 | `StatClaim/WaldBound.lean` | Definitions trusted; Lean checks the proofs | 528 |

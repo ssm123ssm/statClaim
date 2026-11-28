@@ -48,7 +48,7 @@ def Test.single : Test → Bool
   | .fisher .. => true
   | .exact .. => true
   | .exactStudy .. => true
-  | .randomised .. | .member .. | .oneSample .. | .oneSampleScore .. | .twoStage .. => true
+  | .randomised .. | .member .. | .oneSample .. | .oneSampleScore .. | .oneSampleWald .. | .twoStage .. => true
   | .assumed .. => true
   | .associated .. => true
   | _ => false
@@ -87,7 +87,7 @@ def Test.isLooks : Test → Bool
   | _ => false
 
 def Test.composable : Test → Bool
-  | .randomised .. | .oneSample .. | .oneSampleScore .. | .twoStage .. => false
+  | .randomised .. | .oneSample .. | .oneSampleScore .. | .oneSampleWald .. | .twoStage .. => false
   | t => t.single
 
 def Test.assumableMember : Test → Bool
@@ -199,7 +199,7 @@ def Test.check : Test → Bool
     kind.fits study && decide (0 < alpha.value ∧ alpha.value < 1)
   | .randomised _ r => r.check
   | .oneSample _ n reference alpha => decide (0 < n ∧ n ≤ 1000) && reference.interior && alpha.interior
-  | .oneSampleScore _ n reference _ cutoff =>
+  | .oneSampleScore _ n reference _ cutoff | .oneSampleWald _ n reference _ cutoff =>
     decide (0 < n ∧ n ≤ 1000 ∧ 0 < cutoff) && reference.interior
   | .twoStage _ s rule reference =>
     decide (0 < s.first ∧ s.first ≤ 200 ∧ 0 < s.second ∧ s.second ≤ 200) &&

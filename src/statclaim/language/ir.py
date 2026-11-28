@@ -1387,6 +1387,8 @@ class OneSampleAnalysisIR(PlannableIR):
 
 @dataclass(frozen=True)
 class OneSampleScoreAnalysisIR(LevelTestIR):
+    test = "binomial_score_test"
+
     model: OneArmModelIR
     null_rate: Fraction
     alpha: Fraction
@@ -1401,6 +1403,11 @@ class OneSampleScoreAnalysisIR(LevelTestIR):
             f"response rate = {self.null_rate}",
             "finite_sample",
         )
+
+
+@dataclass(frozen=True)
+class OneSampleWaldAnalysisIR(OneSampleScoreAnalysisIR):
+    test = "binomial_wald_test"
 
 
 @dataclass(frozen=True)

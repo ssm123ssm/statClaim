@@ -66,6 +66,7 @@ from statclaim.language import (
     OneSampleAnalysisIR,
     OneSampleObservationIR,
     OneSampleScoreAnalysisIR,
+    OneSampleWaldAnalysisIR,
     OutcomeIR,
     OutcomeMeansIR,
     OutcomeModelIR,
@@ -756,11 +757,14 @@ SCHEMAS: dict[str | type, dict[str, FieldSpec]] = {
     },
     SizingIR: {"candidates": FieldSpec(CandidateSpaceIR), "target": FieldSpec(TargetIR)},
     OneArmModelIR: {"n": FieldSpec(int)},
-    OneSampleScoreAnalysisIR: {
-        "model": FieldSpec(OneArmModelIR),
-        "null_rate": FieldSpec(Fraction),
-        "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
-        "squared_cutoff": FieldSpec(Fraction, description="Squared critical value."),
+    **{
+        kind: {
+            "model": FieldSpec(OneArmModelIR),
+            "null_rate": FieldSpec(Fraction),
+            "alpha": FieldSpec(Fraction, description="Requested finite-sample error ceiling."),
+            "squared_cutoff": FieldSpec(Fraction, description="Squared critical value."),
+        }
+        for kind in (OneSampleScoreAnalysisIR, OneSampleWaldAnalysisIR)
     },
     OneSampleAnalysisIR: {
         "model": FieldSpec(OneArmModelIR),

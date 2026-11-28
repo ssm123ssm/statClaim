@@ -319,7 +319,7 @@ RULES = {
         "{subject}: the null rate {rate} leaves room for both larger and smaller rates.",
     ),
     "one-sample-score-cutoff": Rule(
-        "The squared score cutoff is positive.",
+        "The squared normal critical value is positive.",
         "{subject}: the squared cutoff is {squared_cutoff}.",
     ),
     "one-sample-contract": Rule(
@@ -1408,7 +1408,7 @@ def derive_one_sample(
     final = _one_sample_steps(builder, name, analysis)
     return Derivation(
         name,
-        "tests.binomial/binomial_score_test"
+        f"tests.binomial/{analysis.test}"
         if isinstance(analysis, OneSampleScoreAnalysisIR)
         else "tests.binomial/binomial_test",
         builder.steps[final].conclusion,

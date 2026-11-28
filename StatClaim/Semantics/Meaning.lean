@@ -140,7 +140,7 @@ def Test.leaves (i : Instance) : Test → List View
   | .fisher _ design _ _ => [binomialView design.model.sizes]
   | .exact _ kind design _ alpha => [kind.moduleSpec.view (kind.input design.model.sizes alpha)]
   | .exactStudy _ kind design _ alpha => [kind.moduleSpec.view (kind.input design.model alpha)]
-  | .randomised .. | .oneSample .. | .oneSampleScore .. | .twoStage .. => []
+  | .randomised .. | .oneSample .. | .oneSampleScore .. | .oneSampleWald .. | .twoStage .. => []
   | .member t => [(i.member t.name).law.view]
   | .assumed _ _ design _ _ => [design.model.view i.laws]
   | .associated _ _ design _ _ _ => [(i.studies design.model).view]
@@ -191,7 +191,7 @@ def Test.outside (i : Instance) {Θ Ω : Type} [MeasurableSpace Ω]
     { null := fun θ => kind.moduleSpec.null x (ws.1.parameter θ)
       reject := ws.1.outcome ⁻¹' (kind.moduleSpec.procedure x).reject
       slack := 0 }
-  | .randomised .., _ | .oneSample .., _ | .oneSampleScore .., _ | .twoStage .., _ => ⟨fun _ => False, ∅, 0⟩
+  | .randomised .., _ | .oneSample .., _ | .oneSampleScore .., _ | .oneSampleWald .., _ | .twoStage .., _ => ⟨fun _ => False, ∅, 0⟩
   | .member t, ws =>
     { null := fun θ => (i.member t.name).null (ws.1.parameter θ)
       reject := ws.1.outcome ⁻¹' (i.member t.name).procedure.reject
@@ -297,7 +297,9 @@ def Test.typeI (i : Instance) : Test → Prop
     kind.moduleSpec.typeI.Statement (kind.input design.model alpha)
   | .randomised _ r => Randomised.typeI.Statement r
   | .oneSampleScore _ n reference alpha cutoff =>
-    OneSampleScoreExact.typeI.Statement ⟨n, reference, alpha, cutoff⟩
+    OneSampleScoreExact.typeI.Statement ⟨n, reference, alpha, cutoff, false⟩
+  | .oneSampleWald _ n reference alpha cutoff =>
+    OneSampleScoreExact.typeI.Statement ⟨n, reference, alpha, cutoff, true⟩
   | .assumed name guarantee design null alpha =>
     typeIClaim (Core.Compatibility.fixed (design.model.view i.laws).base)
       (null.denote i.laws design.model) (i.test name design.model)
@@ -340,7 +342,7 @@ def Test.fixed : Test → Bool
   | .exact _ _ design .. => design.stopping == .fixed
   | .exactStudy _ _ design .. => design.stopping == .fixed
   | .randomised _ r => r.design.stopping == .fixed
-  | .oneSample .. | .oneSampleScore .. | .twoStage .. => true
+  | .oneSample .. | .oneSampleScore .. | .oneSampleWald .. | .twoStage .. => true
   | .member t => Test.fixed t
   | .assumed _ _ design .. => design.stopping == .fixed
   | .associated _ _ design .. => design.stopping == .fixed
@@ -425,7 +427,7 @@ def Test.premises : Test → List Premise
   | .fisher .. => []
   | .exact .. => []
   | .exactStudy .. => []
-  | .randomised .. | .oneSample .. | .oneSampleScore .. | .twoStage .. => []
+  | .randomised .. | .oneSample .. | .oneSampleScore .. | .oneSampleWald .. | .twoStage .. => []
   | .member t => [.member t.name t.level]
   | .assumed name guarantee design null alpha => [.level name guarantee design.model null alpha]
   | .associated name method design _ alpha _ => [.association name method design.model alpha]

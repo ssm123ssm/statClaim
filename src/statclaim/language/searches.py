@@ -34,6 +34,7 @@ from statclaim.language.ir import (
     OneSampleAnalysisIR,
     OneSampleObservationIR,
     OneSampleScoreAnalysisIR,
+    OneSampleWaldAnalysisIR,
     PrecisionTargetIR,
     PriorIR,
     RuleIR,
@@ -173,6 +174,11 @@ def _binomial_score_test(
     if cutoff.value <= 0:
         fail("domain", "squared_cutoff must be strictly positive.", cutoff.span)
     return OneSampleScoreAnalysisIR(test.model, test.null_rate, test.alpha, cutoff.value)
+
+
+def _binomial_wald_test(arguments: dict[str, LocatedValue], span: Span) -> OneSampleWaldAnalysisIR:
+    score = _binomial_score_test(arguments, span)
+    return OneSampleWaldAnalysisIR(score.model, score.null_rate, score.alpha, score.squared_cutoff)
 
 
 def _responses(arguments: dict[str, LocatedValue], span: Span) -> OneSampleObservationIR:

@@ -178,6 +178,10 @@ def Test.form : Test → Form
         ("predicate", some (.str "no_effect"))])),
       ("test", some (.str "randomisation"))]
   | .member t => Test.form t
+  | .oneSampleWald _ n reference alpha cutoff => .object [("alpha", some (.prob alpha)),
+    ("model", some (oneArmForm n)),
+    ("null_rate", some (.prob reference)), ("squared_cutoff", some (.rat cutoff)),
+    ("test", some (.str "binomial_wald_test"))]
   | .oneSampleScore _ n reference alpha cutoff => .object [("alpha", some (.prob alpha)),
     ("model", some (oneArmForm n)),
     ("null_rate", some (.prob reference)), ("squared_cutoff", some (.rat cutoff)),
@@ -421,6 +425,7 @@ def Test.binding : Test → String
   | .member t => t.binding
   | .oneSample .. => "OneSampleAnalysisIR"
   | .oneSampleScore .. => "OneSampleScoreAnalysisIR"
+  | .oneSampleWald .. => "OneSampleWaldAnalysisIR"
   | .twoStage .. => "TwoStageAnalysisIR"
   | .assumed .. => "CitedAnalysisIR"
   | .associated .. => "CitedAssociationIR"

@@ -759,10 +759,13 @@ def run_pearson(nc: int, nt: int, cutoff: Fraction, alpha: Fraction, *, correcte
     return report
 
 
-def one_sample_score_report(n: int, rate: Fraction, cutoff: Fraction, alpha: Fraction) -> dict:
+def one_sample_score_report(
+    n: int, rate: Fraction, cutoff: Fraction, alpha: Fraction, *, estimated: bool = False
+) -> dict:
+    rule = "Wald" if estimated else "score"
     return planning_report(
         "design",
-        f"Two-sided binomial score test with {n} responses and squared cutoff {cutoff} "
+        f"Two-sided binomial {rule} test with {n} responses and squared cutoff {cutoff} "
         f"has Type I error at most {alpha} when the response probability is {rate}.",
         [
             "Responses are independent with one common response rate.",
@@ -771,8 +774,10 @@ def one_sample_score_report(n: int, rate: Fraction, cutoff: Fraction, alpha: Fra
     )
 
 
-def run_one_sample_score(n: int, rate: Fraction, cutoff: Fraction, alpha: Fraction) -> dict:
-    return _certified(one_sample_score_report(n, rate, cutoff, alpha))
+def run_one_sample_score(
+    n: int, rate: Fraction, cutoff: Fraction, alpha: Fraction, *, estimated: bool = False
+) -> dict:
+    return _certified(one_sample_score_report(n, rate, cutoff, alpha, estimated=estimated))
 
 
 def mcnemar_asymptotic_report(n: int, cutoff: Fraction, alpha: Fraction) -> dict:

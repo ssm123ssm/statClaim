@@ -29,6 +29,7 @@ COUNTEREXAMPLE_KEYS = {
         "mcnemar_asymptotic",
         "farrington_manning",
         "binomial_score_test",
+        "binomial_wald_test",
         "pearson_test",
         "likelihood_ratio_test",
     )
@@ -75,10 +76,13 @@ def payload(source: Source, project: Path | None = None) -> dict:
             witness = fm_witness(*data.fm_parameters(subject))
         elif test in ("pearson_test", "likelihood_ratio_test"):
             witness = table_witness(*data.table_parameters(subject))
-        elif test == "binomial_score_test":
+        elif test in ("binomial_score_test", "binomial_wald_test"):
             reference = Fraction(subject["null_rate"])
             risk = one_sample_score_probability(
-                subject["model"]["n"], reference, Fraction(subject["squared_cutoff"])
+                subject["model"]["n"],
+                reference,
+                Fraction(subject["squared_cutoff"]),
+                estimated=test == "binomial_wald_test",
             )
             witness = (reference, risk) if risk > Fraction(subject["alpha"]) else None
         else:
@@ -317,7 +321,7 @@ def counterexamples(inputs: dict) -> list[dict]:
         lower_bound = test == "farrington_manning"
         if test == "mcnemar_asymptotic":
             location = f"discordance probability q = {witness['p']}"
-        elif test == "binomial_score":
+        elif test in ("binomial_score", "binomial_wald"):
             location = f"null response rate p = {witness['p']}"
         elif lower_bound:
             treatment = Fraction(witness["p"]) + Fraction(subject["null"]["value"])
@@ -348,6 +352,8 @@ def refutation_theorem(refutation: dict, subject: dict | None = None) -> str:
         theorem = "likelihoodRatio_refuted"
     elif name.startswith("pearson_"):
         theorem = "pearson_refuted"
+    elif name.startswith("binomial_wald_"):
+        theorem = "oneSampleWald_refuted"
     elif name.startswith("binomial_score_"):
         theorem = "oneSampleScore_refuted"
     elif name.startswith("farrington_manning_"):

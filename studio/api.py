@@ -901,9 +901,10 @@ def reading(value, expression):
     if hasattr(value, "hypothesis") and hasattr(value, "alpha"):
         statement, at = value.hypothesis.statement, level(value.alpha)
         return f"{analysis_title(value)} of {statement}, at level {at}"
-    if kind == "OneSampleScoreAnalysisIR":
+    if kind in ("OneSampleScoreAnalysisIR", "OneSampleWaldAnalysisIR"):
+        method = "Wald" if kind == "OneSampleWaldAnalysisIR" else "score"
         return (
-            f"Two-sided score test of response rate {value.null_rate}, with squared "
+            f"Two-sided {method} test of response rate {value.null_rate}, with squared "
             f"cutoff {value.squared_cutoff} and claimed Type I error at most {level(value.alpha)}"
         )
     if kind == "OneSampleAnalysisIR":

@@ -78,6 +78,7 @@ DECLARATIONS = (
     "RandomisationAnalysisIR",
     "OneSampleAnalysisIR",
     "OneSampleScoreAnalysisIR",
+    "OneSampleWaldAnalysisIR",
     "TwoStageAnalysisIR",
     "CitedAnalysisIR",
     "CitedAssociationIR",
@@ -331,6 +332,7 @@ def test(name: object, value: object) -> str:
     if isinstance(value, dict) and value.get("test") in (
         "binomial_exact_one_sided",
         "binomial_score_test",
+        "binomial_wald_test",
         "two_stage",
     ):
         return policy_test(label, value)
@@ -467,20 +469,25 @@ def randomised(label: str, value: object) -> str:
 
 
 def policy_test(label: str, value: dict) -> str:
-    if value["test"] in ("binomial_exact_one_sided", "binomial_score_test"):
-        score = value["test"] == "binomial_score_test"
+    if value["test"] in ("binomial_exact_one_sided", "binomial_score_test", "binomial_wald_test"):
+        kind = {
+            "binomial_exact_one_sided": "oneSample",
+            "binomial_score_test": "oneSampleScore",
+            "binomial_wald_test": "oneSampleWald",
+        }[value["test"]]
+        has_cutoff = kind != "oneSample"
         keys = {"test", "model", "null_rate", "alpha"}
         record = fields(
-            value, keys | ({"squared_cutoff"} if score else set()), "A one-sample analysis"
+            value, keys | ({"squared_cutoff"} if has_cutoff else set()), "A one-sample analysis"
         )
         model = fields(record["model"], {"module", "n"}, "A one-arm model")
         if model["module"] != "one_arm_binomial":
             raise Outside("A one-sample analysis requires a one-arm model.")
         return (
-            f".{'oneSampleScore' if score else 'oneSample'} {label} "
+            f".{kind} {label} "
             f"{count(model['n'], 'A sample size')} "
             f"{probability(record['null_rate'])} {probability(record['alpha'])}"
-            + (f" {exact(record['squared_cutoff'], 'A squared cutoff')}" if score else "")
+            + (f" {exact(record['squared_cutoff'], 'A squared cutoff')}" if has_cutoff else "")
         )
     record = fields(value, {"test", "design", "rule", "null_rate"}, "A two-stage analysis")
     stages = fields(record["design"], {"module", "n_stage1", "n_stage2"}, "Stage sizes")
@@ -975,6 +982,7 @@ def premise_keys(name: str, subject: dict) -> list[tuple[str, str]]:
             "randomisation",
             "binomial_exact_one_sided",
             "binomial_score_test",
+            "binomial_wald_test",
             "two_stage",
             *EXACT_STUDY,
         }

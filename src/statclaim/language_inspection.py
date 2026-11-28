@@ -454,7 +454,11 @@ def _inspect(request: RequestIR) -> dict:
         )
     if isinstance(subject, OneSampleScoreAnalysisIR):
         return one_sample_score_report(
-            subject.model.n, subject.null_rate, subject.squared_cutoff, subject.alpha
+            subject.model.n,
+            subject.null_rate,
+            subject.squared_cutoff,
+            subject.alpha,
+            estimated=subject.test == "binomial_wald_test",
         )
     if isinstance(subject, AsymptoticMcNemarAnalysisIR):
         return mcnemar_asymptotic_report(
